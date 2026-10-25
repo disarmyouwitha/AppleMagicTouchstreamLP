@@ -1940,7 +1940,7 @@ struct KeyGeometryOverride: Codable, Hashable {
     }
 }
 
-enum KeyActionKind: String, Codable {
+enum KeyActionKind: String, Codable, Sendable {
     case key
     case appLaunch
     case leftClick
@@ -1969,7 +1969,7 @@ enum KeyActionKind: String, Codable {
     case none
 }
 
-struct KeyAction: Codable, Hashable {
+struct KeyAction: Codable, Hashable, Sendable {
         var label: String
         var keyCode: UInt16
         var flags: UInt64

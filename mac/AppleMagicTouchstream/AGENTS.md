@@ -35,7 +35,8 @@ live input, takeover, haptics or login registration as part of offline verificat
   posts native input. Shared drag button ownership must preserve other-pad owners.
 - One-finger gesture Hold is unavailable; keyboard key holds remain. Corner inputs
   are Hold-only, 1 s, Open Config by default. Ordinary counts 2–5 and Thumb+2 Hold
-  are independent 0.5 s inputs. Legacy retired assignments decode but stay inert.
+  are independent 0.5 s inputs. Keyboard shortcuts on Hold can fire once or remain
+  held until release; thresholds/recognition remain unchanged. Legacy retired assignments decode but stay inert.
 - Saved Rotate Left/Right slots appear only for Thumb+2 and five contacts, default
   None. Other shape pages show only Pinch/Spread. Five Fingers has a full Tap and
   Move cross, sharing Tap/movement/directions/repeat/cleanup with other counts; new
@@ -72,7 +73,11 @@ TouchStream uses fixed independent traced geometry, per-key overrides and automa
 reference background; column tuning stays disabled. Contact palette is unknown black,
 thumb orange, index blue, middle green, ring purple, pinky pink, palm gray. No contact
 legend or display toggles. Keep resizable gesture columns, searchable actions,
-Left/Right, Mirror Edit and coordinated Both as distinct concepts.
+Left/Right, Mirror Edit and coordinated Both as distinct concepts. Keyboard and
+Gesture actions share Shortcut Builder/catalog identities. Gesture custom shortcuts
+and held-key lifetimes round-trip through settings; only Hold accepts held output.
+Preserve shared key ownership, other-pad/keyboard modifiers and key-up cleanup on
+all-up, invalid/stale input, handoff and lifecycle transitions.
 
 Run at Startup uses SMAppService.mainApp, defaults off and reflects actual service
 state; imports may apply an included preference. Never register during tests/build.

@@ -1967,14 +1967,7 @@ struct ContentView: View {
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
         @State private var actionBuilderTarget: ActionBuilderTarget = .primary
-        @State private var shortcutModifiers: [ShortcutModifier: ShortcutModifierVariant] = [:]
-        @State private var shortcutModifierPicker: ShortcutModifier?
-        @State private var suppressShortcutModifierTap: ShortcutModifier?
-        @State private var shortcutKeyLabel = ""
-        @State private var appLaunchTarget = ""
-        @State private var appLaunchArguments = ""
         @State private var activeActionChooser: ActionChooserState?
-        private let shortcutBuilderActionButtonWidth: CGFloat = 84
 
         private var hasEditableSelection: Bool {
             buttonSelection != nil || keySelection != nil
@@ -2148,251 +2141,12 @@ struct ContentView: View {
             return groups
         }
 
-        private var shortcutKeyBinding: Binding<String> {
-            Binding(
-                get: { shortcutKeyLabel },
-                set: { newValue in
-                    if !newValue.isEmpty {
-                        appLaunchTarget = ""
-                    }
-                    shortcutKeyLabel = newValue
-                }
-            )
-        }
-
-        private var appLaunchTargetBinding: Binding<String> {
-            Binding(
-                get: { appLaunchTarget },
-                set: { newValue in
-                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty {
-                        clearShortcutBuilderState()
-                    }
-                    appLaunchTarget = trimmed
-                }
-            )
-        }
-
-        private func shortcutModifierPickerBinding(
-            for modifier: ShortcutModifier
-        ) -> Binding<Bool> {
-            Binding(
-                get: { shortcutModifierPicker == modifier },
-                set: { isPresented in
-                    if isPresented {
-                        shortcutModifierPicker = modifier
-                    } else if shortcutModifierPicker == modifier {
-                        shortcutModifierPicker = nil
-                        if suppressShortcutModifierTap == modifier {
-                            suppressShortcutModifierTap = nil
-                        }
-                    }
-                }
-            )
-        }
-
-        private func setShortcutModifier(
-            _ modifier: ShortcutModifier,
-            variant: ShortcutModifierVariant?
-        ) {
-            if let variant {
-                appLaunchTarget = ""
-                shortcutModifiers[modifier] = variant
-            } else {
-                shortcutModifiers.removeValue(forKey: modifier)
-            }
-        }
-
-        private func toggleShortcutModifier(_ modifier: ShortcutModifier) {
-            if shortcutModifiers[modifier] == nil {
-                setShortcutModifier(modifier, variant: .generic)
-            } else {
-                setShortcutModifier(modifier, variant: nil)
-            }
-        }
-
-        private func presentShortcutModifierPicker(for modifier: ShortcutModifier) {
-            guard canEditActionBuilder else { return }
-            suppressShortcutModifierTap = modifier
-            shortcutModifierPicker = modifier
-        }
-
-        private func chooseShortcutModifierVariant(
-            _ modifier: ShortcutModifier,
-            variant: ShortcutModifierVariant
-        ) {
-            setShortcutModifier(modifier, variant: variant)
-            shortcutModifierPicker = nil
-            suppressShortcutModifierTap = nil
-        }
-
-        private func handleShortcutModifierButtonTap(_ modifier: ShortcutModifier) {
-            if suppressShortcutModifierTap == modifier {
-                suppressShortcutModifierTap = nil
-                return
-            }
-            toggleShortcutModifier(modifier)
-        }
-
-        private func shortcutModifierButton(_ modifier: ShortcutModifier) -> some View {
-            let activeVariant = shortcutModifiers[modifier]
-            let isSelected = activeVariant != nil
-            let label = modifier.buttonLabel(for: activeVariant ?? .generic)
-
-            return Button {
-                handleShortcutModifierButtonTap(modifier)
-            } label: {
-                Text(label)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-                    .frame(maxWidth: .infinity, minHeight: 28)
-                    .padding(.horizontal, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(
-                                isSelected
-                                    ? Color.accentColor.opacity(0.14)
-                                    : Color(nsColor: .controlBackgroundColor)
-                            )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                isSelected
-                                    ? Color.accentColor
-                                    : Color.secondary.opacity(0.24),
-                                lineWidth: 1
-                            )
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!canEditActionBuilder)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.35)
-                    .onEnded { _ in
-                        presentShortcutModifierPicker(for: modifier)
-                    }
-            )
-            .popover(
-                isPresented: shortcutModifierPickerBinding(for: modifier),
-                arrowEdge: .bottom
-            ) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Use \(modifier.buttonLabel(for: .generic))")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    ForEach(ShortcutModifierVariant.allCases, id: \.self) { variant in
-                        Button {
-                            chooseShortcutModifierVariant(modifier, variant: variant)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: shortcutModifiers[modifier] == variant ? "checkmark" : "circle")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(
-                                        shortcutModifiers[modifier] == variant
-                                            ? Color.accentColor
-                                            : Color.secondary
-                                    )
-                                Text(modifier.menuLabel(for: variant))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(12)
-                .frame(minWidth: 190)
-            }
-        }
-
-        private var builtShortcutAction: KeyAction? {
-            KeyActionCatalog.shortcutAction(
-                modifiers: shortcutModifiers,
-                keyLabel: shortcutKeyLabel
-            )
-        }
-
-        private var builtAppLaunchAction: KeyAction? {
-            KeyActionCatalog.appLaunchAction(fileName: appLaunchTarget, arguments: appLaunchArguments)
-        }
-
-        private var builtAction: KeyAction? {
-            builtAppLaunchAction ?? builtShortcutAction
-        }
-
-        private var actionBuilderPreview: String {
-            if let action = builtAppLaunchAction {
-                return action.pickerText
-            }
-            if let action = builtShortcutAction {
-                return "Shortcut: \(action.pickerText)"
-            }
-            return "Shortcut: none"
-        }
-
-        private func clearShortcutBuilderState() {
-            shortcutModifiers = [:]
-            shortcutModifierPicker = nil
-            suppressShortcutModifierTap = nil
-            shortcutKeyLabel = ""
-        }
-
-        private func syncActionBuilderFromSelection() {
-            guard hasEditableSelection else {
-                if actionBuilderTarget != .dropdown {
-                    clearShortcutBuilderState()
-                    appLaunchTarget = ""
-                    appLaunchArguments = ""
-                }
-                return
-            }
-
-            guard actionBuilderTarget != .dropdown else {
-                return
-            }
-
-            let action = targetAction
-            if let spec = KeyActionCatalog.appLaunchSpec(for: action) {
-                clearShortcutBuilderState()
-                appLaunchTarget = spec.fileName
-                appLaunchArguments = spec.arguments
-                return
-            }
-            if let spec = KeyActionCatalog.shortcutSpec(for: action) {
-                appLaunchTarget = ""
-                appLaunchArguments = ""
-                shortcutModifiers = spec.modifiers
-                shortcutKeyLabel = spec.keyLabel
-                return
-            }
-            clearShortcutBuilderState()
-            appLaunchTarget = ""
-            appLaunchArguments = ""
-        }
-
-        private func applyBuiltAction() {
-            guard let action = builtAction else { return }
+        private func applyBuiltAction(_ action:KeyAction) {
             switch actionBuilderTarget {
-            case .primary:
-                primaryActionBinding.wrappedValue = action
-                syncActionBuilderFromSelection()
-            case .hold:
-                holdActionBinding.wrappedValue = action
-                syncActionBuilderFromSelection()
-            case .dropdown:
-                onSaveShortcutLibraryAction(action)
+            case .primary: primaryActionBinding.wrappedValue = action
+            case .hold: holdActionBinding.wrappedValue = action
+            case .dropdown: onSaveShortcutLibraryAction(action)
             }
-        }
-
-        private func browseForAppTarget() {
-            let panel = NSOpenPanel()
-            panel.canChooseFiles = true
-            panel.canChooseDirectories = true
-            panel.allowsMultipleSelection = false
-            panel.resolvesAliases = true
-            guard panel.runModal() == .OK, let url = panel.url else { return }
-            appLaunchTarget = url.path
-            clearShortcutBuilderState()
         }
 
         private func subsectionHeader(_ title: String) -> some View {
@@ -2506,61 +2260,13 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .disabled(keySelection == nil)
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    subsectionHeader("Shortcut Builder")
-                    Picker("", selection: $actionBuilderTarget) {
-                        ForEach(ActionBuilderTarget.allCases) { target in
-                            Text(target.rawValue).tag(target)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    HStack(spacing: 8) {
-                        ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
-                            shortcutModifierButton(modifier)
-                        }
-                    }
-                    Text("Click to toggle. Hold to choose generic, left, or right. Leave Key at None for modifiers only.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Text("Key")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Picker("Shortcut Key", selection: shortcutKeyBinding) {
-                            Text("None").tag("")
-                            ForEach(KeyActionCatalog.shortcutKeyLabels, id: \.self) { label in
-                                Text(label).tag(label)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        .labelsHidden()
-                        .disabled(!canEditActionBuilder)
-                        Button("Apply") {
-                            applyBuiltAction()
-                        }
-                        .buttonStyle(.bordered)
-                        .frame(width: shortcutBuilderActionButtonWidth)
-                        .disabled(!canEditActionBuilder || builtAction == nil)
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("App")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(!canEditActionBuilder)
-                        Button("Browse") {
-                            browseForAppTarget()
-                        }
-                        .buttonStyle(.bordered)
-                        .frame(width: shortcutBuilderActionButtonWidth)
-                        .disabled(!canEditActionBuilder)
-                    }
-                    Text(actionBuilderPreview)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                VStack(alignment:.leading,spacing:8) {
+                    Picker("",selection:$actionBuilderTarget) {
+                        ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
+                    }.pickerStyle(.segmented).labelsHidden()
+                    ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
+                        enabled:canEditActionBuilder) { action,_ in applyBuiltAction(action) }
+                        .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
                 subsectionHeader("Custom Buttons")
                 addButtonsRow
@@ -2620,31 +2326,6 @@ struct ContentView: View {
                     onClearTouchState()
                 }
             )
-            .onAppear {
-                syncActionBuilderFromSelection()
-            }
-            .onChange(of: selectionIdentity) { _ in
-                guard actionBuilderTarget != .dropdown else { return }
-                syncActionBuilderFromSelection()
-            }
-            .onChange(of: selectionRevision) { _ in
-                guard actionBuilderTarget != .dropdown else { return }
-                syncActionBuilderFromSelection()
-            }
-            .onChange(of: actionBuilderTarget) { _ in
-                guard actionBuilderTarget != .dropdown else { return }
-                syncActionBuilderFromSelection()
-            }
-            .onChange(of: selectedPrimaryAction) { _ in
-                if actionBuilderTarget == .primary {
-                    syncActionBuilderFromSelection()
-                }
-            }
-            .onChange(of: selectedHoldAction) { _ in
-                if actionBuilderTarget == .hold {
-                    syncActionBuilderFromSelection()
-                }
-            }
             .sheet(item: $activeActionChooser) { chooser in
                 ActionChooserSheet(
                     title: chooser.title,

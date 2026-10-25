@@ -1,20 +1,27 @@
 # NEXT:
 =======
+1. Maybe Movement Shouldn't have Shortcut builder? lmao.
+2. Lets remove this text at the bottom of the Gesture tab LHS column: "Two-, three- and four-finger directionals are ready to test."
+3. In the Action tab, move "Behavior" and it's dropdown underneath Action, (above: "Hold still for 0.5 seconds. Fires once until all-up") This text should change depending on the Behavior selection
+---
+0. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
+> TYPING GRACE? How does TouchStream do it? REVERSE???
+===
 I actually don't like this idea as much.. 
 
 I think we should build the shortcut builder directly into the Action frame (maybe for all actions?) we can have our default drop down /w Shortcuts Included, <hr> then a shortcut builder above the recognition?
 
 I would like to default the right column to be the same width as the Keyboard tab right column as well. 
+> need to test hold release optons
+> Need to test holding shift with gesture RHS while holding shift button LHS, releasing gesture and pressing key on RHS. (shared modifer)
 ===
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
-
-
 * `Diagonals`:
 - Thumb + two fingers	↖ ↗ ↙ ↘	
 > I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
 [↖, tap, ↗]
-[rotate left, blank, rotate right]
+[rotate left, blank?, rotate right]
 [↙, hold, ↘]
 
 `AppleMagicTouchstream`:

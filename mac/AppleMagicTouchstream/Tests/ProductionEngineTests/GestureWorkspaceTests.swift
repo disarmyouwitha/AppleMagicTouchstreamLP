@@ -43,7 +43,7 @@ final class GestureWorkspaceTests: XCTestCase {
     }
     func testHoldCardAndRightInspectorRenderWithoutInput() throws {
         var settings = HandGestureSettings()
-        settings.setHoldAction(.missionControl,count:2,in:.left)
+        settings.setHoldAction(.shortcut(.init(label:"Shift",holdUntilRelease:true)),count:2,in:.left)
         let view = GestureAssignmentWorkspace(settings:settings,initialPane:.twoFingers,initialHold:true,
             status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected action edit")},
             setSensitivity:{_,_,_ in XCTFail("Unexpected gain edit")},
@@ -223,6 +223,31 @@ final class GestureWorkspaceTests: XCTestCase {
                     }
                 }
             }
+        }
+    }
+}
+
+
+extension GestureWorkspaceTests {
+    func testSharedShortcutBuilderRendersWithoutAssigningOrOpeningApps() throws {
+        XCTAssertEqual(WorkspaceColumnSizing.defaultGestureInspectorWidth,WorkspaceColumnSizing.defaultMenuWidth)
+        for (name,label) in [("shift","Shift"),("shortcut","Cmd+S"),("app",AppLaunchActionHelper.createActionLabel(fileName:"/Applications/Calculator.app")!)] {
+            let action = try XCTUnwrap(KeyActionCatalog.action(for:label))
+            let view = ShortcutActionBuilder(action:action,allowsHold:true,holdUntilRelease:name == "shift") { _,_ in
+                XCTFail("Rendering must not apply an action")
+            }.padding(20).frame(width:381,height:340,alignment:.topLeading)
+            let host = NSHostingView(rootView:view)
+            host.frame = NSRect(x:0,y:0,width:381,height:340)
+            let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+            window.contentView = host; host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+            host.cacheDisplay(in:host.bounds,to:bitmap)
+            if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+                let url = URL(fileURLWithPath:directory,isDirectory:true)
+                try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+                try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("shortcut-builder-"+name+".png"))
+            }
+            window.contentView = nil
         }
     }
 }

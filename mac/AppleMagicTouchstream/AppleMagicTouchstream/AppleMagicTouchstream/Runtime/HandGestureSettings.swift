@@ -85,12 +85,60 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
 }
 typealias GestureFeature = GestureTrigger
 
-enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
+enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresentable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
     case openConfig
     case scrollUp, scrollDown, panLeft, panRight
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
+    case shortcut(GestureShortcutAssignment)
+    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.openConfig,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    var rawValue: String {
+        switch self {
+        case .disabled: return "disabled"
+        case .pointer: return "pointer"
+        case .primaryDrag: return "primaryDrag"
+        case .scroll: return "scroll"
+        case .zoom: return "zoom"
+        case .primaryClick: return "primaryClick"
+        case .primaryDoubleClick: return "primaryDoubleClick"
+        case .secondaryClick: return "secondaryClick"
+        case .notificationCenter: return "notificationCenter"
+        case .missionControl: return "missionControl"
+        case .appExpose: return "appExpose"
+        case .launchpad: return "launchpad"
+        case .showDesktop: return "showDesktop"
+        case .openConfig: return "openConfig"
+        case .scrollUp: return "scrollUp"
+        case .scrollDown: return "scrollDown"
+        case .panLeft: return "panLeft"
+        case .panRight: return "panRight"
+        case .volumeUpSmall: return "volumeUpSmall"
+        case .volumeDownSmall: return "volumeDownSmall"
+        case .brightnessUpSmall: return "brightnessUpSmall"
+        case .brightnessDownSmall: return "brightnessDownSmall"
+        case let .shortcut(value):
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            return "shortcut:" + String(data:try! encoder.encode(value),encoding:.utf8)!
+        }
+    }
+    init?(rawValue:String) {
+        if let value = Self.allCases.first(where:{$0.rawValue == rawValue}) { self = value; return }
+        guard rawValue.hasPrefix("shortcut:"),
+              let data = String(rawValue.dropFirst(9)).data(using:.utf8),
+              let spec = try? JSONDecoder().decode(GestureShortcutAssignment.self,from:data),
+              spec.action != nil, !spec.holdUntilRelease || spec.action?.kind == .key else { return nil }
+        self = .shortcut(spec)
+    }
+    init(from decoder:any Decoder) throws {
+        let box = try decoder.singleValueContainer(); let text = try box.decode(String.self)
+        guard let value = Self(rawValue:text) else { throw DecodingError.dataCorruptedError(in:box,debugDescription:"Unknown gesture action") }
+        self = value
+    }
+    func encode(to encoder:any Encoder) throws { var box = encoder.singleValueContainer(); try box.encode(rawValue) }
+    var shortcutAssignment:GestureShortcutAssignment? { if case let .shortcut(value) = self { return value }; return nil }
+    var isHeldShortcut:Bool { shortcutAssignment?.holdUntilRelease == true }
+    var isDiscreteOutput:Bool { isAppleShortcut || shortcutAssignment != nil }
     static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     static var oneShotActions: [Self] { appleShortcuts + smallStepActions }
@@ -99,6 +147,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
     var id: String { rawValue }
     var title: String {
         switch self {
+        case let .shortcut(value): return value.action?.pickerText ?? "Unavailable shortcut"
         case .volumeUpSmall: return "Volume Up (Small Step)"
         case .volumeDownSmall: return "Volume Down (Small Step)"
         case .brightnessUpSmall: return "Brightness Up (Small Step)"
@@ -189,7 +238,7 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     func uses(_ action: GestureAction) -> Bool { GestureTrigger.allCases.contains { self[$0] == action } }
     func action(for trigger: GestureTrigger) -> GestureAction {
         let action = self[trigger]
-        return trigger.allowedActions.contains(action) ? action : .disabled
+        return trigger.accepts(action) ? action : .disabled
     }
 }
 
@@ -252,7 +301,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     var hasAssignments:Bool { GestureMovementDirection.allCases.contains { action($0) != .disabled } }
     func action(_ direction:GestureMovementDirection) -> GestureAction {
         let value = actions[direction.rawValue] ?? .disabled
-        return Self.allowedActions.contains(value) ? value : .disabled
+        return Self.allowedActions.acceptsGestureAction(value) ? value : .disabled
     }
 }
 
@@ -274,10 +323,10 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     func holdAction(count:Int) -> GestureAction {
         guard holdAvailable(count:count) else { return .disabled }
         let action = holdActions?[String(count)] ?? (count == Self.cornersHoldKey ? .openConfig : .disabled)
-        return Self.holdActions(for:count).contains(action) ? action : .disabled
+        return Self.holdActions(for:count).acceptsGestureAction(action,held:true) ? action : .disabled
     }
     mutating func setHoldAction(_ action:GestureAction,count:Int) {
-        guard holdAvailable(count:count), Self.holdActions(for:count).contains(action) else { return }
+        guard holdAvailable(count:count), Self.holdActions(for:count).acceptsGestureAction(action,held:true) else { return }
         if holdActions == nil { holdActions = [:] }
         holdActions?[String(count)] = action
     }
@@ -323,7 +372,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         var editor = movement(trigger)
         if let direction, let action {
-            guard GestureDirectionalAssignments.allowedActions.contains(action) else { return }
+            guard GestureDirectionalAssignments.allowedActions.acceptsGestureAction(action) else { return }
             editor.actions[direction.rawValue] = action
         }
         editor.mode = mode
@@ -396,7 +445,7 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         }
     }
     @discardableResult mutating func setAction(_ action: GestureAction, for trigger: GestureTrigger, in scope: GestureHandScope) -> Bool {
-        guard trigger.allowedActions.contains(action) else { return false }
+        guard trigger.accepts(action) else { return false }
         if scope != .right { left.bindings[trigger] = action }
         if scope != .left { right.bindings[trigger] = action }
         return true
@@ -542,13 +591,13 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     func action(_ trigger:TwoHandTrigger) -> GestureAction {
         guard trigger.chord != .fourCorners || trigger.phase == .hold else { return .disabled }
         let value = assignments[trigger.key] ?? (trigger.chord == .fourCorners && trigger.phase == .hold ? .openConfig : .disabled)
-        return Self.allowedActions.contains(value) ? value : .disabled
+        return Self.allowedActions.acceptsGestureAction(value,held:trigger.phase == .hold) ? value : .disabled
     }
     func enabled(_ chord:TwoHandChord) -> Bool {
         action(.init(chord:chord,phase:.tap)) != .disabled || action(.init(chord:chord,phase:.hold)) != .disabled
     }
     mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
-        guard (trigger.chord != .fourCorners || trigger.phase == .hold), Self.allowedActions.contains(action) else { return }
+        guard (trigger.chord != .fourCorners || trigger.phase == .hold), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
         assignments[trigger.key] = action
     }
 }
@@ -558,5 +607,41 @@ enum TwoHandGestureEligibility {
     static func enabled(pads:GestureSelectedPads,owned:Set<UInt64>,takeover:Bool,armed:Bool) -> Bool {
         guard takeover, armed, let left = pads.left, let right = pads.right, left != right else { return false }
         return owned.contains(left) && owned.contains(right)
+    }
+}
+
+
+/// A shortcut has the same catalog identity as Keyboard; lifetime belongs to this assignment.
+struct GestureShortcutAssignment:Equatable,Hashable,Codable,Sendable {
+    let label:String
+    var holdUntilRelease:Bool
+    let action:KeyAction?
+    private enum CodingKeys:String,CodingKey { case label, holdUntilRelease }
+    init(label:String,holdUntilRelease:Bool = false) {
+        self.label = label; self.holdUntilRelease = holdUntilRelease
+        let resolved = KeyActionCatalog.action(for:label)
+        self.action = resolved.flatMap { $0.kind == .key || $0.kind == .appLaunch ? $0 : nil }
+    }
+    init(from decoder:any Decoder) throws {
+        let box = try decoder.container(keyedBy:CodingKeys.self)
+        self.init(label:try box.decode(String.self,forKey:.label),
+                  holdUntilRelease:try box.decodeIfPresent(Bool.self,forKey:.holdUntilRelease) ?? false)
+    }
+    func encode(to encoder:any Encoder) throws {
+        var box = encoder.container(keyedBy:CodingKeys.self)
+        try box.encode(label,forKey:.label); try box.encode(holdUntilRelease,forKey:.holdUntilRelease)
+    }
+}
+extension Array where Element == GestureAction {
+    func acceptsGestureAction(_ value:GestureAction,held:Bool = false) -> Bool {
+        if let shortcut = value.shortcutAssignment {
+            return shortcut.action != nil && (!shortcut.holdUntilRelease || held && shortcut.action?.kind == .key)
+        }
+        return contains(value)
+    }
+}
+extension GestureTrigger {
+    func accepts(_ value:GestureAction) -> Bool {
+        self == .fourCornersTap ? value == .disabled : allowedActions.acceptsGestureAction(value)
     }
 }

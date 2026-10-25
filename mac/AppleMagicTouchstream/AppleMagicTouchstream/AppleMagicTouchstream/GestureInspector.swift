@@ -435,7 +435,7 @@ extension GestureTrigger {
         if isRotation { return action == .disabled ? "No output" : "Once on activation" }
         guard let action else { return "Mixed assignments" }
         if action == .disabled { return "No output" }
-        if action.isAppleShortcut { return isPinch ? "Once on activation" : "One step per recognition" }
+        if action.isDiscreteOutput { return isPinch || isContinuous ? "Once on activation" : "One step per recognition" }
         switch action {
         case .pointer,.primaryDrag,.scroll,.zoom: return "Follow motion"
         default: return "Once per recognition"
@@ -500,7 +500,7 @@ struct GestureAssignmentWorkspace: View {
     @State private var selected: GestureTrigger
     @State private var search = ""
     @AppStorage(WorkspaceColumnSizing.gestureNavigationWidthKey) private var menuColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
-    @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
+    @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureInspectorWidth
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
          initialDirection:GestureMovementDirection? = nil, initialHold:Bool = false, initialHand:GestureHandScope = .left,
@@ -598,6 +598,11 @@ struct GestureAssignmentWorkspace: View {
         .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
         .onAppear { restoreMovementSelection() }
         .onChange(of:editingScope) { _ in restoreMovementSelection() }
+        .onAppear {
+            if inspectorColumnWidth == WorkspaceColumnSizing.defaultGestureColumnWidth {
+                inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureInspectorWidth
+            }
+        }
     }
 
     private var navigation: some View {
@@ -744,10 +749,12 @@ struct GestureAssignmentWorkspace: View {
                 GestureActionChooser(value:settings.twoHand.action(twoHandTrigger),actions:TwoHandGestureSettings.allowedActions) { setTwoHandAction($0,twoHandTrigger) }
                 Text(twoHandStatus(twoHandTrigger)).font(.callout).fontWeight(.medium).fixedSize(horizontal:false,vertical:true)
                 Divider()
+                shortcutBuilder(settings.twoHand.action(twoHandTrigger),allowsHold:twoHandPhase == .hold) { setTwoHandAction($0,twoHandTrigger) }
+                Divider()
                 Text("Recognition").font(.callout).fontWeight(.medium)
                 Text(twoHandPhase == .tap
                      ? "Both chords must lift within 0.5 s. Lift skew: 150 ms. Movement slop: 2 mm."
-                     : "Keep both chords still for \(twoHandChord.holdDuration, specifier:"%.1f") s. The assigned action fires once; it does not repeat or keep a mouse button down.")
+                     : "Keep both chords still for \(twoHandChord.holdDuration, specifier:"%.1f") s. The assigned action activates after the threshold. Shortcut Behavior chooses one shot or a key held until release.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Text("Requires two distinct selected pads with Trackpad Takeover active. A joining hand releases the independent gesture. Layer/modifier holds keep priority. Losing contact delivery cancels the gesture.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -903,7 +910,7 @@ struct GestureAssignmentWorkspace: View {
                 Label("Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
                 Text(value?.title ?? "Mixed").font(.system(size:17,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text("After \(holdDuration, specifier:"%.1f") seconds · once while held")
+                Text("After \(holdDuration, specifier:"%.1f") seconds · \(value?.isHeldShortcut == true ? "held until release" : "once while held")")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) ? 106 : 112,alignment:.topLeading)
@@ -914,6 +921,20 @@ struct GestureAssignmentWorkspace: View {
         .buttonStyle(.plain).disabled(!holdEditable).opacity(holdEditable ? 1 : 0.5)
         .accessibilityLabel("Hold, \(value?.title ?? "Mixed")")
         .accessibilityAddTraits(selectedHold ? [.isSelected] : [])
+    }
+    private func shortcutBuilder(_ value:GestureAction?,allowsHold:Bool = false,
+                                 apply:@escaping (GestureAction)->Void) -> some View {
+        VStack(alignment:.leading,spacing:14) {
+            Divider()
+            ShortcutActionBuilder(action:value?.shortcutAssignment?.action,allowsHold:allowsHold,
+                holdUntilRelease:value?.isHeldShortcut == true) { action,held in
+                    var library = ShortcutActionLibraryStorage.decode(from:UserDefaults.standard.data(forKey:GlassToKeyDefaultsKeys.shortcutActions) ?? Data()) ?? []
+                    library.append(action.label)
+                    UserDefaults.standard.set(ShortcutActionLibraryStorage.encode(library),forKey:GlassToKeyDefaultsKeys.shortcutActions)
+                    apply(.shortcut(.init(label:action.label,holdUntilRelease:held)))
+                }
+                .id("\(editingHand.rawValue).\(mirrorEdits).\(pane.rawValue).\(selected.rawValue).\(selectedHold).\(selectedDirection?.rawValue ?? "none").\(twoHandChord.rawValue).\(twoHandPhase.rawValue)")
+        }
     }
     private var holdInspector:some View {
         let value = settings.holdAction(count:holdKey,in:editingScope)
@@ -926,11 +947,12 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             Text(holdStatus(holdKey,editingScope)).font(.callout).fixedSize(horizontal:false,vertical:true)
+            shortcutBuilder(value,allowsHold:true) { if holdEditable { setHoldAction($0,holdKey,editingScope) } }
             Divider()
             Text("Recognition").font(.callout).fontWeight(.medium)
             Text(pane == .fourCorners
                  ? "One contact in each outer 20% corner of this pad. Hold for 1 second; the action fires while fingers are down. Movement over 2 mm, early lifts or lost input cancel output. Lift all fingers to rearm."
-                 : "Keep \(holdCount) finger(s) still for 0.5 seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
+                 : "Keep \(holdCount) finger(s) still for 0.5 seconds. The action fires while the fingers are down; lifting is not required. Shortcut Behavior chooses one shot or a key held until release. The gesture owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             if pane == .thumbTwo {
                 Text("Requires the same spread-thumb geometry as Thumb+2 Tap. This Hold is independent of ordinary three-finger Hold. A matched chord tolerates fingertip relabeling.")
@@ -994,6 +1016,7 @@ struct GestureAssignmentWorkspace: View {
                         }
                         if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
                     }
+                    shortcutBuilder(action) { apply($0,selected,editingScope) }
                     VStack(alignment:.leading,spacing:10) {
                         Text("Recognition").font(.callout).fontWeight(.medium)
                         Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1049,6 +1072,7 @@ struct GestureAssignmentWorkspace: View {
                 Text("Mixed intervals. Editing applies to both pads.").font(.caption).foregroundStyle(.secondary)
             }
             }
+            shortcutBuilder(value) { setDirectionalAction($0,direction,selected,editingScope) }
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
                 Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : selected == .fourFingerMove ? "four fingertips" : "five fingers") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
@@ -1066,6 +1090,7 @@ struct GestureAssignmentWorkspace: View {
     private var behaviorDetail:String {
         if selected.isRotation { return "Fires once when rotation activates. Continuing or reversing the turn cannot fire another action until all fingers lift." }
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
+        if action.shortcutAssignment != nil { return "Runs the assigned shortcut once when this gesture is recognized. The gesture keeps its existing latch until all-up." }
         if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
         switch action {
         case .primaryDrag: return "Holds the primary mouse button through the drag, using the same pointer acceleration as mouse movement."
@@ -1108,6 +1133,7 @@ enum WorkspaceColumnSizing {
     static let gestureNavigationWidthKey = "AppleMagicTouchstream.gestureNavigationWidth"
     static let gestureInspectorWidthKey = "AppleMagicTouchstream.gestureInspectorWidth"
     static let defaultGestureColumnWidth = 286.0
+    static let defaultGestureInspectorWidth = defaultMenuWidth
     static let compactMenuBreakpoint = 380.0
     static let defaultMenuWidth = compactMenuBreakpoint + 1
     static let minimumMenu = 220.0
@@ -1323,6 +1349,15 @@ struct GestureActionChooser:View {
     let actions:[GestureAction]
     let choose:(GestureAction)->Void
     @State private var showing = false
+    @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var shortcutLibrary = Data()
+    private var pickerGroups:[SearchableActionGroup<GestureAction>] {
+        let labels = ["Shift","Ctrl","Option","Cmd","Hyper"] + (ShortcutActionLibraryStorage.decode(from:shortcutLibrary) ?? [])
+        var seen:Set<GestureAction> = []
+        var shortcuts = labels.compactMap { KeyActionCatalog.action(for:$0) }.filter { $0.kind == .key || $0.kind == .appLaunch }
+            .map { GestureAction.shortcut(.init(label:$0.label)) }.filter { seen.insert($0).inserted }
+        if let value, value.shortcutAssignment != nil, !shortcuts.contains(value) { shortcuts.insert(value,at:0) }
+        return Self.groups(actions) + (shortcuts.isEmpty ? [] : [.init(title:"Shortcuts",actions:shortcuts)])
+    }
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
@@ -1347,7 +1382,298 @@ struct GestureActionChooser:View {
             }.buttonStyle(.bordered).accessibilityLabel("Action, \(value?.title ?? "Mixed")")
         }
         .sheet(isPresented:$showing) {
-            SearchableActionSheet(title:"Gesture Action",groups:Self.groups(actions),selected:value,label:{$0.title},choose:choose)
+            SearchableActionSheet(title:"Gesture Action",groups:pickerGroups,selected:value,label:{$0.title},choose:choose)
         }
     }
+}
+
+/// The same builder edits Keyboard and Gesture actions; applying never posts input.
+struct ShortcutActionBuilder:View {
+    let action:KeyAction?
+    var enabled = true
+    var allowsHold = false
+    var holdUntilRelease = false
+    let apply:(KeyAction,Bool)->Void
+    @State private var shortcutModifiers:[ShortcutModifier:ShortcutModifierVariant] = [:]
+    @State private var shortcutModifierPicker:ShortcutModifier?
+    @State private var suppressShortcutModifierTap:ShortcutModifier?
+    @State private var shortcutKeyLabel = ""
+    @State private var appLaunchTarget = ""
+    @State private var appLaunchArguments = ""
+    @State private var held = false
+    private var canEditActionBuilder:Bool { enabled }
+    private let shortcutBuilderActionButtonWidth:CGFloat = 84
+    var body:some View {
+        VStack(alignment:.leading,spacing:8) {
+            Text("Shortcut Builder").font(.callout).fontWeight(.medium)
+                    HStack(spacing: 8) {
+                        ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
+                            shortcutModifierButton(modifier)
+                        }
+                    }
+                    Text("Click to toggle. Hold to choose generic, left, or right. Leave Key at None for modifiers only.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text("Key")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Shortcut Key", selection: shortcutKeyBinding) {
+                            Text("None").tag("")
+                            ForEach(KeyActionCatalog.shortcutKeyLabels, id: \.self) { label in
+                                Text(label).tag(label)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .labelsHidden()
+                        .disabled(!canEditActionBuilder)
+                        Button("Apply") {
+                            if let builtAction { apply(builtAction, allowsHold && held && builtAction.kind == .key) }
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(width: shortcutBuilderActionButtonWidth)
+                        .disabled(!canEditActionBuilder || builtAction == nil)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("App")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(!canEditActionBuilder)
+                        Button("Browse") {
+                            browseForAppTarget()
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(width: shortcutBuilderActionButtonWidth)
+                        .disabled(!canEditActionBuilder)
+                    }
+                    if allowsHold {
+                        Picker("Behavior", selection:$held) {
+                            Text("Once after threshold").tag(false)
+                            Text("Hold until release").tag(true)
+                        }
+                        .disabled(builtAppLaunchAction != nil)
+                        if builtAppLaunchAction != nil { Text("App targets open once.").font(.caption).foregroundStyle(.secondary) }
+                    }
+                    Text(actionBuilderPreview)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+        }
+        .onAppear { sync() }
+        .onChange(of:action) { _ in sync() }
+        .onChange(of:holdUntilRelease) { _ in held = holdUntilRelease }
+    }
+    private func sync() {
+        clearShortcutBuilderState(); appLaunchTarget = ""; appLaunchArguments = ""; held = holdUntilRelease
+        guard let action else { return }
+        if let spec = KeyActionCatalog.appLaunchSpec(for:action) {
+            appLaunchTarget = spec.fileName; appLaunchArguments = spec.arguments
+        } else if let spec = KeyActionCatalog.shortcutSpec(for:action) {
+            shortcutModifiers = spec.modifiers; shortcutKeyLabel = spec.keyLabel
+        }
+    }
+        private var shortcutKeyBinding: Binding<String> {
+            Binding(
+                get: { shortcutKeyLabel },
+                set: { newValue in
+                    if !newValue.isEmpty {
+                        appLaunchTarget = ""
+                    }
+                    shortcutKeyLabel = newValue
+                }
+            )
+        }
+
+        private var appLaunchTargetBinding: Binding<String> {
+            Binding(
+                get: { appLaunchTarget },
+                set: { newValue in
+                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        clearShortcutBuilderState(); held = false
+                    }
+                    if newValue != appLaunchTarget { appLaunchArguments = "" }
+                    appLaunchTarget = newValue
+                }
+            )
+        }
+
+        private func shortcutModifierPickerBinding(
+            for modifier: ShortcutModifier
+        ) -> Binding<Bool> {
+            Binding(
+                get: { shortcutModifierPicker == modifier },
+                set: { isPresented in
+                    if isPresented {
+                        shortcutModifierPicker = modifier
+                    } else if shortcutModifierPicker == modifier {
+                        shortcutModifierPicker = nil
+                        if suppressShortcutModifierTap == modifier {
+                            suppressShortcutModifierTap = nil
+                        }
+                    }
+                }
+            )
+        }
+
+        private func setShortcutModifier(
+            _ modifier: ShortcutModifier,
+            variant: ShortcutModifierVariant?
+        ) {
+            if let variant {
+                appLaunchTarget = ""
+                shortcutModifiers[modifier] = variant
+            } else {
+                shortcutModifiers.removeValue(forKey: modifier)
+            }
+        }
+
+        private func toggleShortcutModifier(_ modifier: ShortcutModifier) {
+            if shortcutModifiers[modifier] == nil {
+                setShortcutModifier(modifier, variant: .generic)
+            } else {
+                setShortcutModifier(modifier, variant: nil)
+            }
+        }
+
+        private func presentShortcutModifierPicker(for modifier: ShortcutModifier) {
+            guard canEditActionBuilder else { return }
+            suppressShortcutModifierTap = modifier
+            shortcutModifierPicker = modifier
+        }
+
+        private func chooseShortcutModifierVariant(
+            _ modifier: ShortcutModifier,
+            variant: ShortcutModifierVariant
+        ) {
+            setShortcutModifier(modifier, variant: variant)
+            shortcutModifierPicker = nil
+            suppressShortcutModifierTap = nil
+        }
+
+        private func handleShortcutModifierButtonTap(_ modifier: ShortcutModifier) {
+            if suppressShortcutModifierTap == modifier {
+                suppressShortcutModifierTap = nil
+                return
+            }
+            toggleShortcutModifier(modifier)
+        }
+
+        private func shortcutModifierButton(_ modifier: ShortcutModifier) -> some View {
+            let activeVariant = shortcutModifiers[modifier]
+            let isSelected = activeVariant != nil
+            let label = modifier.buttonLabel(for: activeVariant ?? .generic)
+
+            return Button {
+                handleShortcutModifierButtonTap(modifier)
+            } label: {
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .padding(.horizontal, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                isSelected
+                                    ? Color.accentColor.opacity(0.14)
+                                    : Color(nsColor: .controlBackgroundColor)
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                isSelected
+                                    ? Color.accentColor
+                                    : Color.secondary.opacity(0.24),
+                                lineWidth: 1
+                            )
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canEditActionBuilder)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.35)
+                    .onEnded { _ in
+                        presentShortcutModifierPicker(for: modifier)
+                    }
+            )
+            .popover(
+                isPresented: shortcutModifierPickerBinding(for: modifier),
+                arrowEdge: .bottom
+            ) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Use \(modifier.buttonLabel(for: .generic))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(ShortcutModifierVariant.allCases, id: \.self) { variant in
+                        Button {
+                            chooseShortcutModifierVariant(modifier, variant: variant)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: shortcutModifiers[modifier] == variant ? "checkmark" : "circle")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(
+                                        shortcutModifiers[modifier] == variant
+                                            ? Color.accentColor
+                                            : Color.secondary
+                                    )
+                                Text(modifier.menuLabel(for: variant))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .frame(minWidth: 190)
+            }
+        }
+
+        private var builtShortcutAction: KeyAction? {
+            KeyActionCatalog.shortcutAction(
+                modifiers: shortcutModifiers,
+                keyLabel: shortcutKeyLabel
+            )
+        }
+
+        private var builtAppLaunchAction: KeyAction? {
+            KeyActionCatalog.appLaunchAction(fileName: appLaunchTarget, arguments: appLaunchArguments)
+        }
+
+        private var builtAction: KeyAction? {
+            builtAppLaunchAction ?? builtShortcutAction
+        }
+
+        private var actionBuilderPreview: String {
+            if let action = builtAppLaunchAction {
+                return action.pickerText
+            }
+            if let action = builtShortcutAction {
+                return "Shortcut: \(action.pickerText)"
+            }
+            return "Shortcut: none"
+        }
+
+        private func clearShortcutBuilderState() {
+            shortcutModifiers = [:]
+            shortcutModifierPicker = nil
+            suppressShortcutModifierTap = nil
+            shortcutKeyLabel = ""
+        }
+
+        private func browseForAppTarget() {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.resolvesAliases = true
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            appLaunchTarget = url.path; appLaunchArguments = ""; held = false
+            clearShortcutBuilderState()
+        }
+
 }

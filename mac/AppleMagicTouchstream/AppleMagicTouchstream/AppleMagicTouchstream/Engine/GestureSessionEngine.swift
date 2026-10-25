@@ -328,6 +328,7 @@ struct TwoHandGestureEngine {
     private var left:Sample?, right:Sample?, session:Session?
     mutating func reset() { left = nil; right = nil; session = nil }
     var ownsCycle:Bool { session != nil }
+    var maintainsHeldOutput:Bool { session?.held == true && session?.valid == true }
     private func fresh(_ value:Sample?,now:Double) -> Bool {
         guard let value else { return false }; return now >= value.time && now-value.time <= Self.staleWindow
     }
@@ -511,6 +512,7 @@ struct SinglePadCornersEngine {
     }
     private var session:Session?
     var ownsCycle:Bool { session != nil }
+    var maintainsHeldOutput:Bool { session?.held == true && session?.valid == true }
     mutating func reset() { session = nil }
     static func matches<C:Collection>(_ contacts:C) -> Bool where C.Element == OMSRawTouch {
         var count = 0, mask = 0, ids = SIMD4<Int32>(repeating:0)

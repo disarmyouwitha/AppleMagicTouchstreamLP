@@ -131,9 +131,10 @@ final class KeyEventDispatcher: @unchecked Sendable {
         code: CGKeyCode,
         flags: CGEventFlags,
         altAscii: UInt8 = 0,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        heldFlags:CGEventFlags = []
     ) {
-        dispatcher.postKeyStrokeImmediate(code: code, flags: flags, altAscii: altAscii, token: token)
+        dispatcher.postKeyStrokeImmediate(code: code, flags: flags, altAscii: altAscii, token: token, heldFlags:heldFlags)
     }
 
     func postKey(
@@ -209,7 +210,7 @@ final class KeyEventDispatcher: @unchecked Sendable {
 
 private protocol KeyDispatching: Sendable {
     func postKeyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
-    func postKeyStrokeImmediate(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+    func postKeyStrokeImmediate(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
     func postKey(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
     func postKeyImmediate(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
     func postLeftClick(clickCount: Int)
@@ -258,7 +259,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         code: CGKeyCode,
         flags: CGEventFlags,
         altAscii: UInt8,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        heldFlags:CGEventFlags = []
     ) {
         guard token?.isActive ?? true else { return }
         autoreleasepool {
@@ -266,7 +268,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             guard let source = ensureEventSource() else {
                 return
             }
-            let restoringFlags = CGEventSource.flagsState(.combinedSessionState)
+            let restoringFlags = CGEventSource.flagsState(.combinedSessionState).union(heldFlags)
             guard let events = KeyboardStrokeOutput.events(code:code,flags:flags,
                     restoringFlags:restoringFlags,source:source) else { return }
             let keyDown = events.down, keyUp = events.up
@@ -645,6 +647,83 @@ private final class AppLaunchDispatcher: @unchecked Sendable {
     }
 }
 
+/// Logical owners share synthetic keys without releasing another owner's key.
+/// Kept pure so recording-mode tests exercise the same transitions as live output.
+enum HeldGestureShortcutInput {
+    static func continues<C:Collection>(time:Double,previous:Double?,contacts:C) -> Bool where C.Element == OMSRawTouch {
+        guard time.isFinite, previous.map({time > $0 && time-$0 <= 0.15}) ?? true else { return false }
+        var ids = SIMD16<Int32>(repeating:0), count = 0
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard count < 16, touch.posX.isFinite, touch.posY.isFinite, touch.telemetry?.fingerID != 6,
+                  !(0..<count).contains(where:{ids[$0] == touch.id}) else { return false }
+            ids[count] = touch.id; count += 1
+        }
+        return true
+    }
+}
+
+enum GestureShortcutOwner:Hashable,Sendable { case pad(UInt64), corners(UInt64), coordinated }
+struct GestureShortcutKeyOwnership {
+    struct Edge:Equatable { var code:CGKeyCode; var flags:CGEventFlags; var down:Bool }
+    private var keyboard:Set<CGKeyCode> = []
+    private var owners:[GestureShortcutOwner:[CGKeyCode]] = [:]
+    static func modifierFlag(_ code:CGKeyCode) -> CGEventFlags {
+        switch Int(code) {
+        case kVK_Shift:return KeyboardModifierFlags.leftShift
+        case kVK_RightShift:return KeyboardModifierFlags.rightShift
+        case kVK_Control:return KeyboardModifierFlags.leftControl
+        case kVK_RightControl:return KeyboardModifierFlags.rightControl
+        case kVK_Option:return KeyboardModifierFlags.leftOption
+        case kVK_RightOption:return KeyboardModifierFlags.rightOption
+        case kVK_Command:return KeyboardModifierFlags.leftCommand
+        case kVK_RightCommand:return KeyboardModifierFlags.rightCommand
+        default:return []
+        }
+    }
+    private var gestureKeys:Set<CGKeyCode> { Set(owners.values.flatMap { $0 }) }
+    var flags:CGEventFlags { gestureKeys.reduce(into:CGEventFlags()) { $0.formUnion(Self.modifierFlag($1)) } }
+    private var allFlags:CGEventFlags { keyboard.reduce(into:flags) { $0.formUnion(Self.modifierFlag($1)) } }
+    func owns(_ code:CGKeyCode) -> Bool { gestureKeys.contains(code) }
+    mutating func keyboardEdge(code:CGKeyCode,flags:CGEventFlags,down:Bool) -> Edge? {
+        if down { keyboard.insert(code) } else { keyboard.remove(code) }
+        guard down || !owns(code) else { return nil }
+        return Edge(code:code,flags:flags.union(self.flags),down:down)
+    }
+    static func keys(for action:KeyAction) -> [CGKeyCode] {
+        guard action.kind == .key else { return [] }
+        let spec = KeyActionCatalog.shortcutSpec(for:action)
+        var keys:[CGKeyCode] = []
+        for modifier in ShortcutModifier.ordered {
+            let variant = spec?.modifiers[modifier]
+            let generic:CGEventFlags
+            let left:Int, right:Int
+            switch modifier {
+            case .control: generic = .maskControl; left = kVK_Control; right = kVK_RightControl
+            case .shift: generic = .maskShift; left = kVK_Shift; right = kVK_RightShift
+            case .option: generic = .maskAlternate; left = kVK_Option; right = kVK_RightOption
+            case .command: generic = .maskCommand; left = kVK_Command; right = kVK_RightCommand
+            }
+            if variant != nil || CGEventFlags(rawValue:action.flags).contains(generic) {
+                keys.append(CGKeyCode(variant == .right ? right : left))
+            }
+        }
+        if spec?.keyLabel.isEmpty != true && !keys.contains(action.keyCode) { keys.append(action.keyCode) }
+        return keys
+    }
+    mutating func begin(_ owner:GestureShortcutOwner,action:KeyAction) -> [Edge] {
+        var edges = end(owner)
+        let keys = Self.keys(for:action), already = gestureKeys.union(keyboard)
+        owners[owner] = keys
+        for code in keys where !already.contains(code) { edges.append(.init(code:code,flags:allFlags,down:true)) }
+        return edges
+    }
+    mutating func end(_ owner:GestureShortcutOwner) -> [Edge] {
+        guard let keys = owners.removeValue(forKey:owner) else { return [] }
+        let retained = gestureKeys.union(keyboard)
+        return keys.reversed().filter { !retained.contains($0) }.map { .init(code:$0,flags:allFlags,down:false) }
+    }
+}
+
 final class DispatchService: @unchecked Sendable {
     struct Metrics: Sendable {
         var queueDepth: Int = 0
@@ -656,7 +735,7 @@ final class DispatchService: @unchecked Sendable {
     private static let defaultQueueCapacity = 1024
 
     private enum CommandPayload {
-        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case appLaunch(String)
         case leftClick(clickCount: Int)
@@ -728,6 +807,7 @@ final class DispatchService: @unchecked Sendable {
         var nextCommandID: UInt64 = 1
     }
 
+    private let shortcutKeys = OSAllocatedUnfairLock(initialState:GestureShortcutKeyOwnership())
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let keyDispatcher: KeyEventDispatcher?
     private let recordingSink: ((RuntimeDispatchEvent) -> Void)?
@@ -760,15 +840,14 @@ final class DispatchService: @unchecked Sendable {
         token: RepeatToken? = nil,
         sourceSequence: UInt64? = nil
     ) {
-        enqueue(
-            .keyStroke(
-                code: code,
-                flags: flags,
-                altAscii: altAscii,
-                token: token
-            ),
-            sourceSequence: sourceSequence
-        )
+        shortcutKeys.withLock { keys in
+            let combined = flags.union(keys.flags)
+            if keys.owns(code) {
+                enqueue(.key(code:code,flags:combined,keyDown:true,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
+            } else {
+                enqueue(.keyStroke(code:code,flags:combined,altAscii:altAscii,token:token,heldFlags:keys.flags),sourceSequence:sourceSequence)
+            }
+        }
     }
 
     func postKey(
@@ -779,16 +858,31 @@ final class DispatchService: @unchecked Sendable {
         token: RepeatToken? = nil,
         sourceSequence: UInt64? = nil
     ) {
-        enqueue(
-            .key(
-                code: code,
-                flags: flags,
-                keyDown: keyDown,
-                altAscii: altAscii,
-                token: token
-            ),
-            sourceSequence: sourceSequence
-        )
+        shortcutKeys.withLock { keys in
+            guard let edge = keys.keyboardEdge(code:code,flags:flags,down:keyDown) else { return }
+            enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
+        }
+    }
+
+    var heldGestureFlags:CGEventFlags { shortcutKeys.withLock { $0.flags } }
+
+    func postGestureShortcut(_ assignment:GestureShortcutAssignment,owner:GestureShortcutOwner) {
+        guard let action = assignment.action else { return }
+        if assignment.holdUntilRelease, action.kind == .key {
+            shortcutKeys.withLock { keys in
+                for edge in keys.begin(owner,action:action) {
+                    enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
+                }
+            }
+        } else if action.kind == .appLaunch { postAppLaunch(action.label) }
+        else { postKeyStroke(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags)) }
+    }
+    func releaseGestureShortcut(_ owner:GestureShortcutOwner) {
+        shortcutKeys.withLock { keys in
+            for edge in keys.end(owner) {
+                enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
+            }
+        }
     }
 
     func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
@@ -859,7 +953,15 @@ final class DispatchService: @unchecked Sendable {
 
     func clearQueue() {
         let cancelledCommands = stateLock.withLockUnchecked { state in
-            state.queue.removeAll()
+            let pending = state.queue.removeAll()
+            // A queue reset may discard work, but must deliver already accepted
+            // release edges so a held shortcut cannot leave a synthetic key down.
+            return pending.filter { command in
+                if case .key(_,_,false,_,_) = command.payload {
+                    _ = state.queue.enqueue(command); return false
+                }
+                return true
+            }
         }
         for command in cancelledCommands {
             emitRecordedEvent(for: command, status: .cancelled)
@@ -875,7 +977,7 @@ final class DispatchService: @unchecked Sendable {
             }
             // Match cancellation semantics of the native key dispatcher.
             switch payload {
-            case let .keyStroke(_, _, _, token), let .key(_, _, _, _, token):
+            case let .keyStroke(_, _, _, token, _), let .key(_, _, _, _, token):
                 if let token, !token.isActive { return }
             default: break
             }
@@ -928,12 +1030,13 @@ final class DispatchService: @unchecked Sendable {
 
     private func dispatch(_ command: Command) {
         switch command.payload {
-        case let .keyStroke(code, flags, altAscii, token):
+        case let .keyStroke(code, flags, altAscii, token, heldFlags):
             keyDispatcher?.postKeyStrokeImmediate(
                 code: code,
                 flags: flags,
                 altAscii: altAscii,
-                token: token
+                token: token,
+                heldFlags:heldFlags
             )
         case let .key(code, flags, keyDown, altAscii, token):
             keyDispatcher?.postKeyImmediate(
@@ -972,7 +1075,7 @@ final class DispatchService: @unchecked Sendable {
         status: RuntimeDispatchEventStatus
     ) -> RuntimeDispatchEvent {
         switch command.payload {
-        case let .keyStroke(code, flags, altAscii, _):
+        case let .keyStroke(code, flags, altAscii, _, _):
             return makeDispatchEvent(
                 commandID: command.id,
                 kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),

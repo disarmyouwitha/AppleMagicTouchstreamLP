@@ -38,7 +38,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func setAction(_ action: GestureAction, for trigger: GestureTrigger, scope: GestureHandScope) {
-        guard trigger.allowedActions.contains(action) else { return }
+        guard trigger.accepts(action) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.setAction(action, for: trigger, in: scope)
         if GestureDirectionalAssignments.triggers.contains(trigger) {
@@ -55,7 +55,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func setHoldAction(_ action:GestureAction,count:Int,scope:GestureHandScope) {
-        guard PerHandGestureSettings.holdActions(for:count).contains(action), settings.holdAvailable(count:count,in:scope) else { return }
+        guard PerHandGestureSettings.holdActions(for:count).acceptsGestureAction(action,held:true), settings.holdAvailable(count:count,in:scope) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.setHoldAction(action,count:count,in:scope)
         settings.save(to:.standard)
@@ -74,7 +74,8 @@ final class TrackpadGestureController: ObservableObject {
         if settings.holdAction(count:count,in:scope) != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
         let ids = scope == .left ? [pads.left] : scope == .right ? [pads.right] : [pads.left,pads.right]
         if !armed || ids.contains(where: { $0 == nil || !owned.contains($0!) }) { return "Waiting for takeover on the selected trackpad(s)." }
-        return timing
+        return settings.holdAction(count:count,in:scope)?.isHeldShortcut == true
+            ? "Activates after the hold threshold; stays held until release." : timing
     }
 
     func setMovementMode(_ mode:GestureMovementMode,for trigger:GestureTrigger,scope:GestureHandScope) {
@@ -87,7 +88,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func setDirectionalAction(_ action:GestureAction,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
-        guard GestureDirectionalAssignments.allowedActions.contains(action),
+        guard GestureDirectionalAssignments.allowedActions.acceptsGestureAction(action),
               GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.editMovement(trigger,mode:.directional,direction:direction,action:action,in:scope)
@@ -143,7 +144,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func setTwoHandAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
-        guard TwoHandGestureSettings.allowedActions.contains(action) else { return }
+        guard TwoHandGestureSettings.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         var value = settings.twoHand; value.setAction(action,for:trigger)
         settings.coordinated = value; settings.save(to:.standard)

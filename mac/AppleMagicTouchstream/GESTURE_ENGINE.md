@@ -39,7 +39,7 @@ the architecture review and remaining work.
 | 2–5-finger Pinch and Spread | Zoom | Recognized thumb plus shape change; all-up completion |
 | 1-finger force click | Primary Click | Any active contact reaches P ≥ 130 |
 | 2–5-finger force click | None | Same pressure crossing, independently configured per count |
-| 2–5-finger stationary Hold | None | 0.5 s, fires once while down |
+| 2–5-finger stationary Hold | None | 0.5 s; one-shot or held shortcut output |
 | Thumb + 2 fingertips Hold | None | Own binding and shared spread-thumb geometry; 0.5 s |
 | Single-pad 4 Corners Hold | Open Config | Four outer corners; 1 s |
 | Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 1 s |
@@ -193,6 +193,39 @@ brightness use balanced media events with Option–Shift. The action menu expose
 only supported choices for its input; four-finger Tap includes the Force Click
 System choices. No action modifies system shortcut preferences.
 
+## Custom shortcuts and held keys
+
+Keyboard and Gesture inspectors share one Shortcut Builder: generic/left/right
+Ctrl, Shift, Option and Cmd, optional key (None means modifiers only), and App/file/
+folder/URL target with Browse. Apply assigns directly to the selected input and
+also makes the shortcut available in the shared Dropdown library. The gesture
+Action sheet retains its built-in groups and includes a Shortcuts group. Rendering
+or editing a draft never posts input.
+
+Tap, Force, directions, movement activation, Pinch/Spread and rotation can dispatch
+custom shortcuts once. Directional repeat uses the same interval controls. Hold
+assignments (including Both and corners) additionally offer Once after threshold
+or Hold until release for keyboard shortcuts. App targets always open once. Hold
+thresholds and recognition geometry remain unchanged. Normal movement/shape
+assignments cannot acquire a held-key lifetime through imported settings.
+
+The dispatch queue shares synthetic key ownership across gesture pads, corners,
+Both and existing keyboard mappings. A held shortcut presses modifiers and the
+optional key; releasing an owner releases only keys with no remaining owner.
+Typing strokes inherit held gesture flags, and their up edges preserve those
+flags. Sided modifier choices use the corresponding physical virtual-key code.
+All-up, invalid/stale input, settings/selection changes, lifecycle resets and Both
+handoff balance owned output. Ordinary per-pad held output keeps the existing
+count/label continuation latch; corner/Both continuation follows its own geometry.
+Queue clears preserve accepted key-up cleanup edges. Recording dispatch exercises
+the same logical ownership transitions without posting events or opening apps.
+
+Built-in actions retain their original string encoding. Custom assignments encode
+a validated catalog label plus the hold lifetime in a prefixed gesture-action
+string, preserving the existing settings envelope and portable host extension.
+Catalog actions resolve once when assigned/decoded; frame processing uses the cached
+value rather than reparsing labels.
+
 ## Ownership, permissions and lifecycle
 
 Synthetic output requires live input, selected native identity, owned FLTR clients,
@@ -247,7 +280,10 @@ Lifetime. Direction/repeat, scrolling/panning, gains, Mirror Edit and portable
 settings use the same engine as the other counts.
 
 The Gestures workspace has resizable navigation/inspector columns, searchable Action
-sheets, movement cross cards and a shared right-hand inspector. Hold uses the same
+sheets, movement cross cards and a shared right-hand inspector. Its default width
+is 381 px, matching Keyboard's settings column; navigation remains 286 px. The old
+untouched 286 px inspector default migrates, while deliberate resize values persist.
+The Shortcut Builder appears above Recognition on each assignment inspector. Hold uses the same
 white unselected card background as Tap/Force; unavailable lifecycle cards are gray.
 Badges and descriptions sit beside the animation; assignment guidance shares its
 heading row with a narrow-width fallback.

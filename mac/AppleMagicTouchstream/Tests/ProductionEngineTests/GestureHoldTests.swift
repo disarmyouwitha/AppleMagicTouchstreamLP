@@ -1,4 +1,6 @@
 import Foundation
+import Carbon
+import CoreGraphics
 import OpenMultitouchSupport
 import XCTest
 @testable import GlassToKeyRuntime
@@ -259,5 +261,122 @@ final class GestureHoldTests:XCTestCase {
             XCTAssertTrue(arbitration.process(device:UInt64(count),activeCount:0,enabled:{_ in false}))
             XCTAssertFalse(arbitration.process(device:UInt64(count),activeCount:1,enabled:{_ in false}))
         }
+    }
+}
+
+extension GestureHoldTests {
+    func testCustomShortcutsPreserveOldActionEncodingAndPortableAssignments() throws {
+        for action in GestureAction.allCases {
+            XCTAssertEqual(try JSONDecoder().decode(String.self,from:JSONEncoder().encode(action)),action.rawValue)
+            XCTAssertEqual(try JSONDecoder().decode(GestureAction.self,from:JSONEncoder().encode(action)),action)
+        }
+        var settings = HandGestureSettings()
+        let stroke = GestureAction.shortcut(.init(label:"Cmd+S"))
+        let held = GestureAction.shortcut(.init(label:"Shift",holdUntilRelease:true))
+        for trigger in GestureTrigger.allCases where trigger != .fourCornersTap {
+            XCTAssertTrue(settings.setAction(stroke,for:trigger,in:.both),trigger.rawValue)
+            XCTAssertEqual(settings.action(trigger,in:.both),stroke)
+            XCTAssertFalse(settings.setAction(held,for:trigger,in:.left),trigger.rawValue)
+        }
+        settings.editMovement(.twoFingerMove,mode:.directional,direction:.up,action:stroke,in:.right)
+        XCTAssertEqual(settings.directionalAction(.up,for:.twoFingerMove,in:.right),stroke)
+        for count in 2...7 { settings.setHoldAction(held,count:count,in:.both); XCTAssertEqual(settings.holdAction(count:count,in:.both),held) }
+        var coordinated = settings.twoHand
+        coordinated.setAction(held,for:.init(chord:.threeFingers,phase:.hold))
+        settings.coordinated = coordinated
+        XCTAssertEqual(settings.twoHand.action(.init(chord:.threeFingers,phase:.hold)),held)
+        coordinated.setAction(held,for:.init(chord:.threeFingers,phase:.tap))
+        settings.coordinated = coordinated
+        XCTAssertEqual(settings.twoHand.action(.init(chord:.threeFingers,phase:.tap)),.disabled)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let decoded = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(decoded.handGestureSettings,settings)
+        XCTAssertNil(GestureAction(rawValue:"shortcut:{\"label\":\"UNSUPPORTED\",\"holdUntilRelease\":false}"))
+        let app = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app"))
+        XCTAssertNil(GestureAction(rawValue:GestureAction.shortcut(.init(label:app.label,holdUntilRelease:true)).rawValue))
+    }
+
+    func testHeldShortcutOwnersShareKeysAcrossPadsAndKeyboardReleaseOrders() throws {
+        let shift = try XCTUnwrap(KeyActionCatalog.action(for:"Shift"))
+        for keyboardFirst in [true,false] {
+            for firstReleased in [0,1,2] {
+                var keys = GestureShortcutKeyOwnership()
+                var downs = 0, ups = 0
+                if keyboardFirst { downs += keys.keyboardEdge(code:shift.keyCode,flags:.maskShift,down:true) == nil ? 0 : 1 }
+                downs += keys.begin(.pad(1),action:shift).filter(\.down).count
+                downs += keys.begin(.pad(2),action:shift).filter(\.down).count
+                if !keyboardFirst { _ = keys.keyboardEdge(code:shift.keyCode,flags:.maskShift,down:true) }
+                let order = [firstReleased] + [0,1,2].filter { $0 != firstReleased }
+                for (index,owner) in order.enumerated() {
+                    let edges = owner == 0 ? keys.keyboardEdge(code:shift.keyCode,flags:[],down:false).map { [$0] } ?? []
+                        : keys.end(.pad(UInt64(owner)))
+                    ups += edges.filter { !$0.down }.count
+                    if index < 2 { XCTAssertTrue(edges.isEmpty) }
+                }
+                XCTAssertEqual(downs,1); XCTAssertEqual(ups,1); XCTAssertTrue(keys.flags.isEmpty)
+            }
+        }
+    }
+
+    func testHeldShortcutKeepsOtherPadFlagsAndBalancedChordEdges() throws {
+        let hyper = try XCTUnwrap(KeyActionCatalog.action(for:"Hyper"))
+        let shift = try XCTUnwrap(KeyActionCatalog.action(for:"Shift"))
+        var keys = GestureShortcutKeyOwnership()
+        XCTAssertEqual(keys.begin(.pad(1),action:hyper).count,4)
+        XCTAssertTrue(keys.begin(.pad(2),action:shift).isEmpty)
+        let key = try XCTUnwrap(keys.keyboardEdge(code:0,flags:[],down:true))
+        XCTAssertTrue(key.flags.contains([.maskShift,.maskControl,.maskAlternate,.maskCommand]))
+        let released = keys.end(.pad(1))
+        XCTAssertEqual(released.count,3)
+        XCTAssertTrue(released.allSatisfy { $0.flags.contains(.maskShift) && !$0.down })
+        XCTAssertEqual(keys.end(.pad(2)).count,1)
+        XCTAssertTrue(keys.end(.pad(2)).isEmpty)
+        let cmdS = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S"))
+        let down = keys.begin(.coordinated,action:cmdS)
+        XCTAssertEqual(down.count,2)
+        XCTAssertEqual(keys.end(.coordinated).map(\.code),down.map(\.code).reversed())
+        for (label,code) in [("Left Shift",kVK_Shift),("Right Shift",kVK_RightShift),("AltGr",kVK_RightOption),("Right Cmd",kVK_RightCommand)] {
+            let action = try XCTUnwrap(KeyActionCatalog.action(for:label))
+            XCTAssertEqual(GestureShortcutKeyOwnership.keys(for:action),[CGKeyCode(code)],label)
+        }
+    }
+}
+
+
+extension GestureHoldTests {
+    func testShortcutDispatchRecordsBalancedKeysAndAppTargetsWithoutLiveInput() throws {
+        let output = ProductionReplaySession.Output()
+        let service = DispatchService(recordingWith:ReplayTouchEngineScheduler(startTime:1)) { output.events.append($0) }
+        let held = GestureShortcutAssignment(label:"Shift",holdUntilRelease:true)
+        service.postGestureShortcut(held,owner:.pad(1))
+        service.postGestureShortcut(held,owner:.pad(2))
+        service.postKeyStroke(code:0,flags:[])
+        service.releaseGestureShortcut(.pad(1))
+        XCTAssertEqual(output.events.count,2)
+        service.postKeyStroke(code:0,flags:[])
+        service.releaseGestureShortcut(.pad(2))
+        XCTAssertEqual(output.events.count,4)
+        for index in [1,2] {
+            guard case let .keyStroke(_,flags,_) = output.events[index].kind else { return XCTFail("Expected recorded key stroke") }
+            XCTAssertTrue(flags.contains(.maskShift))
+        }
+        guard case let .key(_,flags,down,_) = output.events.last?.kind else { return XCTFail("Expected key release") }
+        XCTAssertFalse(down); XCTAssertTrue(flags.isEmpty)
+        let app = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app"))
+        service.postGestureShortcut(.init(label:app.label),owner:.pad(1))
+        guard case .appLaunch(app.label) = output.events.last?.kind else { return XCTFail("Expected recording-only app launch") }
+    }
+}
+
+
+extension GestureHoldTests {
+    func testHeldShortcutInputAcceptsLatchChangesButRejectsBrokenDelivery() {
+        XCTAssertTrue(HeldGestureShortcutInput.continues(time:1.1,previous:1,contacts:touches(1,idOffset:20)))
+        XCTAssertTrue(HeldGestureShortcutInput.continues(time:1.1,previous:1,contacts:[OMSRawTouch]()))
+        XCTAssertFalse(HeldGestureShortcutInput.continues(time:1,previous:1,contacts:touches(2)))
+        XCTAssertFalse(HeldGestureShortcutInput.continues(time:1.3,previous:1,contacts:touches(2)))
+        XCTAssertFalse(HeldGestureShortcutInput.continues(time:.nan,previous:1,contacts:touches(2)))
+        XCTAssertFalse(HeldGestureShortcutInput.continues(time:1.1,previous:1,contacts:touches(1)+touches(1)))
+        XCTAssertFalse(HeldGestureShortcutInput.continues(time:1.1,previous:1,contacts:touches(2,dx:.nan)))
     }
 }
