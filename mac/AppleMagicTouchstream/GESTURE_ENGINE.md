@@ -926,3 +926,28 @@ lands, while contacts remain down. It posts no events. The local capture is
 optional when absent on another checkout. Capture profiles do not currently
 include these app-local gesture preferences; the regression specifies them
 explicitly rather than inferring them from the keyboard profile.
+
+## Directional Scroll Up / Scroll Down
+
+Two-, three- and four-finger directional Action menus include Scroll Up and
+Scroll Down, independently assignable per direction/hand and through Mirror Edit.
+These emit one vertical line-based wheel step per activation or repeat, with
+positive Up / negative Down semantic direction, current cursor location/modifiers,
+and the interpreter event tag. Each step is complete: no held scroll/momentum
+phase, no acceleration-profile dependency and no new timer or recognition path.
+The existing directional gates, turn recognition, all-up latch, stale cancellation
+and live-only output apply. These actions are not added to the continuous Movement,
+Tap, Force, Hold, Pinch/Spread or coordinated Both menus.
+
+Default repeat is 80 ms, as for small-step volume/brightness. The existing loop
+and interval editor can disable repeat or set 20–5000 ms separately for each
+direction. Up/Down can scroll while Left/Right run other actions. Continuous
+Scroll / Pan retains its existing acceleration and momentum. New action IDs
+`scrollUp` / `scrollDown` save in the existing directional settings fields and
+round-trip through Import Settings / Export Settings. No existing assignments or
+repeat overrides change. Tests inspect unposted wheel events, signs, axes, phases,
+tags and flags, and verify independent settings, repeat defaults/overrides and
+portable round-trips.
+
+Pinch/Spread's nonassignable Hold lifecycle card uses the same gray styling as
+Lift; it no longer has an additional opacity reduction.

@@ -271,3 +271,53 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(router.recognize(device:2,time:2.01,contacts:touches(2,dy:0.02),enabled:enabled).gesture,.twoFingerMove)
     }
 }
+
+extension DirectionalMovementTests {
+    func testDirectionalScrollEventsHaveOppositeVerticalStepsAndNoHeldPhases() throws {
+        for (action,delta) in [(GestureAction.scrollUp,Int64(1)),(.scrollDown,Int64(-1))] {
+            var clicks = PrimaryTapClickOutput()
+            let events = try XCTUnwrap(GestureTapActionOutput.events(action:action,location:.init(x:120,y:80),
+                time:1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+            XCTAssertEqual(events.count,1)
+            let event = try XCTUnwrap(events.first)
+            XCTAssertEqual(event.type,.scrollWheel)
+            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventDeltaAxis1),delta)
+            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventDeltaAxis2),0)
+            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventIsContinuous),0)
+            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventScrollPhase),0)
+            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventMomentumPhase),0)
+            XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            XCTAssertEqual(event.location,CGPoint(x:120,y:80))
+            XCTAssertEqual(event.flags,.maskShift)
+        }
+    }
+    func testDirectionalScrollBindingsRepeatAndRoundTripIndependentlyOfSidewaysActions() throws {
+        var settings = HandGestureSettings()
+        for trigger in GestureDirectionalAssignments.liveTriggers {
+            settings.editMovement(trigger,mode:.directional,direction:.up,action:.scrollUp,in:.left)
+            settings.editMovement(trigger,mode:.directional,direction:.down,action:.scrollDown,in:.left)
+            settings.editMovement(trigger,mode:.directional,direction:.left,action:.brightnessDownSmall,in:.left)
+            settings.editMovement(trigger,mode:.directional,direction:.right,action:.volumeUpSmall,in:.left)
+            let config = settings.left.movement(trigger)
+            XCTAssertEqual(config.action(.up),.scrollUp)
+            XCTAssertEqual(config.action(.down),.scrollDown)
+            XCTAssertEqual(config.action(.left),.brightnessDownSmall)
+            XCTAssertEqual(config.action(.right),.volumeUpSmall)
+            XCTAssertEqual(config.repeatIntervalMS(.up),80)
+            XCTAssertEqual(config.repeatIntervalMS(.down),80)
+            XCTAssertEqual(settings.right.movement(trigger).mode,.continuous)
+            settings.setDirectionalRepeat(false,direction:.up,for:trigger,in:.left)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.up),0)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),80)
+            settings.setDirectionalRepeatInterval(120,direction:.down,for:trigger,in:.left)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),120)
+        }
+        for action in GestureAction.directionalScrollActions {
+            XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
+            XCTAssertFalse(PerHandGestureSettings.holdAllowedActions.contains(action))
+            XCTAssertFalse(GestureTrigger.twoFingerMove.allowedActions.contains(action))
+        }
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+    }
+}

@@ -1,13 +1,14 @@
 # NOTES:
 =======
-00. Can I Set "Scroll up" / "Scroll down" (Or maybe the action can be called "Scroll" and it understands which Direction it was assigned?) as Directional actions so I can set them independently of move? (allowing me to set up/down to scrolls and left/right to totally different actions?)
+00. Can I Set "Scroll up" / "Scroll down" as Directional actions so I can set them independently of move? (allowing me to set up/down to scrolls and left/right to totally different actions?)
+> Can Scroll Up and Scroll Down be special actions that basically pipe through the mouse action, or restrict it directionally (Like allowing the user to set "scroll down" to Left Direction and "scroll up" to Right Direction so they can scroll the page with a left->right drag? Is this possible or am I over complicating things?
 0. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
+- Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
+===
 1. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 2. Pinch,Spread, and ROTATE baby: Rotation gestures next!
-===
 3. After we get the GUI set up: Merge/Cleanup Action menus (They are all different)
 ===
-4. Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
 
 
 `AppleMagicTouchstream`:

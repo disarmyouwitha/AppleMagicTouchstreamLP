@@ -306,3 +306,10 @@ and the old 0.75 mm Hold slop rejected natural settling. Ignore all-None
 configurations in movement recognition, and cancel pending Hold only once a
 real direction commits, not at the router's lower continuous-motion threshold.
 Keep the existing 0.75 mm directional activation and repeat behavior unchanged.
+
+User authorizes independent directional Scroll Up / Scroll Down actions for
+2/3/4 fingers, one line-based wheel step per fire, default held repeat 80 ms via
+the existing loop/interval controls. Keep these actions confined to directional
+menus and preserve continuous Scroll / Pan, per-hand/Mirror Edit, import/export,
+all-up/stale/lifecycle gates and live-only output. Pinch/Spread Hold and Lift
+lifecycle cards must have matching gray styling.

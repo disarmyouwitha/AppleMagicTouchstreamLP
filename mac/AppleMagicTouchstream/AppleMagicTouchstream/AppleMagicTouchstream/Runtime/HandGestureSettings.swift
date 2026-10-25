@@ -67,7 +67,9 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
     case openConfig
+    case scrollUp, scrollDown
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
+    static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     static var oneShotActions: [Self] { appleShortcuts + smallStepActions }
     static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
@@ -79,6 +81,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .volumeDownSmall: return "Volume Down (Small Step)"
         case .brightnessUpSmall: return "Brightness Up (Small Step)"
         case .brightnessDownSmall: return "Brightness Down (Small Step)"
+        case .scrollUp: return "Scroll Up"
+        case .scrollDown: return "Scroll Down"
         case .openConfig: return "Open Config"
         case .notificationCenter: return "Notification Center"
         case .missionControl: return "Mission Control"
@@ -174,7 +178,7 @@ enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Send
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
     static let liveTriggers = triggers
-    static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
+    static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions + GestureAction.directionalScrollActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]
     var repeatOverrides: [String:Bool]? // Decode compatibility with the original checkbox.
@@ -186,7 +190,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     }
     private func savedRepeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
         if let value = repeatIntervalsMS?[direction.rawValue] { return Self.boundedIntervalMS(value) }
-        return (repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))) ? 80 : 0
+        return (repeatOverrides?[direction.rawValue] ?? (GestureAction.smallStepActions.contains(action(direction)) || GestureAction.directionalScrollActions.contains(action(direction)))) ? 80 : 0
     }
     func configuredRepeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
         max(20,savedRepeatIntervalMS(direction))
@@ -214,7 +218,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var directionalMovement: [String:GestureDirectionalAssignments]?
     // Optional for old profiles; count-keyed, independent of Tap/Force actions.
     var holdActions: [String:GestureAction]?
-    static let holdAllowedActions = GestureDirectionalAssignments.allowedActions
+    static let holdAllowedActions = GestureDirectionalAssignments.allowedActions.filter { !GestureAction.directionalScrollActions.contains($0) }
     static func moveTrigger(count:Int) -> GestureTrigger? {
         switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; default:return nil }
     }

@@ -899,7 +899,6 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top,spacing:12) {
                 if pane.isPinchSection {
                     lifetimeCard("Hold",symbol:"pause",detail:"No separate hold gesture is available for this chord.")
-                        .opacity(0.5)
                 } else { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }
