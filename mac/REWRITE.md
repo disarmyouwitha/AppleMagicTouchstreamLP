@@ -1,23 +1,17 @@
 # NOTES:
 0. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 =======
-1. Yeah! I want to add a "Both" option now! When Both is selected it allows you to edit gestures that take both hands! For "Both" Gesture options it should allow actions to be assigned to <tap> and <hold>
+1. You said this:
+There’s one timing tradeoff to hardware-test: enabling a paired three- or four-finger chord gives the other hand a 150 ms join window, so it may add a small delay to the corresponding single-hand gesture. Those paired assignments default to None.
+The taps also feel really good without affecting single hand taps, how did you do that? Maybe we start by just tightening the recognizer to what you used here. xD
 
-Lets start with these!
-- "4 corners" like from the quickstart guide.. can we default it to open the config? (It is LHS top-left, bottom-left; RHS top-right, bottom-right) 
-- 3-finger tap with both hands
-- 3-finger hold with both hands
-- 4-finger tap with both hands
-- 4-finger hold with both hands
+ALSO 3-finger and 4-finger dual-pad examples.. one of them needs to be flipped! They are showing some pretty weird examples for human hands! lol.
+> I think we should allow single-hand gestures to take precedence and if a 2nd hand joins afterwards it can trigger a "BOTH" gesture, releasing the first.
 
 2. If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions! (Like if they use directional up,down,left,right we can allow for holds without interering with the gesture!)
 > Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
 ===
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
-===
-You said this:
-There’s one timing tradeoff to hardware-test: enabling a paired three- or four-finger chord gives the other hand a 150 ms join window, so it may add a small delay to the corresponding single-hand gesture. Those paired assignments default to None.
-but I think we should allow single-hands to take precedence and if a 2nd hand joins it can trigger a "BOTH" gesture.. I think I want to remove the "Both - taps" too .. it will make it too hard to tell from single 
 ===
 
 

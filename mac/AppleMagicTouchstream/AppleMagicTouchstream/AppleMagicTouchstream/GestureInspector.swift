@@ -1046,7 +1046,10 @@ private struct TwoHandChordExample:View {
                     context.stroke(Path(roundedRect:rect,cornerRadius:8),with:.color(.secondary.opacity(0.5)),lineWidth:1.7)
                     for finger in 0..<chord.count {
                         let corner = chord == .fourCorners
-                        let x = corner ? (hand == 0 ? rect.minX+10 : rect.maxX-10) : rect.midX+CGFloat(finger)*14-CGFloat(chord.count-1)*7
+                        // Index is toward the center seam; pinky toward the outer edge.
+                        let fingerOffset = CGFloat(finger)*14-CGFloat(chord.count-1)*7
+                        let x = corner ? (hand == 0 ? rect.minX+10 : rect.maxX-10)
+                            : rect.midX+(hand == 0 ? -fingerOffset : fingerOffset)
                         let y = corner ? (finger == 0 ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
                         let color:Color = corner ? (finger == 0 ? .blue : .orange) : [.blue,.green,.purple,.pink][finger]
                         let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
