@@ -1,9 +1,8 @@
 # NEXT:
 =======
-
-===
-1. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
-> TYPING GRACE? How does TouchStream do it? REVERSE???
+0. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
+> TYPING GRACE? How does TouchStream do it? REVERSE ENGINEER???
+1. ^(May be related to above? Test that before changing): Better 4-finger latching for holds? Better 5-finger latching?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:
@@ -15,7 +14,6 @@
 
 `AppleMagicTouchstream`:
 ===
-00. Better 4-finger latching for holds? Better 5-finger latching?
 0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
