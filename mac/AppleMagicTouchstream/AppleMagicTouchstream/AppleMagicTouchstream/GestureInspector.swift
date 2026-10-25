@@ -423,7 +423,8 @@ struct GestureInspectorPanel: View {
             setSensitivity:{controller.setSensitivity($0,kind:$1,scope:$2)},
             setMovementMode:{controller.setMovementMode($0,for:$1,scope:$2)},
             setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)},
-            setDirectionalRepeatInterval:{controller.setDirectionalRepeatInterval($0,direction:$1,for:$2,scope:$3)})
+            setDirectionalRepeatInterval:{controller.setDirectionalRepeatInterval($0,direction:$1,for:$2,scope:$3)},
+            setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)})
     }
 }
 
@@ -436,6 +437,7 @@ struct GestureAssignmentWorkspace: View {
     let setMovementMode: (GestureMovementMode,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalAction: (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalRepeatInterval: (Double,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
+    let setDirectionalRepeat: (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     @State private var selectedDirection: GestureMovementDirection?
     @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
@@ -452,10 +454,12 @@ struct GestureAssignmentWorkspace: View {
          setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void,
          setMovementMode:@escaping (GestureMovementMode,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
          setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
-         setDirectionalRepeatInterval:@escaping (Double,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
+         setDirectionalRepeatInterval:@escaping (Double,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
+         setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
+        self.setDirectionalRepeat = setDirectionalRepeat
         _pane = State(initialValue:initialPane)
         _selectedDirection = State(initialValue:initialDirection)
         _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
@@ -761,8 +765,8 @@ struct GestureAssignmentWorkspace: View {
     }
     private func directionalInspector(_ direction:GestureMovementDirection) -> some View {
         let value = settings.directionalAction(direction,for:selected,in:editingScope)
-        let repeatInterval = settings.directionalRepeatInterval(direction,for:selected,in:editingScope)
-        let repeatOff = repeatInterval == 0
+        let repeatEnabled = settings.directionalRepeats(direction,for:selected,in:editingScope)
+        let repeatOff = repeatEnabled == false
         return VStack(alignment:.leading,spacing:14) {
             Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
                 if let action { setDirectionalAction(action,direction,selected,editingScope) }
@@ -778,21 +782,34 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             HStack(spacing:6) {
-                Image(systemName:"repeat")
+                Button {
+                    setDirectionalRepeat(repeatEnabled != true,direction,selected,editingScope)
+                } label: {
+                    ZStack {
+                        Image(systemName:"repeat")
+                        if repeatOff { Rectangle().frame(width:20,height:1.5).rotationEffect(.degrees(-45)) }
+                    }.frame(width:22,height:22)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(repeatOff ? Color.secondary : Color.accentColor)
+                .accessibilityLabel("Repeat while held")
+                .accessibilityValue(repeatEnabled.map { $0 ? "On" : "Off" } ?? "Mixed")
+                .help(repeatOff ? "Enable repeat" : "Disable repeat")
                 TextField("0",value:Binding(
-                    get:{settings.directionalRepeatInterval(direction,for:selected,in:editingScope) ?? 0},
-                    set:{setDirectionalRepeatInterval($0,direction,selected,editingScope)}),format:.number)
+                    get:{settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope) ?? 20},
+                    set:{setDirectionalRepeatInterval(max(20,$0),direction,selected,editingScope)}),format:.number)
                     .textFieldStyle(.plain).font(.system(size:11).monospacedDigit())
                     .multilineTextAlignment(.center).padding(.vertical,3).frame(width:32.5)
                     .background(RoundedRectangle(cornerRadius:5).fill(Color(nsColor:.textBackgroundColor)))
                     .overlay(RoundedRectangle(cornerRadius:5).strokeBorder(Color.primary.opacity(0.15),lineWidth:1))
+                    .disabled(repeatOff)
                     .accessibilityLabel("Repeat interval in milliseconds")
                 Text("ms while held").font(.callout)
                 if repeatOff { Text("Off").font(.caption).fontWeight(.medium) }
             }
             .foregroundStyle(repeatOff ? Color.secondary : Color.primary)
-            .help("Repeat every X milliseconds while held. 0 disables repeat; nonzero intervals range from 20 to 5000 ms. Press Return to apply.")
-            Text("0 = no repeat · 20–5000 ms while held").font(.caption).foregroundStyle(.secondary)
+            .help("Click the loop to toggle repeat. Enabled intervals range from 20 to 5000 ms. Press Return to apply the interval.")
+            Text("20–5000 ms · Click loop to toggle repeat").font(.caption).foregroundStyle(.secondary)
             if settings.directionalRepeatInterval(direction,for:selected,in:editingScope) == nil {
                 Text("Mixed intervals. Editing applies to both pads.").font(.caption).foregroundStyle(.secondary)
             }

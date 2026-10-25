@@ -92,6 +92,32 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(legacy.repeatIntervalMS(.up),80)
         XCTAssertEqual(legacy.repeatIntervalMS(.down),0)
     }
+    func testLoopTogglePreservesIntervalAndUsesTwentyWhenUnset() throws {
+        var settings = HandGestureSettings()
+        let trigger = GestureTrigger.threeFingerMove
+        settings.editMovement(trigger,mode:.directional,direction:.up,action:.missionControl,in:.both)
+        XCTAssertEqual(settings.directionalRepeats(.up,for:trigger,in:.both),false)
+        settings.setDirectionalRepeat(true,direction:.up,for:trigger,in:.both)
+        XCTAssertEqual(settings.directionalRepeatInterval(.up,for:trigger,in:.both),20)
+        settings.setDirectionalRepeatInterval(240,direction:.up,for:trigger,in:.both)
+        settings.setDirectionalRepeat(false,direction:.up,for:trigger,in:.left)
+        XCTAssertEqual(settings.directionalRepeatInterval(.up,for:trigger,in:.left),0)
+        XCTAssertEqual(settings.directionalConfiguredRepeatInterval(.up,for:trigger,in:.left),240)
+        XCTAssertNil(settings.directionalRepeats(.up,for:trigger,in:.both))
+        let decoded = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded,settings)
+        settings.setDirectionalRepeat(true,direction:.up,for:trigger,in:.left)
+        XCTAssertEqual(settings.directionalRepeatInterval(.up,for:trigger,in:.both),240)
+        settings.editMovement(trigger,mode:.directional,direction:.down,action:.volumeDownSmall,in:.both)
+        settings.setDirectionalRepeat(false,direction:.down,for:trigger,in:.both)
+        settings.setDirectionalRepeat(true,direction:.down,for:trigger,in:.both)
+        XCTAssertEqual(settings.directionalRepeatInterval(.down,for:trigger,in:.both),80)
+        settings.setDirectionalRepeatInterval(0,direction:.right,for:trigger,in:.both)
+        settings.setDirectionalRepeat(true,direction:.right,for:trigger,in:.both)
+        XCTAssertEqual(settings.directionalRepeatInterval(.right,for:trigger,in:.both),20)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = decoded
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,decoded)
+    }
     func testRepeatOffAndDeliberateReversalOrTurn() {
         var stepper = GestureDirectionalStepper()
         let assignments = config(repeat:false)

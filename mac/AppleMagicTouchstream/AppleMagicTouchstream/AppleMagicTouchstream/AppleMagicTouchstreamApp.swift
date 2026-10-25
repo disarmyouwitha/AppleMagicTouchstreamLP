@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var replayStateCancellable: AnyCancellable?
-    private static let configWindowDefaultHeight: CGFloat = 600
+    private static let configWindowDefaultHeight: CGFloat = 800
     private var captureMenuItem: NSMenuItem?
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false

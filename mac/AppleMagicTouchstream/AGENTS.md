@@ -227,3 +227,9 @@ repeats through the existing shared timer, with 200 ms stale-input cancellation,
 no catch-up bursts and balanced key/button output. Activation/turn threshold is
 now provisionally 0.75 mm; preserve shared tap/movement arbitration. See GESTURE_ENGINE.md for provisional
 thresholds and testing. Build/install signed Release, leave closed for hardware tests.
+
+Repeat UI now uses a clickable loop/slashed-loop toggle, separately persisting
+enabled state and the remembered interval. Disable the field while off; enabling
+an unset interval starts at 20 ms, preserving 80 ms volume/brightness defaults.
+Keep old zero/checkbox profiles compatible and retain Mirror Edit/keymap behavior.
+Config window default height is now 800 px (user requested +200).

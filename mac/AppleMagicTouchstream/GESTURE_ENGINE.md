@@ -637,9 +637,12 @@ the new direction; small jitter does not switch it. Screen-space up is negative 
 These thresholds are provisional for hardware testing.
 
 Each direction has a compact saved millisecond interval field (repeat icon), including
-Mirror Edit and Mixed states. Zero disables repeat and mutes the row with an Off label; positive values are bounded
+Mirror Edit and Mixed states. The clickable loop enables/disables repeat: off
+is crossed out and mutes/disables the interval field while retaining its value.
+Enabled values are bounded
 to 20–5000 ms. Missing settings default to 80 ms for small-step volume/brightness,
-zero for other actions. Old checkbox true/false decodes as 80/0 ms. Explicit
+zero for other actions. Old checkbox true/false decodes as 80/0 ms. A newly enabled
+unset interval starts at 20 ms; volume/brightness retain their 80 ms default. Explicit
 intervals survive action changes and keymap export/import. Two/four-finger
 intervals remain saved-only, matching their directional assignments.
 

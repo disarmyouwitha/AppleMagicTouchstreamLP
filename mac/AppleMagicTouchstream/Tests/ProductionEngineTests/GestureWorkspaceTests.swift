@@ -47,6 +47,7 @@ final class GestureWorkspaceTests: XCTestCase {
                             settings.editMovement(movement,mode:.directional,direction:.down,action:.volumeDownSmall,in:.both)
                             settings.editMovement(movement,mode:.directional,direction:.left,action:.brightnessDownSmall,in:.both)
                             settings.editMovement(movement,mode:.directional,direction:.right,action:.brightnessUpSmall,in:.both)
+                            if mirrored { settings.setDirectionalRepeat(false,direction:.up,for:movement,in:.both) }
                         }
                         let viewportWidth: CGFloat = narrow ? 1024 : 1320
                         let view = GestureAssignmentWorkspace(settings:settings,initialPane:pane,initialDirection:directional ? .up : nil,
@@ -55,7 +56,8 @@ final class GestureWorkspaceTests: XCTestCase {
                             setSensitivity:{_,_,_ in XCTFail("Rendering must not change sensitivity")},
                             setMovementMode:{_,_,_ in XCTFail("Rendering must not switch modes")},
                             setDirectionalAction:{_,_,_,_ in XCTFail("Rendering must not assign directions")},
-                            setDirectionalRepeatInterval:{_,_,_,_ in XCTFail("Rendering must not change repeat")})
+                            setDirectionalRepeatInterval:{_,_,_,_ in XCTFail("Rendering must not change repeat")},
+                            setDirectionalRepeat:{_,_,_,_ in XCTFail("Rendering must not toggle repeat")})
                             .defaultAppStorage(defaults)
                             .frame(width:viewportWidth,height:650)
                         // ImageRenderer omits native scroll views/controls on macOS. Render an
