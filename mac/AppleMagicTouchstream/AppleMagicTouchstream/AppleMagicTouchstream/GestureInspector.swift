@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 
 enum GesturePane: String, CaseIterable, Identifiable {
-    case oneFinger, twoFingers, twoFingerPinch, threeFingers, threeFingerPinch, fourFingers, fourFingerPinch, fiveFingers, fiveFingerPinch, thumbTwo
+    case oneFinger, twoFingers, twoFingerPinch, threeFingers, threeFingerPinch, fourFingers, fourFingerPinch, fourCorners, fiveFingers, fiveFingerPinch, thumbTwo
     var id: String { rawValue }
     var group: String {
         switch self {
         case .oneFinger: return "1 finger"
         case .fiveFingers, .fiveFingerPinch: return "5 fingers"
         case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers, .threeFingerPinch, .thumbTwo: return "3 fingers"
-        case .fourFingers, .fourFingerPinch: return "4 fingers"
+        case .fourFingers, .fourFingerPinch, .fourCorners: return "4 fingers"
         }
     }
     var title: String {
@@ -19,7 +19,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingers: return "Tap and Move"
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch: return "Pinch and Spread"
         case .threeFingers: return "Tap and Move"
-        case .fourFingers: return "Move and Force Click"
+        case .fourFingers: return "Tap and Move"
+        case .fourCorners:return "4 Corners"
         case .thumbTwo: return "Thumb+2fingers"
         }
     }
@@ -31,7 +32,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch:
             return "Choose an action for pinching and spreading. Both directions require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
-        case .fourFingers: return "Choose actions for four-finger movement and force clicking."
+        case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
+        case .fourCorners:return "One contact in each outer corner of this trackpad. Tap or hold all four corners."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
         }
     }
@@ -44,7 +46,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
         case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
-        case .fourFingers: return [.fourFingerMove,.fourFingerForce]
+        case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
+        case .fourCorners:return [.fourCornersTap]
         case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
         case .thumbTwo: return [.thumbTwoTap]
         }
@@ -62,6 +65,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .threeFingers: return [1,2,3]; case .threeFingerPinch: return [0,2,3]
         case .fourFingers: return [1,2,3,4]; case .fourFingerPinch: return [0,1,2,3]
         case .thumbTwo: return [0,2,3]
+        case .fourCorners:return [1,2,3,4]
         }
     }
 }
@@ -120,7 +124,8 @@ struct GestureChordIcon: View {
                        with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
         if holding {
             let touching = phase >= 0.18 && phase < 0.8
-            for (index,offset) in contactOffsets(count:gesture.holdCount,includesThumb:gesture == .thumbTwo).enumerated() {
+            let offsets = gesture == .fourCorners ? [CGPoint(x:-55,y:-30),CGPoint(x:-55,y:30),CGPoint(x:55,y:-30),CGPoint(x:55,y:30)] : contactOffsets(count:gesture.holdCount,includesThumb:gesture == .thumbTwo)
+            for (index,offset) in offsets.enumerated() {
                 let point = CGPoint(x:pad.midX+offset.x,y:pad.midY+offset.y)
                 let dot = Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12))
                 let colors = contactColors(index:index)
@@ -138,10 +143,11 @@ struct GestureChordIcon: View {
         let progress = min(1,max(0,(phase-0.18)/motionDuration))
         let eased = progress*progress*(3-2*progress)
         let touching = phase >= 0.18 && phase < 0.80
-        let count = trigger.pinchCount ?? trigger.forceCount ?? (gesture == .thumbTwo ? 3 : gesture == .threeFingers ? 3 : gesture == .fourFingers ? 4 : 2)
+        let count = gesture.holdCount
         let discrete = !trigger.isContinuous
         let thumbChord = trigger.isPinch || gesture == .thumbTwo
-        let starts = contactOffsets(count:count,includesThumb:thumbChord).map {
+        let offsets = gesture == .fourCorners ? [CGPoint(x:-55,y:-30),CGPoint(x:-55,y:30),CGPoint(x:55,y:-30),CGPoint(x:55,y:30)] : contactOffsets(count:count,includesThumb:thumbChord)
+        let starts = offsets.map {
             CGPoint(x:pad.midX+$0.x,y:pad.midY+$0.y)
         }
         let moving = trigger.isContinuous && !trigger.isPinch
@@ -354,13 +360,7 @@ struct GestureActionPickerRow: View {
     var body: some View {
         VStack(alignment:.leading,spacing:5) {
             Text(trigger.title).font(.subheadline).fontWeight(.medium)
-            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
-                if let action { apply(action) }
-            })) {
-                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
-                ForEach(trigger.allowedActions) { action in Text(action.title).tag(Optional(action)) }
-            }
-            .pickerStyle(.menu)
+            GestureActionChooser(value:value,actions:trigger.allowedActions,choose:apply)
             if value == nil {
                 Text("Left: \(leftAction.title) · Right: \(rightAction.title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -374,8 +374,10 @@ struct GestureActionPickerRow: View {
 
 /// Presentation catalog for existing recognizers only; no new recognition or saved IDs.
 extension GesturePane {
+    var holdKey:Int { self == .thumbTwo ? PerHandGestureSettings.thumbHoldKey : self == .fourCorners ? PerHandGestureSettings.cornersHoldKey : holdCount }
     var holdCount:Int {
-        triggers.compactMap { $0.forceCount ?? $0.pinchCount }.first ?? (self == .thumbTwo ? 3 : 2)
+        if self == .fourCorners { return 4 }
+        return triggers.compactMap { $0.forceCount ?? $0.pinchCount }.first ?? (self == .thumbTwo ? 3 : 2)
     }
     var contactLabel: String {
         if isPinchSection { return "\(triggers[0].pinchCount!) contacts · thumb required" }
@@ -511,7 +513,7 @@ struct GestureAssignmentWorkspace: View {
         GestureDirectionalAssignments.triggers.contains(trigger) && settings.movementMode(trigger,in:scope) == .directional ? .up : nil
     }
     static func holdEditable(pane:GesturePane,settings:HandGestureSettings,scope:GestureHandScope) -> Bool {
-        !pane.isPinchSection && settings.holdAvailable(count:pane.holdCount,in:scope)
+        !pane.isPinchSection && settings.holdAvailable(count:pane.holdKey,in:scope)
     }
     private func restoreMovementSelection() {
         if selectedHold {
@@ -714,9 +716,7 @@ struct GestureAssignmentWorkspace: View {
                 Text("SELECTED ASSIGNMENT").font(.caption2).foregroundStyle(.secondary)
                 Text(twoHandPhase.title).font(.title3).bold()
                 Text("\(twoHandChord.title) · Both hands").font(.caption).foregroundStyle(.secondary)
-                Picker("Action",selection:Binding(get:{settings.twoHand.action(twoHandTrigger)},set:{setTwoHandAction($0,twoHandTrigger)})) {
-                    ForEach(TwoHandGestureSettings.allowedActions) { action in Text(action.title).tag(action) }
-                }.pickerStyle(.menu)
+                GestureActionChooser(value:settings.twoHand.action(twoHandTrigger),actions:TwoHandGestureSettings.allowedActions) { setTwoHandAction($0,twoHandTrigger) }
                 Text(twoHandStatus(twoHandTrigger)).font(.callout).fontWeight(.medium).fixedSize(horizontal:false,vertical:true)
                 Divider()
                 Text("Recognition").font(.callout).fontWeight(.medium)
@@ -771,6 +771,7 @@ struct GestureAssignmentWorkspace: View {
             } else {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers.filter { !$0.isContinuous }) { assignmentCard($0) }
+                    if pane == .thumbTwo || pane == .fourCorners { holdCard }
                 }
             }
         }
@@ -791,7 +792,7 @@ struct GestureAssignmentWorkspace: View {
                 movementCard(trigger,direction:.left)
                 movementCard(trigger,direction:nil)
                 movementCard(trigger,direction:.right)
-                Color.clear.frame(height:1)
+                holdCard
                 movementCard(trigger,direction:.down)
                 Color.clear.frame(height:1)
             }
@@ -858,15 +859,17 @@ struct GestureAssignmentWorkspace: View {
     }
 
     private var holdCount:Int { pane.holdCount }
+    private var holdKey:Int { pane.holdKey }
+    private var holdDuration:Double { pane == .fourCorners ? 1 : 0.5 }
     private var holdEditable:Bool { Self.holdEditable(pane:pane,settings:settings,scope:editingScope) }
     private var holdCard:some View {
-        let value = settings.holdAction(count:holdCount,in:editingScope)
+        let value = settings.holdAction(count:holdKey,in:editingScope)
         return Button { selectedHold = true; selectedDirection = nil } label: {
             VStack(alignment:.leading,spacing:8) {
                 Label("Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
                 Text(value?.title ?? "Mixed").font(.system(size:17,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text("After 0.5 seconds · once while held")
+                Text("After \(holdDuration, specifier:"%.1f") seconds · once while held")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
@@ -879,22 +882,19 @@ struct GestureAssignmentWorkspace: View {
         .accessibilityAddTraits(selectedHold ? [.isSelected] : [])
     }
     private var holdInspector:some View {
-        let value = settings.holdAction(count:holdCount,in:editingScope)
+        let value = settings.holdAction(count:holdKey,in:editingScope)
         return VStack(alignment:.leading,spacing:14) {
-            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
-                if let action, holdEditable { setHoldAction(action,holdCount,editingScope) }
-            })) {
-                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
-                ForEach(PerHandGestureSettings.holdAllowedActions) { action in Text(action.title).tag(Optional(action)) }
-            }.pickerStyle(.menu).disabled(!holdEditable)
+            GestureActionChooser(value:value,actions:PerHandGestureSettings.holdActions(for:holdKey)) { action in
+                if holdEditable { setHoldAction(action,holdKey,editingScope) }
+            }.disabled(!holdEditable)
             if value == nil {
-                Text("Left: \(settings.left.holdAction(count:holdCount).title) · Right: \(settings.right.holdAction(count:holdCount).title)")
+                Text("Left: \(settings.left.holdAction(count:holdKey).title) · Right: \(settings.right.holdAction(count:holdKey).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            Text(holdStatus(holdCount,editingScope)).font(.callout).fixedSize(horizontal:false,vertical:true)
+            Text(holdStatus(holdKey,editingScope)).font(.callout).fixedSize(horizontal:false,vertical:true)
             Divider()
             Text("Recognition").font(.callout).fontWeight(.medium)
-            Text("Keep \(holdCount) finger(s) still for 0.5 seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
+            Text("Keep \(holdCount) finger(s) still for \(holdDuration, specifier:"%.1f") seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -904,7 +904,7 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top,spacing:12) {
                 if pane.isPinchSection {
                     lifetimeCard("Hold",symbol:"pause",detail:"No separate hold gesture is available for this chord.")
-                } else { holdCard }
+                } else if !pane.triggers.contains(where: \.isContinuous) && pane != .thumbTwo && pane != .fourCorners { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }.fixedSize(horizontal:false,vertical:true)
         }
@@ -970,15 +970,7 @@ struct GestureAssignmentWorkspace: View {
         let repeatEnabled = settings.directionalRepeats(direction,for:selected,in:editingScope)
         let repeatOff = repeatEnabled == false
         return VStack(alignment:.leading,spacing:14) {
-            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
-                if let action { setDirectionalAction(action,direction,selected,editingScope) }
-            })) {
-                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
-                ForEach(GestureDirectionalAssignments.allowedActions) { action in
-                    Text(action.title).tag(Optional(action))
-                }
-            }
-            .pickerStyle(.menu)
+            GestureActionChooser(value:value,actions:GestureDirectionalAssignments.allowedActions) { setDirectionalAction($0,direction,selected,editingScope) }
             if value == nil {
                 Text("Left: \(settings.left.movement(selected).action(direction).title) · Right: \(settings.right.movement(selected).action(direction).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1200,5 +1192,112 @@ struct GestureRepeatIntervalField:View {
             .onChange(of:value) { value in if !focused { draft = String(Int(value)) } }
             .onChange(of:enabled) { enabled in if !enabled { focused = false; draft = String(Int(value)) } }
             .accessibilityLabel("Repeat interval in milliseconds")
+    }
+}
+
+/// Shared searchable chooser for keymap and gesture actions; recognition types
+/// remain independent. This only builds UI values, never input clients/output.
+struct SearchableActionGroup<Value:Hashable>:Identifiable {
+    let title:String
+    let actions:[Value]
+    var id:String { title }
+    static func filtered(_ groups:[Self],query:String,label:(Value)->String) -> [Self] {
+        let term = query.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !term.isEmpty else { return groups }
+        return groups.compactMap { group in
+            let matches = group.actions.filter { label($0).localizedCaseInsensitiveContains(term) }
+            return matches.isEmpty ? nil : Self(title:group.title,actions:matches)
+        }
+    }
+}
+struct SearchableActionSheet<Value:Hashable>:View {
+    let title:String
+    let groups:[SearchableActionGroup<Value>]
+    let selected:Value?
+    let label:(Value)->String
+    let choose:(Value)->Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+    @FocusState private var searchFocused:Bool
+    var body:some View {
+        let filtered = SearchableActionGroup.filtered(groups,query:searchText,label:label)
+        return VStack(alignment:.leading,spacing:12) {
+            HStack(alignment:.top,spacing:12) {
+                VStack(alignment:.leading,spacing:4) {
+                    Text(title).font(.headline)
+                    Text("Current: \(selected.map(label) ?? "Mixed")").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+            }
+            TextField("Filter actions",text:$searchText).textFieldStyle(.roundedBorder).focused($searchFocused)
+            if filtered.isEmpty {
+                VStack(spacing:8) {
+                    Image(systemName:"magnifyingglass").font(.system(size:18,weight:.semibold)).foregroundStyle(.secondary)
+                    Text("No matching actions").font(.headline)
+                    Text("Try a different search.").font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth:.infinity,maxHeight:.infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment:.leading,spacing:14) {
+                        ForEach(filtered) { group in
+                            VStack(alignment:.leading,spacing:6) {
+                                Text(group.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                VStack(alignment:.leading,spacing:4) {
+                                    ForEach(group.actions,id:\.self) { action in
+                                        Button { choose(action); dismiss() } label: {
+                                            HStack(spacing:8) {
+                                                Image(systemName:action == selected ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size:12,weight:.semibold))
+                                                    .foregroundStyle(action == selected ? Color.accentColor : Color.secondary)
+                                                Text(label(action)).frame(maxWidth:.infinity,alignment:.leading).multilineTextAlignment(.leading)
+                                            }
+                                            .padding(.horizontal,10).padding(.vertical,7)
+                                            .background(RoundedRectangle(cornerRadius:8).fill(action == selected ? Color.accentColor.opacity(0.12) : Color.clear))
+                                            .contentShape(Rectangle())
+                                        }.buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                    }.padding(.vertical,2)
+                }
+            }
+        }
+        .padding(16).frame(minWidth:460,idealWidth:540,minHeight:420,idealHeight:560)
+        .onAppear { searchFocused = true }
+    }
+}
+struct GestureActionChooser:View {
+    let value:GestureAction?
+    let actions:[GestureAction]
+    let choose:(GestureAction)->Void
+    @State private var showing = false
+    static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
+        let definitions:[(String,[GestureAction])] = [
+            ("General",[.disabled]),
+            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
+            ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
+            ("System",GestureAction.appleShortcuts),
+            ("Sound & Display",GestureAction.smallStepActions),
+            ("Application",[.openConfig])]
+        return definitions.compactMap { title, values in
+            let matches = values.filter { actions.contains($0) }
+            return matches.isEmpty ? nil : .init(title:title,actions:matches)
+        }
+    }
+    var body:some View {
+        HStack {
+            Text("Action")
+            Button { showing = true } label: {
+                HStack {
+                    Text(value?.title ?? "Mixed").frame(maxWidth:.infinity,alignment:.leading)
+                    Image(systemName:"chevron.up.chevron.down").font(.caption2)
+                }.frame(maxWidth:.infinity)
+            }.buttonStyle(.bordered).accessibilityLabel("Action, \(value?.title ?? "Mixed")")
+        }
+        .sheet(isPresented:$showing) {
+            SearchableActionSheet(title:"Gesture Action",groups:Self.groups(actions),selected:value,label:{$0.title},choose:choose)
+        }
     }
 }

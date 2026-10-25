@@ -8,7 +8,7 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 
 /// Inputs are recognized independently of the action assigned to them.
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
-    case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, thumbTwoTap
+    case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, fourFingerTap, fourCornersTap, thumbTwoTap
     case twoFingerPinch, threeFingerPinch, fourFingerPinch, fiveFingerPinch
     case twoFingerSpread, threeFingerSpread, fourFingerSpread, fiveFingerSpread
     case oneFingerForce, twoFingerForce, threeFingerForce, fourFingerForce, fiveFingerForce
@@ -35,11 +35,14 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .threeFingerMove: return "3-finger movement"
         case .threeFingerTap: return "3-finger tap"
         case .fourFingerMove: return "4-finger movement"
+        case .fourFingerTap: return "4-finger tap"
+        case .fourCornersTap: return "4 corners tap"
         case .thumbTwoTap: return "Spread thumb + 2 fingertips tap"
         default: return "Force click"
         }
     }
     var allowedActions: [GestureAction] {
+        if self == .fourCornersTap { return TwoHandGestureSettings.allowedActions }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if forceCount != nil { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.smallStepActions
@@ -109,6 +112,8 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var threeFingerMove: GestureAction = .primaryDrag, threeFingerTap: GestureAction = .primaryDoubleClick
     var fourFingerMove: GestureAction = .scroll, thumbTwoTap: GestureAction = .secondaryClick
     // Optional so old saved bindings decode without discarding customized actions.
+    var fourFingerTap:GestureAction?
+    var fourCornersTap:GestureAction?
     var forceActions: [String: GestureAction]?
     var twoFingerPinch: GestureAction?
     var pinchActions: [String:GestureAction]?
@@ -116,6 +121,8 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             switch trigger {
+            case .fourFingerTap:return fourFingerTap ?? .disabled
+            case .fourCornersTap:return fourCornersTap ?? .disabled
             case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
                 return spreadActions?[trigger.rawValue] ?? self[GestureTrigger.pinch(count:trigger.pinchCount!)!]
             case .twoFingerPinch: return twoFingerPinch ?? .zoom
@@ -131,6 +138,8 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
                 spreadActions = Dictionary(uniqueKeysWithValues:GestureTrigger.spreadTriggers.map { ($0.rawValue,self[$0]) })
             }
             switch trigger {
+            case .fourFingerTap:fourFingerTap = newValue
+            case .fourCornersTap:fourCornersTap = newValue
             case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
                 spreadActions?[trigger.rawValue] = newValue
             case .twoFingerPinch: twoFingerPinch = newValue
@@ -228,24 +237,32 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     static func moveTrigger(count:Int) -> GestureTrigger? {
         switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; default:return nil }
     }
-    func holdAvailable(count:Int) -> Bool { (1...5).contains(count) }
+    static let thumbHoldKey = 6, cornersHoldKey = 7
+    static func holdActions(for key:Int) -> [GestureAction] { key == cornersHoldKey ? TwoHandGestureSettings.allowedActions : holdAllowedActions }
+    func holdAvailable(count:Int) -> Bool { (1...7).contains(count) }
     func holdAction(count:Int) -> GestureAction {
-        let action = holdActions?[String(count)] ?? .disabled
-        return Self.holdAllowedActions.contains(action) ? action : .disabled
+        let action = holdActions?[String(count)] ?? (count == Self.cornersHoldKey ? .openConfig : .disabled)
+        return Self.holdActions(for:count).contains(action) ? action : .disabled
     }
     mutating func setHoldAction(_ action:GestureAction,count:Int) {
-        guard (1...5).contains(count), Self.holdAllowedActions.contains(action) else { return }
+        guard holdAvailable(count:count), Self.holdActions(for:count).contains(action) else { return }
         if holdActions == nil { holdActions = [:] }
         holdActions?[String(count)] = action
     }
     var liveHoldActions:[Int:GestureAction] {
-        Dictionary(uniqueKeysWithValues:(1...5).compactMap { count in
+        Dictionary(uniqueKeysWithValues:(1...6).compactMap { count in
             let action = holdAction(count:count)
             return holdAvailable(count:count) && action != .disabled ? (count,action) : nil
         })
     }
     // Decode/round-trip prior experimental settings only. Live feedback uses .fixed.
     var forceHaptic: ForceClickHapticSettings?
+    var singlePadCorners:TwoHandGestureSettings {
+        var value = TwoHandGestureSettings()
+        value.setAction(bindings.action(for:.fourCornersTap),for:.init(chord:.fourCorners,phase:.tap))
+        value.setAction(holdAction(count:Self.cornersHoldKey),for:.init(chord:.fourCorners,phase:.hold))
+        return value
+    }
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
     subscript(trigger: GestureTrigger) -> Bool {
         get { bindings.action(for:trigger) != .disabled }

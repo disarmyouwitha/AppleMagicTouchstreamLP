@@ -5,13 +5,18 @@
 2. Maybe we should move Hold to the left of "Down" Directional?
 3. Can we add a new per-pad gesture under "4 Fingers" called "4 Corners" that works the same way as the "Both" Gesture of the same name, except all on 1 pad!
 4. I want to use the fancy Dropdown / Picker from "Keymap Tuning" Primary Action where you can search!
+===
+0. 1 Finger Hold should be disabled, "No seperate gesture is available for this."
+1. Can we clean up the GUI page headers a bit? I left notes in this image @GUI_CLEANUP
+---
 0. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 00. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
 0. Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
 ===
 1. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 2. Pinch,Spread, and ROTATE baby: Rotation gestures next!
-3. After we get the GUI set up: Merge/Cleanup Action menus (They are all different)
+3. It looks like we have most gestures in to cover all of the touchstream stuff.. Can you add each of the Actions you find on the TouchStream QuickStart guide?
+4. After we get the GUI set up: Merge/Cleanup Action menus (They are all different)
 ===
 * Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
 

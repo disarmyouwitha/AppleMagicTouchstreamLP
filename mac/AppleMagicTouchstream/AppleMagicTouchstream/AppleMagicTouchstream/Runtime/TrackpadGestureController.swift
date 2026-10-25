@@ -55,11 +55,11 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func setHoldAction(_ action:GestureAction,count:Int,scope:GestureHandScope) {
-        guard PerHandGestureSettings.holdAllowedActions.contains(action), settings.holdAvailable(count:count,in:scope) else { return }
+        guard PerHandGestureSettings.holdActions(for:count).contains(action), settings.holdAvailable(count:count,in:scope) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.setHoldAction(action,count:count,in:scope)
         settings.save(to:.standard)
-        if action != .disabled && !AXIsProcessTrusted() {
+        if action != .disabled && action != .openConfig && !AXIsProcessTrusted() {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
         }
         configure()
@@ -68,12 +68,13 @@ final class TrackpadGestureController: ObservableObject {
         guard settings.holdAvailable(count:count,in:scope) else {
             return "Unsupported contact count."
         }
-        if settings.holdAction(count:count,in:scope) == .disabled { return "Hold still for 0.5 seconds. Fires once until all-up." }
+        let timing = count == PerHandGestureSettings.cornersHoldKey ? "Hold all four corners for 1 second. Fires once until all-up." : "Hold still for 0.5 seconds. Fires once until all-up."
+        if settings.holdAction(count:count,in:scope) == .disabled { return timing }
         if !takeoverEnabled { return "Enable Trackpad Takeover." }
-        if !AXIsProcessTrusted() { return "Accessibility permission required." }
+        if settings.holdAction(count:count,in:scope) != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
         let ids = scope == .left ? [pads.left] : scope == .right ? [pads.right] : [pads.left,pads.right]
         if !armed || ids.contains(where: { $0 == nil || !owned.contains($0!) }) { return "Waiting for takeover on the selected trackpad(s)." }
-        return "Hold still for 0.5 seconds. Fires once until all-up."
+        return timing
     }
 
     func setMovementMode(_ mode:GestureMovementMode,for trigger:GestureTrigger,scope:GestureHandScope) {
@@ -171,7 +172,7 @@ final class TrackpadGestureController: ObservableObject {
             let action = settings.action(trigger, in: side) ?? .disabled
             guard directional || action != .disabled else { return "None" }
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
-            guard AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
+            guard action == .openConfig || AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
             guard takeoverEnabled, armed, owned.contains(id) else { return "Waiting for Trackpad Takeover." }
             if directional {
                 let config = side == .left ? settings.left.movement(trigger) : settings.right.movement(trigger)
@@ -218,7 +219,7 @@ final class TrackpadGestureController: ObservableObject {
         }
         let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
         let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
-        let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
+        let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap), quad = devicesFor(.fourFingerTap)
         let directionalBindings = routed.mapValues(\.liveDirectionalBindings).filter { !$0.value.isEmpty }
         let configuredScrollProfiles = Dictionary(uniqueKeysWithValues:scrollProfiles.map { id, profile in
             (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling))
@@ -226,7 +227,7 @@ final class TrackpadGestureController: ObservableObject {
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
-            twoFingerTapDevices: tap, pinchDevices:pinch,
+            twoFingerTapDevices: tap, fourFingerTapDevices:quad, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
             bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, appleShortcuts:shortcuts)
@@ -236,9 +237,10 @@ final class TrackpadGestureController: ObservableObject {
         output.configureTwoHand(pads:pads,settings:settings.twoHand,
             eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),
             trusted:AXIsProcessTrusted())
-        output.enable(devices: all.union(eligible)) // Force click needs no acceleration profile.
         let keyboardPads = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: true, selected: Set(routed.keys), owned: owned)
+        output.configureCorners(settings:routed.mapValues(\.singlePadCorners),eligible:keyboardPads)
+        output.enable(devices: all.union(eligible)) // Force click / discrete actions need no acceleration profile.
         output.configureKeyboardReservations(devices: keyboardPads)
         statusRevision &+= 1
     }

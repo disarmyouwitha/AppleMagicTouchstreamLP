@@ -58,10 +58,10 @@ struct ForceClickRecognizer {
 struct TwoFingerTapRecognizer {
     static let maximumDuration = 0.5
     private let requiredCount: Int
-    init(requiredCount: Int = 2) { precondition(requiredCount == 2 || requiredCount == 3); self.requiredCount = requiredCount }
+    init(requiredCount: Int = 2) { precondition((2...4).contains(requiredCount)); self.requiredCount = requiredCount }
     private struct Finger { let id: Int32; let x: Double; let y: Double }
     private struct Session {
-        var first: Finger?, second: Finger?, third: Finger?
+        var first: Finger?, second: Finger?, third: Finger?, fourth: Finger?
         var started = 0.0, lastTime = 0.0
         var paired: Double?, lifting: Double?
         var blocked = false
@@ -103,6 +103,7 @@ struct TwoFingerTapRecognizer {
             if let first = session.first, first.id == touch.id { original = first }
             else if let second = session.second, second.id == touch.id { original = second }
             else if let third = session.third, third.id == touch.id { original = third }
+            else if let fourth = session.fourth, fourth.id == touch.id { original = fourth }
             else {
                 guard session.paired == nil, time-session.started <= 0.08 else {
                     cancel(device:device); return false
@@ -110,7 +111,8 @@ struct TwoFingerTapRecognizer {
                 let finger = Finger(id:touch.id,x:Double(touch.posX),y:Double(touch.posY))
                 if session.first == nil { session.first = finger }
                 else if session.second == nil { session.second = finger }
-                else if requiredCount == 3 && session.third == nil { session.third = finger }
+                else if requiredCount >= 3 && session.third == nil { session.third = finger }
+                else if requiredCount == 4 && session.fourth == nil { session.fourth = finger }
                 else { cancel(device:device); return false }
                 original = finger
             }

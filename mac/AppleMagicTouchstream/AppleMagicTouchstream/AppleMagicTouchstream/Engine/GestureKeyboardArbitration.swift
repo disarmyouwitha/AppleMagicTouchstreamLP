@@ -16,7 +16,7 @@ struct GestureKeyboardArbitration {
         case 1: candidate = false
         case 2: candidate = enabled(.twoFingerMove) || enabled(.twoFingerTap) || enabled(.twoFingerPinch) || enabled(.twoFingerSpread)
         case 3: candidate = enabled(.threeFingerMove) || enabled(.threeFingerTap) || enabled(.thumbTwoTap) || enabled(.threeFingerPinch) || enabled(.threeFingerSpread)
-        case 4: candidate = enabled(.fourFingerMove) || enabled(.fourFingerPinch) || enabled(.fourFingerSpread)
+        case 4: candidate = enabled(.fourFingerTap) || enabled(.fourFingerMove) || enabled(.fourFingerPinch) || enabled(.fourFingerSpread)
         case 5: candidate = enabled(.fiveFingerPinch) || enabled(.fiveFingerSpread)
         default: candidate = false
         }

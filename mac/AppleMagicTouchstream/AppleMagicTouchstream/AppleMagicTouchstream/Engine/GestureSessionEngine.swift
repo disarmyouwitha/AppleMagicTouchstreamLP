@@ -390,7 +390,8 @@ struct GestureHoldRecognizer {
     private struct Session {
         var baseline = GestureContactMotionTracker.Baseline(time:0)
         var first = 0.0, started = 0.0, receipt = 0.0
-        var blocked = false, fired = false
+        var blocked = false, fired = false, sawThumb = false
+        var key:Int?
     }
     private var sessions:[UInt64:Session] = Dictionary(minimumCapacity:2)
     func claimed(device:UInt64) -> Bool { sessions[device]?.fired == true }
@@ -437,10 +438,16 @@ struct GestureHoldRecognizer {
             }
             session.baseline = next; session.started = now
         }
+        if next.count == 3 {
+            session.sawThumb = session.sawThumb || contacts.contains { ($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID == 1 }
+            if session.key != PerHandGestureSettings.thumbHoldKey {
+                session.key = ThumbTwoHoldChord.matches(contacts) ? PerHandGestureSettings.thumbHoldKey : session.sawThumb ? nil : 3
+            }
+        } else { session.key = next.count; session.sawThumb = false }
         // Preserve original positions for displacement, update only the frame clock.
         session.baseline.time = time; session.receipt = now
-        if actions[next.count] != nil && now-session.started >= Self.duration {
-            session.fired = true; return next.count
+        if let key = session.key, actions[key] != nil && now-session.started >= Self.duration {
+            session.fired = true; return key
         }
         return nil
     }
@@ -450,8 +457,104 @@ struct GestureHoldRecognizer {
         guard now.isFinite, now >= session.receipt, now-session.receipt <= 0.2 else {
             session.blocked = true; return nil
         }
-        let count = session.baseline.count
-        guard actions[count] != nil, now-session.started >= Self.duration else { return nil }
-        session.fired = true; return count
+        guard let key = session.key, actions[key] != nil, now-session.started >= Self.duration else { return nil }
+        session.fired = true; return key
+    }
+}
+
+/// Shared spread-thumb geometry for the dedicated Thumb+2 Hold input.
+enum ThumbTwoHoldChord {
+    static func matches<C:Collection>(_ contacts:C) -> Bool where C.Element == OMSRawTouch {
+        var count = 0, mask = 0, points = SIMD8<Double>(repeating:0)
+        var hand:Int32 = 0
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            count += 1
+            guard touch.posX.isFinite, touch.posY.isFinite else { return false }
+            let finger = touch.telemetry?.fingerID ?? 0
+            let slot:Int
+            switch finger { case 1:slot = 0; case 2...5:slot = mask & 2 == 0 ? 1 : 2; default:return false }
+            guard mask & (1 << slot) == 0 else { return false }
+            mask |= 1 << slot
+            points[slot*2] = Double(touch.posX)*160; points[slot*2+1] = Double(touch.posY)*114.9
+            let next = touch.telemetry?.handID ?? 0
+            if next != 0 { if hand != 0 && hand != next { return false }; hand = next }
+        }
+        guard count == 3, mask == 7 else { return false }
+        let pair = hypot(points[2]-points[4],points[3]-points[5])
+        let near = min(hypot(points[0]-points[2],points[1]-points[3]),hypot(points[0]-points[4],points[1]-points[5]))
+        return pair >= 2 && pair <= 40 && near >= 15 && near >= pair*1.5
+    }
+}
+
+/// Single-frame corner chord using Both's geometry, timing and freshness rules.
+/// Every contact is validated atomically; partial lifts remain reserved until all-up.
+struct SinglePadCornersEngine {
+    private struct Session {
+        var anchor:GestureContactMotionTracker.Baseline
+        var start:Double, receipt:Double
+        var count = 4
+        var firstLift:Double?
+        var valid = true, held = false
+    }
+    private var session:Session?
+    var ownsCycle:Bool { session != nil }
+    mutating func reset() { session = nil }
+    static func matches<C:Collection>(_ contacts:C) -> Bool where C.Element == OMSRawTouch {
+        var count = 0, mask = 0, ids = SIMD4<Int32>(repeating:0)
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard count < 4, touch.posX.isFinite, touch.posY.isFinite, touch.telemetry?.fingerID != 6,
+                  touch.posX >= 0, touch.posX <= 1, touch.posY >= 0, touch.posY <= 1 else { return false }
+            for i in 0..<count where ids[i] == touch.id { return false }
+            ids[count] = touch.id; count += 1
+            let column = touch.posX <= 0.2 ? 0 : touch.posX >= 0.8 ? 1 : -1
+            let row = touch.posY <= 0.2 ? 0 : touch.posY >= 0.8 ? 1 : -1
+            guard column >= 0, row >= 0 else { return false }
+            let bit = 1 << (column*2+row)
+            guard mask & bit == 0 else { return false }; mask |= bit
+        }
+        return count == 4 && mask == 15
+    }
+    mutating func process<C:Collection>(now:Double,contacts:C,settings:TwoHandGestureSettings) -> TwoHandGestureEngine.Decision where C.Element == OMSRawTouch {
+        var frame = GestureContactMotionTracker.Baseline(time:now)
+        var invalid = !now.isFinite
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard frame.count < 16 else { invalid = true; continue }
+            invalid = invalid || !touch.posX.isFinite || !touch.posY.isFinite || touch.telemetry?.fingerID == 6
+                || touch.posX < 0 || touch.posX > 1 || touch.posY < 0 || touch.posY > 1
+            for i in 0..<frame.count where frame.ids[i] == touch.id { invalid = true }
+            frame.ids[frame.count] = touch.id; frame.x[frame.count] = Double(touch.posX); frame.y[frame.count] = Double(touch.posY)
+            frame.count += 1
+        }
+        guard var current = session else {
+            guard settings.enabled(.fourCorners), !invalid, Self.matches(contacts) else { return .init() }
+            session = Session(anchor:frame,start:now,receipt:now)
+            return .init(reserved:true,began:true)
+        }
+        if invalid || now < current.receipt || now-current.receipt > TwoHandGestureEngine.staleWindow { current.valid = false }
+        for i in 0..<frame.count {
+            guard let j = (0..<4).first(where:{current.anchor.ids[$0] == frame.ids[i]}) else { current.valid = false; continue }
+            if hypot((frame.x[i]-current.anchor.x[j])*160,(frame.y[i]-current.anchor.y[j])*114.9) > TwoHandGestureEngine.movementSlopMM { current.valid = false }
+        }
+        if current.firstLift != nil && frame.count > current.count { current.valid = false }
+        if frame.count < 4 && current.firstLift == nil { current.firstLift = now }
+        current.count = frame.count; current.receipt = now
+        if frame.count == 0 {
+            session = nil
+            let tap = TwoHandTrigger(chord:.fourCorners,phase:.tap)
+            let accepted = current.valid && !current.held && now-current.start >= 0.02 && now-current.start <= TwoHandGestureEngine.tapWindow
+                && now-(current.firstLift ?? now) <= TwoHandGestureEngine.joinWindow && settings.action(tap) != .disabled
+            return .init(reserved:true,trigger:accepted ? tap : nil)
+        }
+        session = current
+        return .init(reserved:true,trigger:advance(now:now,settings:settings))
+    }
+    mutating func advance(now:Double,settings:TwoHandGestureSettings) -> TwoHandTrigger? {
+        guard var current = session else { return nil }
+        if !now.isFinite || now < current.receipt || now-current.receipt > TwoHandGestureEngine.staleWindow { current.valid = false }
+        defer { session = current }
+        guard current.valid, !current.held, current.firstLift == nil, now-current.start >= TwoHandChord.fourCorners.holdDuration else { return nil }
+        current.held = true
+        let hold = TwoHandTrigger(chord:.fourCorners,phase:.hold)
+        return settings.action(hold) != .disabled ? hold : nil
     }
 }
