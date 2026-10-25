@@ -2648,8 +2648,12 @@ enum KeyActionCatalog {
                        volumeDownSmallLabel, brightnessUpLabel, brightnessDownLabel,
                        brightnessUpSmallLabel, brightnessDownSmallLabel,
                        brightnessScriptUpLabel, brightnessScriptDownLabel]
-        if removed.contains(label.trimmingCharacters(in: .whitespacesAndNewlines)) || AppLaunchActionHelper.parse(label) != nil { return nil }
+        if removed.contains(label.trimmingCharacters(in: .whitespacesAndNewlines)) { return nil }
 
+
+        if let spec = AppLaunchActionHelper.parse(label) {
+            return appLaunchAction(fileName: spec.fileName, arguments: spec.arguments)
+        }
 
         let sidedModifier = label.contains(" ") && (ShortcutModifier.parse(label).map { $0.variant != .generic } ?? false)
         if (label.contains("+") || sidedModifier),

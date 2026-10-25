@@ -2164,8 +2164,16 @@ final class TouchProcessorEngine: @unchecked Sendable {
         holdForceThreshold: Float = 0
     ) -> KeyBinding? {
         switch action.kind {
-        case .typingToggle, .chordalShift, .appLaunch, .voice, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
+        case .typingToggle, .chordalShift, .voice, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
             return nil
+        case .appLaunch:
+            guard AppLaunchActionHelper.parse(action.label) != nil else { return nil }
+            return KeyBinding(
+                rect: rect, normalizedRect: normalizedRect, canvasSize: canvasSize,
+                label: action.label, action: .appLaunch(action.label), position: position,
+                customButtonID: customButtonID, side: side, holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
+            )
         case .key:
             let flags = CGEventFlags(rawValue: action.flags)
             return KeyBinding(
@@ -2992,7 +3000,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
-        case .appLaunch, .chordalShift, .typingToggle, .volumeUpSmall, .volumeDownSmall,
+        case let .appLaunch(label):
+            dispatchService.postAppLaunch(label, sourceSequence: currentDispatchSourceSequence())
+        case .chordalShift, .typingToggle, .volumeUpSmall, .volumeDownSmall,
              .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .voice, .gestureTwoFingerTap, .gestureThreeFingerTap,
              .gestureFourFingerHold, .gestureInnerCornersHold,
              .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:

@@ -774,7 +774,7 @@ final class ProductionEngineTests: XCTestCase {
     }
 
     func testImportedGTKActionKindsCannotDispatchThroughKeysOrCustomButtons() async throws {
-        let removed: [KeyActionKind] = [.appLaunch, .voice, .typingToggle,
+        let removed: [KeyActionKind] = [.voice, .typingToggle,
             .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
             .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight,
             .volumeUpSmall, .volumeDownSmall, .brightnessUp, .brightnessDown,
@@ -810,7 +810,7 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertNil(KeyActionCatalog.action(for: "TT"))
         XCTAssertNil(KeyActionCatalog.action(for: "VOICE"))
         let app = AppLaunchActionHelper.createActionLabel(fileName: "/Applications/Calculator.app")!
-        XCTAssertNil(KeyActionCatalog.action(for: app))
+        XCTAssertEqual(KeyActionCatalog.action(for: app)?.kind, .appLaunch)
     }
 
 }
@@ -999,6 +999,65 @@ extension ProductionEngineTests {
             let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
             let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
             XCTAssertEqual(imported.runAtStartupEnabled,enabled)
+        }
+    }
+}
+
+
+extension ProductionEngineTests {
+    func testAppTargetsRoundTripInMappingsAndShortcutLibrary() throws {
+        for target in ["/Applications/Calculator.app", "/tmp/A folder/notes.txt", "https://example.com/path?q=a%20b"] {
+            let action = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:target,arguments:"--example \"two words\""))
+            XCTAssertEqual(KeyActionCatalog.action(for:action.label),action)
+            let mapping = KeyMapping(primary:action,hold:action)
+            let decoded = try JSONDecoder().decode(KeyMapping.self,from:JSONEncoder().encode(mapping))
+            XCTAssertEqual(decoded.primary,action)
+            XCTAssertEqual(decoded.hold,action)
+            let encoded = try XCTUnwrap(ShortcutActionLibraryStorage.encode([action.label]))
+            XCTAssertEqual(ShortcutActionLibraryStorage.decode(from:encoded),[action.label])
+            XCTAssertEqual(KeyActionCatalog.appLaunchSpec(for:action)?.fileName,target)
+            let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+            object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[position:mapping]]]))
+            object["shortcutActions"] = [action.label]
+            let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+            let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.primary,action)
+            XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.hold,action)
+            XCTAssertEqual(imported.shortcutActions,[action.label])
+        }
+        XCTAssertNil(KeyActionCatalog.appLaunchAction(fileName:"  "))
+    }
+
+    func testAppTargetDispatchesOnceFromPrimaryHoldAndCustomButtonWithoutOpening() throws {
+        let action = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app"))
+        for source in ["primary", "hold", "custom"] {
+            let run = session(allowHold:true)
+            let key = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            if source == "custom" {
+                run.engine.updateCustomButtons([CustomButton(id:UUID(),side:.left,
+                    rect:NormalizedRect(x:0.65,y:0.7,width:0.3,height:0.2),action:action,hold:nil)])
+            } else {
+                run.engine.updateKeyMappings([0:[key:KeyMapping(
+                    primary:source == "hold" ? KeyActionCatalog.noneAction : action,
+                    hold:source == "hold" ? action : nil)]])
+            }
+            func touch(_ state:OMSState) -> OMSRawTouch {
+                if source != "custom" { return contact(state:state) }
+                return OMSRawTouch(id:1,posX:0.8,posY:0.2,total:1,pressure:100,
+                    majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+            }
+            frame(run,1,[touch(.making)])
+            frame(run,1.6,[touch(.touching)])
+            frame(run,1.7,[touch(.breaking)])
+            frame(run,1.8,[])
+            run.finish(at:2)
+            let launches = run.output.events.filter {
+                if case .appLaunch(action.label) = $0.kind { return true }
+                return false
+            }
+            XCTAssertEqual(launches.count,1,"App target did not fire once from \(source): \(run.output.events)")
+            XCTAssertTrue(keys(run).isEmpty)
         }
     }
 }

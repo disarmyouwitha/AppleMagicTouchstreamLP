@@ -56,7 +56,9 @@ Preserve key/modifier/shortcut output, Hyper, layers, key holds/repeat, capture/
 TouchStream reference and stable key identities. Unreserved contacts default to
 keyboard input. Do not introduce global Force Min/Max or motion-to-typing cancellation.
 Keep per-key Force instead of hold. Unassigned holds stay None, without catalog fallback.
-Unsupported legacy action kinds stay inert through primary/hold/custom-button paths.
+App/file/folder/URL actions use the shared catalog and dispatch queue, fire once,
+and remain recording-only in replay. Other unsupported legacy action kinds stay
+inert through primary/hold/custom-button paths.
 Preserve existing serialized keys/enums, old capture parsing and preference migration.
 
 Import/Export Settings include independent per-hand and Both gestures, direction

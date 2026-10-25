@@ -2312,7 +2312,9 @@ struct ContentView: View {
             )
         }
 
-        private var builtAppLaunchAction: KeyAction? { nil }
+        private var builtAppLaunchAction: KeyAction? {
+            KeyActionCatalog.appLaunchAction(fileName: appLaunchTarget, arguments: appLaunchArguments)
+        }
 
         private var builtAction: KeyAction? {
             builtAppLaunchAction ?? builtShortcutAction
@@ -2542,6 +2544,20 @@ struct ContentView: View {
                         .disabled(!canEditActionBuilder || builtAction == nil)
                     }
 
+                    HStack(spacing: 8) {
+                        Text("App")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(!canEditActionBuilder)
+                        Button("Browse") {
+                            browseForAppTarget()
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(width: shortcutBuilderActionButtonWidth)
+                        .disabled(!canEditActionBuilder)
+                    }
                     Text(actionBuilderPreview)
                         .font(.caption2)
                         .foregroundStyle(.secondary)

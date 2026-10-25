@@ -53,3 +53,8 @@ runs offline native ownership checks and Swift tests without accessing live inpu
 Normal delivery is a signed universal Release app installed in Applications, left
 closed for hardware testing. Generate a DMG when requested. See [macOS commands](../README.md)
 and [bundle identity](../BUNDLE_IDENTITIES.md).
+
+Shortcut Builder supports modifier-only shortcuts and App targets (applications,
+files, folders, or URLs). Browse or enter a target, then Apply it to Primary/Hold,
+or save it to the Dropdown library. App targets open once when triggered and are
+included in Import/Export Settings. Replay records them without opening anything.
