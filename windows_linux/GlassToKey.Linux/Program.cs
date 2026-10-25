@@ -110,7 +110,7 @@ internal static class Program
 
         if (string.Equals(args[0], "selftest", StringComparison.OrdinalIgnoreCase))
         {
-            return RunSelfTest();
+            return RunSelfTest(args.Contains("--hyper", StringComparer.OrdinalIgnoreCase));
         }
 
         if (string.Equals(args[0], "capture-atpcap", StringComparison.OrdinalIgnoreCase))
@@ -818,9 +818,9 @@ internal static class Program
         return 0;
     }
 
-    private static int RunSelfTest()
+    private static int RunSelfTest(bool hyperOnly = false)
     {
-        LinuxSelfTestResult result = LinuxSelfTestRunner.Run();
+        LinuxSelfTestResult result = hyperOnly ? LinuxSelfTestRunner.RunHyperModifiers() : LinuxSelfTestRunner.Run();
         if (result.Success)
         {
             Console.WriteLine(result.Message);

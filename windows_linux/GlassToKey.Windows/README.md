@@ -2,14 +2,19 @@
 GlassToKey for Windows.
 
 ## Usage
-A status bar indicator shows the active mode:
-- **Green**: Mixed mode (typing + mouse intent)
-- **Purple**: Keyboard mode (full keyboard, no mouse intent)
-- **Red**: Mouse-only mode (typing disabled)
+The tray and application use the Mac hand silhouette in black. Keyboard typing stays available; configured multi-finger gestures reserve their contact cycles. The former Keyboard/Mouse mode and colored mode indicators are removed. Old mode settings and typing-toggle bindings cannot switch Windows into mouse-only or keyboard-only operation. See [Windows input policy](WINDOWS_INPUT_POLICY.md).
 
-Right-clicking the indicator opens tray actions: `Config...`, separator, `Capture`, `Replay`, separator, `Restart`, and `Exit`.
+Right-clicking the indicator opens `Config...`, `Release Mouse Takeover (Ctrl+Alt+R)`, `Capture`, `Replay`, `Restart`, and `Exit`.
 
-By default, GlassToKey opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Mode Toggles`.
+By default, GlassToKey opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Options`.
+
+### Configuration layout
+
+The left column contains device/decoder selectors, Mouse Takeover, the two trackpad views, and the typing test. The right column has **Keyboard** and **Gestures** tabs, matching the Mac inspector arrangement. Selecting a key or custom button opens its keyboard editor. **Hide Settings** expands the trackpad area; narrow windows can scroll the trackpad workspace. See [layout notes and previews](WINDOWS_UI_LAYOUT.md).
+
+### Mouse Takeover
+
+Below the decoder selectors, enable **Mouse Takeover** for this session or use **30sec test**. It blocks physical movement, clicks, and wheel events from all mice while injected GlassToKey output passes. **Ctrl+Alt+R** releases globally; the checkbox/status and tray indicator update together. It defaults off at startup. Windows shell gestures may need separate settings. See [Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).
 
 ### Pin Tray Icon
 - Windows 11:
@@ -31,13 +36,11 @@ By default, GlassToKey opens the config window on launch. To start tray-only (ta
 - Force Max (0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Max]` (inclusive).
   - Setting `Force Max` to `0` blocks all key dispatches.
-- Gesture Tuning: 5-finger swipe L/R/U/D, 3-finger swipe L/R/U/D, 4-finger swipe L/R/U/D, 2-finger hold, 3-finger hold, 4-finger hold, and outer/inner corner holds can each be mapped to any action.
-  - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
+- Gestures: grouped per-hand tap/movement, 1–5-finger force click and independent 2–5-finger pinch/spread with Zoom or Windows system actions. See [the latest Mac gesture port](WINDOWS_MAC_GESTURE_PORT.md) for input requirements and live checks. Existing two-finger pointer/tap, three-finger row drag/tap and four-finger scroll/pan with momentum remain available. Movement/tap actions are configurable; pointer/drag use Apple reference acceleration, sensitivity uses sliders, and Natural scrolling switches direction. Output requires Mouse Takeover. See [Windows gesture engine](WINDOWS_GESTURE_ENGINE.md) for defaults, platform differences, and the hardware check.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
-- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, click suppression is scoped to selected Apple Magic Trackpad click edges (except inside the GlassToKey config window) so non-trackpad mice are not blocked. Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
-GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
+GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The internal diagnostic states use these labels (the old intent/mode badges are no longer displayed): `idle`, `cand`, `typing`, `mouse`, `gest`.
 
 - **Idle (`idle`)**: No active contacts. Any touch that begins on a key enters `keyCandidate`; otherwise it enters `mouseCandidate`.
 - **KeyCandidate (`cand`)**: A short buffer window (fixed at 20ms) watches for mouse-like motion. If the touch stays within thresholds, it becomes `typingCommitted`.

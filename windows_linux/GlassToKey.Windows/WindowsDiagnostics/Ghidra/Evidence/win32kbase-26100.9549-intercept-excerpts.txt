@@ -1,0 +1,848 @@
+Static research evidence; win32kbase.sys 10.0.26100.9549. See research report for hash/provenance.
+
+FUNCTION 1401d5f00 NtMITEnableMouseIntercept depth=0
+
+undefined8 NtMITEnableMouseIntercept(uint param_1)
+
+{
+  longlong *plVar1;
+  char cVar2;
+  longlong lVar3;
+  longlong lVar4;
+  undefined8 uVar5;
+  undefined8 uVar6;
+  
+                    /* 0x1d5f00  1922  NtMITEnableMouseIntercept */
+  lVar3 = W32GetUserSessionState();
+  lVar4 = UserCritInternal::`anonymous_namespace'::EnterCritInternal
+                    (lVar3,0,0,
+                     _<lambda_invoker_cdecl>_<lambda_63b61c2369133a205197eda5bd671ee7>__CAXPEAU_FAST_ERESOURCE__PEAU_W32THREADNONPAGED___Z
+                    );
+  uVar6 = 0;
+  *(longlong *)(lVar3 + 0x10) = lVar4;
+  if (lVar4 != 0) {
+    while (plVar1 = *(longlong **)(lVar3 + 0x51a0), plVar1 != (longlong *)0x0) {
+      *(longlong *)(lVar3 + 0x51a0) = plVar1[2];
+      plVar1[2] = 0;
+      if (*(int *)(*plVar1 + 8) == 0) {
+        MicrosoftTelemetryAssertTriggeredArgsKM("IXPTelAssert",0x20000,0x124b);
+      }
+      HMUnlockObject(*plVar1);
+    }
+    DestroyDeferredUnlockObjectAssignmentList(lVar3 + 0x51c0);
+    DestroyDeferredUnlockObjectAssignmentList(lVar3 + 0x51b0);
+  }
+  cVar2 = IsInputThread();
+  if (cVar2 == '\0') {
+    uVar5 = 5;
+  }
+  else if ((param_1 & 0xfffffffe) == 0) {
+    lVar3 = `anonymous_namespace'::GetMouseProcessor();
+    if ((lVar3 != 0) &&
+       (cVar2 = _Enable_MouseInterceptState_CMouseProcessor__QEAA_NW4_MOUSE_PREINTERCEPT_BEHAVIOR___Z
+                          (lVar3 + 0x1140,param_1), cVar2 != '\0')) {
+      uVar6 = 1;
+      goto LAB_1401d5ff4;
+    }
+    uVar5 = 0x139f;
+  }
+  else {
+    uVar5 = 0x57;
+  }
+  UserSetLastError(uVar5);
+LAB_1401d5ff4:
+  ReleaseUserCriticalSection();
+  return uVar6;
+}
+
+
+ASSEMBLY
+1401d5f00 MOV qword ptr [RSP + 0x8],RBX
+1401d5f05 MOV qword ptr [RSP + 0x18],RBP
+1401d5f0a MOV qword ptr [RSP + 0x20],RSI
+1401d5f0f PUSH RDI
+1401d5f10 SUB RSP,0x20
+1401d5f14 MOV EBP,ECX
+1401d5f16 CALL qword ptr [0x1402ce180]
+1401d5f1d NOP dword ptr [RAX + RAX*0x1]
+1401d5f22 LEA R9,[0x1401a13e0]
+1401d5f29 XOR R8D,R8D
+1401d5f2c MOV RCX,RAX
+1401d5f2f XOR EDX,EDX
+1401d5f31 MOV RSI,RAX
+1401d5f34 CALL 0x1401a1310
+1401d5f39 XOR EBX,EBX
+1401d5f3b MOV qword ptr [RSI + 0x10],RAX
+1401d5f3f TEST RAX,RAX
+1401d5f42 JZ 0x1401d5fa8
+1401d5f44 JMP 0x1401d5f84
+1401d5f46 MOV RAX,qword ptr [RDI + 0x10]
+1401d5f4a MOV qword ptr [RSI + 0x51a0],RAX
+1401d5f51 MOV RAX,qword ptr [RDI]
+1401d5f54 MOV qword ptr [RDI + 0x10],RBX
+1401d5f58 CMP dword ptr [RAX + 0x8],0x1
+1401d5f5c JNC 0x1401d5f7c
+1401d5f5e MOV dword ptr [RSP + 0x38],0x20000
+1401d5f66 LEA RCX,[0x14026db60]
+1401d5f6d MOV EDX,dword ptr [RSP + 0x38]
+1401d5f71 MOV R8D,0x124b
+1401d5f77 CALL 0x1401a6d10
+1401d5f7c MOV RCX,qword ptr [RDI]
+1401d5f7f CALL 0x1400632d0
+1401d5f84 MOV RDI,qword ptr [RSI + 0x51a0]
+1401d5f8b TEST RDI,RDI
+1401d5f8e JNZ 0x1401d5f46
+1401d5f90 LEA RCX,[RSI + 0x51c0]
+1401d5f97 CALL 0x14001fdb0
+1401d5f9c LEA RCX,[RSI + 0x51b0]
+1401d5fa3 CALL 0x14001fdb0
+1401d5fa8 CALL 0x1400d6880
+1401d5fad TEST AL,AL
+1401d5faf JNZ 0x1401d5fb8
+1401d5fb1 MOV ECX,0x5
+1401d5fb6 JMP 0x1401d5fef
+1401d5fb8 TEST EBP,0xfffffffe
+1401d5fbe JZ 0x1401d5fc7
+1401d5fc0 MOV ECX,0x57
+1401d5fc5 JMP 0x1401d5fef
+1401d5fc7 CALL 0x140060170
+1401d5fcc TEST RAX,RAX
+1401d5fcf JZ 0x1401d5fea
+1401d5fd1 LEA RCX,[RAX + 0x1140]
+1401d5fd8 MOV EDX,EBP
+1401d5fda CALL 0x14022b694
+1401d5fdf TEST AL,AL
+1401d5fe1 JZ 0x1401d5fea
+1401d5fe3 MOV EBX,0x1
+1401d5fe8 JMP 0x1401d5ff4
+1401d5fea MOV ECX,0x139f
+1401d5fef CALL 0x140061784
+1401d5ff4 CALL 0x14003d3a0
+1401d5ff9 MOV RBP,qword ptr [RSP + 0x40]
+1401d5ffe MOV RSI,qword ptr [RSP + 0x48]
+1401d6003 MOV EAX,EBX
+1401d6005 MOV RBX,qword ptr [RSP + 0x30]
+1401d600a ADD RSP,0x20
+1401d600e POP RDI
+1401d600f RET
+
+FUNCTION 1401d5e00 NtMITDisableMouseIntercept depth=0
+
+undefined8 NtMITDisableMouseIntercept(void)
+
+{
+  longlong *plVar1;
+  char cVar2;
+  longlong lVar3;
+  longlong lVar4;
+  undefined8 uVar5;
+  undefined8 uVar6;
+  
+                    /* 0x1d5e00  1920  NtMITDisableMouseIntercept */
+  lVar3 = W32GetUserSessionState();
+  lVar4 = UserCritInternal::`anonymous_namespace'::EnterCritInternal
+                    (lVar3,0,0,
+                     _<lambda_invoker_cdecl>_<lambda_63b61c2369133a205197eda5bd671ee7>__CAXPEAU_FAST_ERESOURCE__PEAU_W32THREADNONPAGED___Z
+                    );
+  uVar6 = 0;
+  *(longlong *)(lVar3 + 0x10) = lVar4;
+  if (lVar4 != 0) {
+    while (plVar1 = *(longlong **)(lVar3 + 0x51a0), plVar1 != (longlong *)0x0) {
+      *(longlong *)(lVar3 + 0x51a0) = plVar1[2];
+      plVar1[2] = 0;
+      if (*(int *)(*plVar1 + 8) == 0) {
+        MicrosoftTelemetryAssertTriggeredArgsKM("IXPTelAssert",0x20000,0x124b);
+      }
+      HMUnlockObject(*plVar1);
+    }
+    DestroyDeferredUnlockObjectAssignmentList(lVar3 + 0x51c0);
+    DestroyDeferredUnlockObjectAssignmentList(lVar3 + 0x51b0);
+  }
+  cVar2 = IsInputThread();
+  if (cVar2 == '\0') {
+    uVar5 = 5;
+  }
+  else {
+    lVar3 = `anonymous_namespace'::GetMouseProcessor();
+    if ((lVar3 != 0) &&
+       (cVar2 = _Disable_MouseInterceptState_CMouseProcessor__QEAA_NW4DisableReason_12__Z
+                          (lVar3 + 0x1140), cVar2 != '\0')) {
+      uVar6 = 1;
+      goto LAB_1401d5edc;
+    }
+    uVar5 = 0x139f;
+  }
+  UserSetLastError(uVar5);
+LAB_1401d5edc:
+  ReleaseUserCriticalSection();
+  return uVar6;
+}
+
+
+ASSEMBLY
+1401d5e00 MOV qword ptr [RSP + 0x10],RBX
+1401d5e05 MOV qword ptr [RSP + 0x18],RSI
+1401d5e0a PUSH RDI
+1401d5e0b SUB RSP,0x20
+1401d5e0f CALL qword ptr [0x1402ce180]
+1401d5e16 NOP dword ptr [RAX + RAX*0x1]
+1401d5e1b LEA R9,[0x1401a13e0]
+1401d5e22 XOR R8D,R8D
+1401d5e25 MOV RCX,RAX
+1401d5e28 XOR EDX,EDX
+1401d5e2a MOV RSI,RAX
+1401d5e2d CALL 0x1401a1310
+1401d5e32 XOR EBX,EBX
+1401d5e34 MOV qword ptr [RSI + 0x10],RAX
+1401d5e38 TEST RAX,RAX
+1401d5e3b JZ 0x1401d5ea1
+1401d5e3d JMP 0x1401d5e7d
+1401d5e3f MOV RAX,qword ptr [RDI + 0x10]
+1401d5e43 MOV qword ptr [RSI + 0x51a0],RAX
+1401d5e4a MOV RAX,qword ptr [RDI]
+1401d5e4d MOV qword ptr [RDI + 0x10],RBX
+1401d5e51 CMP dword ptr [RAX + 0x8],0x1
+1401d5e55 JNC 0x1401d5e75
+1401d5e57 MOV dword ptr [RSP + 0x30],0x20000
+1401d5e5f LEA RCX,[0x14026db60]
+1401d5e66 MOV EDX,dword ptr [RSP + 0x30]
+1401d5e6a MOV R8D,0x124b
+1401d5e70 CALL 0x1401a6d10
+1401d5e75 MOV RCX,qword ptr [RDI]
+1401d5e78 CALL 0x1400632d0
+1401d5e7d MOV RDI,qword ptr [RSI + 0x51a0]
+1401d5e84 TEST RDI,RDI
+1401d5e87 JNZ 0x1401d5e3f
+1401d5e89 LEA RCX,[RSI + 0x51c0]
+1401d5e90 CALL 0x14001fdb0
+1401d5e95 LEA RCX,[RSI + 0x51b0]
+1401d5e9c CALL 0x14001fdb0
+1401d5ea1 CALL 0x1400d6880
+1401d5ea6 TEST AL,AL
+1401d5ea8 JNZ 0x1401d5eb1
+1401d5eaa MOV ECX,0x5
+1401d5eaf JMP 0x1401d5ed7
+1401d5eb1 CALL 0x140060170
+1401d5eb6 TEST RAX,RAX
+1401d5eb9 JZ 0x1401d5ed2
+1401d5ebb LEA RCX,[RAX + 0x1140]
+1401d5ec2 CALL 0x14022b620
+1401d5ec7 TEST AL,AL
+1401d5ec9 JZ 0x1401d5ed2
+1401d5ecb MOV EBX,0x1
+1401d5ed0 JMP 0x1401d5edc
+1401d5ed2 MOV ECX,0x139f
+1401d5ed7 CALL 0x140061784
+1401d5edc CALL 0x14003d3a0
+1401d5ee1 MOV RSI,qword ptr [RSP + 0x40]
+1401d5ee6 MOV EAX,EBX
+1401d5ee8 MOV RBX,qword ptr [RSP + 0x38]
+1401d5eed ADD RSP,0x20
+1401d5ef1 POP RDI
+1401d5ef2 RET
+
+FUNCTION 14022b694 ?Enable@MouseInterceptState@CMouseProcessor@@QEAA_NW4_MOUSE_PREINTERCEPT_BEHAVIOR@@@Z depth=0
+
+undefined1
+_Enable_MouseInterceptState_CMouseProcessor__QEAA_NW4_MOUSE_PREINTERCEPT_BEHAVIOR___Z
+          (longlong param_1,undefined4 param_2)
+
+{
+  undefined1 uVar1;
+  undefined8 uVar2;
+  char cVar3;
+  undefined4 uVar4;
+  
+  _W32AcquirePushLockExclusiveEx__YAXPEAVW32_PUSH_LOCK__K_Z(param_1,0);
+  cVar3 = IsInputThread();
+  if (cVar3 == '\0') {
+    MicrosoftTelemetryAssertTriggeredArgsKM("IXPTelAssert",0x20000,0x2385);
+  }
+  if (*(char *)(param_1 + 8) == '\0') {
+    if (*(int *)(param_1 + 0x18) != 0) {
+      MicrosoftTelemetryAssertTriggeredArgsKM("IXPTelAssert",0x20000,0x2389);
+    }
+    *(undefined1 *)(param_1 + 8) = 1;
+    *(undefined4 *)(param_1 + 0xc) = param_2;
+    uVar2 = ApiSetEdtionGetInputDesktopId();
+    *(undefined8 *)(param_1 + 0x10) = uVar2;
+    uVar4 = PsGetCurrentThreadId();
+    *(undefined4 *)(param_1 + 0x18) = uVar4;
+  }
+  uVar1 = *(undefined1 *)(param_1 + 8);
+  _W32ReleasePushLockExclusiveEx__YAXPEAVW32_PUSH_LOCK__K_Z(param_1,0);
+  return uVar1;
+}
+
+
+ASSEMBLY
+14022b694 MOV qword ptr [RSP + 0x10],RBX
+14022b699 MOV qword ptr [RSP + 0x18],RBP
+14022b69e MOV qword ptr [RSP + 0x20],RSI
+14022b6a3 PUSH RDI
+14022b6a4 SUB RSP,0x20
+14022b6a8 MOV EBX,EDX
+14022b6aa MOV RDI,RCX
+14022b6ad XOR EDX,EDX
+14022b6af CALL 0x1400d8664
+14022b6b4 CALL 0x1400d6880
+14022b6b9 XOR ESI,ESI
+14022b6bb TEST AL,AL
+14022b6bd JNZ 0x14022b6dd
+14022b6bf MOV dword ptr [RSP + 0x30],0x20000
+14022b6c7 LEA RCX,[0x14026db60]
+14022b6ce MOV EDX,dword ptr [RSP + 0x30]
+14022b6d2 MOV R8D,0x2385
+14022b6d8 CALL 0x1401a6d10
+14022b6dd CMP byte ptr [RDI + 0x8],SIL
+14022b6e1 JNZ 0x14022b725
+14022b6e3 CMP dword ptr [RDI + 0x18],ESI
+14022b6e6 JZ 0x14022b706
+14022b6e8 MOV dword ptr [RSP + 0x30],0x20000
+14022b6f0 LEA RCX,[0x14026db60]
+14022b6f7 MOV EDX,dword ptr [RSP + 0x30]
+14022b6fb MOV R8D,0x2389
+14022b701 CALL 0x1401a6d10
+14022b706 MOV byte ptr [RDI + 0x8],0x1
+14022b70a MOV dword ptr [RDI + 0xc],EBX
+14022b70d CALL 0x1402325b4
+14022b712 MOV qword ptr [RDI + 0x10],RAX
+14022b716 CALL qword ptr [0x1402ce430]
+14022b71d NOP dword ptr [RAX + RAX*0x1]
+14022b722 MOV dword ptr [RDI + 0x18],EAX
+14022b725 MOV BL,byte ptr [RDI + 0x8]
+14022b728 XOR EDX,EDX
+14022b72a MOV RCX,RDI
+14022b72d CALL 0x1400d8510
+14022b732 MOV RBP,qword ptr [RSP + 0x40]
+14022b737 MOV AL,BL
+14022b739 MOV RBX,qword ptr [RSP + 0x38]
+14022b73e MOV RSI,qword ptr [RSP + 0x48]
+14022b743 ADD RSP,0x20
+14022b747 POP RDI
+14022b748 RET
+
+FUNCTION 14022dd18 ?UserModeCallout@MouseInterceptState@CMouseProcessor@@QEAA?AW4_MOUSE_INTERCEPTION_RESULT@@PEBU_MouseInterceptorData@@PEAU_MouseProcessorData@@@Z depth=0
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4
+_UserModeCallout_MouseInterceptState_CMouseProcessor__QEAA_AW4_MOUSE_INTERCEPTION_RESULT__PEBU_MouseInterceptorData__PEAU_MouseProcessorData___Z
+          (undefined8 param_1,undefined8 *param_2,undefined4 *param_3)
+
+{
+  undefined4 uVar1;
+  char cVar2;
+  longlong lVar3;
+  undefined1 auStack_108 [32];
+  undefined1 local_e8 [8];
+  undefined4 local_e0;
+  undefined8 uStack_dc;
+  undefined4 uStack_d4;
+  undefined4 uStack_d0;
+  undefined4 uStack_cc;
+  undefined4 local_c8;
+  undefined4 local_c4;
+  undefined8 local_c0;
+  undefined8 uStack_b8;
+  undefined8 local_b0;
+  undefined8 uStack_a8;
+  undefined8 local_a0;
+  undefined8 uStack_98;
+  undefined4 local_90;
+  undefined4 uStack_8c;
+  undefined4 uStack_88;
+  undefined4 uStack_84;
+  undefined8 local_80;
+  ulonglong local_28;
+  
+  local_28 = __security_cookie ^ (ulonglong)auStack_108;
+  __0ThreadLockedPerfRegion_InputTraceLogging__QEAA_PEBDPEBU01__Z
+            (local_e8,"MouseInterceptionCallout",0);
+  _W32ReleasePushLockExclusiveEx__YAXPEAVW32_PUSH_LOCK__K_Z(param_1,0);
+  memset(&local_c8,0,0xa0);
+  local_c0 = *param_2;
+  uStack_b8 = param_2[1];
+  local_e0 = 0;
+  local_b0 = param_2[2];
+  uStack_a8 = param_2[3];
+  local_c8 = 0;
+  uStack_cc = 0;
+  local_a0 = param_2[4];
+  uStack_98 = param_2[5];
+  local_c4 = 1;
+  uStack_dc = 0;
+  uStack_d4 = 0;
+  uStack_d0 = 0;
+  local_80 = 0;
+  local_90 = 0;
+  uStack_8c = 0;
+  uStack_88 = 0;
+  uStack_84 = 0;
+  cVar2 = IsInputProcessingActivated();
+  if (cVar2 != '\0') {
+    lVar3 = W32GetUserSessionState();
+    if (*(longlong *)(lVar3 + 0x4418) != 0) {
+      lVar3 = W32GetUserSessionState();
+      InputExtensibilityCallout::CallUserModeLockFree
+                (*(InputExtensibilityCallout **)(lVar3 + 0x4418),
+                 (_CLIENT_DEVICE_NOTIFICATION *)&local_c8);
+    }
+  }
+  *param_3 = local_90;
+  param_3[1] = uStack_8c;
+  param_3[2] = uStack_88;
+  param_3[3] = uStack_84;
+  *(undefined8 *)(param_3 + 4) = local_80;
+  uVar1 = *param_3;
+  _W32AcquirePushLockExclusiveEx__YAXPEAVW32_PUSH_LOCK__K_Z(param_1,0);
+  __1ThreadLockedPerfRegion_InputTraceLogging__QEAA_XZ(local_e8);
+  return uVar1;
+}
+
+
+ASSEMBLY
+14022dd18 MOV qword ptr [RSP + 0x8],RBX
+14022dd1d PUSH RBP
+14022dd1e PUSH RSI
+14022dd1f PUSH RDI
+14022dd20 LEA RBP,[RSP + -0x47]
+14022dd25 SUB RSP,0xf0
+14022dd2c MOV RAX,qword ptr [0x1402ae2c0]
+14022dd33 XOR RAX,RSP
+14022dd36 MOV qword ptr [RBP + 0x37],RAX
+14022dd3a MOV RDI,R8
+14022dd3d MOV RBX,RDX
+14022dd40 MOV RSI,RCX
+14022dd43 LEA RDX,[0x1402819c8]
+14022dd4a XOR R8D,R8D
+14022dd4d LEA RCX,[RSP + 0x20]
+14022dd52 CALL 0x140062790
+14022dd57 XOR EDX,EDX
+14022dd59 MOV RCX,RSI
+14022dd5c CALL 0x1400d8510
+14022dd61 XOR EDX,EDX
+14022dd63 LEA RCX,[RBP + -0x69]
+14022dd67 MOV R8D,0xa0
+14022dd6d CALL 0x140250240
+14022dd72 MOVUPS XMM0,xmmword ptr [RBX]
+14022dd75 AND dword ptr [RSP + 0x28],0x0
+14022dd7a XOR EAX,EAX
+14022dd7c MOVUPS XMM1,xmmword ptr [RBX + 0x10]
+14022dd80 AND dword ptr [RBP + -0x69],0x0
+14022dd84 MOVUPS xmmword ptr [RBP + -0x61],XMM0
+14022dd88 MOV dword ptr [RBP + -0x6d],EAX
+14022dd8b MOVUPS XMM0,xmmword ptr [RBX + 0x20]
+14022dd8f MOV dword ptr [RBP + -0x65],0x1
+14022dd96 MOVUPS xmmword ptr [RBP + -0x51],XMM1
+14022dd9a MOVUPS xmmword ptr [RBP + -0x41],XMM0
+14022dd9e XORPS XMM0,XMM0
+14022dda1 MOVUPS xmmword ptr [RBP + -0x7d],XMM0
+14022dda5 MOVUPS XMM0,xmmword ptr [RSP + 0x28]
+14022ddaa MOVSD XMM1,qword ptr [RBP + -0x71]
+14022ddaf MOVUPS xmmword ptr [RBP + -0x31],XMM0
+14022ddb3 MOVSD qword ptr [RBP + -0x21],XMM1
+14022ddb8 CALL 0x14005e030
+14022ddbd TEST AL,AL
+14022ddbf JZ 0x14022ddf3
+14022ddc1 CALL qword ptr [0x1402ce180]
+14022ddc8 NOP dword ptr [RAX + RAX*0x1]
+14022ddcd CMP qword ptr [RAX + 0x4418],0x0
+14022ddd5 JZ 0x14022ddf3
+14022ddd7 CALL qword ptr [0x1402ce180]
+14022ddde NOP dword ptr [RAX + RAX*0x1]
+14022dde3 LEA RDX,[RBP + -0x69]
+14022dde7 MOV RCX,qword ptr [RAX + 0x4418]
+14022ddee CALL 0x1400d63f0
+14022ddf3 MOVUPS XMM0,xmmword ptr [RBP + -0x31]
+14022ddf7 XOR EDX,EDX
+14022ddf9 MOV RCX,RSI
+14022ddfc MOVSD XMM1,qword ptr [RBP + -0x21]
+14022de01 MOVUPS xmmword ptr [RDI],XMM0
+14022de04 MOVSD qword ptr [RDI + 0x10],XMM1
+14022de09 MOV EBX,dword ptr [RDI]
+14022de0b CALL 0x1400d8664
+14022de10 LEA RCX,[RSP + 0x20]
+14022de15 CALL 0x140053514
+14022de1a MOV EAX,EBX
+14022de1c MOV RCX,qword ptr [RBP + 0x37]
+14022de20 XOR RCX,RSP
+14022de23 CALL 0x1402500f0
+14022de28 MOV RBX,qword ptr [RSP + 0x110]
+14022de30 ADD RSP,0xf0
+14022de37 POP RDI
+14022de38 POP RSI
+14022de39 POP RBP
+14022de3a RET
+
+FUNCTION 14004fab8 ?HandleMouseInterceptWorker@CMouseProcessor@@AEAA?AW4_MOUSE_INTERCEPTION_RESULT@@PEAVMouseInputDataEx@1@@Z depth=0
+
+int _HandleMouseInterceptWorker_CMouseProcessor__AEAA_AW4_MOUSE_INTERCEPTION_RESULT__PEAVMouseInputDataEx_1__Z
+              (longlong param_1,longlong param_2,undefined8 param_3)
+
+{
+  longlong lVar1;
+  bool bVar2;
+  char cVar3;
+  int iVar4;
+  longlong lVar5;
+  undefined1 uVar6;
+  undefined8 local_68;
+  undefined8 uStack_60;
+  ulonglong local_58;
+  undefined8 local_50;
+  undefined8 uStack_48;
+  undefined8 local_40;
+  undefined8 uStack_38;
+  undefined8 local_30;
+  undefined8 uStack_28;
+  
+  lVar1 = param_1 + 0x1140;
+  uVar6 = 0;
+  KeEnterCriticalRegion();
+  ExAcquirePushLockSharedEx(lVar1,0);
+  if ((*(char *)(param_1 + 0x1148) == '\0') ||
+     (lVar5 = ApiSetEdtionGetInputDesktopId(), *(longlong *)(param_1 + 0x1150) != lVar5)) {
+    bVar2 = false;
+  }
+  else {
+    uVar6 = (undefined1)*(undefined4 *)(param_1 + 0x114c);
+    bVar2 = true;
+  }
+  ExReleasePushLockSharedEx(lVar1,0);
+  KeLeaveCriticalRegion();
+  if (bVar2) {
+    cVar3 = _TestProcessingOption_MouseInputDataEx_CMouseProcessor__QEBA_NW4MouseInputDataProcessingOptions___Z
+                      (param_2,8);
+    if (cVar3 != '\0') {
+      uVar6 = 0;
+    }
+    local_50 = 0;
+    uStack_48 = 0;
+    local_40 = 0;
+    uStack_38 = 0;
+    local_30 = 0;
+    uStack_28 = 0;
+    _PrepareDataForIntercept_CMouseProcessor__AEAAXAEBVMouseInputDataEx_1__NPEAU_MouseInterceptorData___Z
+              (param_1,param_2,CONCAT71((int7)((ulonglong)param_3 >> 8),uVar6) & 0xffffffffffffff01,
+               &local_50);
+    _CallInterceptor_Mouse_InputTraceLogging__SAX_K_Z(*(undefined8 *)(param_2 + 0x38));
+    local_58 = 0;
+    local_68 = 0;
+    uStack_60 = 0;
+    iVar4 = _CallInterceptor_MouseInterceptState_CMouseProcessor__QEAA_AW4_MOUSE_INTERCEPTION_RESULT__PEBU_MouseInterceptorData__PEAU_MouseProcessorData___Z
+                      (lVar1,&local_50,&local_68);
+    _HandleInterception_Mouse_InputTraceLogging__SAX_KW4_MOUSE_INTERCEPTION_RESULT__AEBU_MouseProcessorData___Z
+              (*(undefined8 *)(param_2 + 0x38),iVar4,&local_68);
+    if (iVar4 == 2) {
+      local_58 = local_58 & 0x76ffffffff;
+      _Interceptor_UpdateInputReport_MouseInputDataEx_CMouseProcessor__QEAAXAEBU_MouseProcessorData___Z
+                (param_2,&local_68);
+    }
+  }
+  else {
+    iVar4 = 0;
+  }
+  return iVar4;
+}
+
+
+ASSEMBLY
+14004fab8 MOV qword ptr [RSP + 0x8],RBX
+14004fabd MOV qword ptr [RSP + 0x10],RSI
+14004fac2 MOV qword ptr [RSP + 0x18],RDI
+14004fac7 PUSH RBP
+14004fac8 PUSH R14
+14004faca PUSH R15
+14004facc MOV RBP,RSP
+14004facf SUB RSP,0x70
+14004fad3 MOV R14,RDX
+14004fad6 LEA RBX,[RCX + 0x1140]
+14004fadd MOV R15,RCX
+14004fae0 XOR ESI,ESI
+14004fae2 CALL qword ptr [0x1402ce350]
+14004fae9 NOP dword ptr [RAX + RAX*0x1]
+14004faee XOR EDX,EDX
+14004faf0 MOV RCX,RBX
+14004faf3 CALL qword ptr [0x1402ce370]
+14004fafa NOP dword ptr [RAX + RAX*0x1]
+14004faff CMP byte ptr [RBX + 0x8],SIL
+14004fb03 JNZ 0x14004fb47
+14004fb05 XOR DIL,DIL
+14004fb08 XOR EDX,EDX
+14004fb0a MOV RCX,RBX
+14004fb0d CALL qword ptr [0x1402ce378]
+14004fb14 NOP dword ptr [RAX + RAX*0x1]
+14004fb19 CALL qword ptr [0x1402ce358]
+14004fb20 NOP dword ptr [RAX + RAX*0x1]
+14004fb25 TEST DIL,DIL
+14004fb28 JNZ 0x14004fb5a
+14004fb2a XOR EAX,EAX
+14004fb2c LEA R11,[RSP + 0x70]
+14004fb31 MOV RBX,qword ptr [R11 + 0x20]
+14004fb35 MOV RSI,qword ptr [R11 + 0x28]
+14004fb39 MOV RDI,qword ptr [R11 + 0x30]
+14004fb3d MOV RSP,R11
+14004fb40 POP R15
+14004fb42 POP R14
+14004fb44 POP RBP
+14004fb45 RET
+14004fb47 CALL 0x1402325b4
+14004fb4c CMP qword ptr [RBX + 0x10],RAX
+14004fb50 JNZ 0x14004fb05
+14004fb52 MOV ESI,dword ptr [RBX + 0xc]
+14004fb55 MOV DIL,0x1
+14004fb58 JMP 0x14004fb08
+14004fb5a MOV EDX,0x8
+14004fb5f MOV RCX,R14
+14004fb62 CALL 0x14004fa64
+14004fb67 XORPS XMM0,XMM0
+14004fb6a LEA R9,[RBP + -0x38]
+14004fb6e TEST AL,AL
+14004fb70 MOV ECX,0xfffffffe
+14004fb75 MOV RDX,R14
+14004fb78 CMOVNZ ESI,ECX
+14004fb7b MOV RCX,R15
+14004fb7e AND SIL,0x1
+14004fb82 MOV R8B,SIL
+14004fb85 MOVUPS xmmword ptr [RBP + -0x38],XMM0
+14004fb89 MOVUPS xmmword ptr [RBP + -0x28],XMM0
+14004fb8d MOVUPS xmmword ptr [RBP + -0x18],XMM0
+14004fb91 CALL 0x14022cec8
+14004fb96 MOV RCX,qword ptr [R14 + 0x38]
+14004fb9a CALL 0x14022aaec
+14004fb9f XORPS XMM0,XMM0
+14004fba2 LEA R8,[RBP + -0x50]
+14004fba6 XOR EAX,EAX
+14004fba8 LEA RDX,[RBP + -0x38]
+14004fbac MOV RCX,RBX
+14004fbaf MOV qword ptr [RBP + -0x40],RAX
+14004fbb3 MOVUPS xmmword ptr [RBP + -0x50],XMM0
+14004fbb7 CALL 0x14022ab40
+14004fbbc MOV RCX,qword ptr [R14 + 0x38]
+14004fbc0 LEA R8,[RBP + -0x50]
+14004fbc4 MOV EDX,EAX
+14004fbc6 MOV EBX,EAX
+14004fbc8 CALL 0x14022c12c
+14004fbcd CMP EBX,0x2
+14004fbd0 JNZ 0x14004fbe2
+14004fbd2 AND dword ptr [RBP + -0x3c],0x76
+14004fbd6 LEA RDX,[RBP + -0x50]
+14004fbda MOV RCX,R14
+14004fbdd CALL 0x14022c258
+14004fbe2 MOV EAX,EBX
+14004fbe4 JMP 0x14004fb2c
+
+FUNCTION 1400d6880 IsInputThread depth=1
+
+bool IsInputThread(void)
+
+{
+  int iVar1;
+  longlong lVar2;
+  longlong lVar3;
+  int iVar4;
+  
+                    /* 0xd6880  1764  IsInputThread */
+  lVar3 = W32GetUserSessionState();
+  lVar2 = *(longlong *)(lVar3 + 0x4de8);
+  lVar3 = lVar2 + 8;
+  KeEnterCriticalRegion();
+  ExAcquirePushLockSharedEx(lVar3,0);
+  iVar4 = PsGetCurrentThreadId();
+  iVar1 = *(int *)(lVar2 + 0x28);
+  ExReleasePushLockSharedEx(lVar3,0);
+  KeLeaveCriticalRegion();
+  return iVar4 == iVar1;
+}
+
+
+ASSEMBLY
+1400d6880 MOV qword ptr [RSP + 0x8],RBX
+1400d6885 PUSH RDI
+1400d6886 SUB RSP,0x20
+1400d688a CALL qword ptr [0x1402ce180]
+1400d6891 NOP dword ptr [RAX + RAX*0x1]
+1400d6896 MOV RDI,qword ptr [RAX + 0x4de8]
+1400d689d LEA RBX,[RDI + 0x8]
+1400d68a1 CALL qword ptr [0x1402ce350]
+1400d68a8 NOP dword ptr [RAX + RAX*0x1]
+1400d68ad XOR EDX,EDX
+1400d68af MOV RCX,RBX
+1400d68b2 CALL qword ptr [0x1402ce370]
+1400d68b9 NOP dword ptr [RAX + RAX*0x1]
+1400d68be CALL qword ptr [0x1402ce430]
+1400d68c5 NOP dword ptr [RAX + RAX*0x1]
+1400d68ca CMP EAX,dword ptr [RDI + 0x28]
+1400d68cd MOV RCX,RBX
+1400d68d0 SETZ DIL
+1400d68d4 XOR EDX,EDX
+1400d68d6 CALL qword ptr [0x1402ce378]
+1400d68dd NOP dword ptr [RAX + RAX*0x1]
+1400d68e2 CALL qword ptr [0x1402ce358]
+1400d68e9 NOP dword ptr [RAX + RAX*0x1]
+1400d68ee MOV RBX,qword ptr [RSP + 0x30]
+1400d68f3 MOV AL,DIL
+1400d68f6 ADD RSP,0x20
+1400d68fa POP RDI
+1400d68fb RET
+
+FUNCTION 14022cec8 ?PrepareDataForIntercept@CMouseProcessor@@AEAAXAEBVMouseInputDataEx@1@_NPEAU_MouseInterceptorData@@@Z depth=1
+
+void _PrepareDataForIntercept_CMouseProcessor__AEAAXAEBVMouseInputDataEx_1__NPEAU_MouseInterceptorData___Z
+               (undefined8 param_1,longlong param_2,char param_3,longlong *param_4)
+
+{
+  longlong *plVar1;
+  undefined4 *puVar2;
+  undefined2 uVar3;
+  undefined4 uVar4;
+  longlong lVar5;
+  undefined8 local_res10;
+  
+  *(undefined2 *)(param_4 + 3) = *(undefined2 *)(param_2 + 2);
+  *(undefined2 *)((longlong)param_4 + 0x1a) = *(undefined2 *)(param_2 + 4);
+  *(undefined2 *)((longlong)param_4 + 0x1c) = *(undefined2 *)(param_2 + 6);
+  lVar5 = *(longlong *)(param_2 + 0x20);
+  *param_4 = lVar5;
+  if (lVar5 == 0) {
+    local_res10 = CONCAT44(local_res10._4_4_,0x20000);
+    MicrosoftTelemetryAssertTriggeredArgsKM("IXPTelAssert",0x20000,0x1abd);
+  }
+  *(undefined4 *)(param_4 + 1) = *(undefined4 *)(param_2 + 0x30);
+  param_4[2] = *(longlong *)(param_2 + 0x38);
+  if ((*(byte *)(param_2 + 2) & 1) == 0) {
+    plVar1 = param_4 + 4;
+    *(undefined4 *)plVar1 = *(undefined4 *)(param_2 + 0xc);
+    puVar2 = (undefined4 *)((longlong)param_4 + 0x24);
+    *puVar2 = *(undefined4 *)(param_2 + 0x10);
+    if (param_3 != '\0') {
+      uVar3 = *(undefined2 *)(param_2 + 2);
+      lVar5 = W32GetUserSessionState();
+      _ApplyAccelerationToDelta_CMouseProcessor__AEAAXJJUtagPOINT___NPEAU_SUBPIXELS__PEAJ3_Z
+                (param_1,(int)*plVar1,*puVar2,*(undefined8 *)(lVar5 + 0x4f90),(byte)uVar3 >> 7,
+                 &local_res10,plVar1,puVar2);
+    }
+  }
+  else {
+    local_res10 = 0;
+    _TestProcessingOption_MouseInputDataEx_CMouseProcessor__QEBA_NW4MouseInputDataProcessingOptions___Z
+              (param_2,0x10);
+    _GetPublicExtraInfo_MouseInputDataEx_CMouseProcessor__QEBAKXZ(param_2);
+    _GetMouseCoordinateAbsolute_CMouseProcessor__AEAAXJJKPEAUtagPOINT__PEAU_SUBPIXELS___K2W4GetMouseCoordinateOptions___Z
+              (param_1,*(undefined4 *)(param_2 + 0xc),*(undefined4 *)(param_2 + 0x10));
+    *(undefined4 *)(param_4 + 4) = (undefined4)local_res10;
+    *(undefined4 *)((longlong)param_4 + 0x24) = local_res10._4_4_;
+  }
+  uVar4 = _ComputeMouseSystemStateForInterceptor_CMouseProcessor__AEBA_AW4_INTERCEPTOR_MOUSE_SYSTEM_STATE__AEBVMouseInputDataEx_1__Z
+                    (param_1,param_2);
+  *(undefined4 *)(param_4 + 5) = uVar4;
+  return;
+}
+
+
+ASSEMBLY
+14022cec8 MOV qword ptr [RSP + 0x8],RBX
+14022cecd MOV qword ptr [RSP + 0x18],RBP
+14022ced2 PUSH RSI
+14022ced3 PUSH RDI
+14022ced4 PUSH R12
+14022ced6 PUSH R14
+14022ced8 PUSH R15
+14022ceda SUB RSP,0x50
+14022cede MOVZX EAX,word ptr [RDX + 0x2]
+14022cee2 XOR R12D,R12D
+14022cee5 MOV word ptr [R9 + 0x18],AX
+14022ceea MOV RSI,R9
+14022ceed MOVZX EAX,word ptr [RDX + 0x4]
+14022cef1 MOV BL,R8B
+14022cef4 MOV word ptr [R9 + 0x1a],AX
+14022cef9 MOV RDI,RDX
+14022cefc MOVZX EAX,word ptr [RDX + 0x6]
+14022cf00 MOV RBP,RCX
+14022cf03 MOV word ptr [R9 + 0x1c],AX
+14022cf08 MOV R14D,0x2
+14022cf0e MOV RAX,qword ptr [RDX + 0x20]
+14022cf12 MOV qword ptr [R9],RAX
+14022cf15 TEST RAX,RAX
+14022cf18 JNZ 0x14022cf3e
+14022cf1a MOV dword ptr [RSP + 0x88],0x20000
+14022cf25 LEA RCX,[0x14026db60]
+14022cf2c MOV EDX,dword ptr [RSP + 0x88]
+14022cf33 MOV R8D,0x1abd
+14022cf39 CALL 0x1401a6d10
+14022cf3e MOV EAX,dword ptr [RDI + 0x30]
+14022cf41 MOV dword ptr [RSI + 0x8],EAX
+14022cf44 MOV RAX,qword ptr [RDI + 0x38]
+14022cf48 MOV qword ptr [RSI + 0x10],RAX
+14022cf4c TEST byte ptr [RDI + 0x2],0x1
+14022cf50 JZ 0x14022cfe9
+14022cf56 MOV EDX,0x10
+14022cf5b MOV qword ptr [RSP + 0x88],R12
+14022cf63 MOV RCX,RDI
+14022cf66 MOV qword ptr [RSP + 0x98],R12
+14022cf6e CALL 0x14004fa64
+14022cf73 MOVZX R9D,word ptr [RDI + 0x2]
+14022cf78 MOV RCX,RDI
+14022cf7b MOVZX R8D,AL
+14022cf7f CALL 0x14004f2c4
+14022cf84 MOV EDX,dword ptr [RDI + 0xc]
+14022cf87 MOV ECX,R8D
+14022cf8a OR ECX,R14D
+14022cf8d MOV R10D,EAX
+14022cf90 MOV RAX,qword ptr [RDI + 0x30]
+14022cf94 TEST R9B,0x80
+14022cf98 CMOVZ ECX,R8D
+14022cf9c MOV R8D,dword ptr [RDI + 0x10]
+14022cfa0 OR ECX,0x4
+14022cfa3 MOV dword ptr [RSP + 0x40],ECX
+14022cfa7 MOV RCX,RBP
+14022cfaa MOV qword ptr [RSP + 0x38],R10
+14022cfaf MOV qword ptr [RSP + 0x30],RAX
+14022cfb4 LEA RAX,[RSP + 0x98]
+14022cfbc MOV qword ptr [RSP + 0x28],RAX
+14022cfc1 LEA RAX,[RSP + 0x88]
+14022cfc9 MOV qword ptr [RSP + 0x20],RAX
+14022cfce CALL 0x14004fc84
+14022cfd3 MOV EAX,dword ptr [RSP + 0x88]
+14022cfda MOV dword ptr [RSI + 0x20],EAX
+14022cfdd MOV EAX,dword ptr [RSP + 0x8c]
+14022cfe4 MOV dword ptr [RSI + 0x24],EAX
+14022cfe7 JMP 0x14022d047
+14022cfe9 MOV EAX,dword ptr [RDI + 0xc]
+14022cfec LEA R14,[RSI + 0x20]
+14022cff0 MOV dword ptr [R14],EAX
+14022cff3 LEA R15,[RSI + 0x24]
+14022cff7 MOV EAX,dword ptr [RDI + 0x10]
+14022cffa MOV dword ptr [R15],EAX
+14022cffd TEST BL,BL
+14022cfff JZ 0x14022d047
+14022d001 MOVZX EBX,word ptr [RDI + 0x2]
+14022d005 CALL qword ptr [0x1402ce180]
+14022d00c NOP dword ptr [RAX + RAX*0x1]
+14022d011 MOV R8D,dword ptr [R15]
+14022d014 MOV RCX,RBP
+14022d017 MOV EDX,dword ptr [R14]
+14022d01a MOV qword ptr [RSP + 0x38],R15
+14022d01f MOV R9,qword ptr [RAX + 0x4f90]
+14022d026 LEA RAX,[RSP + 0x88]
+14022d02e SHR BL,0x7
+14022d031 AND BL,0x1
+14022d034 MOV qword ptr [RSP + 0x30],R14
+14022d039 MOV qword ptr [RSP + 0x28],RAX
+14022d03e MOV byte ptr [RSP + 0x20],BL
+14022d042 CALL 0x14004e624
+14022d047 MOV RDX,RDI
+14022d04a MOV RCX,RBP
+14022d04d CALL 0x14022b1a8
+14022d052 LEA R11,[RSP + 0x50]
+14022d057 MOV dword ptr [RSI + 0x28],EAX
+14022d05a MOV RBX,qword ptr [R11 + 0x30]
+14022d05e MOV RBP,qword ptr [R11 + 0x40]
+14022d062 MOV RSP,R11
+14022d065 POP R15
+14022d067 POP R14
+14022d069 POP R12
+14022d06b POP RDI
+14022d06c POP RSI
+14022d06d RET

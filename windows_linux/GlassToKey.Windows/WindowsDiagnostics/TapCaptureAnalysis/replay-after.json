@@ -1,0 +1,214 @@
+{
+  "moves": 574,
+  "taps": 11,
+  "cycles": [
+    {
+      "start": 0,
+      "end": 291,
+      "duration": 4.7766777,
+      "moves": 0,
+      "taps": 0,
+      "firstMove": -1
+    },
+    {
+      "start": 293,
+      "end": 475,
+      "duration": 3.060448900000001,
+      "moves": 178,
+      "taps": 0,
+      "firstMove": 297
+    },
+    {
+      "start": 476,
+      "end": 483,
+      "duration": 0.10027010000000125,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 485,
+      "end": 517,
+      "duration": 0.5281409000000004,
+      "moves": 19,
+      "taps": 0,
+      "firstMove": 498
+    },
+    {
+      "start": 519,
+      "end": 525,
+      "duration": 0.09958179999999928,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 526,
+      "end": 532,
+      "duration": 0.07967380000000013,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 533,
+      "end": 541,
+      "duration": 0.12185859999999948,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 542,
+      "end": 549,
+      "duration": 0.11085900000000137,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 550,
+      "end": 558,
+      "duration": 0.12382250000000106,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 559,
+      "end": 567,
+      "duration": 0.11249270000000067,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 568,
+      "end": 575,
+      "duration": 0.10151289999999946,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 577,
+      "end": 584,
+      "duration": 0.10153550000000067,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 585,
+      "end": 590,
+      "duration": 0.10365430000000231,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    },
+    {
+      "start": 591,
+      "end": 611,
+      "duration": 0.3271246999999988,
+      "moves": 14,
+      "taps": 0,
+      "firstMove": 597
+    },
+    {
+      "start": 613,
+      "end": 640,
+      "duration": 0.4278097999999986,
+      "moves": 23,
+      "taps": 0,
+      "firstMove": 617
+    },
+    {
+      "start": 641,
+      "end": 671,
+      "duration": 0.48335619999999935,
+      "moves": 25,
+      "taps": 0,
+      "firstMove": 646
+    },
+    {
+      "start": 673,
+      "end": 710,
+      "duration": 0.6047797999999993,
+      "moves": 34,
+      "taps": 0,
+      "firstMove": 676
+    },
+    {
+      "start": 711,
+      "end": 745,
+      "duration": 0.5634739000000017,
+      "moves": 33,
+      "taps": 0,
+      "firstMove": 712
+    },
+    {
+      "start": 747,
+      "end": 782,
+      "duration": 0.572715800000001,
+      "moves": 27,
+      "taps": 0,
+      "firstMove": 755
+    },
+    {
+      "start": 783,
+      "end": 825,
+      "duration": 0.6857939999999978,
+      "moves": 34,
+      "taps": 0,
+      "firstMove": 791
+    },
+    {
+      "start": 827,
+      "end": 861,
+      "duration": 0.5611803000000002,
+      "moves": 28,
+      "taps": 0,
+      "firstMove": 833
+    },
+    {
+      "start": 863,
+      "end": 901,
+      "duration": 0.6301726999999993,
+      "moves": 29,
+      "taps": 0,
+      "firstMove": 872
+    },
+    {
+      "start": 902,
+      "end": 929,
+      "duration": 0.4507437000000003,
+      "moves": 20,
+      "taps": 0,
+      "firstMove": 909
+    },
+    {
+      "start": 931,
+      "end": 971,
+      "duration": 0.6624936999999989,
+      "moves": 33,
+      "taps": 0,
+      "firstMove": 938
+    },
+    {
+      "start": 973,
+      "end": 1051,
+      "duration": 1.2929114000000013,
+      "moves": 77,
+      "taps": 0,
+      "firstMove": 974
+    },
+    {
+      "start": 1052,
+      "end": 1058,
+      "duration": 0.08936620000000062,
+      "moves": 0,
+      "taps": 1,
+      "firstMove": -1
+    }
+  ]
+}

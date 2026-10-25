@@ -28,38 +28,22 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double KeyHeightMm = RuntimeConfigurationFactory.KeyHeightMm;
     private const double MxKeyWidthMm = 19.05;
     private const double MxKeyHeightMm = 19.05;
-    private const double ControlsPaneExpandedWidth = 360.0;
+    private const double ControlsPaneExpandedWidth = 420.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
-    private const int WindowsForceClickThresholdMinimum = 150;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
     private const string ShortcutActionSectionTitle = "Shortcuts";
     private const string ScreenshotActionLabel = "Screenshot";
     private const string ScreenshotActionValue = "Shift+Win+S";
-    private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
-    private static readonly Brush IntentCandidateBrush = CreateFrozenBrush("#f39c12");
-    private static readonly Brush IntentTypingBrush = CreateFrozenBrush("#2ecc71");
-    private static readonly Brush IntentMouseBrush = CreateFrozenBrush("#3498db");
-    private static readonly Brush IntentGestureBrush = CreateFrozenBrush("#9b59b6");
-    private static readonly Brush IntentUnknownBrush = CreateFrozenBrush("#6b7279");
-    private static readonly Brush ModeKeyboardBrush = CreateFrozenBrush("#9b59b6");
-    private static readonly Brush ModeMixedBrush = CreateFrozenBrush("#2ecc71");
-    private static readonly Brush ModeMouseBrush = CreateFrozenBrush("#e74c3c");
-    private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
+    private static readonly Brush TakeoverActiveBrush = CreateFrozenBrush("#9b59b6");
+    private static readonly Brush NeutralStatusBrush = CreateFrozenBrush("#6b7279");
     private static readonly DecoderProfileOption[] DecoderProfileOptions =
     {
         new(null, "Auto"),
         new(TrackpadDecoderProfile.Official, "Official"),
         new(TrackpadDecoderProfile.Legacy, "Opensource")
     };
-    private static readonly string[] ForceGestureBindingIds =
-    [
-        "top_left_force_click",
-        "top_right_force_click",
-        "bottom_left_force_click",
-        "bottom_right_force_click"
-    ];
     private const string ForceUnavailableToolTip = "Install Official Drivers to use Force settings";
 
     private readonly ReaderOptions _options;
@@ -74,8 +58,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (string Group, bool ForceGroup)> _deferredKeyActionOptionGroups = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
-    private readonly Dictionary<string, ComboBox> _gestureActionCombosById = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, TextBox> _gestureRepeatBoxesById = new(StringComparer.Ordinal);
     private readonly Dictionary<ToggleButton, ShortcutModifierSpec> _shortcutModifierSpecsByButton = new();
     private readonly Dictionary<ToggleButton, ShortcutModifierVariant> _shortcutModifierVariantsByButton = new();
     private readonly DispatcherTimer _shortcutModifierHoldTimer;
@@ -92,6 +74,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly ReplayVisualData? _replayData;
     private readonly DispatcherTimer? _replayTimer;
     private readonly DispatcherTimer? _statusTimer;
+    private WindowsHandGestures? _handGestures;
+    private HandGesturePanel? _handGesturePanel;
     private readonly TouchProcessorCore? _touchCore;
     private readonly TouchProcessorActor? _touchActor;
     private readonly DispatchEventQueue? _dispatchQueue;
@@ -106,8 +90,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressReplaySpeedEvents;
     private bool _suppressReplayTimelineEvents;
     private HwndSource? _hwndSource;
-    private readonly GlobalMouseClickSuppressor _globalClickSuppressor = new();
-    private bool _suppressGlobalClicks;
+    private readonly GlobalMouseInputHook _globalMouseInputHook = new();
+    private MouseTakeoverController? _localMouseTakeover;
+    private bool _updatingMouseTakeover;
+    private MouseTakeoverController? MouseTakeover => _runtimeService?.MouseTakeover ?? _localMouseTakeover;
     private string _leftStatus = "None";
     private string _rightStatus = "None";
     private string _lastLeftHit = "--";
@@ -120,7 +106,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private long _replayDurationTicks;
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
-    private string _engineStateText = "State: n/a";
     private bool _visualizerEnabled = true;
     private bool _suppressSettingsEvents;
     private bool _suppressKeymapActionEvents;
@@ -133,10 +118,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _controlsPaneVisible = true;
     private int _lastLeftPillCount = -1;
     private int _lastRightPillCount = -1;
-    private string _lastIntentPillLabel = string.Empty;
-    private Brush _lastIntentPillBrush = IntentUnknownBrush;
-    private string _lastModePillLabel = string.Empty;
-    private Brush _lastModePillBrush = ModeUnknownBrush;
     private string _lastAutocorrectUiLastCorrected = string.Empty;
     private string _lastAutocorrectUiCurrentBuffer = string.Empty;
     private string _lastAutocorrectUiSkipReason = string.Empty;
@@ -167,16 +148,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
-        RegisterGestureBindingControls();
+        Icon = ApplicationHandIcon.CreateImage();
+        AppHandImage.Source = Icon;
         _shortcutModifierHoldTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
             Interval = TimeSpan.FromMilliseconds(450)
         };
         _shortcutModifierHoldTimer.Tick += OnShortcutModifierHoldTimerTick;
-        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
+        _globalMouseInputHook.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        WindowsInputPolicy.NormalizeLegacyModes(_settings);
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         if (!_settings.VisualizerEnabled)
         {
@@ -249,8 +232,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
-        KeyboardModeCheck.Checked += OnModeSettingChanged;
-        KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         AutocorrectModeCheck.Checked += OnModeSettingChanged;
         AutocorrectModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
@@ -263,61 +244,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         MemorySaverModeCheck.Unchecked += OnModeSettingChanged;
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
-        ThreeFingerDragModeCheck.Checked += OnModeSettingChanged;
-        ThreeFingerDragModeCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
-        ForceClickThresholdSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldForceBox.LostKeyboardFocus += OnKeymapHoldForceCommitted;
         MxSpacingButton.Click += OnMxSpacingClicked;
         ChocSpacingButton.Click += OnChocSpacingClicked;
-        FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FiveFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FiveFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TwoFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        LeftEdgeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        LeftEdgeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        RightEdgeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        RightEdgeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopEdgeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopEdgeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomEdgeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomEdgeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        OuterCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        InnerCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopLeftCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopRightCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomLeftCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomRightCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopLeftForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        TopRightForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomLeftForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        BottomRightForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerTapGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        FourFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        UpperLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        UpperRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        LowerLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        LowerRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ShortcutTargetPrimaryRadio.Checked += OnGestureShortcutEditorChanged;
         ShortcutTargetHoldRadio.Checked += OnGestureShortcutEditorChanged;
         ShortcutTargetDropdownRadio.Checked += OnGestureShortcutEditorChanged;
@@ -352,27 +286,42 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
         SourceInitialized += OnSourceInitialized;
+        MouseTakeoverCheck.Checked += OnMouseTakeoverChanged;
+        MouseTakeoverCheck.Unchecked += OnMouseTakeoverChanged;
+        MouseTakeoverTestButton.Click += (_, _) =>
+        {
+            MouseTakeover?.SetEnabled(true, thirtySecondTest: true);
+            UpdateMouseTakeoverUi();
+        };
         HookTuningAutoApplyHandlers();
+        UpdateMouseTakeoverUi();
 
         InitializeLayerCombo();
         InitializeSettingsPanel();
+        _handGesturePanel = new HandGesturePanel(_settings, () => { _settings.Save(); ApplyCoreSettings(); });
+        HandGesturePanelHost.Children.Add(_handGesturePanel);
         if (!UsesSharedRuntime)
         {
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
+            _touchCore.UseHandGestureRecognition();
+            _touchCore.UseUnifiedInputPolicy();
+            if (!IsReplayMode)
+            {
+                _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
+                    () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
+                _handGestures.Configure(_settings);
+            }
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
-                threeFingerDragSink: _sendInputDispatcher);
+                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures);
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
-            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
-            _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
 
         ApplyCoreSettings();
@@ -397,13 +346,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
         Closed += (_, _) =>
         {
-            _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
+            _localMouseTakeover?.Dispose();
+            _globalMouseInputHook.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
             _keymap.Save();
-            _globalClickSuppressor.SetEnabled(false);
-            _globalClickSuppressor.Dispose();
+            _globalMouseInputHook.Dispose();
             _hwndSource?.RemoveHook(WndProc);
             _replayTimer?.Stop();
             _statusTimer?.Stop();
@@ -439,44 +388,61 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         _hwndSource = HwndSource.FromHwnd(hwnd);
         _hwndSource?.AddHook(WndProc);
-        EnsureGlobalClickSuppressorInstalled();
+        EnsureGlobalMouseInputHookInstalled();
 
         if (!RawInputInterop.RegisterForTouchpadRawInput(hwnd, out string? error))
         {
-            StatusText.Text = $"Raw input registration failed ({error}).";
+            RawInputErrorText.Text = $"Raw input registration failed ({error}).";
+            RawInputErrorText.Visibility = Visibility.Visible;
+            return;
         }
+        _localMouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedTakeoverSelection);
+        _localMouseTakeover.Start();
+        UpdateMouseTakeoverUi();
     }
 
-    private void EnsureGlobalClickSuppressorInstalled()
+    private bool HasConnectedTakeoverSelection()
     {
-        if (_globalClickSuppressor.IsInstalled)
-        {
-            _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
-            return;
-        }
-
-        if (!_globalClickSuppressor.Install(out string? error))
-        {
-            Console.WriteLine($"Global click suppression hook failed ({error}).");
-            return;
-        }
-
-        _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
+        string? left = GetSelectedDevicePathForSide(TrackpadSide.Left);
+        string? right = GetSelectedDevicePathForSide(TrackpadSide.Right);
+        foreach (HidDeviceInfo device in RawInputInterop.EnumerateTrackpads())
+            if (device.Path != null && (string.Equals(device.Path, left, StringComparison.OrdinalIgnoreCase) || string.Equals(device.Path, right, StringComparison.OrdinalIgnoreCase))) return true;
+        return false;
     }
 
-    private void UpdateGlobalClickSuppressionState(bool enabled)
+    private void OnMouseTakeoverChanged(object sender, RoutedEventArgs e)
     {
-        bool next = !IsReplayMode && enabled;
-        if (_suppressGlobalClicks == next)
+        if (_updatingMouseTakeover) return;
+        MouseTakeover?.SetEnabled(MouseTakeoverCheck.IsChecked == true);
+        UpdateMouseTakeoverUi();
+    }
+
+    private void UpdateMouseTakeoverUi()
+    {
+        _handGesturePanel?.SetStatus(IsReplayMode ? "Replay - no gesture output" : _runtimeService?.HandGestureStatus ?? _handGestures?.Status ?? "Waiting for live input");
+        MouseTakeoverController? controller = IsReplayMode ? null : MouseTakeover;
+        _updatingMouseTakeover = true;
+        MouseTakeoverCheck.IsChecked = controller?.Enabled == true;
+        MouseTakeoverCheck.IsEnabled = controller?.Available == true;
+        MouseTakeoverTestButton.IsEnabled = controller?.Available == true && !controller.Enabled;
+        MouseTakeoverStatusText.Text = IsReplayMode ? "Unavailable during replay" : controller?.Status ?? "Off";
+        MouseTakeoverStatusText.Foreground = controller?.Enabled == true ? TakeoverActiveBrush : NeutralStatusBrush;
+        _updatingMouseTakeover = false;
+    }
+
+    private void EnsureGlobalMouseInputHookInstalled()
+    {
+        if (_globalMouseInputHook.IsInstalled)
         {
             return;
         }
 
-        _suppressGlobalClicks = next;
-        if (_globalClickSuppressor.IsInstalled)
+        if (!_globalMouseInputHook.Install(out string? error))
         {
-            _globalClickSuppressor.SetEnabled(next);
+            Console.WriteLine($"Global mouse input hook failed ({error}).");
+            return;
         }
+
     }
 
     private void EmitCaptureReplayTraceIfRequested()
@@ -527,6 +493,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnStatusTimerTick(object? sender, EventArgs e)
     {
+        UpdateMouseTakeoverUi();
         if (_touchActor == null && _runtimeService == null)
         {
             UpdateAutocorrectStatusDetails();
@@ -567,139 +534,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             InitializeActionCombo(actionCombo);
         }
 
-        string fiveFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeLeftAction, "Typing Toggle");
-        string fiveFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeRightAction, "Typing Toggle");
-        string fiveFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeUpAction, "None");
-        string fiveFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeDownAction, "None");
-        string threeFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeLeftAction, "None");
-        string threeFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeRightAction, "None");
-        string threeFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeUpAction, "None");
-        string threeFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeDownAction, "None");
-        string fourFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeLeftAction, "None");
-        string fourFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeRightAction, "None");
-        string fourFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeUpAction, "None");
-        string fourFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeDownAction, "None");
-        string twoFingerHoldAction = NormalizeGestureActionForUi(_settings.TwoFingerHoldAction, "None");
-        string threeFingerHoldAction = NormalizeGestureActionForUi(_settings.ThreeFingerHoldAction, "None");
-        string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Shift");
-        string leftEdgeUpAction = NormalizeGestureActionForUi(_settings.LeftEdgeUpAction, "None");
-        string leftEdgeDownAction = NormalizeGestureActionForUi(_settings.LeftEdgeDownAction, "None");
-        string rightEdgeUpAction = NormalizeGestureActionForUi(_settings.RightEdgeUpAction, "None");
-        string rightEdgeDownAction = NormalizeGestureActionForUi(_settings.RightEdgeDownAction, "None");
-        string topEdgeLeftAction = NormalizeGestureActionForUi(_settings.TopEdgeLeftAction, "None");
-        string topEdgeRightAction = NormalizeGestureActionForUi(_settings.TopEdgeRightAction, "None");
-        string bottomEdgeLeftAction = NormalizeGestureActionForUi(_settings.BottomEdgeLeftAction, "None");
-        string bottomEdgeRightAction = NormalizeGestureActionForUi(_settings.BottomEdgeRightAction, "None");
-        string outerCornersAction = NormalizeGestureActionForUi(_settings.OuterCornersAction, "None");
-        string innerCornersAction = NormalizeGestureActionForUi(_settings.InnerCornersAction, "None");
-        string topLeftCornerSwipeAction = NormalizeGestureActionForUi(_settings.TopLeftCornerSwipeAction, "None");
-        string topRightCornerSwipeAction = NormalizeGestureActionForUi(_settings.TopRightCornerSwipeAction, "None");
-        string bottomLeftCornerSwipeAction = NormalizeGestureActionForUi(_settings.BottomLeftCornerSwipeAction, "None");
-        string bottomRightCornerSwipeAction = NormalizeGestureActionForUi(_settings.BottomRightCornerSwipeAction, "None");
-        string topLeftTriangleAction = NormalizeGestureActionForUi(_settings.TopLeftTriangleAction, "None");
-        string topRightTriangleAction = NormalizeGestureActionForUi(_settings.TopRightTriangleAction, "None");
-        string bottomLeftTriangleAction = NormalizeGestureActionForUi(_settings.BottomLeftTriangleAction, "None");
-        string bottomRightTriangleAction = NormalizeGestureActionForUi(_settings.BottomRightTriangleAction, "None");
-        string topLeftForceClickAction = NormalizeGestureActionForUi(_settings.TopLeftForceClickAction, "None");
-        string topRightForceClickAction = NormalizeGestureActionForUi(_settings.TopRightForceClickAction, "None");
-        string bottomLeftForceClickAction = NormalizeGestureActionForUi(_settings.BottomLeftForceClickAction, "None");
-        string bottomRightForceClickAction = NormalizeGestureActionForUi(_settings.BottomRightForceClickAction, "None");
-        string threeFingerTapAction = NormalizeGestureActionForUi(_settings.ThreeFingerTapAction, "None");
-        string threeFingerClickAction = NormalizeGestureActionForUi(_settings.ThreeFingerClickAction, "None");
-        string fourFingerClickAction = NormalizeGestureActionForUi(_settings.FourFingerClickAction, "None");
-        string upperLeftCornerClickAction = NormalizeGestureActionForUi(_settings.UpperLeftCornerClickAction, "None");
-        string upperRightCornerClickAction = NormalizeGestureActionForUi(_settings.UpperRightCornerClickAction, "None");
-        string lowerLeftCornerClickAction = NormalizeGestureActionForUi(_settings.LowerLeftCornerClickAction, "None");
-        string lowerRightCornerClickAction = NormalizeGestureActionForUi(_settings.LowerRightCornerClickAction, "None");
-        _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
-        _settings.FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
-        _settings.FiveFingerSwipeUpAction = fiveFingerSwipeUpAction;
-        _settings.FiveFingerSwipeDownAction = fiveFingerSwipeDownAction;
-        _settings.ThreeFingerSwipeLeftAction = threeFingerSwipeLeftAction;
-        _settings.ThreeFingerSwipeRightAction = threeFingerSwipeRightAction;
-        _settings.ThreeFingerSwipeUpAction = threeFingerSwipeUpAction;
-        _settings.ThreeFingerSwipeDownAction = threeFingerSwipeDownAction;
-        _settings.FourFingerSwipeLeftAction = fourFingerSwipeLeftAction;
-        _settings.FourFingerSwipeRightAction = fourFingerSwipeRightAction;
-        _settings.FourFingerSwipeUpAction = fourFingerSwipeUpAction;
-        _settings.FourFingerSwipeDownAction = fourFingerSwipeDownAction;
-        _settings.TwoFingerHoldAction = twoFingerHoldAction;
-        _settings.ThreeFingerHoldAction = threeFingerHoldAction;
-        _settings.FourFingerHoldAction = fourFingerHoldAction;
-        _settings.LeftEdgeUpAction = leftEdgeUpAction;
-        _settings.LeftEdgeDownAction = leftEdgeDownAction;
-        _settings.RightEdgeUpAction = rightEdgeUpAction;
-        _settings.RightEdgeDownAction = rightEdgeDownAction;
-        _settings.TopEdgeLeftAction = topEdgeLeftAction;
-        _settings.TopEdgeRightAction = topEdgeRightAction;
-        _settings.BottomEdgeLeftAction = bottomEdgeLeftAction;
-        _settings.BottomEdgeRightAction = bottomEdgeRightAction;
-        _settings.OuterCornersAction = outerCornersAction;
-        _settings.InnerCornersAction = innerCornersAction;
-        _settings.TopLeftCornerSwipeAction = topLeftCornerSwipeAction;
-        _settings.TopRightCornerSwipeAction = topRightCornerSwipeAction;
-        _settings.BottomLeftCornerSwipeAction = bottomLeftCornerSwipeAction;
-        _settings.BottomRightCornerSwipeAction = bottomRightCornerSwipeAction;
-        _settings.TopLeftTriangleAction = topLeftTriangleAction;
-        _settings.TopRightTriangleAction = topRightTriangleAction;
-        _settings.BottomLeftTriangleAction = bottomLeftTriangleAction;
-        _settings.BottomRightTriangleAction = bottomRightTriangleAction;
-        _settings.TopLeftForceClickAction = topLeftForceClickAction;
-        _settings.TopRightForceClickAction = topRightForceClickAction;
-        _settings.BottomLeftForceClickAction = bottomLeftForceClickAction;
-        _settings.BottomRightForceClickAction = bottomRightForceClickAction;
-        _settings.ThreeFingerTapAction = threeFingerTapAction;
-        _settings.ThreeFingerClickAction = threeFingerClickAction;
-        _settings.FourFingerClickAction = fourFingerClickAction;
-        _settings.UpperLeftCornerClickAction = upperLeftCornerClickAction;
-        _settings.UpperRightCornerClickAction = upperRightCornerClickAction;
-        _settings.LowerLeftCornerClickAction = lowerLeftCornerClickAction;
-        _settings.LowerRightCornerClickAction = lowerRightCornerClickAction;
-        FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
-        FiveFingerSwipeRightGestureCombo.SelectedValue = fiveFingerSwipeRightAction;
-        FiveFingerSwipeUpGestureCombo.SelectedValue = fiveFingerSwipeUpAction;
-        FiveFingerSwipeDownGestureCombo.SelectedValue = fiveFingerSwipeDownAction;
-        ThreeFingerSwipeLeftGestureCombo.SelectedValue = threeFingerSwipeLeftAction;
-        ThreeFingerSwipeRightGestureCombo.SelectedValue = threeFingerSwipeRightAction;
-        ThreeFingerSwipeUpGestureCombo.SelectedValue = threeFingerSwipeUpAction;
-        ThreeFingerSwipeDownGestureCombo.SelectedValue = threeFingerSwipeDownAction;
-        FourFingerSwipeLeftGestureCombo.SelectedValue = fourFingerSwipeLeftAction;
-        FourFingerSwipeRightGestureCombo.SelectedValue = fourFingerSwipeRightAction;
-        FourFingerSwipeUpGestureCombo.SelectedValue = fourFingerSwipeUpAction;
-        FourFingerSwipeDownGestureCombo.SelectedValue = fourFingerSwipeDownAction;
-        TwoFingerHoldGestureCombo.SelectedValue = twoFingerHoldAction;
-        ThreeFingerHoldGestureCombo.SelectedValue = threeFingerHoldAction;
-        FourFingerHoldGestureCombo.SelectedValue = fourFingerHoldAction;
-        LeftEdgeUpGestureCombo.SelectedValue = leftEdgeUpAction;
-        LeftEdgeDownGestureCombo.SelectedValue = leftEdgeDownAction;
-        RightEdgeUpGestureCombo.SelectedValue = rightEdgeUpAction;
-        RightEdgeDownGestureCombo.SelectedValue = rightEdgeDownAction;
-        TopEdgeLeftGestureCombo.SelectedValue = topEdgeLeftAction;
-        TopEdgeRightGestureCombo.SelectedValue = topEdgeRightAction;
-        BottomEdgeLeftGestureCombo.SelectedValue = bottomEdgeLeftAction;
-        BottomEdgeRightGestureCombo.SelectedValue = bottomEdgeRightAction;
-        OuterCornersGestureCombo.SelectedValue = outerCornersAction;
-        InnerCornersGestureCombo.SelectedValue = innerCornersAction;
-        TopLeftCornerSwipeGestureCombo.SelectedValue = topLeftCornerSwipeAction;
-        TopRightCornerSwipeGestureCombo.SelectedValue = topRightCornerSwipeAction;
-        BottomLeftCornerSwipeGestureCombo.SelectedValue = bottomLeftCornerSwipeAction;
-        BottomRightCornerSwipeGestureCombo.SelectedValue = bottomRightCornerSwipeAction;
-        TopLeftTriangleGestureCombo.SelectedValue = topLeftTriangleAction;
-        TopRightTriangleGestureCombo.SelectedValue = topRightTriangleAction;
-        BottomLeftTriangleGestureCombo.SelectedValue = bottomLeftTriangleAction;
-        BottomRightTriangleGestureCombo.SelectedValue = bottomRightTriangleAction;
-        TopLeftForceClickGestureCombo.SelectedValue = topLeftForceClickAction;
-        TopRightForceClickGestureCombo.SelectedValue = topRightForceClickAction;
-        BottomLeftForceClickGestureCombo.SelectedValue = bottomLeftForceClickAction;
-        BottomRightForceClickGestureCombo.SelectedValue = bottomRightForceClickAction;
-        ThreeFingerTapGestureCombo.SelectedValue = threeFingerTapAction;
-        ThreeFingerClickGestureCombo.SelectedValue = threeFingerClickAction;
-        FourFingerClickGestureCombo.SelectedValue = fourFingerClickAction;
-        UpperLeftCornerClickGestureCombo.SelectedValue = upperLeftCornerClickAction;
-        UpperRightCornerClickGestureCombo.SelectedValue = upperRightCornerClickAction;
-        LowerLeftCornerClickGestureCombo.SelectedValue = lowerLeftCornerClickAction;
-        LowerRightCornerClickGestureCombo.SelectedValue = lowerRightCornerClickAction;
-
         LayoutPresetCombo.Items.Clear();
         foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.Selectable)
         {
@@ -709,9 +543,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectedItem = TrackpadLayoutPreset.Selectable.Contains(_preset)
             ? _preset
             : TrackpadLayoutPreset.SixByThree;
-        LoadGestureRepeatCadenceSettingsIntoUi();
-        RefreshGestureRepeatCadenceAvailability();
-        KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         _settings.AutocorrectDryRunEnabled = false;
         _settings.AutocorrectMaxEditDistance = 2;
@@ -720,8 +551,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpdateAutocorrectStatusVisibility();
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         HoldRepeatModeCheck.IsChecked = _settings.HoldRepeatEnabled;
-        ThreeFingerDragModeCheck.IsChecked = _settings.ThreeFingerDragEnabled;
-        SyncThreeFingerSwipeGestureAvailability();
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
@@ -747,63 +576,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
-    }
-
-    private void RegisterGestureBindingControls()
-    {
-        RegisterGestureBindingControl("two_finger_hold", TwoFingerHoldGestureCombo, TwoFingerHoldGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_hold", ThreeFingerHoldGestureCombo, ThreeFingerHoldGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_hold", FourFingerHoldGestureCombo, FourFingerHoldGestureRepeatBox);
-        RegisterGestureBindingControl("inner_corners", InnerCornersGestureCombo, InnerCornersGestureRepeatBox);
-        RegisterGestureBindingControl("outer_corners", OuterCornersGestureCombo, OuterCornersGestureRepeatBox);
-        RegisterGestureBindingControl("left_edge_up", LeftEdgeUpGestureCombo, LeftEdgeUpGestureRepeatBox);
-        RegisterGestureBindingControl("left_edge_down", LeftEdgeDownGestureCombo, LeftEdgeDownGestureRepeatBox);
-        RegisterGestureBindingControl("right_edge_up", RightEdgeUpGestureCombo, RightEdgeUpGestureRepeatBox);
-        RegisterGestureBindingControl("right_edge_down", RightEdgeDownGestureCombo, RightEdgeDownGestureRepeatBox);
-        RegisterGestureBindingControl("top_edge_left", TopEdgeLeftGestureCombo, TopEdgeLeftGestureRepeatBox);
-        RegisterGestureBindingControl("top_edge_right", TopEdgeRightGestureCombo, TopEdgeRightGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_edge_left", BottomEdgeLeftGestureCombo, BottomEdgeLeftGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_edge_right", BottomEdgeRightGestureCombo, BottomEdgeRightGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_swipe_left", ThreeFingerSwipeLeftGestureCombo, ThreeFingerSwipeLeftGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_swipe_right", ThreeFingerSwipeRightGestureCombo, ThreeFingerSwipeRightGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_swipe_up", ThreeFingerSwipeUpGestureCombo, ThreeFingerSwipeUpGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_swipe_down", ThreeFingerSwipeDownGestureCombo, ThreeFingerSwipeDownGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_swipe_left", FourFingerSwipeLeftGestureCombo, FourFingerSwipeLeftGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_swipe_right", FourFingerSwipeRightGestureCombo, FourFingerSwipeRightGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_swipe_up", FourFingerSwipeUpGestureCombo, FourFingerSwipeUpGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_swipe_down", FourFingerSwipeDownGestureCombo, FourFingerSwipeDownGestureRepeatBox);
-        RegisterGestureBindingControl("five_finger_swipe_left", FiveFingerSwipeLeftGestureCombo, FiveFingerSwipeLeftGestureRepeatBox);
-        RegisterGestureBindingControl("five_finger_swipe_right", FiveFingerSwipeRightGestureCombo, FiveFingerSwipeRightGestureRepeatBox);
-        RegisterGestureBindingControl("five_finger_swipe_up", FiveFingerSwipeUpGestureCombo, FiveFingerSwipeUpGestureRepeatBox);
-        RegisterGestureBindingControl("five_finger_swipe_down", FiveFingerSwipeDownGestureCombo, FiveFingerSwipeDownGestureRepeatBox);
-        RegisterGestureBindingControl("top_left_corner_swipe", TopLeftCornerSwipeGestureCombo, TopLeftCornerSwipeGestureRepeatBox);
-        RegisterGestureBindingControl("top_right_corner_swipe", TopRightCornerSwipeGestureCombo, TopRightCornerSwipeGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_left_corner_swipe", BottomLeftCornerSwipeGestureCombo, BottomLeftCornerSwipeGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_right_corner_swipe", BottomRightCornerSwipeGestureCombo, BottomRightCornerSwipeGestureRepeatBox);
-        RegisterGestureBindingControl("top_left_triangle", TopLeftTriangleGestureCombo);
-        RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo);
-        RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo);
-        RegisterGestureBindingControl("bottom_right_triangle", BottomRightTriangleGestureCombo);
-        RegisterGestureBindingControl("top_left_force_click", TopLeftForceClickGestureCombo);
-        RegisterGestureBindingControl("top_right_force_click", TopRightForceClickGestureCombo);
-        RegisterGestureBindingControl("bottom_left_force_click", BottomLeftForceClickGestureCombo);
-        RegisterGestureBindingControl("bottom_right_force_click", BottomRightForceClickGestureCombo);
-        RegisterGestureBindingControl("three_finger_tap", ThreeFingerTapGestureCombo);
-        RegisterGestureBindingControl("three_finger_click", ThreeFingerClickGestureCombo);
-        RegisterGestureBindingControl("four_finger_click", FourFingerClickGestureCombo);
-        RegisterGestureBindingControl("upper_left_corner_click", UpperLeftCornerClickGestureCombo);
-        RegisterGestureBindingControl("upper_right_corner_click", UpperRightCornerClickGestureCombo);
-        RegisterGestureBindingControl("lower_left_corner_click", LowerLeftCornerClickGestureCombo);
-        RegisterGestureBindingControl("lower_right_corner_click", LowerRightCornerClickGestureCombo);
-    }
-
-    private void RegisterGestureBindingControl(string bindingId, ComboBox combo, TextBox? repeatBox = null)
-    {
-        _gestureActionCombosById[bindingId] = combo;
-        if (repeatBox != null)
-        {
-            _gestureRepeatBoxesById[bindingId] = repeatBox;
-        }
     }
 
     private ListCollectionView CreateGroupedKeyActionView()
@@ -834,11 +606,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
         }
 
-        foreach (string action in GestureBindingCatalog.EnumerateConfiguredActions(_settings))
-        {
-            EnsureActionOption(action);
-        }
-
         if (_settings.ShortcutActions != null)
         {
             for (int i = 0; i < _settings.ShortcutActions.Count; i++)
@@ -860,117 +627,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         yield return KeymapPrimaryCombo;
         yield return KeymapHoldCombo;
-        foreach (ComboBox combo in EnumerateGestureActionCombos())
-        {
-            yield return combo;
-        }
-    }
-
-    private IEnumerable<ComboBox> EnumerateGestureActionCombos()
-    {
-        yield return FiveFingerSwipeLeftGestureCombo;
-        yield return FiveFingerSwipeRightGestureCombo;
-        yield return FiveFingerSwipeUpGestureCombo;
-        yield return FiveFingerSwipeDownGestureCombo;
-        yield return ThreeFingerSwipeLeftGestureCombo;
-        yield return ThreeFingerSwipeRightGestureCombo;
-        yield return ThreeFingerSwipeUpGestureCombo;
-        yield return ThreeFingerSwipeDownGestureCombo;
-        yield return FourFingerSwipeLeftGestureCombo;
-        yield return FourFingerSwipeRightGestureCombo;
-        yield return FourFingerSwipeUpGestureCombo;
-        yield return FourFingerSwipeDownGestureCombo;
-        yield return TwoFingerHoldGestureCombo;
-        yield return ThreeFingerHoldGestureCombo;
-        yield return FourFingerHoldGestureCombo;
-        yield return LeftEdgeUpGestureCombo;
-        yield return LeftEdgeDownGestureCombo;
-        yield return RightEdgeUpGestureCombo;
-        yield return RightEdgeDownGestureCombo;
-        yield return TopEdgeLeftGestureCombo;
-        yield return TopEdgeRightGestureCombo;
-        yield return BottomEdgeLeftGestureCombo;
-        yield return BottomEdgeRightGestureCombo;
-        yield return OuterCornersGestureCombo;
-        yield return InnerCornersGestureCombo;
-        yield return TopLeftCornerSwipeGestureCombo;
-        yield return TopRightCornerSwipeGestureCombo;
-        yield return BottomLeftCornerSwipeGestureCombo;
-        yield return BottomRightCornerSwipeGestureCombo;
-        yield return TopLeftTriangleGestureCombo;
-        yield return TopRightTriangleGestureCombo;
-        yield return BottomLeftTriangleGestureCombo;
-        yield return BottomRightTriangleGestureCombo;
-        yield return TopLeftForceClickGestureCombo;
-        yield return TopRightForceClickGestureCombo;
-        yield return BottomLeftForceClickGestureCombo;
-        yield return BottomRightForceClickGestureCombo;
-        yield return ThreeFingerTapGestureCombo;
-        yield return ThreeFingerClickGestureCombo;
-        yield return FourFingerClickGestureCombo;
-        yield return UpperLeftCornerClickGestureCombo;
-        yield return UpperRightCornerClickGestureCombo;
-        yield return LowerLeftCornerClickGestureCombo;
-        yield return LowerRightCornerClickGestureCombo;
-    }
-
-    private void LoadGestureRepeatCadenceSettingsIntoUi()
-    {
-        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
-        {
-            if (_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box))
-            {
-                box.Text = FormatGestureRepeatCadenceText(GestureBindingCatalog.GetRepeatCadenceMs(_settings, binding));
-            }
-        }
-    }
-
-    private void ApplyGestureRepeatCadenceSettingsFromUi()
-    {
-        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
-        {
-            if (_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box))
-            {
-                GestureBindingCatalog.SetRepeatCadenceMs(_settings, binding, ReadGestureRepeatCadenceMs(box));
-            }
-        }
-    }
-
-    private void RefreshGestureRepeatCadenceAvailability()
-    {
-        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
-        {
-            if (!_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box) ||
-                !_gestureActionCombosById.TryGetValue(binding.Id, out ComboBox? combo))
-            {
-                continue;
-            }
-
-            bool enabled = !string.Equals(
-                ReadGestureActionSelection(combo, binding.DefaultAction),
-                "None",
-                StringComparison.OrdinalIgnoreCase) &&
-                IsGestureBindingUiAvailable(binding.Id);
-            box.IsEnabled = enabled;
-        }
-    }
-
-    private static string FormatGestureRepeatCadenceText(int cadenceMs)
-    {
-        return cadenceMs > 0
-            ? cadenceMs.ToString(CultureInfo.InvariantCulture)
-            : string.Empty;
-    }
-
-    private static int ReadGestureRepeatCadenceMs(TextBox box)
-    {
-        string text = box.Text?.Trim() ?? string.Empty;
-        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
-        {
-            return 0;
-        }
-
-        return GestureBindingCatalog.NormalizeRepeatCadenceMs(value);
     }
 
     private void InitializeActionCombo(ComboBox combo)
@@ -1195,15 +851,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return normalizedText;
     }
 
-    private void SyncThreeFingerSwipeGestureAvailability()
-    {
-        bool enableThreeFingerSwipes = ThreeFingerDragModeCheck.IsChecked != true;
-        ThreeFingerSwipeLeftGestureCombo.IsEnabled = enableThreeFingerSwipes;
-        ThreeFingerSwipeRightGestureCombo.IsEnabled = enableThreeFingerSwipes;
-        ThreeFingerSwipeUpGestureCombo.IsEnabled = enableThreeFingerSwipes;
-        ThreeFingerSwipeDownGestureCombo.IsEnabled = enableThreeFingerSwipes;
-    }
-
     private void HookTuningAutoApplyHandlers()
     {
         List<TextBox> boxes =
@@ -1222,8 +869,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnOffsetYBox,
             ColumnRotationBox
         ];
-
-        boxes.AddRange(_gestureRepeatBoxesById.Values);
 
         foreach (TextBox box in boxes)
         {
@@ -1269,18 +914,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         UpdateAutocorrectStatusVisibility();
-        SyncThreeFingerSwipeGestureAvailability();
-        ApplySettingsFromUi();
-    }
-
-    private void OnGestureActionSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressSettingsEvents)
-        {
-            return;
-        }
-
-        RefreshGestureRepeatCadenceAvailability();
         ApplySettingsFromUi();
     }
 
@@ -1289,6 +922,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ListCollectionView view = new(BuildShortcutKeyOptions());
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ShortcutKeyOption.Group)));
         GestureShortcutKeyCombo.ItemsSource = view;
+        GestureShortcutKeyCombo.SelectedValue = string.Empty;
         ShortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1587,11 +1221,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private string BuildGestureShortcutAction()
     {
-        if (GestureShortcutKeyCombo.SelectedValue is not string selectedKey ||
-            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
-        {
-            return string.Empty;
-        }
+        string keyLabel = string.Empty;
+        if (GestureShortcutKeyCombo.SelectedValue is string selectedKey && !string.IsNullOrEmpty(selectedKey) &&
+            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out keyLabel)) return string.Empty;
 
         DispatchModifierFlags modifiers = DispatchModifierFlags.None;
         AppendShortcutModifierFlag(GestureShortcutCtrlToggle, ref modifiers);
@@ -1599,9 +1231,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         AppendShortcutModifierFlag(GestureShortcutAltToggle, ref modifiers);
         AppendShortcutModifierFlag(GestureShortcutWinToggle, ref modifiers);
 
-        return modifiers == DispatchModifierFlags.None
-            ? string.Empty
-            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+        return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
     }
 
     private string BuildActionBuilderAction(out string preview)
@@ -1652,7 +1282,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ResetShortcutModifierState(GestureShortcutShiftToggle);
         ResetShortcutModifierState(GestureShortcutAltToggle);
         ResetShortcutModifierState(GestureShortcutWinToggle);
-        GestureShortcutKeyCombo.SelectedItem = null;
+        GestureShortcutKeyCombo.SelectedValue = string.Empty;
     }
 
     private void OnAppLauncherEditorChanged(object sender, TextChangedEventArgs e)
@@ -1881,53 +1511,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
-        _settings.FiveFingerSwipeRightAction = ReadGestureActionSelection(FiveFingerSwipeRightGestureCombo, "Typing Toggle");
-        _settings.FiveFingerSwipeUpAction = ReadGestureActionSelection(FiveFingerSwipeUpGestureCombo, "None");
-        _settings.FiveFingerSwipeDownAction = ReadGestureActionSelection(FiveFingerSwipeDownGestureCombo, "None");
-        _settings.ThreeFingerSwipeLeftAction = ReadGestureActionSelection(ThreeFingerSwipeLeftGestureCombo, "None");
-        _settings.ThreeFingerSwipeRightAction = ReadGestureActionSelection(ThreeFingerSwipeRightGestureCombo, "None");
-        _settings.ThreeFingerSwipeUpAction = ReadGestureActionSelection(ThreeFingerSwipeUpGestureCombo, "None");
-        _settings.ThreeFingerSwipeDownAction = ReadGestureActionSelection(ThreeFingerSwipeDownGestureCombo, "None");
-        _settings.FourFingerSwipeLeftAction = ReadGestureActionSelection(FourFingerSwipeLeftGestureCombo, "None");
-        _settings.FourFingerSwipeRightAction = ReadGestureActionSelection(FourFingerSwipeRightGestureCombo, "None");
-        _settings.FourFingerSwipeUpAction = ReadGestureActionSelection(FourFingerSwipeUpGestureCombo, "None");
-        _settings.FourFingerSwipeDownAction = ReadGestureActionSelection(FourFingerSwipeDownGestureCombo, "None");
-        _settings.TwoFingerHoldAction = ReadGestureActionSelection(TwoFingerHoldGestureCombo, "None");
-        _settings.ThreeFingerHoldAction = ReadGestureActionSelection(ThreeFingerHoldGestureCombo, "None");
-        _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Shift");
-        _settings.LeftEdgeUpAction = ReadGestureActionSelection(LeftEdgeUpGestureCombo, "None");
-        _settings.LeftEdgeDownAction = ReadGestureActionSelection(LeftEdgeDownGestureCombo, "None");
-        _settings.RightEdgeUpAction = ReadGestureActionSelection(RightEdgeUpGestureCombo, "None");
-        _settings.RightEdgeDownAction = ReadGestureActionSelection(RightEdgeDownGestureCombo, "None");
-        _settings.TopEdgeLeftAction = ReadGestureActionSelection(TopEdgeLeftGestureCombo, "None");
-        _settings.TopEdgeRightAction = ReadGestureActionSelection(TopEdgeRightGestureCombo, "None");
-        _settings.BottomEdgeLeftAction = ReadGestureActionSelection(BottomEdgeLeftGestureCombo, "None");
-        _settings.BottomEdgeRightAction = ReadGestureActionSelection(BottomEdgeRightGestureCombo, "None");
-        _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
-        _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
-        _settings.TopLeftCornerSwipeAction = ReadGestureActionSelection(TopLeftCornerSwipeGestureCombo, "None");
-        _settings.TopRightCornerSwipeAction = ReadGestureActionSelection(TopRightCornerSwipeGestureCombo, "None");
-        _settings.BottomLeftCornerSwipeAction = ReadGestureActionSelection(BottomLeftCornerSwipeGestureCombo, "None");
-        _settings.BottomRightCornerSwipeAction = ReadGestureActionSelection(BottomRightCornerSwipeGestureCombo, "None");
-        _settings.TopLeftTriangleAction = ReadGestureActionSelection(TopLeftTriangleGestureCombo, "None");
-        _settings.TopRightTriangleAction = ReadGestureActionSelection(TopRightTriangleGestureCombo, "None");
-        _settings.BottomLeftTriangleAction = ReadGestureActionSelection(BottomLeftTriangleGestureCombo, "None");
-        _settings.BottomRightTriangleAction = ReadGestureActionSelection(BottomRightTriangleGestureCombo, "None");
-        _settings.TopLeftForceClickAction = ReadGestureActionSelection(TopLeftForceClickGestureCombo, "None");
-        _settings.TopRightForceClickAction = ReadGestureActionSelection(TopRightForceClickGestureCombo, "None");
-        _settings.BottomLeftForceClickAction = ReadGestureActionSelection(BottomLeftForceClickGestureCombo, "None");
-        _settings.BottomRightForceClickAction = ReadGestureActionSelection(BottomRightForceClickGestureCombo, "None");
-        _settings.ThreeFingerTapAction = ReadGestureActionSelection(ThreeFingerTapGestureCombo, "None");
-        _settings.ThreeFingerClickAction = ReadGestureActionSelection(ThreeFingerClickGestureCombo, "None");
-        _settings.FourFingerClickAction = ReadGestureActionSelection(FourFingerClickGestureCombo, "None");
-        _settings.UpperLeftCornerClickAction = ReadGestureActionSelection(UpperLeftCornerClickGestureCombo, "None");
-        _settings.UpperRightCornerClickAction = ReadGestureActionSelection(UpperRightCornerClickGestureCombo, "None");
-        _settings.LowerLeftCornerClickAction = ReadGestureActionSelection(LowerLeftCornerClickGestureCombo, "None");
-        _settings.LowerRightCornerClickAction = ReadGestureActionSelection(LowerRightCornerClickGestureCombo, "None");
-        ApplyGestureRepeatCadenceSettingsFromUi();
-        RefreshGestureRepeatCadenceAvailability();
-        _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.AutocorrectDryRunEnabled = false;
         _settings.AutocorrectMaxEditDistance = 2;
@@ -1937,7 +1520,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
         _settings.HoldRepeatEnabled = HoldRepeatModeCheck.IsChecked == true;
-        _settings.ThreeFingerDragEnabled = ThreeFingerDragModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         _settings.StartInTrayOnLaunch = StartInTrayOnLaunchCheck.IsChecked == true;
         _settings.MemorySaverEnabled = MemorySaverModeCheck.IsChecked == true;
@@ -1970,10 +1552,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
         _settings.ForceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
         _settings.ForceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
-        _settings.ForceClickThreshold = (int)Math.Clamp(
-            Math.Round(ForceClickThresholdSlider.Value),
-            WindowsForceClickThresholdMinimum,
-            GestureBindingCatalog.ForceClickThresholdMaximum);
         UpdateForceThresholdLabels();
         ApplyHapticsStrengthFromUi();
 
@@ -2167,6 +1745,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
+        WindowsInputPolicy.NormalizeLegacyModes(importedSettings);
         _settings.CopyFrom(importedSettings);
         _settings.NormalizeRanges();
         _keymap.TryImportFromJson(importedKeymap.SerializeToJson(writeIndented: false), out _);
@@ -2251,12 +1830,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyCoreSettings()
     {
+        _handGestures?.Configure(_settings);
+        _handGesturePanel?.Refresh(_settings);
         if (_touchActor != null)
         {
             _touchActor.Configure(BuildConfigFromSettings());
-            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
-            _touchActor.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);
@@ -2280,15 +1859,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         int forceMin = Math.Clamp(_settings.ForceMin, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         int forceCap = Math.Clamp(_settings.ForceCap, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
-        int forceClickThreshold = Math.Clamp(
-            _settings.ForceClickThreshold,
-            WindowsForceClickThresholdMinimum,
-            GestureBindingCatalog.ForceClickThresholdMaximum);
         ForceMinSlider.Value = forceMin;
         ForceCapSlider.Value = forceCap;
-        ForceClickThresholdSlider.Minimum = WindowsForceClickThresholdMinimum;
-        ForceClickThresholdSlider.Maximum = GestureBindingCatalog.ForceClickThresholdMaximum;
-        ForceClickThresholdSlider.Value = forceClickThreshold;
         UpdateForceThresholdLabels();
     }
 
@@ -2296,15 +1868,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
-        int forceClickThreshold = (int)Math.Clamp(
-            Math.Round(ForceClickThresholdSlider.Value),
-            WindowsForceClickThresholdMinimum,
-            GestureBindingCatalog.ForceClickThresholdMaximum);
         ForceMinValueText.Text = forceMin.ToString(CultureInfo.InvariantCulture);
         ForceCapValueText.Text = forceCap.ToString(CultureInfo.InvariantCulture);
-        ForceClickThresholdMinText.Text = WindowsForceClickThresholdMinimum.ToString(CultureInfo.InvariantCulture);
-        ForceClickThresholdValueText.Text = forceClickThreshold.ToString(CultureInfo.InvariantCulture);
-        ForceClickThresholdMaxText.Text = GestureBindingCatalog.ForceClickThresholdMaximum.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ApplyHapticsStrengthFromUi()
@@ -2781,7 +2346,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void SetControlsPaneVisible(bool visible, bool animated)
     {
         _controlsPaneVisible = visible;
-        ToggleControlsButton.Content = visible ? "Hide Controls" : "Show Controls";
+        ToggleControlsButton.Content = visible ? "Hide Settings" : "Show Settings";
         double targetWidth = visible ? ControlsPaneExpandedWidth : ControlsPaneCollapsedWidth;
         ControlsPaneBorder.IsHitTestVisible = visible;
 
@@ -2855,6 +2420,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         string[] modifiers =
         {
+            "Hyper",
             "Shift",
             "Ctrl",
             "Alt",
@@ -2865,11 +2431,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             AddKeyActionOption(options, modifiers[i], "Modifiers");
         }
-
-        string[] modes =
-        {
-            "Typing Toggle"
-        };
 
         string[] symbols =
         {
@@ -2929,11 +2490,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "BRI_SCRIPT_DOWN"
         };
 
-        for (int i = 0; i < modes.Length; i++)
-        {
-            AddKeyActionOption(options, modes[i], "Modes");
-        }
-
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
@@ -2959,6 +2515,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static List<ShortcutKeyOption> BuildShortcutKeyOptions()
     {
         List<ShortcutKeyOption> options = new(DispatchShortcutHelper.ShortcutKeyLabels.Count);
+        options.Add(new ShortcutKeyOption(string.Empty, "None", "No Key"));
         IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
         for (int i = 0; i < labels.Count; i++)
         {
@@ -3000,6 +2557,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void EnsureActionOption(string? action, string group = "Custom", bool forceGroup = false)
     {
+        if (string.Equals(action?.Trim(), "Typing Toggle", StringComparison.OrdinalIgnoreCase)) return;
         if (string.IsNullOrWhiteSpace(action))
         {
             return;
@@ -3461,37 +3019,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool forceAvailable = HasAnyPotentiallyForceCapableSelectedTrackpad();
         string? unavailableToolTip = forceAvailable ? null : ForceUnavailableToolTip;
 
-        foreach (string bindingId in ForceGestureBindingIds)
-        {
-            if (_gestureActionCombosById.TryGetValue(bindingId, out ComboBox? combo))
-            {
-                combo.IsEnabled = forceAvailable;
-                combo.ToolTip = unavailableToolTip;
-                ToolTipService.SetShowOnDisabled(combo, !forceAvailable);
-            }
-
-            if (_gestureRepeatBoxesById.TryGetValue(bindingId, out TextBox? repeatBox))
-            {
-                repeatBox.ToolTip = unavailableToolTip;
-                ToolTipService.SetShowOnDisabled(repeatBox, !forceAvailable);
-            }
-        }
-
-        ForceClickThresholdSlider.IsEnabled = forceAvailable;
-        ForceClickThresholdSlider.ToolTip = unavailableToolTip;
-        ToolTipService.SetShowOnDisabled(ForceClickThresholdSlider, !forceAvailable);
         ForceMinSlider.IsEnabled = forceAvailable;
         ForceMinSlider.ToolTip = unavailableToolTip;
         ToolTipService.SetShowOnDisabled(ForceMinSlider, !forceAvailable);
         ForceCapSlider.IsEnabled = forceAvailable;
         ForceCapSlider.ToolTip = unavailableToolTip;
         ToolTipService.SetShowOnDisabled(ForceCapSlider, !forceAvailable);
-        ForceClicksExpander.ToolTip = unavailableToolTip;
-        ForceClicksExpander.Opacity = forceAvailable ? 1.0 : 0.38;
-        ForceClicksPanel.Opacity = forceAvailable ? 1.0 : 0.58;
         ForceTypingTuningPanel.ToolTip = unavailableToolTip;
         ForceTypingTuningPanel.Opacity = forceAvailable ? 1.0 : 0.38;
-        RefreshGestureRepeatCadenceAvailability();
     }
 
     private bool HasAnyPotentiallyForceCapableSelectedTrackpad()
@@ -3559,24 +3094,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             RefreshForceUiAvailability();
         }
-    }
-
-    private bool IsGestureBindingUiAvailable(string bindingId)
-    {
-        return !IsForceGestureBindingId(bindingId) || HasAnyPotentiallyForceCapableSelectedTrackpad();
-    }
-
-    private static bool IsForceGestureBindingId(string bindingId)
-    {
-        for (int index = 0; index < ForceGestureBindingIds.Length; index++)
-        {
-            if (string.Equals(ForceGestureBindingIds[index], bindingId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private HidDeviceInfo? FindDevice(string? path)
@@ -4327,6 +3844,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
     {
+        SetControlsPaneVisible(true, animated: false);
+        SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = false;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
@@ -4339,6 +3858,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandCustomButtonEditorAndFocusGeometry()
     {
+        SetControlsPaneVisible(true, animated: false);
+        SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
@@ -4884,7 +4405,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _dispatchQueue?.Clear();
         _touchActor.SetPersistentLayer(_activeLayer);
         _touchActor.SetTypingEnabled(true);
-        _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
         UpdateEngineStateDetails();
     }
 
@@ -5113,6 +4633,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LeftDevicePath = leftPath;
         _settings.RightDevicePath = rightPath;
         _settings.Save();
+        _handGestures?.Configure(_settings);
         _runtimeService?.UpdateDeviceSelections(leftPath, rightPath);
     }
 
@@ -5302,6 +4823,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int offset,
         ReadOnlySpan<byte> reportSpan)
     {
+        if (_localMouseTakeover?.Enabled == true) _localMouseTakeover.Release("Off · contact input fault");
         string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
         RuntimeFaultLogger.LogException(source, ex, context);
 
@@ -5340,7 +4862,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (rightMatch)
         {
             ApplyReport(_right, snapshot, in report, TrackpadSide.Right);
-            PostToEngine(TrackpadSide.Right, in report, RightSurface.RequestedMaxX ?? DefaultMaxX, RightSurface.RequestedMaxY ?? DefaultMaxY, timestampTicks);
+            if (!leftMatch) PostToEngine(TrackpadSide.Right, in report, RightSurface.RequestedMaxX ?? DefaultMaxX, RightSurface.RequestedMaxY ?? DefaultMaxY, timestampTicks);
         }
 
         return true;
@@ -5349,10 +4871,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
         session.UpdateButtonState(in report);
-        if (session.LastButtonState.Changed)
-        {
-            _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(report.ArrivalQpcTicks);
-        }
         ApplyReport(session, snapshot.Tag, in report, side);
     }
 
@@ -5422,92 +4940,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateEngineStateDetails()
     {
-        string next;
-        int leftContacts;
-        int rightContacts;
-        string intentLabel;
-        Brush intentBrush;
-        string modeLabel;
-        Brush modeBrush;
-        bool suppressGlobalClicks;
-        if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
+        int left = SnapshotContactCount(_left.State), right = SnapshotContactCount(_right.State);
+        if (TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
-            next = "State: n/a";
-            leftContacts = SnapshotContactCount(_left.State);
-            rightContacts = SnapshotContactCount(_right.State);
-            intentLabel = "n/a";
-            intentBrush = IntentUnknownBrush;
-            modeLabel = "n/a";
-            modeBrush = ModeUnknownBrush;
-            suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
-        }
-        else
-        {
-            next = $"State: {snapshot.IntentMode} | layer {snapshot.ActiveLayer} | contacts {snapshot.ContactCount}";
-            leftContacts = snapshot.LeftContacts;
-            rightContacts = snapshot.RightContacts;
-            (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
-            (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
-            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive;
+            left = snapshot.LeftContacts; right = snapshot.RightContacts;
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;
                 SyncEditorLayerToRuntime(snapshot.ActiveLayer);
-                UpdateLabelMatrices();
-                RefreshKeymapEditor();
+                UpdateLabelMatrices(); RefreshKeymapEditor();
             }
         }
-
-        UpdateGlobalClickSuppressionState(suppressGlobalClicks);
-        UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
+        if (left != _lastLeftPillCount) { _lastLeftPillCount = left; LeftContactsPillText.Text = $"L {Math.Max(0,left)}"; }
+        if (right != _lastRightPillCount) { _lastRightPillCount = right; RightContactsPillText.Text = $"R {Math.Max(0,right)}"; }
         UpdateAutocorrectStatusDetails();
-
-        if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
-        {
-            _engineStateText = next;
-            StatusText.Text = next;
-        }
-    }
-
-    private void UpdateStatusPills(int leftContacts, int rightContacts, string intentLabel, Brush intentBrush, string modeLabel, Brush modeBrush)
-    {
-        leftContacts = Math.Max(0, leftContacts);
-        rightContacts = Math.Max(0, rightContacts);
-        if (leftContacts != _lastLeftPillCount)
-        {
-            _lastLeftPillCount = leftContacts;
-            LeftContactsPillText.Text = $"L {leftContacts}";
-        }
-
-        if (rightContacts != _lastRightPillCount)
-        {
-            _lastRightPillCount = rightContacts;
-            RightContactsPillText.Text = $"R {rightContacts}";
-        }
-
-        if (!string.Equals(intentLabel, _lastIntentPillLabel, StringComparison.Ordinal))
-        {
-            _lastIntentPillLabel = intentLabel;
-            IntentPillText.Text = intentLabel;
-        }
-
-        if (!ReferenceEquals(intentBrush, _lastIntentPillBrush))
-        {
-            _lastIntentPillBrush = intentBrush;
-            IntentPillDot.Fill = intentBrush;
-        }
-
-        if (!string.Equals(modeLabel, _lastModePillLabel, StringComparison.Ordinal))
-        {
-            _lastModePillLabel = modeLabel;
-            ModePillText.Text = modeLabel;
-        }
-
-        if (!ReferenceEquals(modeBrush, _lastModePillBrush))
-        {
-            _lastModePillBrush = modeBrush;
-            ModePillDot.Fill = modeBrush;
-        }
     }
 
     private void UpdateAutocorrectStatusDetails()
@@ -5629,32 +5075,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         snapshot = default;
         return false;
-    }
-
-    private static (string Label, Brush Brush) ToIntentPill(IntentMode mode)
-    {
-        return mode switch
-        {
-            IntentMode.Idle => ("idle", IntentIdleBrush),
-            IntentMode.KeyCandidate => ("cand", IntentCandidateBrush),
-            IntentMode.TypingCommitted => ("typing", IntentTypingBrush),
-            IntentMode.MouseCandidate => ("mouse", IntentMouseBrush),
-            IntentMode.MouseActive => ("mouse", IntentMouseBrush),
-            IntentMode.GestureCandidate => ("gest", IntentGestureBrush),
-            _ => ("n/a", IntentUnknownBrush)
-        };
-    }
-
-    private static (string Label, Brush Brush) ToModePill(bool typingEnabled, bool keyboardModeEnabled)
-    {
-        if (!typingEnabled)
-        {
-            return ("Mouse", ModeMouseBrush);
-        }
-
-        return keyboardModeEnabled
-            ? ("Keyboard", ModeKeyboardBrush)
-            : ("Mixed", ModeMixedBrush);
     }
 
     private sealed class KeyActionOption

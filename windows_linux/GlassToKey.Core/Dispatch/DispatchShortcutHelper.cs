@@ -5,6 +5,8 @@ namespace GlassToKey;
 
 public static class DispatchShortcutHelper
 {
+    public const DispatchModifierFlags HyperModifiers = DispatchModifierFlags.Ctrl |
+        DispatchModifierFlags.Shift | DispatchModifierFlags.Alt | DispatchModifierFlags.Meta;
     private static readonly DispatchModifierFlags[] OrderedModifierFlags =
     {
         DispatchModifierFlags.Ctrl,
@@ -99,44 +101,32 @@ public static class DispatchShortcutHelper
             return false;
         }
 
+        if (text.Trim().Equals("Hyper", StringComparison.OrdinalIgnoreCase))
+        {
+            text = "Ctrl+Shift+Alt+Win";
+        }
         string[] tokens = text.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (tokens.Length < 2)
+        if (tokens.Length == 0) return false;
+        for (int index = 0; index < tokens.Length; index++)
         {
-            return false;
-        }
-
-        string keyToken = tokens[^1];
-        if (!DispatchSemanticResolver.TryResolveKeyCode(keyToken, out primaryCode) &&
-            !DispatchKeyResolver.TryResolveVirtualKey(keyToken, out keyVirtualKey))
-        {
-            return false;
-        }
-
-        bool sawModifier = false;
-        for (int index = 0; index < tokens.Length - 1; index++)
-        {
-            string modifierToken = tokens[index];
-            if (!DispatchSemanticResolver.TryResolveModifierCode(modifierToken, out DispatchSemanticCode modifierCode))
+            string token = tokens[index];
+            if (DispatchSemanticResolver.TryResolveModifierCode(token, out DispatchSemanticCode modifierCode))
             {
-                return false;
+                modifiers |= ToModifierFlag(modifierCode);
+                if (firstModifierCode == DispatchSemanticCode.None)
+                {
+                    firstModifierCode = modifierCode;
+                    DispatchKeyResolver.TryResolveModifierVirtualKey(token, out firstModifierVirtualKey);
+                }
             }
-
-            DispatchModifierFlags flag = ToModifierFlag(modifierCode);
-            if (flag == DispatchModifierFlags.None)
+            else
             {
-                return false;
-            }
-
-            modifiers |= flag;
-            if (!sawModifier)
-            {
-                sawModifier = true;
-                firstModifierCode = modifierCode;
-                DispatchKeyResolver.TryResolveModifierVirtualKey(modifierToken, out firstModifierVirtualKey);
+                if (index != tokens.Length - 1 ||
+                    (!DispatchSemanticResolver.TryResolveKeyCode(token, out primaryCode) &&
+                     !DispatchKeyResolver.TryResolveVirtualKey(token, out keyVirtualKey))) return false;
             }
         }
-
-        return sawModifier;
+        return modifiers != DispatchModifierFlags.None;
     }
 
     public static bool TryReadShortcut(
@@ -156,6 +146,10 @@ public static class DispatchShortcutHelper
             return false;
         }
 
+        if (primaryCode == DispatchSemanticCode.None && keyVirtualKey == 0)
+        {
+            return modifiers != DispatchModifierFlags.None; // Modifier-only action: Key is None.
+        }
         if (primaryCode != DispatchSemanticCode.None)
         {
             keyLabel = ToDisplayKeyLabel(primaryCode);
@@ -259,10 +253,9 @@ public static class DispatchShortcutHelper
         string keyLabel,
         ShortcutDisplayConvention convention)
     {
-        if (string.IsNullOrWhiteSpace(keyLabel))
-        {
-            return string.Empty;
-        }
+        bool hasKey = !string.IsNullOrWhiteSpace(keyLabel);
+        if (!hasKey && modifiers == DispatchModifierFlags.None) return string.Empty;
+        if (!hasKey && modifiers == HyperModifiers) return "Hyper";
 
         string[] parts = new string[13];
         int count = 0;
@@ -286,13 +279,13 @@ public static class DispatchShortcutHelper
             return keyLabel.Trim();
         }
 
-        string[] materialized = new string[count + 1];
+        string[] materialized = new string[count + (hasKey ? 1 : 0)];
         for (int index = 0; index < count; index++)
         {
             materialized[index] = parts[index];
         }
 
-        materialized[count] = keyLabel.Trim();
+        if (hasKey) materialized[count] = keyLabel.Trim();
         return string.Join("+", materialized);
     }
 

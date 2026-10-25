@@ -212,13 +212,21 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                 }
                 break;
             case DispatchEventKind.ModifierDown:
-                if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierDownVirtualKey))
+                if (dispatchEvent.SemanticAction.Modifiers != DispatchModifierFlags.None)
+                {
+                    ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+                }
+                else if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierDownVirtualKey))
                 {
                     HandleModifierDown(modifierDownVirtualKey);
                 }
                 break;
             case DispatchEventKind.ModifierUp:
-                if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierUpVirtualKey))
+                if (dispatchEvent.SemanticAction.Modifiers != DispatchModifierFlags.None)
+                {
+                    ReleaseShortcutModifiers(dispatchEvent.SemanticAction);
+                }
+                else if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierUpVirtualKey))
                 {
                     HandleModifierUp(modifierUpVirtualKey);
                 }
@@ -477,7 +485,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        int vk = virtualKey;
+        int vk = ModifierReferenceIndex(virtualKey);
         if ((uint)vk >= (uint)_modifierRefCounts.Length)
         {
             return;
@@ -517,7 +525,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        int vk = virtualKey;
+        int vk = ModifierReferenceIndex(virtualKey);
         if ((uint)vk >= (uint)_modifierRefCounts.Length)
         {
             return;
@@ -1158,9 +1166,17 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             IsModifierDown(VirtualKeyRightShift);
     }
 
+    private static int ModifierReferenceIndex(ushort virtualKey) => virtualKey switch
+    {
+        VirtualKeyLeftShift => VirtualKeyShift,
+        VirtualKeyLeftControl => VirtualKeyControl,
+        VirtualKeyLeftMenu => VirtualKeyMenu,
+        _ => virtualKey
+    };
+
     private bool IsModifierDown(ushort virtualKey)
     {
-        int vk = virtualKey;
+        int vk = ModifierReferenceIndex(virtualKey);
         return (uint)vk < (uint)_modifierRefCounts.Length && _modifierRefCounts[vk] > 0;
     }
 

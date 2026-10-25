@@ -24,6 +24,13 @@ internal static class LinuxSelfTestRunner
         "Win+H"
     ];
 
+    public static LinuxSelfTestResult RunHyperModifiers()
+    {
+        return ValidateHyperModifierActions(out string failure)
+            ? new LinuxSelfTestResult(true,"Hyper/modifier-only self-tests passed (parser, all combinations, keymap round-trips, Primary/Hold lifecycle, all-up release, no repeats).")
+            : new LinuxSelfTestResult(false,failure);
+    }
+
     public static LinuxSelfTestResult Run()
     {
         if (!TryLoadBundledKeymap(out KeymapStore.KeymapFileModel keymap, out string failure))
@@ -37,6 +44,11 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateResolvedMappings(keymap, out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateHyperModifierActions(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -657,6 +669,84 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static bool ValidateHyperModifierActions(out string failure)
+    {
+        try
+        {
+            void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+            DispatchModifierFlags[] flags = [DispatchModifierFlags.Ctrl,DispatchModifierFlags.Shift,DispatchModifierFlags.Alt,DispatchModifierFlags.Meta];
+            Require(DispatchShortcutHelper.FormatShortcut(DispatchModifierFlags.None, "") == "", "Empty shortcut enabled.");
+            Require(DispatchShortcutHelper.FormatShortcut(DispatchModifierFlags.None, "A") == "A", "Plain key rejected.");
+            for (int mask = 1; mask < 16; mask++)
+            {
+                DispatchModifierFlags selected = DispatchModifierFlags.None;
+                for (int bit = 0; bit < 4; bit++) if ((mask & (1 << bit)) != 0) selected |= flags[bit];
+                foreach (ShortcutDisplayConvention convention in Enum.GetValues<ShortcutDisplayConvention>())
+                {
+                    string label = DispatchShortcutHelper.FormatShortcut(selected, "", convention);
+                    Require(DispatchShortcutHelper.TryReadShortcut(label,out var parsed,out string key) && parsed == selected && key == "", "Modifier-only parse mismatch: " + label);
+                    Require(!label.EndsWith('+'), "Trailing separator: " + label);
+                    if (mask == 15) Require(label == "Hyper", "Hyper label expanded.");
+                    var action = EngineActionResolver.ResolveActionLabel(label);
+                    Require(action.Kind == EngineActionKind.Modifier, "Modifier-only action is not held: " + label);
+                }
+            }
+            foreach (var flag in Enum.GetValues<DispatchModifierFlags>())
+            {
+                if (flag == DispatchModifierFlags.None) continue;
+                foreach (var convention in Enum.GetValues<ShortcutDisplayConvention>())
+                {
+                    string label = DispatchShortcutHelper.FormatShortcut(flag,"",convention);
+                    Require(DispatchShortcutHelper.TryReadShortcut(label,out var parsed,out string key) && parsed == flag && key == "","Sided modifier round-trip failed: " + label);
+                    Require(EngineActionResolver.ResolveActionLabel(label).Kind == EngineActionKind.Modifier,"Sided modifier rejected: " + label);
+                }
+            }
+            foreach (string label in new[] { "Hyper", "Ctrl+Shift+Option+Cmd", "Ctrl+Shift+Alt+Super", "Ctrl+Alt", "Shift+AltGr" })
+            {
+                var action = EngineActionResolver.ResolveActionLabel(label);
+                Require(action.Kind == EngineActionKind.Modifier && action.SemanticAction.Modifiers != DispatchModifierFlags.None, "Bad modifier group: " + label);
+                var map = KeymapStore.LoadBundledDefault();
+                string position = GridKeyPosition.StorageKey(TrackpadSide.Left,0,2);
+                map.Mappings[0][position] = new KeyMapping { Primary = new KeyAction { Label = label }, Hold = new KeyAction { Label = label } };
+                var restored = KeymapStore.LoadBundledDefault();
+                Require(restored.TryImportFromJson(map.SerializeToJson(),out string error),error);
+                Require(restored.Mappings[0][position].Primary.Label == label && restored.Mappings[0][position].Hold?.Label == label,"Modifier-only keymap round-trip failed.");
+            }
+            Require(EngineActionResolver.ResolveActionLabel("Ctrl+Shift+S").Kind == EngineActionKind.KeyChord,"Ordinary shortcut changed.");
+            Require(!DispatchShortcutHelper.TryReadShortcut("Bogus+Cmd",out _,out _),"Invalid modifier accepted.");
+
+            foreach (bool hold in new[] { false,true })
+            {
+                var map = KeymapStore.LoadBundledDefault();
+                string position = GridKeyPosition.StorageKey(TrackpadSide.Left,0,2);
+                map.Mappings[0][position] = new KeyMapping { Primary = new KeyAction { Label = hold ? "A" : "Hyper" }, Hold = hold ? new KeyAction { Label = "Hyper" } : null };
+                var settings = new UserSettings { KeyboardModeEnabled = true, TypingEnabled = true, HoldDurationMs = 80, HoldRepeatEnabled = true };
+                var core = TouchProcessorFactory.CreateConfigured(map,settings);
+                core.SetPointerIntentEnabled(false);
+                var preset = TrackpadLayoutPreset.SixByThree;
+                var layout = LayoutBuilder.BuildLayout(preset,160,114.9,18,17,ColumnLayoutDefaults.DefaultSettings(preset.Columns),true);
+                var rect = layout.Rects[0][2];
+                var down = new InputFrame { ContactCount = 1 };
+                down.SetContact(0,new(1,(ushort)((rect.X+rect.Width*.5)*7612),(ushort)((rect.Y+rect.Height*.5)*5065),3,HasForceData:false));
+                var up = new InputFrame();
+                core.ProcessFrame(TrackpadSide.Left,in down,7612,5065,MsToTicks(1000));
+                core.ProcessFrame(TrackpadSide.Left,in down,7612,5065,MsToTicks(1040));
+                core.ProcessFrame(TrackpadSide.Left,in down,7612,5065,MsToTicks(1200));
+                DispatchEvent[] events = new DispatchEvent[32];
+                int count = core.DrainDispatchEvents(events);
+                Require(count == 1 && events[0].Kind == DispatchEventKind.ModifierDown && events[0].SemanticAction.Modifiers == DispatchShortcutHelper.HyperModifiers,"Hyper did not stay held (or repeated/typed Primary), hold="+hold);
+                core.ProcessFrame(TrackpadSide.Left,in down,7612,5065,MsToTicks(1500));
+                Require(core.DrainDispatchEvents(events) == 0,"Held Hyper repeated.");
+                core.ProcessFrame(TrackpadSide.Left,in up,7612,5065,MsToTicks(1540));
+                count = core.DrainDispatchEvents(events);
+                Require(count == 1 && events[0].Kind == DispatchEventKind.ModifierUp && events[0].SemanticAction.Modifiers == DispatchShortcutHelper.HyperModifiers,"All-up did not release Hyper, hold="+hold);
+            }
+            failure = string.Empty;
+            return true;
+        }
+        catch (Exception error) { failure = "Hyper/modifier-only tests: " + error.Message; return false; }
     }
 
     private static bool ValidateLinuxHeldModifierSequencing(out string failure)

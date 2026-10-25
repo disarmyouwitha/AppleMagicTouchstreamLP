@@ -66,7 +66,11 @@
 - Windows output injection: `GlassToKey.Windows/WindowsDispatch/SendInputDispatcher.cs`
 - Windows haptics helper: `GlassToKey.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`
 - Windows diagnostics/self-test surface: `GlassToKey.Windows/WindowsDiagnostics/`
-- In mixed mode, OS mouse/gesture behavior should remain intact. In keyboard mode, global mouse clicks are swallowed outside the visualizer process.
+- Windows Config uses a left trackpad workspace (selectors, takeover, both pads, typing test) and a 420-pixel right inspector with Keyboard/Gestures tabs. Selecting a key/custom button opens the Keyboard tab. Preserve the existing named controls and runtime bindings when editing layout.
+- Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
+- `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover retains its session-only control and Ctrl+Alt+R release. The tray/app icon uses the Mac hand silhouette filled black.
+
+- Windows hand gestures now include grouped anatomical inspector sections, 1–5-finger force clicks (reported pressure only) and independent 2–5-finger pinch/spread. Keep the Apple pointer profile fixed, tap-capture priority and 120 ms drag/scroll settling. Windows Zoom is balanced Ctrl+wheel; system actions use Windows shortcut plans. See `GlassToKey.Windows/WINDOWS_MAC_GESTURE_PORT.md` for platform limits and offline/live verification.
 
 ## Linux Notes
 - The Linux CLI currently supports:
@@ -177,8 +181,20 @@
 - Do not create or enable persistent validation installs, user `systemd` services, or `/opt/GlassToKey.Linux.validation`-style test payloads unless the user explicitly asks for that lifecycle.
 
 ## Linux Tracking
-- `LINUX_GOLD.md` is now Linux-only remaining work and test tracking.
+- `GlassToKey.Linux/LINUX_GOLD.md` is now Linux-only remaining work and test tracking.
 - If Linux scope, status, packaging defaults, or workflow expectations change:
   - update `AGENTS.md`
-  - update `LINUX_GOLD.md`
+  - update `GlassToKey.Linux/LINUX_GOLD.md`
   - keep project/package READMEs short and local to their project surface
+
+
+## Hyper and modifier-only actions (2026-10-24)
+
+The shared DispatchShortcutHelper and EngineActionResolver support Hyper and
+modifier-only combinations. Hyper stays named Hyper; it is Ctrl+Shift+Alt+Meta.
+Both GUI builders offer Key: None with modifier toggles, plus the Primary/Hold
+Hyper preset. Keep ownership reference-counted through lift/cancel/teardown;
+never synthesize a dummy character or repeat pure modifier groups. Windows
+left/generic modifiers share an index; right-side/AltGr semantics remain intact.
+See GlassToKey.Core/HYPER_MODIFIERS.md. Focused Linux validation is
+`selftest --hyper`; it does not access evdev/uinput or write host settings.

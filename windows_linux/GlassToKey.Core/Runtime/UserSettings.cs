@@ -8,6 +8,7 @@ namespace GlassToKey;
 
 public sealed class UserSettings
 {
+    public HandGestureSettings HandGesturesV1 { get; set; } = new();
     public string? LeftDevicePath { get; set; }
     public string? RightDevicePath { get; set; }
     public int ActiveLayer { get; set; }
@@ -117,6 +118,7 @@ public sealed class UserSettings
             throw new ArgumentNullException(nameof(source));
         }
 
+        HandGesturesV1 = (source.HandGesturesV1 ?? new()).Clone();
         LeftDevicePath = source.LeftDevicePath;
         RightDevicePath = source.RightDevicePath;
         ActiveLayer = source.ActiveLayer;

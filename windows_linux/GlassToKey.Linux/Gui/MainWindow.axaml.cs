@@ -1364,6 +1364,7 @@ public partial class MainWindow : Window
     private void InitializeGestureShortcutEditor()
     {
         _gestureShortcutKeyCombo.ItemsSource = _shortcutKeyChoices;
+        _gestureShortcutKeyCombo.SelectedItem = SelectShortcutKeyChoice(_shortcutKeyChoices,string.Empty);
         _shortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1615,7 +1616,7 @@ public partial class MainWindow : Window
             _suppressGestureShortcutEditorEvents = true;
             try
             {
-                _gestureShortcutKeyCombo.SelectedItem = null;
+                _gestureShortcutKeyCombo.SelectedItem = SelectShortcutKeyChoice(_shortcutKeyChoices, string.Empty);
             }
             finally
             {
@@ -1641,11 +1642,12 @@ public partial class MainWindow : Window
 
     private string BuildGestureShortcutAction()
     {
-        if (_gestureShortcutKeyCombo.SelectedItem is not ShortcutKeyChoice selectedChoice ||
-            selectedChoice.IsSeparator ||
-            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedChoice.Value, out string keyLabel))
+        string keyLabel = string.Empty;
+        if (_gestureShortcutKeyCombo.SelectedItem is ShortcutKeyChoice selectedChoice)
         {
-            return string.Empty;
+            if (selectedChoice.IsSeparator) return string.Empty;
+            if (!string.IsNullOrEmpty(selectedChoice.Value) &&
+                !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedChoice.Value, out keyLabel)) return string.Empty;
         }
 
         DispatchModifierFlags modifiers = DispatchModifierFlags.None;
@@ -1654,9 +1656,7 @@ public partial class MainWindow : Window
         AppendShortcutModifierFlag(_gestureShortcutAltToggle, ref modifiers);
         AppendShortcutModifierFlag(_gestureShortcutWinToggle, ref modifiers);
 
-        return modifiers == DispatchModifierFlags.None
-            ? string.Empty
-            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel, ShortcutDisplayConvention.Linux);
+        return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel, ShortcutDisplayConvention.Linux);
     }
 
     private string BuildActionBuilderAction(out string preview)
@@ -2537,6 +2537,7 @@ public partial class MainWindow : Window
         AddActionSection(options, "Modifiers");
         string[] modifiers =
         {
+            "Hyper",
             "Shift",
             "Ctrl",
             "Alt",
@@ -2642,7 +2643,7 @@ public partial class MainWindow : Window
 
     private static List<ShortcutKeyChoice> BuildShortcutKeyChoices()
     {
-        List<ShortcutKeyChoice> choices = [];
+        List<ShortcutKeyChoice> choices = [new ShortcutKeyChoice("None", string.Empty, false)];
         string? currentSection = null;
         IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
         for (int i = 0; i < labels.Count; i++)
@@ -2692,11 +2693,6 @@ public partial class MainWindow : Window
 
     private static ShortcutKeyChoice? SelectShortcutKeyChoice(IEnumerable<ShortcutKeyChoice> choices, string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
         foreach (ShortcutKeyChoice choice in choices)
         {
             if (!choice.IsSeparator &&

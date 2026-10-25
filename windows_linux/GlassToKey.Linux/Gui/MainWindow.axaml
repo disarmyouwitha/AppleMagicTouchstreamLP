@@ -568,7 +568,7 @@
                                     Content="v" />
                           </Grid>
                         </Grid>
-                        <TextBlock Text="Click a pill to toggle its generic modifier. Use v to choose left or right."
+                        <TextBlock Text="Click a pill to toggle its generic modifier. Use v to choose left or right. Leave Key at None for modifiers only."
                                    Foreground="#D9C7B5"
                                    FontSize="11"
                                    FontStyle="Italic"

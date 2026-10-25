@@ -17,6 +17,8 @@ public partial class App : Application
     private StatusTrayController? _trayController;
     private MainWindow? _configWindow;
     private ReaderOptions? _startupOptions;
+    private PtpTakeoverDiagnostic? _ptpDiagnostic;
+    private MouseTakeoverTestWindow? _mouseTakeoverTest;
     private bool _restartRequested;
     private bool _restartToTrayWhenConfigCloses = true;
 
@@ -58,6 +60,40 @@ public partial class App : Application
             }
 
             Shutdown(2);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.MouseTakeoverTestLog))
+        {
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+            _mouseTakeoverTest = new MouseTakeoverTestWindow(Path.GetFullPath(options.MouseTakeoverTestLog));
+            MainWindow = _mouseTakeoverTest;
+            _mouseTakeoverTest.Show();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.PtpRestoreWatchdogLog))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            PtpRestoreWatchdog.Start(options.PtpRestoreWatchdogLog, () => Shutdown(0));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.PtpDiagnosticLog))
+        {
+            try
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                _ptpDiagnostic = new PtpTakeoverDiagnostic(options.PtpDiagnosticLog, options.PtpMovementGate,
+                    options.PtpOsToggleProbe,
+                    () => Shutdown(0));
+                _ptpDiagnostic.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                Shutdown(8);
+            }
             return;
         }
 
@@ -194,7 +230,10 @@ public partial class App : Application
                 StartCaptureFromTray,
                 StartReplayFromTray,
                 RestartApplicationFromTray,
-                ExitApplicationFromTray);
+                ExitApplicationFromTray,
+                () => _runtimeService?.MouseTakeover?.Release("Off · tray release"));
+            if (_runtimeService.MouseTakeover != null)
+                _runtimeService.MouseTakeover.StateChanged += OnMouseTakeoverStateChanged;
         }
         catch (Exception ex)
         {
@@ -213,9 +252,6 @@ public partial class App : Application
             return;
         }
 
-        _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
-        _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
-
         UserSettings startupSettings = UserSettings.Load();
         bool shouldOpenConfigOnLaunch =
             !options.StartInTrayOnly &&
@@ -228,10 +264,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        if (_runtimeService != null)
-        {
-            _runtimeService.ModeIndicatorChanged -= OnRuntimeModeIndicatorChanged;
-        }
+        if (_runtimeService?.MouseTakeover != null)
+            _runtimeService.MouseTakeover.StateChanged -= OnMouseTakeoverStateChanged;
+        _ptpDiagnostic?.Dispose();
+        _mouseTakeoverTest?.Dispose();
         _trayController?.Dispose();
         _trayController = null;
         _runtimeService?.Dispose();
@@ -260,6 +296,12 @@ public partial class App : Application
         }
 
         base.OnExit(e);
+    }
+
+    private void OnMouseTakeoverStateChanged()
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+            _trayController?.SetMouseTakeoverIndicator(_runtimeService?.MouseTakeover?.Enabled == true)));
     }
 
     private bool TryAcquireSingleInstanceLock(string[] args, bool showErrorDialogs)
@@ -371,12 +413,7 @@ public partial class App : Application
         }
 
         bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
-            window.IsMemorySaverEnabled;
-
-        if (shouldRestartToTrayOnClose)
-        {
-            PersistLiveRuntimeModeForRestart();
-        }
+            window.IsMemorySaverEnabled && _runtimeService?.MouseTakeover?.Enabled != true;
 
         if (shouldRestartToTrayOnClose &&
             !_restartRequested &&
@@ -487,33 +524,6 @@ public partial class App : Application
         }
     }
 
-    private void PersistLiveRuntimeModeForRestart()
-    {
-        if (_runtimeService == null || !_runtimeService.TryGetSnapshot(out TouchProcessorSnapshot snapshot))
-        {
-            return;
-        }
-
-        UserSettings settings = UserSettings.Load();
-        bool changed = false;
-        if (settings.TypingEnabled != snapshot.TypingEnabled)
-        {
-            settings.TypingEnabled = snapshot.TypingEnabled;
-            changed = true;
-        }
-
-        if (settings.KeyboardModeEnabled != snapshot.KeyboardModeEnabled)
-        {
-            settings.KeyboardModeEnabled = snapshot.KeyboardModeEnabled;
-            changed = true;
-        }
-
-        if (changed)
-        {
-            settings.Save();
-        }
-    }
-
     private static bool TryBuildRestartStartInfo(out ProcessStartInfo startInfo)
     {
         string? processPath = Environment.ProcessPath;
@@ -562,14 +572,6 @@ public partial class App : Application
         }
 
         return localAppData;
-    }
-
-    private void OnRuntimeModeIndicatorChanged(RuntimeModeIndicator mode)
-    {
-        _ = Dispatcher.BeginInvoke(() =>
-        {
-            _trayController?.SetModeIndicator(mode);
-        });
     }
 
     private static bool ShouldShowErrorDialogs(string[] args)

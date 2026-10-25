@@ -1,0 +1,26 @@
+Microsoft PnP Utility
+
+Instance ID:                BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324\7&8f143f&0&D0C050CCF590_C00000000
+Device Description:         Apple Bluetooth Precision Trackpad
+Class Name:                 HIDClass
+Class GUID:                 {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Manufacturer Name:          Apple
+Status:                     Started
+Driver Name:                oem94.inf
+Parent:                     BTH\MS_BTHBRB\6&1aac2cac&0&1
+Service:                    HidBth
+Lower Filters:              ApplePrecisionTrackpadBluetooth
+Stack:                      HidBth
+                            ApplePrecisionTrackpadBluetooth
+                            BthEnum
+Interfaces:
+    Interface Path:         \\?\BTHENUM#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324#7&8f143f&0&D0C050CCF590_C00000000#{86e8af8d-6df3-418e-b3d5-0d13a9a5b948}
+    Interface Description:  Unknown
+    Interface Class GUID:   {86e8af8d-6df3-418e-b3d5-0d13a9a5b948}
+    Interface Status:       Enabled
+
+    Interface Path:         \\?\BTHENUM#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324#7&8f143f&0&D0C050CCF590_C00000000#{00001124-0000-1000-8000-00805f9b34fb}
+    Interface Description:  Unknown
+    Interface Class GUID:   {00001124-0000-1000-8000-00805f9b34fb}
+    Interface Status:       Enabled
+

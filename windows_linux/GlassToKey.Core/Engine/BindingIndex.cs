@@ -441,6 +441,8 @@ internal static class EngineActionResolver
         out EngineKeyAction action)
     {
         action = EngineKeyAction.None;
+        // Preserve the existing identity of standalone modifiers; groups use flags only.
+        if (!text.Contains('+') && !text.Equals("Hyper", StringComparison.OrdinalIgnoreCase)) return false;
         if (!DispatchShortcutHelper.TryParseShortcut(
                 text,
                 out DispatchModifierFlags modifierFlags,
@@ -452,8 +454,10 @@ internal static class EngineActionResolver
             return false;
         }
 
+        EngineActionKind kind = primaryCode == DispatchSemanticCode.None && keyVk == 0
+            ? EngineActionKind.Modifier : EngineActionKind.KeyChord;
         action = new EngineKeyAction(
-            EngineActionKind.KeyChord,
+            kind,
             text,
             LayerTarget: 0,
             VirtualKey: keyVk,
@@ -461,7 +465,7 @@ internal static class EngineActionResolver
             ModifierVirtualKey: modifierVirtualKey,
             ModifierFlags: modifierFlags,
             SemanticAction: CreateSemanticAction(
-                EngineActionKind.KeyChord,
+                kind,
                 text,
                 primaryCode,
                 modifierSemanticCode,
