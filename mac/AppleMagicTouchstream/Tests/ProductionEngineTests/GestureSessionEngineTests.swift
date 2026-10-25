@@ -4,6 +4,23 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class GestureSessionEngineTests: XCTestCase {
+    func testCapturedFourthFingerLandingStartsScrollWithoutAnEarlierDrag() throws {
+        struct Fixture:Decodable {
+            struct Case:Decodable { let name:String; let frames:[RuntimeRawFrame]; let beganSequence:UInt64 }
+            let cases:[Case]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"four-finger-scroll-landing",withExtension:"json",subdirectory:"Fixtures"))
+        let fixture = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url))
+        for sample in fixture.cases {
+            var router = TrackpadGestureRouter(), starts = [UInt64]()
+            for f in sample.frames {
+                let update = router.update(device:f.deviceNumericID,time:f.timestamp,contacts:f.rawTouches,mouse:true,scroll:true,drag:true)
+                if update.phase == .began { starts.append(f.sequence) }
+                if update.gesture != nil { XCTAssertEqual(update.gesture,.fourFingerMove,sample.name) }
+            }
+            XCTAssertEqual(starts,[sample.beganSequence],sample.name)
+        }
+    }
     // Deliberately unrelated to mouse/scroll: adding an owner needs no engine branch.
     private enum Gesture: Hashable, Sendable { case pan, rotate, scrub }
     private func touches(_ count: Int, _ offset: Float = 0, idBase: Int32 = 0) -> [OMSRawTouch] {

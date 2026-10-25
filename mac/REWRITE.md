@@ -1,6 +1,7 @@
 # NEXT:
 =======
-1. Better 5-finger latching for holds?
+0. Can you look over the Touchstream quickstart guide and make a list of missing gesture ACTIONS and their commands?
+1. Better 4-finger latching for holds?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:

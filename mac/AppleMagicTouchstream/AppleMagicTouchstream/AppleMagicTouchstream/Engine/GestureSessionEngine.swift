@@ -20,6 +20,7 @@ struct GestureActivationContext: Sendable {
     let activeCount: Int
     let frameMovementMM: CGPoint
     let pendingMovementMM: CGPoint
+    var acquisitionElapsed: Double = 0
 }
 
 struct GestureSessionUpdate<Gesture: Hashable & Sendable>: Sendable {
@@ -55,6 +56,7 @@ struct GestureActivationRule<Gesture: Hashable & Sendable>: Sendable {
 /// No event posting, timers, I/O or per-frame candidate arrays/sets.
 struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
     private struct Session: Sendable {
+        var started = 0.0
         var pendingCount = 0
         var travel = CGPoint.zero
         var ownerRule: Int?
@@ -92,10 +94,10 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
             }
         }
         guard let movement else {
-            if activeCount > 0 { sessions[device] = Session(pendingCount:activeCount) }
+            if activeCount > 0 { sessions[device] = Session(started:time,pendingCount:activeCount) }
             return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
         }
-        var session = sessions[device] ?? Session()
+        var session = sessions[device] ?? Session(started:time)
         if let index = session.ownerRule {
             let rule = rules[index]
             guard enabled(rule.gesture) else { return cancel(device:device,reason:.disabled) }
@@ -114,7 +116,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
         session.travel.x += movement.x; session.travel.y += movement.y
         let distance = hypot(session.travel.x,session.travel.y)
         let context = GestureActivationContext(time:time,activeCount:activeCount,
-            frameMovementMM:movement,pendingMovementMM:session.travel)
+            frameMovementMM:movement,pendingMovementMM:session.travel,acquisitionElapsed:time-session.started)
         for index in rules.indices {
             let rule = rules[index]
             if rule.activationCount == activeCount && enabled(rule.gesture) && distance >= rule.minimumMovementMM && activationFilter(rule.gesture,context) {

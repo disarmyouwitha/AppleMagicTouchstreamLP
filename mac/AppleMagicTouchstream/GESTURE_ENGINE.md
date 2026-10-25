@@ -117,6 +117,7 @@ finger labels have separate roles.
 | Tap per-contact travel | ≤ 1 app mm |
 | Generic Hold landing window / settling | 80 ms / 2 app mm |
 | Five-finger Hold acquisition | Up to 200 ms to assemble when its Hold action is enabled; late partial chords cannot fire smaller Holds |
+| Pending three-finger movement with fourth pre-contact | Defer activation during the first 80 ms only while a fourth starting/hovering contact is visible and four-finger movement is assigned |
 | Generic Hold duration | 500 ms after complete chord landing |
 | Timer-driven freshness | 200 ms, using host receipt time |
 | Force freshness | Up to 200 ms between native samples |
@@ -146,6 +147,27 @@ continuous ownership safely.
 Three-finger row activation rejects a recognized thumb/palm, requires pair distances
 2–60 app mm, a middle contact within 35 mm of each endpoint, and arch depth no greater
 than `min(14 mm, longest span × 0.35)`. This geometry is an activation gate only.
+
+Four-finger movement acquisition also uses native pre-contact evidence: three
+touching fingers plus a finite, non-palm starting/hovering fourth contact defer
+three-finger movement activation during the first 80 ms of the continuous input
+episode, if four-finger movement is enabled. Pre-contact does not count as touch
+or emit scrolling. Full four-finger contact qualifies through the usual 0.2 app-mm
+motion threshold. A vanished pre-contact, expired landing interval or disabled
+four-finger movement permits ordinary drag activation immediately if it otherwise
+qualifies. Existing owners keep their all-up latch. This does not change Hold or
+Tap windows, acceleration, or two-finger activation.
+
+Capture regression: `4_finger_scroll.atpcap` (SHA-256
+`8fb793f98ec8a0e9f6f3df9c1ebf7da559b40cfbfaf3d957e4a4ffa2c3e6b40a`).
+With mouse/drag/scroll enabled, offline routing reproduced accidental drag starts
+at sequences 10200 and 10838, each with a visible fourth pre-contact that became
+touching about 12 ms later. The guard yields scroll starts at 10201 and 10840;
+the other 26 movement starts retain their gesture and activation frame. The
+capture omits current per-hand settings, so this is an explicit router regression,
+not a complete replay of captured live configuration or downstream event receipt.
+The two failing episodes and one normal scroll episode are retained in
+`Tests/ProductionEngineTests/Fixtures/four-finger-scroll-landing.json`.
 
 Thumb+2 recognition requires a positively recognized thumb and two known fingertips
 (codes 2–5). Fingertip spacing is 2–40 app mm; nearest-thumb distance is at least

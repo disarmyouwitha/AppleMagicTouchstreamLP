@@ -267,6 +267,7 @@ typealias LatchedGesture = GestureTrigger
 
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
+    static let chordLandingWindow = 0.08
     private var engine: GestureSessionEngine<LatchedGesture>
     private var pinch = PinchSpreadTracker()
     private var rotation = ThumbRotationTracker()
@@ -319,6 +320,13 @@ struct TrackpadGestureRouter {
         let rotationEligible = rotationDirection.map(enabled) == true && hasThumb
         let rotationCandidate = rotationEligible && turn.map { abs($0.angle) >= Double.pi/900 && $0.arc >= 0.5 && $0.arc > $0.radial*0.65 } == true
         let rotationWins = rotationCandidate && turn.map { abs($0.angle) >= Double.pi/60 && $0.arc >= 0.75 && $0.arc > $0.radial*1.1 } == true
+        // Native pre-contact phases can reveal a fourth finger before it counts
+        // as touching. Do not latch a drag in that short, evidenced landing gap.
+        // A resting hover cannot postpone a real three-finger drag indefinitely.
+        let fourthLanding = activeCount == 3 && enabled(.fourFingerMove) && contacts.contains {
+            ($0.state == .starting || $0.state == .hovering) && $0.telemetry?.fingerID != 6
+                && $0.posX.isFinite && $0.posY.isFinite
+        }
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
@@ -330,7 +338,11 @@ struct TrackpadGestureRouter {
                 if rotationWins { return false }
                 if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
-                return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
+                if trigger == .threeFingerMove {
+                    if fourthLanding && context.acquisitionElapsed <= Self.chordLandingWindow { return false }
+                    return ThreeFingerRowChord.accepts(contacts)
+                }
+                return true
             })
         if update.gesture?.isPinch == true, let pair {
             update.scaleDelta = update.phase == .began ? pair.initialRatio : pair.frameRatio

@@ -62,6 +62,37 @@ final class ThreeFingerDragTests: XCTestCase {
         }
         XCTAssertEqual(router.update(device:1,time:1.1,contacts:[],mouse:true,scroll:true,drag:true).phase,.ended)
     }
+    private func approachingFourth(_ state:OMSState = .hovering) -> OMSRawTouch {
+        OMSRawTouch(id:4,posX:0.75,posY:0.5,total:1,pressure:4,majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+    }
+    func testFourthPrecontactDefersOnlyPendingDragAndExpiresAfterLandingWindow() {
+        for phase in [OMSState.starting,.hovering] {
+            var router = TrackpadGestureRouter()
+            _ = router.update(device:1,time:1,contacts:archedRow()+[approachingFourth(phase)],mouse:true,scroll:true,drag:true)
+            let pending = router.update(device:1,time:1.01,contacts:archedRow(dx:0.003)+[approachingFourth(phase)],mouse:true,scroll:true,drag:true)
+            XCTAssertNil(pending.gesture)
+            // A sustained hover is not a touching fourth finger and cannot block
+            // genuine three-finger movement beyond the bounded landing interval.
+            let began = router.update(device:1,time:1.081,contacts:archedRow(dx:0.004)+[approachingFourth(phase)],mouse:true,scroll:true,drag:true)
+            XCTAssertEqual(began.gesture,.threeFingerMove); XCTAssertEqual(began.phase,.began)
+            let continued = router.update(device:1,time:1.09,contacts:archedRow(4,dx:0.005),mouse:true,scroll:true,drag:true)
+            XCTAssertEqual(continued.gesture,.threeFingerMove); XCTAssertEqual(continued.phase,.changed)
+        }
+    }
+    func testFourthPrecontactDoesNotDelayUnassignedScrollOrOtherPad() {
+        var router = TrackpadGestureRouter()
+        let contacts = archedRow()+[approachingFourth()]
+        _ = router.update(device:1,time:1,contacts:contacts,mouse:true,scroll:false,drag:true)
+        let moved = archedRow(dx:0.003)+[approachingFourth()]
+        XCTAssertEqual(router.update(device:1,time:1.01,contacts:moved,mouse:true,scroll:false,drag:true).gesture,.threeFingerMove)
+        router.reset()
+        _ = router.update(device:1,time:2,contacts:contacts,mouse:true,scroll:true,drag:true)
+        _ = router.update(device:2,time:2,contacts:archedRow(),mouse:true,scroll:true,drag:true)
+        XCTAssertNil(router.update(device:1,time:2.01,contacts:moved,mouse:true,scroll:true,drag:true).gesture)
+        XCTAssertEqual(router.update(device:2,time:2.01,contacts:archedRow(dx:0.003),mouse:true,scroll:true,drag:true).gesture,.threeFingerMove)
+        // If the extra pre-contact disappears, no timer has to elapse.
+        XCTAssertEqual(router.update(device:1,time:2.02,contacts:archedRow(dx:0.004),mouse:true,scroll:true,drag:true).gesture,.threeFingerMove)
+    }
 
     func testDragClaimsMovementAndLatchesAcrossCountsThenEnds() {
         var router = TrackpadGestureRouter()
