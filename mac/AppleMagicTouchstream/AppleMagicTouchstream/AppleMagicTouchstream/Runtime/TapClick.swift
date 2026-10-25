@@ -356,9 +356,7 @@ struct ThreeFingerTapRecognizer {
         if identity.matched && identity.handID == 0 { identity.handID = handID }
         // Provisional app geometry, not recovered DSP coefficients: a separated
         // thumb and a closer fingertip pair, independent of hand orientation.
-        let pair = hypot(points[2]-points[4],points[3]-points[5])
-        let near = min(hypot(points[0]-points[2],points[1]-points[3]),hypot(points[0]-points[4],points[1]-points[5]))
-        let spread = pair >= 2 && pair <= 40 && near >= 15 && near >= pair*1.5
+        let spread = ThumbTwoChord.isSpread(points)
         if count == 3 && exact && mask == 7 && spread && !identity.matched {
             identity.matched = true; identity.trackingIDs = trackingIDs; identity.handID = handID
         }

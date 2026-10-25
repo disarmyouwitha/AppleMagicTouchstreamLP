@@ -872,8 +872,8 @@ nonassignable lifecycle card. These pages cannot edit the count's Hold binding.
 Hold is a selectable assignment card; its Action menu is in the right inspector,
 matching other configurable cards. Mirror Edit supports both continuous and
 mixed movement modes. Hold uses the contact count, not the thumb/fingertip
-identity; the 3-contact Hold binding is shared by the regular three-finger and
-Thumb+2-fingers pages. Saved bindings/defaults and the settings schema are unchanged.
+identity for ordinary count-based inputs. Thumb+2 now has its own anatomical
+Hold binding, independent of ordinary three-finger Hold (see below).
 
 A stationary chord fires its discrete action once after 0.5 seconds. Fingers can
 join within 80 ms; the timer starts when the complete count lands. Substitutions,
@@ -1017,3 +1017,64 @@ that activates first cancels pending Hold immediately; a stationary Hold firing
 at 0.5 seconds owns the rest of the cycle. There is no added delay to mousing,
 dragging or scrolling. Hardware testing should assess how easily Hold can win
 against the existing continuous-motion thresholds.
+
+
+## Additional per-pad chords and searchable assignments
+
+- Four-finger Tap is an independent trigger on the four-finger **Tap and Move**
+  page, default None. It shares the count-based 2/3-finger tap recognizer: 0.5 s
+  window, 80 ms landing/lift skew, 20 ms minimum full chord and 1 mm motion slop.
+  Extra/replaced contacts, stale/invalid input and another gesture owning the cycle
+  cancel it. Use the same discrete outputs, eligibility, keyboard reservation and
+  all-up/reset/force/drag arbitration as the other taps.
+- Thumb+2 Hold has a separate saved binding (default None), using the same spread
+  geometry as Thumb+2 Tap: recognized thumb plus two interchangeable fingertips,
+  closer pair 2–40 mm, nearest thumb distance at least 15 mm and 1.5× pair spacing.
+  Tap and Hold share the geometry helper. Once positively matched, Hold tolerates
+  fingertip relabeling/temporary Unknown with unchanged tracking IDs. A thumb
+  chord cannot fall back to ordinary three-finger Hold when its own action is
+  None. Hold fires at 0.5 s while down, once per all-up, with the existing 2 mm
+  tolerance, movement-first arbitration and input freshness. Ordinary 3F Hold
+  keeps its existing action and never inherits the Thumb+2 action.
+- **4 Corners**, under each hand's 4 Fingers group, has independent Tap and Hold
+  slots for four contacts on one pad, one in each outer 20% corner. Match the
+  coordinated Both corner thresholds: Tap within 0.5 s, at least 20 ms down,
+  150 ms lift skew, 2 mm movement tolerance; Hold once at 1 s, consuming Tap.
+  Default Tap None / Hold Open Config. Unlike Both, a single native frame supplies
+  all four anchors atomically. No half-frame samples from a previous report may
+  complete the chord. Added/replaced contacts, movement, late re-addition, invalid
+  input or >200 ms missing delivery cancel output but retain ownership until
+  all-up. Settings/device/lifecycle changes reset the session.
+
+Single-pad corners acquire before ordinary gestures/typing on that pad, after
+coordinated Both acquisition. Existing established keyboard modifier/layer chords
+retain priority; Both cancels the independent corner session on acquisition.
+Other pads stay independent. Open Config is app-local and works without AX;
+synthetic actions retain AX/selected/owned/armed/live gates. Corner recognition
+and its shared-timer Hold do not run during replay. All-up, Both, keyboard and
+force cancellation paths also clear the newly added four-finger tap state.
+
+Persistence uses optional `fourFingerTap` / `fourCornersTap` binding fields and
+reserved Hold binding keys: `6` = Thumb+2, `7` = single-pad 4 Corners (these are
+binding IDs, not contact counts). Existing keys 1–5 keep their meanings. Old
+profiles retain all existing assignments; new four-finger Tap / Thumb+2 Hold
+slots default None, single-pad corner Hold defaults Open Config. Per-hand and
+Mirror Edit changes, Import Settings / Export Settings and coordinated Both
+settings remain independent and round-trip without a schema change.
+
+The movement cross now places Hold immediately left of Down. Thumb+2 and single-
+pad corners show Tap and Hold as peer cards. Pinch/Spread retains nonassignable
+Hold/Lift lifecycle cards. Every gesture Action editor—Tap, Move, direction,
+Force, Pinch/Spread, Hold and coordinated Both—uses a grouped, searchable sheet
+shared with Keymap Tuning Primary/Hold. It lists only actions supported by that
+input, shows the current choice, supports Mixed hand settings and empty search
+results, and never changes settings merely by opening/closing or searching.
+Keymap search still matches both labels and picker text; its action catalog and
+semantics are unchanged.
+
+Offline coverage: old-profile defaults, separate hand/chord actions and portable
+round-trips; Thumb+2 matching/relabeling/no-fallback; four-finger tap completion,
+skew and rejection; corner geometry, tap/hold separation, deadline lifts,
+replaced/extra/moving/stale contacts and per-pad isolation; keyboard reservation;
+search filtering, action-catalog coverage and offscreen keyboard/gesture sheets
+and workspace pages. Hardware acceptance remains the user's test.

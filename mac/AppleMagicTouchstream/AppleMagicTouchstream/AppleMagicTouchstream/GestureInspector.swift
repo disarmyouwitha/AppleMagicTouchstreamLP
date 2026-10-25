@@ -34,7 +34,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
         case .fourCorners:return "One contact in each outer corner of this trackpad. Tap or hold all four corners."
-        case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
+        case .thumbTwo: return "Choose independent tap and hold actions for a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
@@ -423,9 +423,10 @@ extension GestureTrigger {
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
+        case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Tap within 0.5 seconds; lift skew 150 ms and movement allowance 2 mm. Hold fires after 1 second and consumes Tap."
         case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 0.5 seconds."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
-        case .twoFingerTap,.threeFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
+        case .twoFingerTap,.threeFingerTap,.fourFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
         default: return "Movement owns its touch cycle until all-up, including added or lifted fingers. Motion and taps compete before activation."
         }
     }
@@ -872,7 +873,7 @@ struct GestureAssignmentWorkspace: View {
                 Text("After \(holdDuration, specifier:"%.1f") seconds · once while held")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
+            .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: \.isContinuous) ? 106 : 112,alignment:.topLeading)
             .background(selectedHold ? Color.accentColor.opacity(0.07) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
             .overlay(RoundedRectangle(cornerRadius:9).stroke(selectedHold ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
             .contentShape(RoundedRectangle(cornerRadius:9))
@@ -894,7 +895,15 @@ struct GestureAssignmentWorkspace: View {
             Text(holdStatus(holdKey,editingScope)).font(.callout).fixedSize(horizontal:false,vertical:true)
             Divider()
             Text("Recognition").font(.callout).fontWeight(.medium)
-            Text("Keep \(holdCount) finger(s) still for \(holdDuration, specifier:"%.1f") seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
+            Text(pane == .fourCorners
+                 ? "One contact in each outer 20% corner of this pad. Hold for 1 second; the action fires while fingers are down. Movement over 2 mm, early lifts or lost input cancel output. Lift all fingers to rearm."
+                 : "Keep \(holdCount) finger(s) still for 0.5 seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            if pane == .thumbTwo {
+                Text("Requires the same spread-thumb geometry as Thumb+2 Tap. This Hold is independent of ordinary three-finger Hold. A matched chord tolerates fingertip relabeling.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            Text("The originating trackpad owns this gesture's output.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -1215,12 +1224,13 @@ struct SearchableActionSheet<Value:Hashable>:View {
     let groups:[SearchableActionGroup<Value>]
     let selected:Value?
     let label:(Value)->String
+    var searchLabel:((Value)->String)? = nil
     let choose:(Value)->Void
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @FocusState private var searchFocused:Bool
     var body:some View {
-        let filtered = SearchableActionGroup.filtered(groups,query:searchText,label:label)
+        let filtered = SearchableActionGroup.filtered(groups,query:searchText,label:searchLabel ?? label)
         return VStack(alignment:.leading,spacing:12) {
             HStack(alignment:.top,spacing:12) {
                 VStack(alignment:.leading,spacing:4) {

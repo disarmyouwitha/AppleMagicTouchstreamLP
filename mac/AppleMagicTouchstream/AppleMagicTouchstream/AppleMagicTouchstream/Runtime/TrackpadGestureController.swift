@@ -47,7 +47,7 @@ final class TrackpadGestureController: ObservableObject {
         settings.save(to: .standard)
         if action != .disabled {
             reloadProfiles()
-            if !AXIsProcessTrusted() {
+            if action != .openConfig && !AXIsProcessTrusted() {
                 _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             }
         }

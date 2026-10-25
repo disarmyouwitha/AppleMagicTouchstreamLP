@@ -334,3 +334,17 @@ scrolling, ignore timed repeats and preserve portable/Mirror Edit settings.
 Hold is also unlocked alongside continuous Movement without delaying movement
 activation. Preserve first-activated ownership until all-up and keep Pinch/Spread
 pages' Hold card nonassignable. See GESTURE_ENGINE.md.
+
+
+User authorizes independent Thumb+2 Hold, four-finger Tap on renamed Tap and Move,
+Hold left of Down in movement crosses, and single-pad 4 Corners Tap/Hold under
+4 Fingers. Keep Thumb+2 Hold separate from ordinary 3F, sharing spread-thumb Tap
+geometry and tolerating matched fingertip relabeling. Single-pad corners use
+Both's thresholds, default Hold Open Config at 1 s / Tap None, atomic native-frame
+anchors, per-pad ownership through all-up, app-local Open Config without AX and
+normal AX gates for synthetic actions. Preserve established keyboard/Both
+priority, stale/reset/replay safety, optional old-profile fields and independent
+per-hand/Mirror Edit/portable settings. Use the shared searchable Keymap Tuning
+chooser for all gesture Action editors, with each input's supported actions only.
+Do not change keymap action semantics. See GESTURE_ENGINE.md; build/sign/install
+Release and leave closed for hardware tests.

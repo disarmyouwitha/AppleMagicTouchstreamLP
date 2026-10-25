@@ -441,7 +441,7 @@ struct GestureHoldRecognizer {
         if next.count == 3 {
             session.sawThumb = session.sawThumb || contacts.contains { ($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID == 1 }
             if session.key != PerHandGestureSettings.thumbHoldKey {
-                session.key = ThumbTwoHoldChord.matches(contacts) ? PerHandGestureSettings.thumbHoldKey : session.sawThumb ? nil : 3
+                session.key = ThumbTwoChord.matches(contacts) ? PerHandGestureSettings.thumbHoldKey : session.sawThumb ? nil : 3
             }
         } else { session.key = next.count; session.sawThumb = false }
         // Preserve original positions for displacement, update only the frame clock.
@@ -463,7 +463,7 @@ struct GestureHoldRecognizer {
 }
 
 /// Shared spread-thumb geometry for the dedicated Thumb+2 Hold input.
-enum ThumbTwoHoldChord {
+enum ThumbTwoChord {
     static func matches<C:Collection>(_ contacts:C) -> Bool where C.Element == OMSRawTouch {
         var count = 0, mask = 0, points = SIMD8<Double>(repeating:0)
         var hand:Int32 = 0
@@ -480,6 +480,9 @@ enum ThumbTwoHoldChord {
             if next != 0 { if hand != 0 && hand != next { return false }; hand = next }
         }
         guard count == 3, mask == 7 else { return false }
+        return isSpread(points)
+    }
+    static func isSpread(_ points:SIMD8<Double>) -> Bool {
         let pair = hypot(points[2]-points[4],points[3]-points[5])
         let near = min(hypot(points[0]-points[2],points[1]-points[3]),hypot(points[0]-points[4],points[1]-points[5]))
         return pair >= 2 && pair <= 40 && near >= 15 && near >= pair*1.5

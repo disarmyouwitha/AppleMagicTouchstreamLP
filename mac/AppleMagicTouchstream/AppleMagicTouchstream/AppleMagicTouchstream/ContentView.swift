@@ -1948,7 +1948,7 @@ struct ContentView: View {
             let selection:Binding<KeyAction>
             var body:some View {
                 SearchableActionSheet(title:title,groups:actionGroups.map { .init(title:$0.title,actions:$0.actions) },
-                    selected:selection.wrappedValue,label:{$0.pickerText}) { selection.wrappedValue = $0 }
+                    selected:selection.wrappedValue,label:{$0.pickerText},searchLabel:{$0.label + " " + $0.pickerText}) { selection.wrappedValue = $0 }
             }
         }
 
