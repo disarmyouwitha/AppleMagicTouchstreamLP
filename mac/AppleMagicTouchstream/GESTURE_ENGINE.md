@@ -670,3 +670,35 @@ output. No new hot-path I/O is added.
 Offline tests cover all axes, thresholds/diagonal ambiguity, stationary timed repeats/no catch-up bursts, repeat off, direction changes, reset/stale input, independent pads, the
 shared all-up latch through membership changes, unchanged two-finger routing and
 repeat defaults/legacy migration/interval bounds/persistence. Hardware acceptance remains the next step.
+
+
+## Cmd+S followed by failed two-finger clicks: capture investigation
+
+Capture: `tap_normal_drag_normal_HOLD_S_buggy_click.atpcap` (831 processed frames,
+about 16.3 seconds). Times below use arrival ticks relative to the first record;
+native timestamps have different offsets on the two pads.
+
+- A normal tap is accepted offline at 2.992 s.
+- The recognized three-finger drag begins at 6.446 s and ends at 7.694 s.
+- The left pad emits one Cmd+S `keyStroke` at 10.322 s, not a stream of repeats.
+- Offline replay through the production contact router and tap recognizer accepts
+  taps at 12.667, 13.555, 14.446 and 16.087 s after that shortcut. The tap near
+  15.322 s instead crosses the existing movement activation threshold.
+- All contact cycles have all-up releases. The keyboard dispatch queue depth and
+  drop count remain zero in this recording. This does not prove no raw/native
+  frames were lost: the bridge's raw-delivery overflow is not currently counted
+  by the capture's live-drop metric.
+
+The capture records keyboard dispatch but not native gesture mouse output or
+WindowServer modifier state. It establishes valid tap input after Cmd+S, not
+that each click reached the target application or that Command was stuck there.
+
+The previous one-shot keyboard dispatcher put the shortcut flags on both S-down
+and S-up. Gesture clicks inherit combined-session flags, so retained Command is
+an output-state explanation consistent with the report. The focused fix now
+captures flags before posting a one-shot keystroke and restores them on its up
+edge, rather than leaving that shortcut's added modifiers on the final event.
+Pre-existing held modifier flags are preserved. The explicit held-key/modifier
+path and drag timing are unchanged. Offline tests construct actual production
+key/click events without posting input; hardware acceptance must repeat the
+hold-S then tap sequence in the affected app.

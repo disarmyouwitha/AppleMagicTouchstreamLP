@@ -19,6 +19,21 @@ enum TypingHapticFeedback {
     }
 }
 
+/// Build both edges before posting. A shortcut borrows modifiers for its down;
+/// its up restores the pre-shortcut state instead of leaving those flags behind.
+/// This factory is also used offline: constructing events never posts input.
+enum KeyboardStrokeOutput {
+    struct Events { let down:CGEvent; let up:CGEvent }
+    static func events(code:CGKeyCode,flags:CGEventFlags,restoringFlags:CGEventFlags,
+                       source:CGEventSource? = nil) -> Events? {
+        guard let down = CGEvent(keyboardEventSource:source,virtualKey:code,keyDown:true),
+              let up = CGEvent(keyboardEventSource:source,virtualKey:code,keyDown:false) else { return nil }
+        down.flags = flags
+        up.flags = restoringFlags
+        return Events(down:down,up:up)
+    }
+}
+
 enum InputMonitoringPermission {
     static func hasListenAccess() -> Bool {
         CGPreflightListenEventAccess()
@@ -251,18 +266,10 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             guard let source = ensureEventSource() else {
                 return
             }
-            guard let keyDown = CGEvent(
-                keyboardEventSource: source,
-                virtualKey: code,
-                keyDown: true
-            ),
-            let keyUp = CGEvent(
-                keyboardEventSource: source,
-                virtualKey: code,
-                keyDown: false
-            ) else {
-                return
-            }
+            let restoringFlags = CGEventSource.flagsState(.combinedSessionState)
+            guard let events = KeyboardStrokeOutput.events(code:code,flags:flags,
+                    restoringFlags:restoringFlags,source:source) else { return }
+            let keyDown = events.down, keyUp = events.up
             if code == Self.globeKeyCode {
                 guard let emojiDown = CGEvent(
                     keyboardEventSource: source,
@@ -282,8 +289,6 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 emojiUp.post(tap: .cghidEventTap)
                 return
             }
-            configureKeyboardEvent(keyDown, code: code, keyDown: true, flags: flags)
-            configureKeyboardEvent(keyUp, code: code, keyDown: false, flags: flags)
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
         }

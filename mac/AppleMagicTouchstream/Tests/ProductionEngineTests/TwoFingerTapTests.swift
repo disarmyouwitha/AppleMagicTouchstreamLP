@@ -10,6 +10,26 @@ final class TwoFingerTapTests: XCTestCase {
     }
     private var pair: [OMSRawTouch] { [touch(1),touch(2,0.6)] }
     private var empty: [OMSRawTouch] { [] }
+    func testCommandSRestoresModifiersBeforeFollowingTapClick() throws {
+        // The user capture has one Cmd+S keyStroke followed by accepted taps.
+        // Test the production event factory without posting to macOS.
+        for before:CGEventFlags in [[],.maskShift,.maskCommand,[.maskControl,.maskAlternate]] {
+            let stroke = try XCTUnwrap(KeyboardStrokeOutput.events(code:1,
+                flags:before.union(.maskCommand),restoringFlags:before))
+            XCTAssertEqual(stroke.down.type,.keyDown)
+            XCTAssertEqual(stroke.up.type,.keyUp)
+            XCTAssertEqual(stroke.down.getIntegerValueField(.keyboardEventKeycode),1)
+            XCTAssertEqual(stroke.up.getIntegerValueField(.keyboardEventKeycode),1)
+            XCTAssertTrue(stroke.down.flags.contains(.maskCommand))
+            XCTAssertEqual(stroke.up.flags,before)
+            var clicks = PrimaryTapClickOutput()
+            let click = try XCTUnwrap(clicks.events(location:.init(x:100,y:100),time:1,
+                doubleClickInterval:0.5,flags:stroke.up.flags))
+            XCTAssertEqual(click.down.flags,before)
+            XCTAssertEqual(click.up.flags,before)
+        }
+    }
+
     func testTwoFingerTapClicksOnlyOnceOnAllUpWithEitherFingerLiftingFirst() {
         for survivor: Int32 in [1,2] {
             var tap = TwoFingerTapRecognizer()
