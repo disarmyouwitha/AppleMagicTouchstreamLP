@@ -17,7 +17,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Force Click"
         case .fiveFingers: return "Force Click"
         case .twoFingers: return "Tap and Move"
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch: return "Pinch, Spread, and Rotate"
+        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch: return "Pinch and Spread"
+        case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Tap and Move"
         case .fourCorners:return "4 Corners"
@@ -27,14 +28,16 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .oneFinger: return "Choose an action for a one-finger force click."
-        case .fiveFingers: return "Choose an action for five-finger force clicking."
+        case .fiveFingers: return "Choose independent actions for five-finger force clicking and holding."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch:
+        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch:
+            return "Choose actions for pinching and spreading. Both directions require a recognized thumb to begin."
+        case .fiveFingerPinch:
             return "Choose actions for pinching, spreading and rotation. Pinch and Spread require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
         case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners for one second."
-        case .thumbTwo: return "Choose independent tap and hold actions for a spread thumb and two fingertips."
+        case .thumbTwo: return "Choose independent tap, hold and rotation actions for a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
@@ -43,13 +46,13 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fiveFingers: return [.fiveFingerForce]
         case .fiveFingerPinch: return [.fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
-        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight]
+        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
-        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread,.threeFingerRotateLeft,.threeFingerRotateRight]
+        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
         case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
         case .fourCorners:return [.fourCornersTap]
-        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight]
-        case .thumbTwo: return [.thumbTwoTap]
+        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
+        case .thumbTwo: return [.thumbTwoTap,.threeFingerRotateLeft,.threeFingerRotateRight]
         }
     }
     var isPinchSection: Bool {
@@ -86,7 +89,7 @@ struct GestureChordIcon: View {
     var holding = false
     private var demonstrationTitle: String { holding ? "Hold" : direction.map { "Swipe " + $0.title } ?? (fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle) }
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
-    private var strokeExample: Bool { !holding && trigger.isContinuous && !trigger.isPinch }
+    private var strokeExample: Bool { !holding && trigger.isContinuous && !trigger.isPinch && !trigger.isRotation }
     // Original stroke time units, with only stationary holds compressed by half.
     private static let outboundUnits = 0.82
     private static let returnUnits = 0.84
@@ -429,7 +432,7 @@ extension GestureTrigger {
         return isContinuous ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.tap"
     }
     func behavior(for action: GestureAction?) -> String {
-        if isRotation { return "Assignment saved · recognition coming next" }
+        if isRotation { return action == .disabled ? "No output" : "Once on activation" }
         guard let action else { return "Mixed assignments" }
         if action == .disabled { return "No output" }
         if action.isAppleShortcut { return isPinch ? "Once on activation" : "One step per recognition" }
@@ -439,7 +442,7 @@ extension GestureTrigger {
         }
     }
     var recognitionNote: String {
-        if isRotation { return "Rotation assignments are saved for the next recognition step. Rotating fingers does not trigger this action yet." }
+        if isRotation { return "Turn a recognized thumb and fingertip group at least 3°. Rotation wins when angular travel dominates radial change. Fires once and remains latched until all-up." }
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
@@ -525,7 +528,7 @@ struct GestureAssignmentWorkspace: View {
         _editingHand = State(initialValue:initialHand)
         _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandChord.phases.contains(initialTwoHandPhase) ? initialTwoHandPhase : .hold)
         _pane = State(initialValue:initialPane)
-        let first = initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0]
+        let first = initialPane.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? initialPane.triggers[0]
         _selectedDirection = State(initialValue:initialDirection ?? Self.defaultDirection(for:first,settings:settings,scope:initialHand))
         _selected = State(initialValue:first)
     }
@@ -668,7 +671,7 @@ struct GestureAssignmentWorkspace: View {
         Button {
             selectedHold = item == .fourCorners
             pane = item
-            let first = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
+            let first = item.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? item.triggers[0]
             selected = first
             selectedDirection = Self.defaultDirection(for:first,settings:settings,scope:editingScope)
         } label: {
@@ -790,12 +793,13 @@ struct GestureAssignmentWorkspace: View {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers) { assignmentCard($0) }
                 }
-            } else if pane.triggers.contains(where: \.isContinuous) {
-                ForEach(pane.triggers.filter { $0.isContinuous }) { movementCross($0) }
+            } else if pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
+                ForEach(pane.triggers.filter { $0.isContinuous && !$0.isRotation }) { movementCross($0) }
             } else {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
-                    ForEach(pane.triggers.filter { !$0.isContinuous && $0 != .fourCornersTap }) { assignmentCard($0) }
-                    if pane == .thumbTwo || pane == .fourCorners { holdCard }
+                    ForEach(pane.triggers.filter { !$0.isContinuous && !$0.isRotation && $0 != .fourCornersTap }) { assignmentCard($0) }
+                    if pane == .thumbTwo || pane == .fourCorners || pane == .fiveFingers { holdCard }
+                    ForEach(pane.triggers.filter(\.isRotation)) { assignmentCard($0) }
                 }
             }
         }
@@ -803,7 +807,7 @@ struct GestureAssignmentWorkspace: View {
     @ViewBuilder private var assignmentHeading:some View {
         Text(pane.isPinchSection ? "SHAPE ASSIGNMENTS" : "ASSIGNMENTS")
             .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
-        if pane.triggers.contains(where: \.isContinuous) {
+        if !pane.isPinchSection && pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
             Text("Use continuous movement or separate directional actions.")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -902,7 +906,7 @@ struct GestureAssignmentWorkspace: View {
                 Text("After \(holdDuration, specifier:"%.1f") seconds · once while held")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: \.isContinuous) ? 106 : 112,alignment:.topLeading)
+            .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) ? 106 : 112,alignment:.topLeading)
             .background(selectedHold ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:9))
             .overlay(RoundedRectangle(cornerRadius:9).stroke(selectedHold ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
             .contentShape(RoundedRectangle(cornerRadius:9))
@@ -942,7 +946,7 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top,spacing:12) {
                 if pane.isPinchSection || pane == .oneFinger {
                     lifetimeCard("Hold",symbol:"pause",detail:"No separate gesture is available for this.")
-                } else if !pane.triggers.contains(where: \.isContinuous) && pane != .thumbTwo && pane != .fourCorners { holdCard }
+                } else if !pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) && pane != .thumbTwo && pane != .fourCorners && pane != .fiveFingers { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }.fixedSize(horizontal:false,vertical:true)
         }
@@ -1060,7 +1064,7 @@ struct GestureAssignmentWorkspace: View {
     }
 
     private var behaviorDetail:String {
-        if selected.isRotation { return "This action is stored independently for this finger count and direction, including Mirror Edit and settings export." }
+        if selected.isRotation { return "Fires once when rotation activates. Continuing or reversing the turn cannot fire another action until all fingers lift." }
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
         if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
         switch action {

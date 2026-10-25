@@ -338,3 +338,54 @@ extension PinchZoomTests {
         }
     }
 }
+
+extension PinchZoomTests {
+    private func rotatingChord(count:Int,angle:Double,thumb:Bool = true,scale:Double = 1) -> [OMSRawTouch] {
+        (0..<count).map { i in
+            let x = i == 0 ? 0.0 : 45+Double(i-1)*7
+            let y = i == 0 ? 0.0 : -45.0
+            let px = 40+scale*(x*cos(angle)-y*sin(angle))
+            let py = 80+scale*(x*sin(angle)+y*cos(angle))
+            return OMSRawTouch(id:Int32(i+1),posX:Float(px/160),posY:Float(1-py/114.9),total:1,pressure:40,
+                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching,
+                telemetry:.init(fingerID:i == 0 ? thumb ? 1 : 2 : Int32(i+1),handID:1,velocityX:0,velocityY:0,
+                    absoluteX:0,absoluteY:0,absoluteVelocityX:0,absoluteVelocityY:0,sourceFrame:1,sourceTimestamp:1))
+        }
+    }
+    func testRotationUsesSharedLatchAndFiresOnceForEitherDirectionAndCount() {
+        for count in [3,5] { for sign in [-1.0,1.0] {
+            var router = TrackpadGestureRouter()
+            let expected = GestureTrigger.rotation(count:count,right:sign > 0)!
+            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:count,angle:0),enabled:{$0.isRotation})
+            let start = router.recognize(device:1,time:1.01,contacts:rotatingChord(count:count,angle:sign*0.10),enabled:{$0.isRotation})
+            XCTAssertEqual(start.gesture,expected); XCTAssertEqual(start.phase,.began)
+            let reversed = router.recognize(device:1,time:1.02,contacts:rotatingChord(count:count,angle:-sign*0.12),enabled:{$0.isRotation})
+            XCTAssertEqual(reversed.gesture,expected); XCTAssertEqual(reversed.phase,.changed)
+            let lifted = router.recognize(device:1,time:1.03,contacts:Array(rotatingChord(count:count,angle:0).prefix(1)),enabled:{$0.isRotation})
+            XCTAssertEqual(lifted.gesture,expected); XCTAssertEqual(lifted.phase,.changed)
+            XCTAssertEqual(router.recognize(device:1,time:1.04,contacts:[OMSRawTouch](),enabled:{$0.isRotation}).phase,.ended)
+        }}
+    }
+    func testPureScaleAndMissingThumbCannotClaimRotation() {
+        for missingThumb in [false,true] {
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:3,angle:0,thumb:!missingThumb),enabled:{$0.isRotation})
+            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:3,angle:missingThumb ? 0.2 : 0,thumb:!missingThumb,scale:missingThumb ? 1 : 1.15),enabled:{$0.isRotation}).gesture)
+        }
+    }
+    func testUserRotationCaptureActivatesLeftRotationWithCompetingShapeActions() throws {
+        let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/rotate_no_work.atpcap")
+        guard FileManager.default.fileExists(atPath:url.path) else { throw XCTSkip("Local rotation capture not bundled") }
+        let records = try ATPCaptureV3Codec.readCaptureData(from:url).frameRecords
+        var router = TrackpadGestureRouter(), activations:[GestureTrigger] = []
+        for record in records {
+            let frame = record.frame
+            let update = router.recognize(device:frame.deviceNumericID,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0.isPinch || GestureTrigger.liveRotationTriggers.contains($0) || $0 == .threeFingerMove
+            }
+            if update.phase == .began, let gesture = update.gesture { activations.append(gesture) }
+        }
+        XCTAssertEqual(activations,Array(repeating:.threeFingerRotateLeft,count:8))
+    }
+}

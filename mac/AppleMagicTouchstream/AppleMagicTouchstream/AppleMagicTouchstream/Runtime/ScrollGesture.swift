@@ -215,14 +215,60 @@ struct MagnifyGestureOutput {
     }
 }
 
+/// Angular evidence around a tracked thumb; output and ownership remain in the router.
+struct ThumbRotationTracker {
+    struct Evidence { var angle:Double; var arc:Double; var radial:Double }
+    private struct Sample {
+        var ids = SIMD8<Int32>(repeating:0)
+        var count:Int, thumb:Int32, time:Double, angle:Double, radius:Double
+    }
+    private var samples:[UInt64:Sample] = Dictionary(minimumCapacity:2)
+    mutating func reset() { samples.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { samples[device] = nil }
+    mutating func process<C:Collection>(device:UInt64,time:Double,contacts:C) -> Evidence? where C.Element == OMSRawTouch {
+        var ids = SIMD8<Int32>(repeating:0), count = 0, thumb:Int32?, tx=0.0, ty=0.0, x=0.0, y=0.0
+        guard time.isFinite else { reset(device:device); return nil }
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard count < 5, touch.posX.isFinite, touch.posY.isFinite,
+                  touch.telemetry?.fingerID != 6 else { reset(device:device); return nil }
+            for i in 0..<count where ids[i] == touch.id { reset(device:device); return nil }
+            ids[count] = touch.id; count += 1
+            let px = Double(touch.posX)*160, py = -Double(touch.posY)*114.9
+            if touch.telemetry?.fingerID == 1 {
+                guard thumb == nil else { reset(device:device); return nil }
+                thumb = touch.id; tx=px; ty=py
+            } else { x += px; y += py }
+        }
+        guard count == 3 || count == 5, let thumb else { reset(device:device); return nil }
+        let dx = x/Double(count-1)-tx, dy = y/Double(count-1)-ty
+        let radius = hypot(dx,dy), angle = atan2(dy,dx)
+        guard radius >= 15 else { reset(device:device); return nil }
+        let next = Sample(ids:ids,count:count,thumb:thumb,time:time,angle:angle,radius:radius)
+        guard var old = samples[device], time > old.time, time-old.time < 0.15,
+              count == old.count, thumb == old.thumb,
+              (0..<count).allSatisfy({ i in (0..<count).contains { old.ids[$0] == ids[i] } }) else {
+            samples[device] = next; return nil
+        }
+        let turn = atan2(sin(angle-old.angle),cos(angle-old.angle))
+        // Keep the initial angular/radial anchor until membership changes.
+        old.time = time; samples[device] = old
+        return Evidence(angle:turn,arc:abs(turn)*min(radius,old.radius),radial:abs(radius-old.radius))
+    }
+}
+
 typealias LatchedGesture = GestureTrigger
 
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
     private var engine: GestureSessionEngine<LatchedGesture>
     private var pinch = PinchSpreadTracker()
+    private var rotation = ThumbRotationTracker()
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
+            GestureActivationRule(gesture:.threeFingerRotateLeft,activationCount:3,minimumMovementMM:0),
+            GestureActivationRule(gesture:.threeFingerRotateRight,activationCount:3,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fiveFingerRotateLeft,activationCount:5,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fiveFingerRotateRight,activationCount:5,minimumMovementMM:0),
             GestureActivationRule(gesture:.twoFingerPinch,activationCount:2,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerPinch,activationCount:3,minimumMovementMM:0),
             GestureActivationRule(gesture:.fourFingerPinch,activationCount:4,minimumMovementMM:0),
@@ -237,8 +283,8 @@ struct TrackpadGestureRouter {
         ])
     }
     func owner(device:UInt64) -> GestureTrigger? { engine.owner(device:device) }
-    mutating func reset() { engine.reset(); pinch.reset() }
-    mutating func reset(device: UInt64) { engine.cancel(device:device); pinch.reset(device:device) }
+    mutating func reset() { engine.reset(); pinch.reset(); rotation.reset() }
+    mutating func reset(device: UInt64) { engine.cancel(device:device); pinch.reset(device:device); rotation.reset(device:device) }
     mutating func update<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool, drag: Bool = false) -> GestureSessionUpdate<LatchedGesture> where C.Element == OMSRawTouch {
         recognize(device:device,time:time,contacts:contacts,enabled: { trigger in
@@ -250,6 +296,7 @@ struct TrackpadGestureRouter {
     }
     mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
         enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
+        let turn = rotation.process(device:device,time:time,contacts:contacts)
         let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device)?.isPinch == true)
         let activeCount=contacts.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1 : 0) }
         let direction = (pair?.changeMM ?? 0) > 0 ? GestureTrigger.spread(count:activeCount) : GestureTrigger.pinch(count:activeCount)
@@ -258,6 +305,11 @@ struct TrackpadGestureRouter {
         }
         let directionEligible = direction != nil && hasThumb
         let pinchEnabled = directionEligible && (direction.map(enabled) ?? false)
+        let rotationDirection = GestureTrigger.rotation(count:activeCount,right:(turn?.angle ?? 0) > 0)
+        let rotationEligible = rotationDirection.map(enabled) == true && hasThumb
+            && (activeCount == 5 || ThumbTwoChord.matches(contacts))
+        let rotationCandidate = rotationEligible && turn.map { abs($0.angle) >= Double.pi/240 && $0.arc >= 0.75 && $0.arc > $0.radial*1.1 } == true
+        let rotationWins = rotationCandidate && abs(turn?.angle ?? 0) >= Double.pi/60
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
@@ -265,7 +317,9 @@ struct TrackpadGestureRouter {
                 // A stationary thumb and 2–4 moving fingertips translate their
                 // centroid more than a two-finger chord; normalize dominance.
                 let dominance = 3.0 / Double(max(2,context.activeCount))
-                if trigger.isPinch { return directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
+                if trigger.isRotation { return rotationWins && trigger == rotationDirection }
+                if rotationWins { return false }
+                if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
                 return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
             })

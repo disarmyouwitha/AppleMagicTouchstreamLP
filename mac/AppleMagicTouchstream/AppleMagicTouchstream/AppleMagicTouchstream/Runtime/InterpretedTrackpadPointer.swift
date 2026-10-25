@@ -543,6 +543,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             let three = state.recognizes(.threeFingerMove,device:device)
             let four = state.recognizes(.fourFingerMove,device:device)
             let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
+                if trigger.isRotation { return GestureTrigger.liveRotationTriggers.contains(trigger) && pinchBindings.action(for:trigger) != .disabled }
                 if trigger.isPinch { return pinchEligible && pinchBindings.action(for:trigger) != .disabled }
                 switch trigger {
                 case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four
@@ -602,7 +603,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             // A different owner/discontinuity cannot retain directional progress.
             state.directionalRepeater.reset(device:device)
             state.directionalStepper.reset(device:device)
-            if let gesture = update.gesture, state.action(gesture,device:device).isAppleShortcut {
+            if let gesture = update.gesture, gesture.isRotation || state.action(gesture,device:device).isAppleShortcut {
                 if allUp {
                     state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
@@ -610,12 +611,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 }
                 state.finishScroll(device:device,cancelled:true)
                 if update.phase == .began {
-                    state.clicks.reset()
-                    let action = state.action(gesture,device:device)
-                    _ = state.appleShortcuts[action]?.postDock(phase:update.phase)
-                    for event in state.appleShortcuts[action]?.events() ?? [] {
-                        event.post(tap:state.appleShortcuts[action]?.eventTap ?? .cghidEventTap); state.postedEvents &+= 1
-                    }
+                    state.postDirectional(state.action(gesture,device:device),device:device,time:hostTime)
                 }
                 return nil
             }

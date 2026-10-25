@@ -20,6 +20,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     private static let leftRotations:[Self] = [.twoFingerRotateLeft,.threeFingerRotateLeft,.fourFingerRotateLeft,.fiveFingerRotateLeft]
     private static let rightRotations:[Self] = [.twoFingerRotateRight,.threeFingerRotateRight,.fourFingerRotateRight,.fiveFingerRotateRight]
     static let rotationTriggers = leftRotations + rightRotations
+    static let liveRotationTriggers:[Self] = [.threeFingerRotateLeft,.threeFingerRotateRight,.fiveFingerRotateLeft,.fiveFingerRotateRight]
     var rotationCount:Int? { (Self.leftRotations.firstIndex(of:self) ?? Self.rightRotations.firstIndex(of:self)).map { $0+2 } }
     var isRotation:Bool { rotationCount != nil }
     var rotatesRight:Bool { Self.rightRotations.contains(self) }
@@ -36,10 +37,13 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
     static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
-    var isContinuous: Bool { isPinch || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
+    var isContinuous: Bool { isPinch || isRotation || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
     var title: String {
         if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch") (thumb required)" }
-        if let count = rotationCount { return "\(count)-finger rotate \(rotatesRight ? "right" : "left")" }
+        if let count = rotationCount {
+            return count == 3 ? "Thumb + 2 fingertips rotate \(rotatesRight ? "right" : "left")"
+                : "\(count)-finger rotate \(rotatesRight ? "right" : "left")"
+        }
         if let count = forceCount { return "\(count)-finger force click" }
         switch self {
         case .twoFingerMove: return "2-finger movement"

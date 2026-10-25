@@ -227,12 +227,18 @@ Both, directional modes/actions/repeats and per-hand gains/Natural preference un
 Takeover opt-in and device selection remain app-local. Unsupported legacy fields
 stay inert and unknown action labels fail rather than silently losing mappings.
 
-The 2–5-contact shape pages are named **Pinch, Spread, and Rotate**. Rotate Left
-and Rotate Right cards sit beneath Pinch and Spread, with independent per-count,
-per-hand saved actions, Mirror Edit and settings import/export. Both rotation slots
-default to None. Rotation recognition/output is not active in this GUI preparation
-step; saved rotation slots do not reserve keyboard input or alter working gestures.
-The examples illustrate the selected turn direction and fade before restarting.
+The 2–4-contact shape pages are **Pinch and Spread**. Five contacts use **Pinch,
+Spread, and Rotate**, with Rotate Left/Right below Pinch/Spread. **Thumb+2fingers**
+places Tap/Hold in its first row and Rotate Left/Right beneath them. The existing
+three-contact rotation binding IDs serve this thumb-plus-two input; unused two-
+and four-contact fields remain readable for compatibility without visible cards.
+Rotation assignments are independent per hand/direction, default None, and support
+Mirror Edit and settings import/export. Assigned Thumb+2 and five-contact rotations
+reserve their corresponding input family and dispatch once on activation. Two/four-
+contact rotation fields remain inactive.
+
+Five-finger Hold appears beside Force Click in the assignment grid, with only Lift
+remaining under Session Lifetime. Its independent 0.5 s behavior is unchanged.
 
 The Gestures workspace has resizable navigation/inspector columns, searchable Action
 sheets, movement cross cards and a shared right-hand inspector. Hold uses the same
@@ -255,3 +261,31 @@ settings round-trips and offscreen interface rendering. Optional external captur
 and registry checks skip when their prerequisites are absent. Offline event
 construction/recognition establishes intended output, while actual application
 receipt and physical feel require hardware testing.
+
+## Rotation recognition
+
+Thumb+2 and five-contact rotation use a tracked recognized thumb as the pivot and
+measure the angle of the fingertip group's centroid relative to it. Three-contact
+activation requires the existing spread-thumb geometry; five contacts require a
+thumb and reject palm/invalid/duplicate contacts. Radius must be at least 15 app mm.
+Membership/identity or native chronology changes rebase pending evidence.
+
+The provisional commit threshold is 3°, at least 0.75 app-mm arc travel, with arc
+travel exceeding radial travel by 1.1×. A pending turn above 0.75° with that same
+arc/dominance evidence defers competing scale activation until the turn commits
+or stops being dominant. With rotation unassigned, Pinch/Spread behavior is unchanged.
+Clockwise in screen coordinates selects Rotate Right; counterclockwise selects Left.
+
+Rotation is registered in the shared continuous session engine. After activation,
+the original input/action stays owned through reversal, anatomical relabeling and
+partial lifts until all-up; it fires once rather than on every frame or direction
+change. Force and Both handoff keep their existing explicit precedence. Hold/tap
+candidates are cancelled through the common ownership paths. Actions use the shared
+discrete dispatcher (including Dock system actions), permissions and replay gates.
+There is no continuous native rotation-output action in this pass.
+
+Offline replay of `rotate_no_work.atpcap` contains 718 frames and eight completed
+rotation cycles, with roughly 25–51° counterclockwise travel. All eight activate
+Thumb+2 Rotate Left with Pinch/Spread and three-finger movement competing. This
+predicts recognition, not actual target-application receipt. Synthetic regressions
+cover both directions/counts, reversal, partial lift, missing thumb and pure scaling.

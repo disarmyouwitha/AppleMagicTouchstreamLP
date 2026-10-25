@@ -65,15 +65,16 @@ final class GestureWorkspaceTests: XCTestCase {
 
     func testCatalogExposesEveryExistingInputExactlyOnce() {
         let triggers = GesturePane.allCases.flatMap(\.triggers)
-        XCTAssertEqual(Set(triggers),Set(GestureTrigger.allCases))
+        let hidden = GestureTrigger.rotationTriggers.filter { $0.rotationCount == 2 || $0.rotationCount == 4 }
+        XCTAssertEqual(Set(triggers),Set(GestureTrigger.allCases).subtracting(hidden))
         XCTAssertEqual(triggers.count,Set(triggers).count)
         for pane in GesturePane.allCases {
             XCTAssertFalse(pane.triggers.isEmpty)
             for trigger in pane.triggers { XCTAssertTrue(pane.includes(trigger)) }
             if pane.isPinchSection {
-                XCTAssertEqual(pane.triggers.count,4)
+                XCTAssertEqual(pane.triggers.count,pane == .fiveFingerPinch ? 4 : 2)
                 XCTAssertTrue(pane.triggers.prefix(2).allSatisfy(\.isPinch))
-                XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation))
+                if pane == .fiveFingerPinch { XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation)) }
                 XCTAssertTrue(pane.contactLabel.contains("thumb required"))
             }
         }
@@ -185,12 +186,13 @@ final class GestureWorkspaceTests: XCTestCase {
             let holdBitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(holdRenderer.cgImage))
             try XCTUnwrap(holdBitmap.representation(using:.png,properties:[:]))
                 .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-filled-hold.png"))
-            for trigger in GestureTrigger.rotationTriggers + [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
+            for trigger in GestureTrigger.rotationTriggers.filter({ $0.rotationCount == 3 || $0.rotationCount == 5 }) + [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
                 let pane: GesturePane
                 switch trigger {
                 case .twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight: pane = .twoFingerPinch
                 case .fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight: pane = .fourFingerPinch
-                case .threeFingerPinch,.threeFingerSpread,.threeFingerRotateLeft,.threeFingerRotateRight: pane = .threeFingerPinch
+                case .threeFingerPinch,.threeFingerSpread: pane = .threeFingerPinch
+                case .threeFingerRotateLeft,.threeFingerRotateRight: pane = .thumbTwo
                 case .fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight: pane = .fiveFingerPinch
                 case .oneFingerForce: pane = .oneFinger
                 case .threeFingerTap,.threeFingerMove,.threeFingerForce: pane = .threeFingers

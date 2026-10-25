@@ -45,7 +45,7 @@ final class TrackpadGestureController: ObservableObject {
             settings.editMovement(trigger,mode:.continuous,in:scope)
         }
         settings.save(to: .standard)
-        if action != .disabled && !trigger.isRotation {
+        if action != .disabled {
             reloadProfiles()
             if action != .openConfig && !AXIsProcessTrusted() {
                 _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
@@ -165,7 +165,6 @@ final class TrackpadGestureController: ObservableObject {
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
-        if trigger.isRotation { return "Rotation recognition coming next." }
         func hand(_ side: GestureHandScope) -> String {
             let directional = GestureDirectionalAssignments.triggers.contains(trigger)
                 && settings.movementMode(trigger,in:side) == .directional

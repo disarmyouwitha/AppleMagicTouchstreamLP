@@ -36,9 +36,12 @@ live input, takeover, haptics or login registration as part of offline verificat
 - One-finger gesture Hold is unavailable; keyboard key holds remain. Corner inputs
   are Hold-only, 1 s, Open Config by default. Ordinary counts 2–5 and Thumb+2 Hold
   are independent 0.5 s inputs. Legacy retired assignments decode but stay inert.
-- Shape pages include saved Rotate Left/Right slots for counts 2–5, default None.
-  Rotation is GUI/settings-only until recognition is authorized; it must not reserve
-  keyboard input, request Accessibility or post events in this stage.
+- Saved Rotate Left/Right slots appear only for Thumb+2 and five contacts, default
+  None. Other shape pages show only Pinch/Spread; five-finger Hold sits beside Force.
+  Rotation recognition is live for these two families: thumb-to-fingertip-group
+  angular evidence feeds the shared continuous latch and discrete dispatcher.
+  Preserve angular/radial competition, thumb activation, all-up ownership and
+  selected/owned/armed/AX/live gates; other rotation counts remain inactive.
 - Pinch and Spread activation for counts 2–5 requires a recognized thumb. Once
   activated retain ownership through relabeling/count changes until all-up.
 - Every new gesture needs explicit activation, continuation, arbitration,
