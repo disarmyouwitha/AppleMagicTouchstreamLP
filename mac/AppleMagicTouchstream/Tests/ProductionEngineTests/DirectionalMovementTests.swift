@@ -75,9 +75,9 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertNil(repeater.tick(device:1,now:6.1))
     }
     func testIntervalBoundsMigrationAndMirrorPersistence() throws {
-        XCTAssertEqual(config().repeatIntervalMS(.up),100)
+        XCTAssertEqual(config().repeatIntervalMS(.up),80)
         XCTAssertEqual(config(repeat:false).repeatIntervalMS(.up),0)
-        XCTAssertEqual(config(repeat:true).repeatIntervalMS(.up),100)
+        XCTAssertEqual(config(repeat:true).repeatIntervalMS(.up),80)
         for (input,expected) in [(Double.nan,0.0),(.infinity,0),(-1,0),(0,0),(1,20),(250.4,250),(9000,5000)] {
             XCTAssertEqual(GestureDirectionalAssignments.boundedIntervalMS(input),expected)
         }
@@ -89,7 +89,7 @@ final class DirectionalMovementTests: XCTestCase {
         var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
         XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
         let legacy = try JSONDecoder().decode(GestureDirectionalAssignments.self,from:Data(#"{"mode":"directional","actions":{},"repeatOverrides":{"up":true,"down":false}}"#.utf8))
-        XCTAssertEqual(legacy.repeatIntervalMS(.up),100)
+        XCTAssertEqual(legacy.repeatIntervalMS(.up),80)
         XCTAssertEqual(legacy.repeatIntervalMS(.down),0)
     }
     func testRepeatOffAndDeliberateReversalOrTurn() {

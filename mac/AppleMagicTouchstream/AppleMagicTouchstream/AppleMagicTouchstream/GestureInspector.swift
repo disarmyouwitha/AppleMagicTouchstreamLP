@@ -761,6 +761,8 @@ struct GestureAssignmentWorkspace: View {
     }
     private func directionalInspector(_ direction:GestureMovementDirection) -> some View {
         let value = settings.directionalAction(direction,for:selected,in:editingScope)
+        let repeatInterval = settings.directionalRepeatInterval(direction,for:selected,in:editingScope)
+        let repeatOff = repeatInterval == 0
         return VStack(alignment:.leading,spacing:14) {
             Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
                 if let action { setDirectionalAction(action,direction,selected,editingScope) }
@@ -780,10 +782,15 @@ struct GestureAssignmentWorkspace: View {
                 TextField("0",value:Binding(
                     get:{settings.directionalRepeatInterval(direction,for:selected,in:editingScope) ?? 0},
                     set:{setDirectionalRepeatInterval($0,direction,selected,editingScope)}),format:.number)
-                    .textFieldStyle(.roundedBorder).frame(width:65)
+                    .textFieldStyle(.plain).font(.system(size:11).monospacedDigit())
+                    .multilineTextAlignment(.center).padding(.vertical,3).frame(width:32.5)
+                    .background(RoundedRectangle(cornerRadius:5).fill(Color(nsColor:.textBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius:5).strokeBorder(Color.primary.opacity(0.15),lineWidth:1))
                     .accessibilityLabel("Repeat interval in milliseconds")
                 Text("ms while held").font(.callout)
+                if repeatOff { Text("Off").font(.caption).fontWeight(.medium) }
             }
+            .foregroundStyle(repeatOff ? Color.secondary : Color.primary)
             .help("Repeat every X milliseconds while held. 0 disables repeat; nonzero intervals range from 20 to 5000 ms. Press Return to apply.")
             Text("0 = no repeat · 20–5000 ms while held").font(.caption).foregroundStyle(.secondary)
             if settings.directionalRepeatInterval(direction,for:selected,in:editingScope) == nil {

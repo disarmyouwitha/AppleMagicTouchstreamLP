@@ -1,10 +1,6 @@
 # NOTES:
 0. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 =======
-0. For repeat you implemented the repeat every 3mm, could we try it continuially firing every (X) ms (settable in the GUI) as long as that gesture is held without All Up release?
-> if 0 is set could we gray the text or make it less noticable.. or.. more noticable that it is not set / not being used?,
-> lets try 80ms for volume and 50 for brightness
-> Is this all Import/Exportable in the keymap? =]
 1. Earlier you said this to me, do you think now is a good time to work on it or do we need to wrap anything else up first?
 > One implementation detail: we currently recognize continuous movement, but don’t yet have independent directional assignments or their repeat behavior. So the cross is a good GUI direction, and making those outer cards functional would be our next gesture-engine addition.
 > *CHECK `Shared latching: retain the starting finger chord until all fingers lift, while allowing deliberate direction changes.`

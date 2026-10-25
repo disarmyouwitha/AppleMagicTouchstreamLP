@@ -182,7 +182,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     }
     func repeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
         if let value = repeatIntervalsMS?[direction.rawValue] { return Self.boundedIntervalMS(value) }
-        return (repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))) ? 100 : 0
+        return (repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))) ? 80 : 0
     }
     func repeats(_ direction:GestureMovementDirection) -> Bool {
         repeatIntervalMS(direction) > 0
@@ -236,7 +236,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         directionalMovement?[trigger.rawValue] = editor
     }
     mutating func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger) {
-        setDirectionalRepeatInterval(enabled ? 100 : 0,direction:direction,for:trigger)
+        setDirectionalRepeatInterval(enabled ? 80 : 0,direction:direction,for:trigger)
     }
     mutating func setDirectionalRepeatInterval(_ milliseconds:Double,direction:GestureMovementDirection,for trigger:GestureTrigger) {
         guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }

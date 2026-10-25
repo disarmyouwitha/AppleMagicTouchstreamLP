@@ -636,10 +636,10 @@ axis (1.25 ratio) to emit a direction. Deliberate turns/reversals need 0.75 mm i
 the new direction; small jitter does not switch it. Screen-space up is negative Y.
 These thresholds are provisional for hardware testing.
 
-Each direction has a saved millisecond interval field (repeat icon), including
-Mirror Edit and Mixed states. Zero disables repeat; positive values are bounded
-to 20–5000 ms. Missing settings default to 100 ms for small-step volume/brightness,
-zero for other actions. Old checkbox true/false decodes as 100/0 ms. Explicit
+Each direction has a compact saved millisecond interval field (repeat icon), including
+Mirror Edit and Mixed states. Zero disables repeat and mutes the row with an Off label; positive values are bounded
+to 20–5000 ms. Missing settings default to 80 ms for small-step volume/brightness,
+zero for other actions. Old checkbox true/false decodes as 80/0 ms. Explicit
 intervals survive action changes and keymap export/import. Two/four-finger
 intervals remain saved-only, matching their directional assignments.
 
