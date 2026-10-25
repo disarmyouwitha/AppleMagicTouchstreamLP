@@ -19,7 +19,7 @@ channels, not a pre-connection veto or priority reservation.
 
 ## Hardware procedure
 
-1. Release DriverKit takeover and quit AppleMagicTouchstream/GesturePad. Keep
+1. Release DriverKit takeover and quit AppleMagicTouchstream. Keep
    an independent mouse and keyboard available. Switch the right pad OFF.
 2. From the repository root, run this without sudo:
 

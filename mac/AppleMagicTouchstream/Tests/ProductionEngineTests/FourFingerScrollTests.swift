@@ -130,3 +130,20 @@ final class FourFingerScrollTests: XCTestCase {
         XCTAssertGreaterThan(profile.vertical.algorithmRate,0)
     }
 }
+
+
+extension FourFingerScrollTests {
+    func testStaleActiveScrollCancelsItsPhaseWithoutEndingTheOtherPadsOutput() throws {
+        var left = PreciseScrollOutput(), right = PreciseScrollOutput()
+        _ = try XCTUnwrap(left.event(points:CGPoint(x:0,y:1)))
+        _ = try XCTUnwrap(right.event(points:CGPoint(x:0,y:-1)))
+        XCTAssertTrue(left.active); XCTAssertTrue(right.active)
+        XCTAssertTrue(GestureOutputLifecycle.isStale(receipt:1,now:1.21))
+        let cancelled = try XCTUnwrap(left.finish(cancelled:true))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:cancelled)).phase,.cancelled)
+        XCTAssertFalse(left.active); XCTAssertFalse(left.momentumActive)
+        XCTAssertNil(left.finish(cancelled:true))
+        XCTAssertTrue(right.active)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:XCTUnwrap(right.finish(cancelled:false)))).phase,.ended)
+    }
+}

@@ -151,6 +151,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var threeFingerTaps = ThreeFingerTapRecognizer()
         var fourFingerTaps = TwoFingerTapRecognizer(requiredCount:4)
         var clicks = PrimaryTapClickOutput()
+        /// Every exclusive owner consumes the same terminal frame. Clear all
+        /// discrete candidates together so none can fire a second action on lift.
+        mutating func consumeAllUp<C:Collection>(device:UInt64,time:Double,now:Double,contacts:C) where C.Element == OMSRawTouch {
+            _ = holds.observe(device:device,time:time,now:now,contacts:contacts,motionClaimed:false,actions:[:])
+            _ = forceClicks.recognize(device:device,time:time,contacts:contacts,enabled:{_ in false})
+            _ = taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+            _ = fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+            _ = threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
+                gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+        }
         var doubleClickInterval = 0.5
         var scrollProfiles: [UInt64:AppleScrollProfile] = [:]
         var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
@@ -304,14 +314,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.postHold(count:count,device:device,time:now)
                 }
             }
-            for owner in state.drag.owners where now-(state.lastReceipt[owner] ?? 0) > 0.2 {
+            for owner in state.drag.owners where GestureOutputLifecycle.isStale(receipt:state.lastReceipt[owner],now:now) {
                 state.reset(device:owner)
             }
-            for device in state.devices where state.zoomOutputs[device]?.active == true {
-                if now - (state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device) }
+            for device in state.devices where state.zoomOutputs[device]?.active == true || state.scrollOutputs[device]?.active == true {
+                if GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device) }
             }
             for device in state.devices where state.directionalStepper.direction(device:device) != nil {
-                if now-(state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device); continue }
+                if GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device); continue }
                 if let direction = state.directionalRepeater.tick(device:device,now:now),
                    let trigger = state.directionalStepper.trigger(device:device),
                    let assignments = state.directionals[device]?[trigger] {
@@ -387,12 +397,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             } else { state.reset(device:device) }
             state.keyboardArbitration.reset(device:device)
             if !frame.touches.contains(where:{$0.state == .making || $0.state == .touching}) {
-                _ = state.holds.observe(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches,motionClaimed:false,actions:[:])
-                _ = state.forceClicks.recognize(device:device,time:frame.timestamp,contacts:frame.touches,enabled:{_ in false})
-                _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                _ = state.fourFingerTaps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,
-                    gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                state.consumeAllUp(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches)
             }
             if let trigger = decision.trigger { state.postCoordinated(trigger,time:now) }
             return true
@@ -422,11 +427,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.reset(device:device)
                 state.keyboardArbitration.reset(device:device)
                 if !frame.touches.contains(where:{$0.state == .making || $0.state == .touching}) {
-                    _ = state.holds.observe(device:device,time:frame.timestamp,now:now,contacts:frame.touches,motionClaimed:false,actions:[:])
-                    _ = state.forceClicks.recognize(device:device,time:frame.timestamp,contacts:frame.touches,enabled:{_ in false})
-                    _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                    _ = state.fourFingerTaps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                    _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                    state.consumeAllUp(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches)
                 }
                 if let trigger = decision.trigger { state.postCorner(trigger,device:device,time:now) }
             }
@@ -450,12 +451,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             state.keyboardArbitration.reset(device:device)
             if !frame.touches.contains(where:{$0.state == .starting || $0.state == .making || $0.state == .touching}) {
-                _ = state.holds.observe(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches,motionClaimed:false,actions:[:])
-                _ = state.forceClicks.recognize(device:device,time:frame.timestamp,contacts:frame.touches,enabled:{_ in false})
-                _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                _ = state.fourFingerTaps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
-                _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,
-                    gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                state.consumeAllUp(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches)
                 state.keyboardChordDevices.remove(device)
             }
         }
@@ -507,11 +503,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if state.holds.claimed(device:device) {
                 _ = state.holds.observe(device:device,time:time,now:hostTime,contacts:contacts,motionClaimed:false,actions:[:])
                 if allUp {
-                    _ = state.forceClicks.recognize(device:device,time:time,contacts:contacts,enabled:{_ in false})
-                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
-                        gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                    state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 }
                 return nil
             }
@@ -570,10 +562,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if let gesture = update.gesture, let assignments = state.directionals[device]?[gesture] {
                 if allUp {
-                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
-                        gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                    state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
                 }
@@ -587,7 +576,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     return nil
                 }
                 let heldAction = heldDirection.map { assignments.action($0) } ?? .disabled
-                if allUp && update.phase == .ended {
+                if GestureOutputLifecycle.normalLift(phase:update.phase,allUp:allUp) {
                     state.releaseScroll(device:device,time:time,hostTime:hostTime)
                 } else if let heldDirection, heldAction.isDirectionalScroll,
                           update.phase == .began || update.phase == .changed {
@@ -615,9 +604,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.directionalStepper.reset(device:device)
             if let gesture = update.gesture, state.action(gesture,device:device).isAppleShortcut {
                 if allUp {
-                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                    state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
                 }
@@ -634,9 +621,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if let gesture = update.gesture, state.action(gesture,device:device) == .zoom {
                 if allUp {
-                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
-                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                    state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
                 }
@@ -686,9 +671,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.postTap(trigger,device:device,time:hostTime)
             }
             guard let motion else {
-                if allUp {
+                if GestureOutputLifecycle.normalLift(phase:update.phase,allUp:allUp) {
                     state.releaseScroll(device:device,time:time,hostTime:hostTime)
-                } else { state.finishScroll(device:device,cancelled:true) }
+                } else if GestureOutputLifecycle.cancelsScroll(phase:update.phase,allUp:allUp) {
+                    state.finishScroll(device:device,cancelled:true)
+                }
+                // Idle empty frames must not brake an already released coast.
                 state.tracker.reset(device:device)
                 return nil
             }

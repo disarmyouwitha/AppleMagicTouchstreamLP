@@ -175,6 +175,15 @@ final class GestureWorkspaceTests: XCTestCase {
             }
         }
         if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+            let holdStrip = HStack(spacing:16) {
+                ForEach([0.0,0.15,0.60,0.80,0.86,0.94],id:\.self) { phase in
+                    GestureChordIcon(gesture:.fourCorners,trigger:.fourCornersTap,holding:true,previewPhase:phase)
+                }
+            }.padding(16).background(Color(nsColor:.windowBackgroundColor))
+            let holdRenderer = ImageRenderer(content:holdStrip)
+            let holdBitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(holdRenderer.cgImage))
+            try XCTUnwrap(holdBitmap.representation(using:.png,properties:[:]))
+                .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-filled-hold.png"))
             for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
                 let pane: GesturePane
                 switch trigger {

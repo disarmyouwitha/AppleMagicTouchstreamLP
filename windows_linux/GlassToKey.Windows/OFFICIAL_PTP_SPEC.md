@@ -2,7 +2,10 @@
 
 Last updated: 2026-02-14
 
-Research correction added 2026-10-22: the historical `usagePage=0x00`, `usage=0x00` label below came from an undersized `RID_DEVICE_INFO` interop query failing and falling back to zero values. A standalone correct 32-byte query and `HidP_GetCaps` both identify the live Apple report collection as **Digitizer / Touch Pad (`0x0D/0x05`)**. See [the metadata and routing investigation](WINDOWS_APPLE_DRIVER_GHIDRA_FINDINGS.md#follow-up-the-zero-usage-metadata-was-an-interop-failure). The empirically observed Apple byte packing remains useful, but its format must not be selected solely by treating zero usage as a real native capability. No decoder behavior was changed by this documentation correction.
+The live Apple report collection is **Digitizer / Touch Pad (`0x0D/0x05`)**, verified
+by a 32-byte `RID_DEVICE_INFO` query and `HidP_GetCaps`. Metadata and byte packing
+must be treated separately when selecting a decoder. See the [metadata and routing
+investigation](WINDOWS_APPLE_DRIVER_GHIDRA_FINDINGS.md#follow-up-the-zero-usage-metadata-was-an-interop-failure).
 
 This document records only confirmed behavior for the official Apple USB-C stream used by GlassToKey.
 - implemented decoder behavior (`TrackpadReportDecoder.cs`, `PtpReport.cs`)
@@ -12,7 +15,7 @@ This document records only confirmed behavior for the official Apple USB-C strea
 Confirmed stream signature:
 - Vendor ID: `0x05AC`
 - Product IDs observed: `0x0265`, `0x0324`
-- Actual HID usage pair: `usagePage=0x0D`, `usage=0x05` (Touch Pad); historical logs showed fallback `0x00/0x00`, as corrected above.
+- Actual HID usage pair: `usagePage=0x0D`, `usage=0x05` (Touch Pad).
 - Report ID: `0x05`
 - Report length: `50` bytes
 

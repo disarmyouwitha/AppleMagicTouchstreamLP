@@ -67,8 +67,8 @@ assignment cards, lifecycle row and inspector; adapt only the motion arrangement
   for the available motion channels; tap/hold/lift remain in a consistent row.
 - Right: selected trigger's Action, Behavior, sensitivity, and conditions. Keep
   “None” visible for unused slots instead of silently hiding them.
-- Both: a mixed assignment must display Mixed, with left/right values visible.
-  Changing it edits both; inspecting must never silently copy one side.
+- Both: coordinated two-pad gestures. Mirror Edit separately applies subsequent
+  independent settings changes to both sides without copying settings on enable.
 - Unsupported/future recognizers: visible only in a clearly marked catalog or
   disabled state, not presented as working controls. Mockups explicitly say
   “Design preview”; guide presets are not current app defaults.
@@ -109,15 +109,17 @@ disconnect, stale frames and emergency release must balance held output.
    common assignment picker. Keep raw sequences in an advanced editor.
 4. Add optional preset sets and conflict explanations. Historical Photoshop,
    Maya, Emacs and Desktop sets are alternative contexts, not all-on defaults.
-5. Defer special palm/knuckle/game and two-hand modes until capture support and
+5. Defer additional palm/knuckle/game and two-hand families until capture support and
    recognition semantics are validated. A game chord can add button contacts
    while continuing motion; an all-up-only count latch alone is insufficient.
 
 ## Current implementation versus source
 
 AppleMagicTouchstream currently supports configurable pointer/drag/scroll, taps,
-thumb+two-fingertip right tap, 1–5 force clicks, thumb-required 2–5-contact
-pinch/spread, and selected system/media actions. It does **not** implement the
+thumb+two-fingertip Tap/Hold, 1–5 force clicks, thumb-required 2–5-contact
+pinch/spread, 2–5-contact stationary Hold, 2/3/4-finger directions and held repeats,
+directional scroll/pan, single-pad corners and coordinated Both Tap/Hold families,
+and selected system/media actions. It does **not** implement the
 entire guide. Force-click is our Apple pressure extension, not a Quick Guide
 trigger. Our current mirror-friendly per-hand assignments are intentionally not
 the original left-navigation/right-pointer defaults.

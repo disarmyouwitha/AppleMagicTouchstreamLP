@@ -45,7 +45,7 @@ The integrated filter was not broadened beyond the later successful Mouse Takeov
 
 ## Confirmed remaining conflict and warning detection
 
-The user subsequently configured a Windows three-finger gesture and confirmed it still fires during Mouse Takeover. Movement, buttons, and scroll remain blocked as observed. This supersedes the tentative report that all Windows gestures seemed caught: the mouse hook does not provide complete shell-gesture suppression. The user explicitly accepts that compromise.
+The user subsequently configured a Windows three-finger gesture and confirmed it still fires during Mouse Takeover. Movement, buttons, and scroll remain blocked as observed. The mouse hook does not provide complete shell-gesture suppression. The user explicitly accepts that compromise.
 
 A read-only query of the actual interactive user's `HKCU\Software\Microsoft\Windows\CurrentVersion\PrecisionTouchPad` returned `ThreeFingerSlideEnabled=1`, `ThreeFingerTapEnabled=0`, `FourFingerSlideEnabled=0`, `FourFingerTapEnabled=0`, and `CustomThreeFingerTap=0`. [Saved narrow preference snapshot](WindowsDiagnostics/windows-gesture-preferences-20261022.json). The sandbox runs as a different account and its HKCU lacked this key; the approved host read accessed the real user's preferences. The installed app normally reads its own user hive without administrator privileges. An absent sandbox key was not evidence that the user's bindings were off.
 

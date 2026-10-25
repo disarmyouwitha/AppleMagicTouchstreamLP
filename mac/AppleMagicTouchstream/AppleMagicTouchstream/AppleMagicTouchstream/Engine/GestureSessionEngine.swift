@@ -5,6 +5,16 @@ import OpenMultitouchSupport
 enum GestureSessionPhase: Equatable, Sendable { case pending, began, changed, ended, cancelled }
 enum GestureCancellationReason: Equatable, Sendable { case contactDiscontinuity, disabled, continuationRejected, explicitReset }
 
+/// Shared output completion/freshness policy, independent of event construction.
+enum GestureOutputLifecycle {
+    static func normalLift(phase:GestureSessionPhase,allUp:Bool) -> Bool { allUp && phase == .ended }
+    static func cancelsScroll(phase:GestureSessionPhase,allUp:Bool) -> Bool { !allUp || phase == .cancelled }
+    static func isStale(receipt:Double?,now:Double) -> Bool {
+        guard let receipt, receipt.isFinite, now.isFinite, now >= receipt else { return true }
+        return now-receipt > TwoHandGestureEngine.staleWindow
+    }
+}
+
 struct GestureActivationContext: Sendable {
     let time: Double
     let activeCount: Int
@@ -169,14 +179,14 @@ struct GestureContactMotionTracker: Sendable {
             sessions[device] = activationCount == 0 || next.count == activationCount ? next : nil
             return nil
         }
-        frameContinued = true
-        sessions[device] = next
         // Use only continuing contacts for this interval. New fingers establish
         // their own baseline and cannot cause a centroid jump when joining.
         // On stable membership this equals the centroid's displacement.
         let delta = CGPoint(x: dx / Double(shared) * 160,
                             y: -dy / Double(shared) * 114.9)
+        sessions[device] = next
         guard abs(delta.x) < 25, abs(delta.y) < 25 else { return nil }
+        frameContinued = true
         return delta
     }
 }
@@ -496,7 +506,7 @@ struct SinglePadCornersEngine {
         var anchor:GestureContactMotionTracker.Baseline
         var start:Double, receipt:Double
         var count = 4
-        var firstLift:Double?
+        var lifted = false
         var valid = true, held = false
     }
     private var session:Session?
@@ -538,15 +548,12 @@ struct SinglePadCornersEngine {
             guard let j = (0..<4).first(where:{current.anchor.ids[$0] == frame.ids[i]}) else { current.valid = false; continue }
             if hypot((frame.x[i]-current.anchor.x[j])*160,(frame.y[i]-current.anchor.y[j])*114.9) > TwoHandGestureEngine.movementSlopMM { current.valid = false }
         }
-        if current.firstLift != nil && frame.count > current.count { current.valid = false }
-        if frame.count < 4 && current.firstLift == nil { current.firstLift = now }
+        if current.lifted && frame.count > current.count { current.valid = false }
+        if frame.count < 4 { current.lifted = true }
         current.count = frame.count; current.receipt = now
         if frame.count == 0 {
             session = nil
-            let tap = TwoHandTrigger(chord:.fourCorners,phase:.tap)
-            let accepted = current.valid && !current.held && now-current.start >= 0.02 && now-current.start <= TwoHandGestureEngine.tapWindow
-                && now-(current.firstLift ?? now) <= TwoHandGestureEngine.joinWindow && settings.action(tap) != .disabled
-            return .init(reserved:true,trigger:accepted ? tap : nil)
+            return .init(reserved:true)
         }
         session = current
         return .init(reserved:true,trigger:advance(now:now,settings:settings))
@@ -555,7 +562,7 @@ struct SinglePadCornersEngine {
         guard var current = session else { return nil }
         if !now.isFinite || now < current.receipt || now-current.receipt > TwoHandGestureEngine.staleWindow { current.valid = false }
         defer { session = current }
-        guard current.valid, !current.held, current.firstLift == nil, now-current.start >= TwoHandChord.fourCorners.holdDuration else { return nil }
+        guard current.valid, !current.held, !current.lifted, now-current.start >= TwoHandChord.fourCorners.holdDuration else { return nil }
         current.held = true
         let hold = TwoHandTrigger(chord:.fourCorners,phase:.hold)
         return settings.action(hold) != .disabled ? hold : nil

@@ -14,9 +14,8 @@ that a successful feature operation establishes its effect inside the device.
 
 The selected right-pad registry ID was4294998142. Read-only IORegistry inspection
 confirmed that its IOHIDUserDevice publishes both mouse and digitizer usage pairs,
-and its IOHIDInterface has Apple's multitouch driver/device beneath it. It is not
-merely an unrelated mouse. Its mouse-facing top-level usage does not mean that
-we selected the wrong physical pad or omitted a separate digitizer interface.
+and its IOHIDInterface has Apple's multitouch driver/device beneath it. The selected service corresponds to the physical trackpad; its mouse-facing
+top-level usage coexists with the native multitouch path.
 
 ## Report-path mismatch: a hypothesis with concrete evidence
 
@@ -51,10 +50,9 @@ the user-space report-element queue.
 This is a plausible explanation, not a verified trace through this Mac's exact
 installed kernel/framework build. It does not prove Bluetooth hardware stops
 transmitting, that report31 is the only report sent, or that every user-space
-access method must fail. The next investigation must establish an actual means
-of receiving these undeclared/raw reports without our own restricted extension;
-changing only the decoder or substituting Karabiner output cannot do that.
+access method must fail. The production path uses native FLTR parsed callbacks instead; see
+[Trackpad Takeover](../../TRACKPAD_TAKEOVER.md). Raw-report seizure remains a
+separate, unsuccessful contact acquisition experiment.
 
-The user has explicitly ruled out USB-only success as useful. Further tests must
-target Bluetooth. The native-contacts-plus-seizure combination has failed on the
+Bluetooth contact capture is required for the intended product. The native-contacts-plus-seizure combination has failed on the
 tested right pad and should not be represented as a working alternative.

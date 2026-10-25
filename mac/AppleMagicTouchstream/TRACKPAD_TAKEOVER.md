@@ -1,12 +1,12 @@
 # Native Trackpad Takeover in AppleMagicTouchstream
 
-Ported from GesturePad on 2026-10-20. This uses Apple's existing native FLTR
+This uses Apple's existing native FLTR
 user client; it does not restore the removed custom DriverKit implementation.
 
 ## Controls and behavior
 
 The **Trackpad Takeover** checkbox lives inside the Left/Right device-selector
-panel in the top-aligned left workspace, matching GesturePad. It defaults off.
+panel in the top-aligned left workspace. It defaults off.
 Its value persists under `AppleMagicTouchstream.nativeTrackpadTakeoverEnabled`.
 After opt-in, startup restores takeover on the restored selection. An explicitly
 saved None remains None; a missing saved native ID is not replaced with a default
@@ -34,7 +34,7 @@ reasons compose, so leaving replay during sleep cannot reacquire filters. Emerge
 release during suspension prevents later automatic reacquisition.
 
 Contacts flow through the existing native OMS ingestion and existing keyboard
-engine. Native pointer behavior is suppressed by the filter routing. Configurable GesturePad gestures now provide synthetic pointer/click/drag/scroll
+engine. Native pointer behavior is suppressed by the filter routing. Configurable gestures provide synthetic pointer/click/drag/scroll
 output on eligible live input; see [GESTURE_ENGINE.md](GESTURE_ENGINE.md). Release awaits keyboard listening suspension
 and a reset (clearing held keys/repeat state), closes the filter clients, restores
 ordinary native callbacks and resumes listening only when live input is appropriate.
@@ -53,11 +53,12 @@ driver type4. The bridge verifies FilterEnabled and own-PID client ownership.
 Partial starts attempt rollback; release attempts every owned pad even if another
 fails, retains failed-stop ownership for retry, and reports native recovery codes.
 
-The private API was hardware-confirmed through USB and Bluetooth in GesturePad on
-macOS15.7.4/24G517 Intel. This port needs its own hardware acceptance, including
-keyboard output, two pads together, release, Config close/reopen, Restart, sleep
-and replay. It does not establish compatibility with every OS/CPU or trackpad.
-See [the discovery and evidence](../gesturepad/TRACKPAD_TAKEOVER.md).
+USB and Bluetooth takeover have been hardware-tested on the supported external
+model. Private API compatibility still depends on macOS/native driver behavior.
+The discovery evidence is preserved in [native filter research](Tools/HIDSeizureProbe/NATIVE_FILTER_TEST.md)
+and [the research archive](../RESEARCH_ARCHIVE.md). Test keyboard/gesture output,
+two pads, release/restoration, Config/Restart, sleep and replay on each supported
+release target.
 
 ## Implementation and checks
 
@@ -78,7 +79,7 @@ See [the discovery and evidence](../gesturepad/TRACKPAD_TAKEOVER.md).
 coordinator tests for selections, output-reset ordering, concurrent release,
 release retry, saved opt-in and nested lifecycle suspension. Native tests also cover retained sessions, delayed registry teardown and selection rollback. Tests do not activate hardware. `./release.sh --check` verifies app identity. App signing/entitlements require no new driver grant.
 
-To hardware-test: release/quit GesturePad and other trackpad apps, open this app,
+To hardware-test: release/quit other trackpad apps, open this app,
 select one pad first, take over and verify contacts plus intended keyboard output.
 Release and verify native input returns without held/repeating keys. Repeat with
 both pads, one unselected pad, Config close/reopen, active Restart, sleep and replay.

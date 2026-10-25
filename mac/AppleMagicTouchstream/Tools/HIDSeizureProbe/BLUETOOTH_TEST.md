@@ -1,6 +1,6 @@
 # Bluetooth channel experiment: suspended after hardware test
 
-Updated 2026-10-19. A distinct [reconnect observer](RECONNECT_TEST.md) is now prepared.
+The [reconnect observer](RECONNECT_TEST.md) is a separate diagnostic.
 Do not rerun the earlier channel test. The wrapper now exits
 without launching a probe, and the rebuilt binary refuses `--listen` before any
 device access. `--inventory` now reads IORegistry properties only.
@@ -20,9 +20,7 @@ The unified log for BluetoothChannelProbe PID 81177 at 21:20:01 local time adds:
   PSMs 0x11, 0x13 and 0x01, followed by `CBClassicMsgIdOpenL2CAPChannel` requests
   for all three from this process. Those connection attempts also failed.
 
-This invalidates our previous claim that enumerating these channel objects was
-read-only. A correctly typed Objective-C signature did not establish safe behavior.
-The accessor is now quarantined and returns nil without messaging the device;
+This accessor initiates transport operations and is quarantined and returns nil without messaging the device;
 a fake-object regression check verifies that behavior. The live open/listen flow
 was removed from the executable. The unused fresh-open ABI bridge remains only
 as research code exercised with fake objects by the offline tests.
@@ -46,7 +44,7 @@ close or replace the native channel based on that assumption.
 No further hardware action is needed for this failed test. If native input is
 unresponsive, power-cycle the selected pad and let it reconnect. The main app,
 custom DriverKit implementation, pairing, entitlements and security settings
-were not changed by this correction.
+were not changed by this diagnostic.
 
 ## Offline verification
 
@@ -55,5 +53,4 @@ objects. `./build.sh` builds both standalone probes; neither is integrated into
 the production release. Help and disabled-listen smoke checks need no device.
 
 See [recovered research](RESEARCH_RECOVERY.md) for the earlier HID report boundary
-and working DriverKit evidence. This document supersedes earlier claims that the
-Bluetooth channel inventory was safe inspection.
+and native-driver evidence. The channel accessor is not a read-only inventory API.

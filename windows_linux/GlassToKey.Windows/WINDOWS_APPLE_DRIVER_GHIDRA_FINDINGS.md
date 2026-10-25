@@ -4,12 +4,14 @@ Date: 2026-10-22. Status: **Apple 6.1.8000.6 binaries inspected; the controlled 
 
 This report addresses a narrow question: can an existing Apple Windows driver suppress native pointer, scroll, click, and shell gesture interpretation for a selected Magic Trackpad while GlassToKey continues to receive populated contacts? No verified driverless takeover has been found. The controlled Bluetooth global-toggle probe stops native movement/wheel events but removes usable contacts. The follow-up investigation corrected a Raw Input metadata bug, mapped the actual collections, inspected both installed open-source binaries, and traced selected Windows input-routing functions. The latest pass rules out direct PT_TOUCHPAD redirection on this build and traces the per-device setter to injection-device machinery. A newly identified Windows mouse-interception path suppresses gesture starts and shell actions, but access requires the session input thread; the inspected callback-registration path requires DWM process identity. It is not an available normal-app takeover route. No usable takeover mechanism has been verified.
 
-**Correction to earlier reports:** the captured `usage=0x00/0x00` values came from GlassToKey's failed device-info query and fallback. A correct query and independent HID capability query identify the Apple report stream as **Digitizer / Touch Pad (`0x0D/0x05`)**. The `0x05` report is not demonstrated to be a separate vendor raw stream. This correction does not change the measured 407 empty frames during suppression.
+The Apple report stream is **Digitizer / Touch Pad (`0x0D/0x05`)**, verified with a
+32-byte device-info query and independent HID capability query. The `0x05` report
+is not an established separate vendor raw stream. Suppression produced 407 empty frames.
 
 
 ## Current decision: close open-source USB testing
 
-The user requested returning to the preferred official Apple Bluetooth setup after the controlled USB tests. The direct-read test also returned zero vendor reports during instructed finger movement. No independently populated contact source or takeover mechanism was found on the tested USB stack. **Do not request more open-source USB tests or change its binding on this evidence.** The dated sections below retain the investigation history; earlier “next test” wording is superseded by the completed results and closure at the end. Returning to Bluetooth requires disconnecting the USB data cable and using the existing pairing, not installing/replacing a driver. The previously captured Bluetooth stack included an Apple parent and open-source child filter; “preferred Apple Bluetooth setup” must not be taken as a fresh verification of an Apple-only stack.
+The user requested returning to the preferred official Apple Bluetooth setup after the controlled USB tests. The direct-read test also returned zero vendor reports during instructed finger movement. No independently populated contact source or takeover mechanism was found on the tested USB stack. **Do not request more open-source USB tests or change its binding on this evidence.** The measured endpoint results below define the current acquisition limits. Returning to Bluetooth requires disconnecting the USB data cable and using the existing pairing, not installing/replacing a driver. The previously captured Bluetooth stack included an Apple parent and open-source child filter; “preferred Apple Bluetooth setup” must not be taken as a fresh verification of an Apple-only stack.
 
 ## Research checkpoint for return to Bluetooth
 
@@ -140,7 +142,7 @@ The follow-up sections below update the original PnP-child isolation hypothesis 
 | Private Apple user-mode control | Unknown | No candidate identified | Unknown | Unknown | Unknown | No interface/IOCTL with takeover semantics found in these binaries; negative result is bounded by missing PDBs and incomplete data-flow tracing. |
 | Disable only the open-source PTP child devnode | Usually administrator | This host's Bluetooth topology only | Apple sibling would be a separate devnode, but is itself PTP | Not established: the Apple sibling remains an interpreted PTP input collection | Other mice would be unaffected | Corrected topology gives no basis for treating the open-source child as the sole interpreter path. Disabling Apple's reporting child would also remove the path GlassToKey reads. Do not change devnode state. |
 
-The macOS mechanism in [TRACKPAD_TAKEOVER.md](../../mac/gesturepad/TRACKPAD_TAKEOVER.md) is a filter-client routing choice in the native Apple macOS driver. No equivalent routing choice was found in these Windows Apple binaries. A Windows feature report that merely tells the device/driver to stop reporting touch does not reproduce FLTR.
+The macOS mechanism in [TRACKPAD_TAKEOVER.md](../../mac/AppleMagicTouchstream/TRACKPAD_TAKEOVER.md) is a filter-client routing choice in the native Apple macOS driver. No equivalent routing choice was found in these Windows Apple binaries. A Windows feature report that merely tells the device/driver to stop reporting touch does not reproduce FLTR.
 
 ## Reproducing the controlled capture; USB remains untested
 
@@ -179,7 +181,7 @@ When GlassToKey's query fails, its device-path VID/PID fallback leaves usage fie
 | `Col01&Col01` under the open-source filter | `8910 / 0324` | `0D / 05` | 50 | 32-bit contact ID; X `0..7612`; Y `0..5065`; 17 input value capabilities |
 | Apple sibling `Col02`, which supplies GlassToKey's captured frames | `004C / 0324` | `0D / 05` | 50 | 16-bit contact ID; X `0..15225`; Y `0..10130`; 16-bit Digitizer pressure `0..2000`; 22 input value capabilities |
 
-These differences also demonstrate that usage alone does not select the report packing. **Do not fix the production structure in isolation.** `TrackpadReportDecoder.NormalizeOfficialTouchFields` currently selects Apple's custom packing when the usage is not native PTP. Correcting metadata alone would change that branch and could break working typing/force decoding. A subsequent production fix must separate actual device metadata from report-format selection, preserve the existing Apple byte mapping, and verify it against saved captures. No production decoder or metadata behavior was changed in this research pass. The empirically observed byte layout in `OFFICIAL_PTP_SPEC.md` remains useful; its old usage classification needs the correction above.
+These differences also demonstrate that usage alone does not select the report packing. **Do not fix the production structure in isolation.** `TrackpadReportDecoder.NormalizeOfficialTouchFields` currently selects Apple's custom packing when the usage is not native PTP. Correcting metadata alone would change that branch and could break working typing/force decoding. A subsequent production fix must separate actual device metadata from report-format selection, preserve the existing Apple byte mapping, and verify it against saved captures. This report preserves the decoder/metadata boundary; it does not change production decoding. The empirically observed byte layout in `OFFICIAL_PTP_SPEC.md` remains useful; the actual usage remains Digitizer / Touch Pad (0x0D/0x05).
 
 Windows references: [RID_DEVICE_INFO union](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rid_device_info), [keyboard union member](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rid_device_info_keyboard), and [GetRawInputDeviceInfo sizing contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getrawinputdeviceinfoa).
 
@@ -391,7 +393,7 @@ Two separate physical USB functions are especially relevant to the original-cont
 | MI_02 | Usage FF00/000D, input 16 bytes, report 0x3F (15 payload bytes), output 64 bytes, no feature bytes | HidUsb / input.inf; an exposed vendor channel. Payload purpose unestablished; do not write to it. |
 | MI_03 | Usage FF00/0003, input 108 bytes, report 0xC0 (107 payload bytes), no output or feature bytes | HidUsb / input.inf; an exposed input-only vendor channel, structurally interesting for passive observation. |
 
-These interfaces are separate USB functions from the MI_01 UMDF PTP function. Their existence, input sizes, and registered HID paths are **proven by metadata**. They have not yet been shown to emit frames during touch, encode contacts, retain data when PTP is suppressed, or bypass an exclusive access policy. A large input report is not evidence that it contains finger geometry. Do not repeat the earlier mistake of treating a vendor-looking path as a proven independent contact stream.
+These interfaces are separate USB functions from the MI_01 UMDF PTP function. Their existence, input sizes, and registered HID paths are **proven by metadata**. They have not yet been shown to emit frames during touch, encode contacts, retain data when PTP is suppressed, or bypass an exclusive access policy. A large input report is not evidence that it contains finger geometry. A vendor usage alone does not establish an independent contact stream.
 
 The next useful physical test is a bounded **passive** observation of these vendor reports while touching the already-connected USB trackpad, with native input left enabled. First prepare collection-specific capture and payload logging; no driver changes, Wellspring commands, feature/output reports, or global input toggles are needed for that baseline. If it produces useful contacts, then assess a separate safe suppression/retention experiment. Bluetooth equivalent collections remain a separate question.
 
@@ -419,7 +421,7 @@ Run in a dedicated PowerShell process from `windows_linux`:
 
 The script waits for Enter before starting and prints phase changes. No new driver or app production behavior is involved. Zero vendor frames with clearly positive PTP baseline contacts would narrow this observation route, but would not prove the underlying USB endpoint never carries data or that a mode-changing command is justified.
 
-### Windows PowerShell 5.1 compatibility correction
+### Windows PowerShell 5.1 compatibility
 
 The first user launch failed during Add-Type compilation because .NET Framework lacks Convert.ToHexString; no Raw Input registration/capture started. Replaced that call with BitConverter.ToString(...).Replace to preserve the same contiguous hexadecimal log format. Compilation and a two-second startup/cleanup run were then verified explicitly using Windows PowerShell 5.1 (`System32/WindowsPowerShell/v1.0/powershell.exe`), in addition to the earlier PowerShell 7 check. The 5.1 smoke log is `usb-vendor-20261022-153205-255.log`. The instructed finger-motion capture remains pending.
 
@@ -445,7 +447,10 @@ Added [Read-UsbVendorAccess.ps1](WindowsDiagnostics/Read-UsbVendorAccess.ps1), u
 
 An autonomous two-second-per-channel run in Windows PowerShell 5.1 succeeded at ordinary user access. [Access log](WindowsDiagnostics/usb-research-captures-20261022/usb-vendor-read-20261022-154803-408.log): MI_03 and MI_02 both return OPEN_OK; both yield zero frames during this uninstructed short interval; both pending reads cancel successfully with error 0 and TaskCanceledException completion. These are access/cleanup results, not a controlled moving-contact test. No sandbox retry/elevation was needed.
 
-The next concrete test is ten seconds of direct reading on each channel while the user repeatedly moves one, two, and three fingers. The helper prints the current channel and optionally waits for Enter via `-Prompt`. Native PTP remains enabled. A negative result with that protocol would further weaken these currently exposed vendor channels as an always-on original-contact source. It would not establish that a speculative activation command is safe or useful.
+Direct reading during instructed one-, two- and three-finger movement returned no
+vendor reports on the tested USB endpoints. Native PTP remained enabled. These
+endpoints have not supplied an independent original-contact stream; no activation
+command is justified by this negative result.
 
 Microsoft references: [opening HID collections](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/opening-hid-collections), [obtaining HID reports with ReadFile](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/obtaining-hid-reports). The latter distinguishes streaming reads from GetInputReport polling; the diagnostic uses the streaming read path.
 
@@ -472,7 +477,9 @@ At the user's request, [WINDOWS_MOUSE_HOOK_FALLBACK.md](WINDOWS_MOUSE_HOOK_FALLB
 
 ## User-approved compromise: Mouse Takeover test
 
-The user now accepts blocking all physical mice if needed, with keyboard release. Implemented a separate bounded interactive test, documented in [the fallback note](WINDOWS_MOUSE_HOOK_FALLBACK.md#mouse-takeover-interactive-test-2026-10-22). This supersedes ordinary-mouse independence as a blocker for this explicitly chosen fallback experiment; it does not claim device-specific FLTR ownership. No normal-startup takeover or saved checkbox has been enabled. Gesture suppression and retained populated contacts still require hardware validation.
+The user now accepts blocking all physical mice if needed, with keyboard release. Implemented a separate bounded interactive test, documented in [the fallback note](WINDOWS_MOUSE_HOOK_FALLBACK.md#mouse-takeover-interactive-test-2026-10-22). This is class-wide mouse filtering rather than device-specific FLTR ownership.
+The current app integration and known shell-gesture limitation are documented in
+[Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).
 
 ## Mouse Takeover: first positive Bluetooth hardware result
 

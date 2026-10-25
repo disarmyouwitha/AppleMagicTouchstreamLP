@@ -1,8 +1,8 @@
-# FingerWorks recognition findings for GesturePad
+# FingerWorks recognition findings
 
 Reverse-engineering implementation reference · **2026-10-22**.
 
-This document is the source of truth for what our reverse engineering establishes about TouchStream recognition, chording, typing arbitration, mouse behavior and output ownership. Use it when deciding how to implement a FingerWorks gesture in GesturePad. [GESTURE_ENGINE.md](gesturepad/GESTURE_ENGINE.md) remains the contract for what the application currently does, including its deliberately provisional thresholds. A difference between the two is an implementation/fidelity question to resolve explicitly, not permission to silently change accepted behavior.
+This document is the source of truth for what our reverse engineering establishes about TouchStream recognition, chording, typing arbitration, mouse behavior and output ownership. Use it when deciding how to implement a FingerWorks gesture in AppleMagicTouchstream. [GESTURE_ENGINE.md](AppleMagicTouchstream/GESTURE_ENGINE.md) remains the contract for what the application currently does, including its deliberately provisional thresholds. A difference between the two is an implementation/fidelity question to resolve explicitly, not permission to silently change accepted behavior.
 
 This is a connected reconstruction from shipped firmware, its configuration utility, packaged defaults, SDK code, saved Ghidra projects, bounded emulator checks and contact recordings. It is **not recovered original C**, complete firmware emulation, or a claim that Apple exposes the same sensor model. An apparently working gesture does not prove its entire proprietary recognizer was recovered.
 
@@ -29,7 +29,7 @@ Nominal firmware milliseconds and centimeter positions now have original SDK/rep
 | Bounded execution | Original instructions execute on synthetic state inside an explicitly stated helper/slice. No automatic whole-system or physical validation. |
 | Ideal arithmetic | A mathematical interpretation of DSP FP code/constants. Exact FP rounding and all path behavior can remain unexecuted. |
 | Capture observation | What a specific recorded input stream contains, with input identity and analysis scope. Not automatic gesture intent or output-delivery truth. |
-| Implementation proposal | An engineering choice for GesturePad, explicitly separate from recovered firmware behavior. |
+| Implementation proposal | An engineering choice for AppleMagicTouchstream, explicitly separate from recovered firmware behavior. |
 
 ### Target identity and address rules
 
@@ -80,11 +80,15 @@ The local C bridge's96-byte MTTouch layout was compiled/verified against native 
 
 Our recordings show anatomical labels revising when neighboring fingers join or leave, and stable IDs with incorrect intended-finger labels. A constant label is not a confidence score. Finger colors should show the current estimate; recognition must separately decide whether and when semantic roles become owned.
 
-### Scalar preservation bug and correction
+### Scalar preservation contract
 
-The original11-file audit covered7,038 frames and17,602 raw samples. `rawTouches` retained total throughout; processed contact records omitted it, and the decoder substituted pressure. The two values differed in17,519 samples. The fix preserves total in new processed records and recovers it from a unique matching raw ID in old frames; explicit processed total takes precedence. Original captures were not rewritten. A historical pressure fallback is not independent strength evidence.
+New processed records preserve `total` separately from `pressure`. Older records
+recover total from a unique matching raw contact ID; an explicit processed value
+takes precedence. Pressure fallback is not independent strength evidence. An audit
+of 7,038 frames / 17,602 raw samples found the two scalars differed in 17,519 samples.
+Original captures remain unchanged.
 
-Detailed source: [AMT data contract](/Users/nap/Documents/new_code/touchstream-archive/driver-analysis/mac-native-15.7.4-24G517/data-contract-2026-10-17/FINDINGS.md). Calibration and controlled-trial plan: [AMT follow-up experiments](gesturepad/RewriteValidation/AMT_FOLLOWUP_TEST_PLAN.md).
+Detailed source: [AMT data contract](/Users/nap/Documents/new_code/touchstream-archive/driver-analysis/mac-native-15.7.4-24G517/data-contract-2026-10-17/FINDINGS.md). Calibration and controlled-trial plan: [Apple calibration experiments](RESEARCH_ARCHIVE.md#apple-native-field-calibration-experiments).
 
 ## 4. Contact metrics and phase clocks expected by TouchStream
 
@@ -119,7 +123,7 @@ The present-contact62 path can fire for low strength, or an early-decline condit
 
 On missing association, `8013DF` increments21; first missing can record phase/position, and second missing calls retirement80139D. Retirement updates assigned-contact departure history. This is a firmware path independently traced; it must not be inferred from or conflated with the SDK's host-side two-absent-frame buffering.
 
-**GesturePad implication:** maintain contact lifecycle, acquisition episode, signal-phase evidence and gesture ownership separately. A signal-phase flag does not permanently kill a contact ID. The reachability of multiple firmware epochs within one uninterrupted physical Apple lifetime remains unresolved.
+**AppleMagicTouchstream implication:** maintain contact lifecycle, acquisition episode, signal-phase evidence and gesture ownership separately. A signal-phase flag does not permanently kill a contact ID. The reachability of multiple firmware epochs within one uninterrupted physical Apple lifetime remains unresolved.
 
 ## 5. Anatomical assignment is contextual and mutable
 
@@ -206,11 +210,11 @@ The right-click template supplies:
 | XY Slide |Secondary drag, with configured locking/momentum attributes |
 | LiftSlide |Secondary release |
 
-Duration30 belongs to click-action configuration, not contact dwell or Apple milliseconds. The shared tap/hold/motion family is broader than the discrete right-click currently implemented in GesturePad.
+Duration30 belongs to click-action configuration, not contact dwell or Apple milliseconds. The shared tap/hold/motion family is broader than the discrete right-click currently implemented in AppleMagicTouchstream.
 
-**Current approximation, not recovered coefficients:** GesturePad accepts a known thumb plus two known fingertips, with a closer fingertip pair and separated thumb; it tolerates fingertip relabeling on the same tracked pair. Its2..40mm pair separation,15mm minimum thumb separation and1.5 ratio use the app's existing160×114.9 conversion. Those limits are provisional. The full competing-template scorer, compact middle-click, TIP/XWinder and held secondary drag are not implemented by that change.
+**Current approximation, not recovered coefficients:** AppleMagicTouchstream accepts a known thumb plus two known fingertips, with a closer fingertip pair and separated thumb; it tolerates fingertip relabeling on the same tracked pair. Its2..40mm pair separation,15mm minimum thumb separation and1.5 ratio use the app's existing160×114.9 conversion. Those limits are provisional. The full competing-template scorer, compact middle-click, TIP/XWinder and held secondary drag are not implemented by that change.
 
-Original XML members/hashes and the historical research pointer remain [in the archive](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/right-click-2026-10-21/). The earlier detailed narrative remains available in [the project-root findings](../FINDINGS.md); this document is the broader implementation research reference.
+Original XML members/hashes and the historical research pointer remain [in the archive](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/right-click-2026-10-21/). Capture-backed recognition analysis is preserved in [the research archive](RESEARCH_ARCHIVE.md).
 
 ## 8. Per-hand counts and clocks are not interchangeable
 
@@ -307,7 +311,7 @@ After the forced loop, C04624 processes hypotheses for one supplied candidate, n
 
 ## 12. Typing alternatives, no-key and confidence
 
-Although GesturePad currently has no keyboard output, these findings matter to later integration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it.
+Although AppleMagicTouchstream currently has no keyboard output, these findings matter to later integration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it.
 
 The initial TapArea is not always the final key.803653/8034FD generate alternatives from the selected/neighboring areas;80357F considers up to four related historical spatial records. That count does not establish a four-wide beam. Normal evidence is combined with cumulative/context scores and inserted through803936; **larger accumulated sequence18 wins**, unlike the smaller-is-better chord residual score.
 
@@ -360,7 +364,7 @@ The original utility checkbox, setter, independent JVM bytecode and options seri
 
 The original help describes revising recent/current-word output as interpretation improves, and warns that disabling correction can leave characters initially interpreted as typing before recognition as a click/modifier gesture. This is vendor-described behavior; complete executable word/spelling/recency constraints have not been proved.
 
-C0439F saves a processed descriptor and conditionally retains revision24/30. The selected integer tail requires nonnull sequence and absence of0x10000, then high semantic masks or enabled printable-text correction. Failure sets nonrevisable4 and clears24/30. Success does not clear a preexisting4. Processed2 is set even where earlier posting was independently skipped: **flag2 is not an event-delivery receipt**. This corrects earlier notes that called it emitted state.
+C0439F saves a processed descriptor and conditionally retains revision24/30. The selected integer tail requires nonnull sequence and absence of0x10000, then high semantic masks or enabled printable-text correction. Failure sets nonrevisable4 and clears24/30. Success does not clear a preexisting4. Processed2 is set even where earlier posting was independently skipped: **flag2 is not an event-delivery receipt**.
 
 C044FF compares saved/proposed descriptor words0 and2 plus packed byte bits8..15. Equality can avoid undo setup. A mismatch can traverse saved candidates and attempt generic keyboard Backspace usage42, excluding semantic mask0x01CA0000, before qualified recursive predecessor correction and new action execution. Its work count is not the number of Backspaces actually posted.
 
@@ -383,11 +387,11 @@ gain = 1                      when T<=0 or speed<=T
 
 802881 connects fractional conversion/residual accumulation to relative output. Host serializer h.java and firmware decoderC018A8 corroborate packed configuration fields and sensitivity scaling. These are algebraic/source bindings; exact FP, all axis projections/context caps, physical signs/units, filtering and complete scroll/momentum are not reconstructed.
 
-Do not substitute these numbers for current macOS pointer acceleration without measurement. GesturePad's Apple-source parametric curve research is a **separate implementation track** from TouchStream acceleration. The OMS contact-to-count scale and assumed physical surface remain hypotheses. Its exponential momentum is current app tuning, not a recovered TouchStream or Apple momentum algorithm.
+Do not substitute these numbers for current macOS pointer acceleration without measurement. The app's Apple-source parametric curve research is a **separate implementation track** from TouchStream acceleration. The OMS contact-to-count scale and assumed physical surface remain hypotheses. Its exponential momentum is current app tuning, not a recovered TouchStream or Apple momentum algorithm.
 
 ### Contact-count changes and movement continuity
 
-The user compared hardware and confirmed smooth continuation from2→3→4→1 during an established mouse session. GesturePad uses matched contact-ID displacement rather than a raw changing centroid to avoid landing/lift jumps. That implementation supports the observed interaction; it is not proof the exact same estimator exists in firmware.
+The user compared hardware and confirmed smooth continuation from2→3→4→1 during an established mouse session. AppleMagicTouchstream uses matched contact-ID displacement rather than a raw changing centroid to avoid landing/lift jumps. That implementation supports the observed interaction; it is not proof the exact same estimator exists in firmware.
 
 For drag, prepare one down, continued dragged events and one reserved up. A global HID button-state query can include synthetic events; it is not reliable physical provenance. The corrected app uses tagged observation for outside interference and queued destinations, and the user confirmed improved drag behavior. Keep this platform integration finding separate from reverse-engineering claims.
 
@@ -401,13 +405,17 @@ C026CC unlinks list/pool state and repairs pointers/backlinks.32 complete synthe
 
 **Implementation requirement:** keep distinct operations for contact detach, pending cancellation, hypothesis reset/prune, held-output release, list unlink and fresh allocation. Reserve balanced cleanup at acquisition, and make resets release only outputs actually owned. A gesture result/work counter is not an event receipt.
 
-## 17. macOS ownership: what later work changed
+## 17. macOS ownership
 
-Early research treated the application as a global observer and explored DriverKit/HID seizure. Subsequent project work established a native selected-pad FLTR-client takeover route on the tested external model0324/type4, with both USB and Bluetooth confirmed. The custom DriverKit implementation was removed. **Do not restore it based on historical investigation notes.**
+Native selected-pad FLTR takeover supplies parsed contacts while suppressing native
+input on tested external model0324/type4 trackpads over USB and Bluetooth. The
+production app uses this native route, with no custom DriverKit extension.
 
-GesturePad's current live output requires selected numeric device identity, owned/armed native takeover, permissions and successful lifecycle transitions. Replay remains output-free. Selection changes, sleep, replay, refresh, explicit release and failure handling belong to the platform ownership layer, separately from firmware semantic ownership.
-
-These current-platform facts are recorded in [TRACKPAD_TAKEOVER.md](gesturepad/TRACKPAD_TAKEOVER.md) and [the cross-project plan](FINGERWORKS_IMPLEMENTATION_PLAN.md). They do not prove support for every device/OS or that newer GesturePad behavior was ported to the keyboard apps. No hardware tests or output activation were performed for this document update.
+Live synthetic output requires selected numeric identity, owned/armed takeover and
+permissions. Replay stays output-free. Selection changes, sleep, replay, refresh,
+explicit release and failure recovery belong to platform ownership, separately from
+semantic gesture ownership. See [takeover](AppleMagicTouchstream/TRACKPAD_TAKEOVER.md)
+and the [implementation plan](FINGERWORKS_IMPLEMENTATION_PLAN.md).
 
 ## 18. Implementation boundaries and acceptance checklist
 
@@ -426,7 +434,7 @@ Use this checklist as the research-to-code handoff for each gesture:
 | Reuse | Contact generations, candidate/sequence reuse, stale flags/pointers and independent pad sessions? |
 | Verification | Original source bindings, bounded tests, labeled Apple captures, output ledger, live acceptance and explicit residual differences? |
 
-The current GesturePad spread right-click is a deliberately bounded approximation. Broadening other chord families or adopting arbitrary firmware timing is not implied by it. Do not implement incomplete typing arbitration by emitting speculative keys early and relying on later global cancellation.
+The current AppleMagicTouchstream spread right-click is a deliberately bounded approximation. Broadening other chord families or adopting arbitrary firmware timing is not implied by it. Do not implement incomplete typing arbitration by emitting speculative keys early and relying on later global cancellation.
 
 ## 19. What has actually been validated
 
@@ -446,7 +454,7 @@ Counts below describe selected cases and different boundaries; they must not be 
 | Combined-owner guard |64/64 | Selected/activated Boolean combinations, complete helper return. |
 | Latest AMT V7 unpacker |512/512 | Selected ID/state/label/extra outputs; no complete sensor/gesture validation. |
 
-Other retained matrices cover modifier256, candidate gate512, Timedown504, confidence tail960, membership174 and lifecycle560. The lunch run rechecked2966 of those cases on the updated processor. They are separate from GesturePad tests. The spread-right-click implementation's test run executed138 tests, with2 skipped and0 failures, plus a successful Debug build; that establishes offline implementation behavior, not proprietary equivalence or live acceptance.
+Other retained matrices cover modifier256, candidate gate512, Timedown504, confidence tail960, membership174 and lifecycle560. The lunch run rechecked2966 of those cases on the updated processor. These research matrices are separate from the app's current offline regression suite.
 
 Both retained firmware Ghidra projects have saved/reopened annotations and all28 memory blocks checked against boot bytes. Latest lunch totals are177 analyst labels in TouchStream-C3x and127 in TouchStream-REA-Research-20261017, with16 added annotations. Original executable firmware bytes remain unchanged. Numeric addresses in annotations are analyst coordinates, and function labels are analyst interpretations rather than recovered vendor symbols.
 
@@ -481,9 +489,9 @@ These are local durable sources. Raw REA bridge records retain requests, replies
 | Phase/reset producer and stale revision fields |[Phase trace](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/lunch-2026-10-17/phase-trace/FINDINGS.md) |
 | Both saved projects, unchanged memory and snapshots |[Latest project audit](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/lunch-2026-10-17/saved-project-verification.json) |
 | AMT native parser and field contract |[Data-contract findings](/Users/nap/Documents/new_code/touchstream-archive/driver-analysis/mac-native-15.7.4-24G517/data-contract-2026-10-17/FINDINGS.md) |
-| Current gesture implementation/acceptance |[GESTURE_ENGINE.md](gesturepad/GESTURE_ENGINE.md) |
+| Current gesture implementation/acceptance |[GESTURE_ENGINE.md](AppleMagicTouchstream/GESTURE_ENGINE.md) |
 | Platform/project boundaries |[FINGERWORKS_IMPLEMENTATION_PLAN.md](FINGERWORKS_IMPLEMENTATION_PLAN.md) |
-| Further Apple measurements |[AMT follow-up plan](gesturepad/RewriteValidation/AMT_FOLLOWUP_TEST_PLAN.md) |
+| Further Apple measurements |[Apple calibration experiments](RESEARCH_ARCHIVE.md#apple-native-field-calibration-experiments) |
 
 From the archive root, the final retained lunch verification is:
 
@@ -494,9 +502,10 @@ python3 firmware-analysis/rea-investigation/lunch-2026-10-17/scripts/verify_lunc
 This validates preserved results/source bindings and saved-project audits. Do not run synthetic CPU setup against a real firmware project: its memory-replacing checks belong only to the separate Checks project. New probe runs should use new output directories, preserve the exact language/profile and retain prior failures. Changes to saved labels/comments are separate analyst operations with backups, signatures and reopen audits; they never require patching firmware bytes.
 
 
-## 22. 2026-10-22 research update: implementation rules now supported
+## 22. Geometry, motion and timing evidence
 
-This update supersedes earlier blanket uncertainty about firmware clock/position units and expands the selection/motion/typing descriptions above. It changes research guidance; GesturePad behavior is unchanged.
+The SDK/report bindings below establish nominal firmware clock/position units and
+provide additional geometry, motion and typing evidence.
 
 ### Ordered geometry and competing chords
 

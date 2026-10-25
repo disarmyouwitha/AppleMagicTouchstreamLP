@@ -1,10 +1,15 @@
-# User-space trackpad seizure experiment
+# Trackpad acquisition diagnostics
 
-**Latest result:** [reconnect observer saw the device, but no HID channels](RECONNECT_TEST.md#hardware-result-2026-10-19).
-**Latest request result:** [input GET_REPORT failed in the F1 keyhole path; no seizure attempted](GET_REPORT_TEST.md#hardware-result-2026-10-19).
+The production input path is [native selected-pad FLTR](../../TRACKPAD_TAKEOVER.md).
+The standalone probes below preserve diagnostic experiments and do not participate
+in release input handling.
+
+
+**Reconnect diagnostic:** [reconnect observer saw the device, but no HID channels](RECONNECT_TEST.md#hardware-result-2026-10-19).
+**GET_REPORT diagnostic:** [input GET_REPORT failed in the F1 keyhole path; no seizure attempted](GET_REPORT_TEST.md#hardware-result-2026-10-19).
 **Positive Bluetooth hardware result:** [native FLTR mode delivered continuous contacts, suppressed visible cursor movement, and recovered](NATIVE_FILTER_TEST.md#third-run-continuous-one-finger-test).
 Do not repeat the earlier Bluetooth channel tests.
-The former second-channel test is disabled: [hardware result and correction](BLUETOOTH_TEST.md).
+The former second-channel test is disabled: [hardware result](BLUETOOTH_TEST.md).
 The earlier raw-HID/native-contact seizure results and their limits remain below.
 
 Standalone diagnostic for one explicitly selected model 0324 Magic Trackpad HID
@@ -32,7 +37,7 @@ Build/tests do not enumerate, open, or activate hardware. Default execution and
 ## Manual hardware procedure
 
 These commands are for an intentional live hardware test, not build validation.
-Keep an independent keyboard/mouse available. Quit AppleMagicTouchstream/GesturePad
+Keep an independent keyboard/mouse available. Quit AppleMagicTouchstream
 and release their Trackpad Takeover first. The probe refuses to capture when an
 `AMTRawHIDReceiver` service is present. It does not deactivate another owner's driver.
 

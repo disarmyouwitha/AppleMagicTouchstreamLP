@@ -50,7 +50,7 @@ into this experiment. The probe calls the existing native user-client path.
 
 ## Hardware command
 
-1. Release DriverKit takeover; quit AppleMagicTouchstream, GesturePad and BTT.
+1. Release DriverKit takeover; quit AppleMagicTouchstream and other input modifiers.
    Keep another mouse/keyboard available. Keep the **right pad ON and connected**.
 2. From repo root run:
 
@@ -162,8 +162,8 @@ filter interval. Baseline had 375 frames/373 nonempty and normal cursor motion.
 The filter was removed after close (no FilterEnabled clients remained).
 
 The second recovery monitor received zero contact frames, while the cursor span
-became nonzero again. Which input produced that movement and whether the user
-continued touching the selected pad during recovery require user observation.
+became nonzero again. The pad resumed native cursor movement while fingers continued moving, despite
+the recovery monitor receiving no callbacks.
 This establishes the core eight-second result on this machine, not a reliable
 release/reacquisition lifecycle or production readiness. Keep this evidence;
 do not replace it with an unverified alternative transport experiment.
@@ -192,13 +192,8 @@ zero movement. Transition/in-flight movement is a possible explanation; this
 log lacks per-sample timestamps to establish that explanation. The prior second
 run measured exactly zero filter span, but that does not erase this residual.
 
-The user also clarified the second run: the right pad resumed native cursor
-movement and fingers continued moving during recovery, despite the monitor
-recording zero recovery callbacks. The third run recovered both cursor behavior
-and contact delivery. The earlier monitor failure remains a lifecycle/reliability
-issue to investigate, not a reason to discard the successful receive mechanism.
 
 Still unverified: clicks/drags, all native gestures/scroll suppression, simultaneous
 second-pad/mouse isolation, long sessions, repeated cycles/crash/sleep/reconnect
-recovery, and other macOS builds/architectures. No production integration has
-been authorized or performed on the basis of this result.
+recovery, and other macOS builds/architectures. The production app implements guarded selected-pad FLTR ownership; its current
+contract is [TRACKPAD_TAKEOVER.md](../../TRACKPAD_TAKEOVER.md).

@@ -104,7 +104,7 @@ The user reports that four-finger scrolling and the three-finger recognition fee
 No driver binaries are required. From the repository root on the Mac, run the existing read-only snapshot helper:
 
 ```sh
-python3 -B mac/gesturepad/Tools/PointerAccelerationProbe/acceleration.py snapshot --output ~/Desktop/pointer-settings.json
+# Preserved Apple acceleration equations and provenance: mac/RESEARCH_ARCHIVE.md
 ```
 
 Copy `pointer-settings.json` to Windows, choose Left/Right/Both in Gestures, and use **Import Mac tracking profile…**. When the snapshot contains multiple devices, select the desired profile. Successful import selects the imported response; later choose Mac reference or Fixed to compare. The app stores only profile parameters/device ID, not the snapshot's serial/OS metadata. Snapshot values are provider/global observations and may differ from user/service overrides used by the live Mac reader; if the imported response differs, a targeted export through the live reader is the next check. No Mac access is needed to use the reference preset now.

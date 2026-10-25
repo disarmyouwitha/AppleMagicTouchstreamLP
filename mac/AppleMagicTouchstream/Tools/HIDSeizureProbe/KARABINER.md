@@ -11,22 +11,9 @@ serve as an arbitrary raw-trackpad-report tunnel to our driver. The available
 client API initializes virtual keyboard/pointing devices and submits HID output
 reports; it does not expose a general DriverKit authorization proxy.
 
-A possible architecture that does not depend on approval of our own DriverKit
-extension is:
-
-```mermaid
-flowchart LR
-  P[Physical Magic Trackpad] --> S[Our user-space seizure and raw capture]
-  S --> D[Our existing contact decoder and TouchStream engine]
-  D --> B[Our signed privileged output bridge]
-  B --> K[Upstream Karabiner daemon and signed virtual HID driver]
-  K --> M[macOS keyboard and mouse input]
-```
-
-The unresolved prerequisite is the first arrow: suppression plus usable contacts
-from our selected trackpad. Karabiner's virtual output cannot repair missing raw
-contact input. Keeping Core Graphics output is also possible if user-space capture
-works; adopting virtual output is a separate decision.
+The production app currently uses native FLTR contact callbacks and Core Graphics
+output. Karabiner is an optional virtual-output architecture, not an input acquisition
+requirement. Its virtual driver cannot provide missing physical trackpad contacts.
 
 Upstream distinguishes its user-space physical-device grabber from its virtual
 DriverKit output. Its development notes specifically warn that Apple Trackpads
@@ -90,12 +77,10 @@ driver would return us to needing our own approved DriverKit signing setup.
 
 ## Recommendation
 
-First establish the user-space capture feasibility result with this probe. If it
-works over both transports, route its canonical raw reports through the existing
-decoder/engine in a later, reviewed integration. Keep the custom DriverKit backend
-intact as a separate option. Add Karabiner output only if we want true virtual
-devices and accept the external installer/privileged-service dependency. No public
-release claim should depend on an untested capture path.
+Keep the existing native FLTR/Core Graphics path. Consider standalone Karabiner
+output only if virtual-device behavior is needed and its installer/privileged-service
+dependency is acceptable. Any integration needs its own reviewed implementation,
+license checks and hardware acceptance.
 
 Apple documents user-space exclusive HID access through
 [`IOHIDDeviceOpen`](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen).

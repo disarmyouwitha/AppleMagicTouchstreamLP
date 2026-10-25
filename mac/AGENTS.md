@@ -1,7 +1,12 @@
-# macOS project boundaries
+# macOS project
 
-- `GlassToKey/`: reference app and future GlassToKey rewrite; improvements are selectively ported here.
-- `AppleMagicTouchstream/`: faithful TouchStream emulation project. Remove GTK-specific recognition/product features when preparing this project; preserve the core keyboard bootstrap and capture compatibility until deliberately replaced with validated TouchStream logic. Optional haptic feedback is the user-authorized GTK exception and must remain available.
-- `gesturepad/`: faithful FingerWorks gesture/chord research playground, no keyboard output. Keep the opt-in blackhole experiment applied to both selected trackpads, with automatic device linking and release safeguards.
-- Each project is independent. Do not share source or change siblings unless the task requests it.
-- Use each project's `build.sh` / `test.sh`; app identity lives in `project.env`. Preserve existing settings keys and capture formats when renaming UI/project files.
+`AppleMagicTouchstream/` is the maintained macOS app: TouchStream-style keyboard,
+configurable gestures, native selected-pad FLTR takeover, capture/replay and haptics.
+Its AGENTS.md and current behavior documents govern implementation.
+
+Use project-local build/test/release scripts and preserve bundle identity,
+serialized compatibility and capture formats. Firmware/SDK material under `sdk`
+is reference data, outside the app package. `FINDINGS.md` contains firmware research;
+`RESEARCH_ARCHIVE.md` preserves experimental results; `FINGERWORKS_IMPLEMENTATION_PLAN.md`
+tracks current architecture and next work. Keep docs current without obsolete
+project dependencies or contradictory appended policies.

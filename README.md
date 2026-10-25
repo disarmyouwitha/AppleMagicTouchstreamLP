@@ -1,5 +1,4 @@
 # Apple Magic TouchstreamLP
-- Also known as GlassToKey!
 
 ## Mac: **(Packaged with signed .DMG)**
 - Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
@@ -68,4 +67,4 @@ Since it is built on the same technology, I thought it would be fun to try and c
 
 ## macOS projects
 
-See [macOS project layout and build commands](mac/README.md) for the independent GlassToKey, AppleMagicTouchstream, and gesturepad projects.
+See [macOS build commands and research](mac/README.md) for AppleMagicTouchstream.

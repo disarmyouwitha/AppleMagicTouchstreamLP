@@ -114,3 +114,36 @@ final class GestureSessionEngineTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(joined.millimetres).x,0.16,accuracy:0.0001)
     }
 }
+
+
+extension GestureSessionEngineTests {
+    func testOversizedFiniteMotionCancelsOwnerOnEitherAxisWithoutSynthesizingTravel() {
+        for horizontal in [false,true] { for sign in [-1.0,1.0] {
+            var engine = engine()
+            _ = engine.process(device:1,time:1,touches:touches(2),enabled:{_ in true})
+            XCTAssertEqual(engine.process(device:1,time:1.01,touches:touches(2,0.003),enabled:{_ in true}).phase,.began)
+            let jump = touches(2,0.003).map { contact in
+                OMSRawTouch(id:contact.id,posX:contact.posX+Float(horizontal ? sign*26/160 : 0),
+                    posY:contact.posY+Float(horizontal ? 0 : sign*26/114.9),total:1,pressure:100,
+                    majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+            }
+            let update = engine.process(device:1,time:1.02,touches:jump,enabled:{_ in true})
+            XCTAssertEqual(update.phase,.cancelled)
+            XCTAssertEqual(update.cancellation,.contactDiscontinuity)
+            XCTAssertNil(update.millimetres); XCTAssertNil(engine.owner(device:1))
+        }}
+    }
+    func testOutputLifetimeDistinguishesCancellationFromNormalLiftAndExpiresHeldEffects() {
+        for phase in [GestureSessionPhase.pending,.began,.changed,.ended,.cancelled] {
+            XCTAssertEqual(GestureOutputLifecycle.normalLift(phase:phase,allUp:true),phase == .ended)
+            XCTAssertFalse(GestureOutputLifecycle.normalLift(phase:phase,allUp:false))
+            XCTAssertEqual(GestureOutputLifecycle.cancelsScroll(phase:phase,allUp:true),phase == .cancelled)
+            XCTAssertTrue(GestureOutputLifecycle.cancelsScroll(phase:phase,allUp:false))
+        }
+        XCTAssertFalse(GestureOutputLifecycle.isStale(receipt:1,now:1.19))
+        XCTAssertTrue(GestureOutputLifecycle.isStale(receipt:1,now:1.21))
+        XCTAssertTrue(GestureOutputLifecycle.isStale(receipt:nil,now:1))
+        XCTAssertTrue(GestureOutputLifecycle.isStale(receipt:1,now:0.9))
+        XCTAssertTrue(GestureOutputLifecycle.isStale(receipt:1,now:.nan))
+    }
+}

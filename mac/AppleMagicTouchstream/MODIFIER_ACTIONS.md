@@ -34,7 +34,7 @@ all four toggles and Key at None; serialization is unchanged.
 
 ## Run at Startup
 
-AppleMagicTouchstream now mirrors GlassToKey's Mode Toggles control and
+Run at Startup lives under Mode Toggles and uses
 LaunchAtLoginManager, using SMAppService.mainApp without a helper. It defaults
 off, reconciles the persisted preference at app launch, and resynchronizes the
 checkbox from actual service status on config load and after changes/errors.

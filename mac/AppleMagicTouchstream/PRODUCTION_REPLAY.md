@@ -1,14 +1,14 @@
 # Production recognition replay
 
 `swift test` now compiles the same `TouchProcessorEngine.swift` used by the Mac
-app into the `GlassToKeyRuntime` package target. It runs recognition without
-starting GlassToKey, listening to trackpads, posting native events, launching
+app into its engine package target. It runs recognition without
+starting the app, listening to trackpads, posting native events, launching
 apps, playing haptics, or starting dictation. UI declarations are compiled to
 satisfy the existing model/geometry dependencies; the UI model is not created.
 
 ## Run
 
-From `mac/`:
+From `mac/AppleMagicTouchstream/`:
 
 ```sh
 swift test
@@ -44,8 +44,8 @@ require no sleeps, physical input, Accessibility permission, or GUI session.
 Voice-session transitions are recorded rather than invoking speech recognition.
 
 Production tests cover plain F, shifted F, modifier cleanup after missing release,
-drag cancellation, two-pad overlapping input, multi-finger suppression, repeats
-between frames, repeat cancellation, typing-grace expiry, deterministic repeat
+two-pad overlapping input, multi-finger reservation, repeats
+between frames, repeat cancellation, deterministic repeat
 ordering, and capture/configuration replay with a committed transcript.
 
 `production_typing.atpcap` is explicitly synthetic, not a physical accuracy

@@ -1,4 +1,4 @@
-# GlassToKey Capture Format (`.atpcap`)
+# Touch capture format (`.atpcap`)
 
 Canonical replay captures use `.atpcap` (`ATPCAP01`) with a versioned binary layout.
 

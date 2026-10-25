@@ -1,8 +1,7 @@
 # Recovered research and the next Bluetooth boundary
 
-> Correction (2026-10-19): later unified logs showed the private `l2capChannels`
-> accessor initiating connections. Earlier claims that channel-proxy enumeration
-> was read-only are withdrawn. See [the hardware result](BLUETOOTH_TEST.md).
+The private `l2capChannels` accessor initiates connection attempts and is disabled.
+See [the hardware result](BLUETOOTH_TEST.md).
 
 2026-10-19. This investigation retrieved archived conversations and examined
 saved captures, our driver, Apple/Linux/BlueZ/hidapi source, installed SDK headers,
@@ -21,13 +20,9 @@ separate mouse packet), and `01a14db3-8025-7d61-a638-df20fc7b5b0d` (user reboote
 with SIP restored). The earlier SIP-off step was a bounded kernel-tracing
 diagnostic, not a deployable acquisition backend.
 
-The original evidence survives locally:
-
-- `mac/gesturepad/RewriteValidation/HID_CAPTURE_FINDINGS.md`
-- `mac/gesturepad/RewriteValidation/captures/usb_original_seized.json`
-- `mac/gesturepad/RewriteValidation/captures/usb_original_seized_app.json`
-- `mac/gesturepad/Tools/USBTransportProbe/decode-original-report.py`
-- `mac/gesturepad/RewriteValidation/DRIVERKIT_TAKEOVER_CHECKPOINT.md`
+The recovered HID/callback comparison and native-driver evidence are preserved in
+[the research archive](../../../RESEARCH_ARCHIVE.md). The original source snapshots
+remain recoverable by their recorded Git blob hashes.
 
 The old pair was independently rechecked in this investigation. During its
 seizure window, all 668 full original reports match the 668 app callbacks in order:
@@ -35,8 +30,7 @@ each callback is exactly the first 8 bytes of its corresponding full report.
 Original report lengths are 21/30/39/48 bytes; every callback is 8 bytes. There were
 265 one-contact, 341 two-contact, 2 three-contact and 60 four-contact reports.
 
-Thus the old result was **eight bytes**, including signed 8-bit mouse-like fields,
-not proof that the device transmitted only 8 bits or only a mouse packet. The
+The callback contained **eight bytes**, including signed 8-bit mouse-like fields. The
 contact records survived outside the app callback's truncated prefix. This exact
 paired capture was USB, not Bluetooth; it is relevant to the common queue boundary
 without establishing a successful Bluetooth seizure-and-raw-read combination.

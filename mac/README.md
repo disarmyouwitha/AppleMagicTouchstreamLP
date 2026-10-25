@@ -1,28 +1,33 @@
-# macOS projects
+# macOS
 
-| Folder | Purpose | Xcode project / scheme | App |
-| --- | --- | --- | --- |
-| [GlassToKey](GlassToKey/) | GlassToKey reference and future rewrite; selectively adopt useful TouchStream gesture/gating improvements. | `GlassToKey/GlassToKey.xcodeproj` / `GlassToKey` | `GlassToKey.app` |
-| [AppleMagicTouchstream](AppleMagicTouchstream/) | Faithful TouchStream emulation on Apple Magic Trackpads. GTK-specific recognizers/product features are removed; the basic keyboard bootstrap remains while original TouchStream logic is developed. | `AppleMagicTouchstream/AppleMagicTouchstream.xcodeproj` / `AppleMagicTouchstream` | `AppleMagicTouchstream.app` |
-| [gesturepad](gesturepad/) | Independent FingerWorks/TouchStream gesture and chord playground, without keyboard output; findings can be ported to AppleMagicTouchstream. | `GesturePad/GesturePad.xcodeproj` / `GesturePad` | `GesturePad.app` |
-
-Each folder owns its app, bridge, Swift package, tests, and fixtures. No project depends on a sibling's source. Legacy runtime symbols, settings keys and capture schemas remain compatible; permanent app/helper/driver IDs are recorded in [bundle identities](BUNDLE_IDENTITIES.md).
+[AppleMagicTouchstream](AppleMagicTouchstream/) is the macOS app. It combines a
+TouchStream-style keyboard, configurable gestures and native selected-trackpad
+takeover on Apple Magic Trackpads.
 
 From the repository root:
 
 ```sh
-./mac/GlassToKey/build.sh
 ./mac/AppleMagicTouchstream/build.sh
-./mac/gesturepad/build.sh
-./mac/GlassToKey/test.sh
 ./mac/AppleMagicTouchstream/test.sh
-./mac/gesturepad/test.sh
+./mac/AppleMagicTouchstream/build_framework.sh
+./mac/AppleMagicTouchstream/release.sh --check
 ```
 
-Scripts work from any working directory. App products are under each project's `build/DerivedData/Build/Products/Debug/`. Open the corresponding Xcode project and scheme to run interactively. Test one touch-processing app at a time.
+Open `AppleMagicTouchstream/AppleMagicTouchstream/AppleMagicTouchstream.xcodeproj`,
+scheme `AppleMagicTouchstream`, for Xcode. Products use the project-local
+`build/DerivedData/Build/Products/` directory. Scripts work from any current directory.
+Rebuild the bridge with `build_framework.sh` after native source changes; generated
+frameworks are not hand-edited. `release.sh` reads identity from `project.env` and
+credentials from the ignored local release configuration, then signs/notarizes.
+`--check` validates configuration without publishing or using credentials.
 
-`build_framework.sh` rebuilds that project's bridge and XCFramework using its own cache. `--release` additionally creates the bridge archive, which `checksum.sh` hashes. Normal app builds compile the local bridge through SwiftPM and do not require a prebuilt XCFramework. `release.sh --check` validates Release identity without credentials or publication. `release.sh` reads app identity from `project.env` and signing/notarization credentials from the local ignored `release-config.env`; it performs a real signed release.
+- [Current gesture rules](AppleMagicTouchstream/GESTURE_ENGINE.md)
+- [Native takeover](AppleMagicTouchstream/TRACKPAD_TAKEOVER.md)
+- [Firmware findings](FINDINGS.md)
+- [Implementation plan](FINGERWORKS_IMPLEMENTATION_PLAN.md)
+- [Preserved research](RESEARCH_ARCHIVE.md)
+- [Bundle identity](BUNDLE_IDENTITIES.md)
 
-Use the wrappers for fresh build caches after moving projects. Old `.build` and DerivedData folders may contain absolute paths from the previous layout. If Xcode retains an obsolete generated bridge module map after a module-map change, use Product → Clean Build Folder in that project; its cache is separate from the script’s DerivedData.
-
-[FingerWorks plan](FINGERWORKS_IMPLEMENTATION_PLAN.md) tracks current implementation and next steps. The SDK reference material lives under `sdk` (outside all three Swift packages, so Xcode does not discover its legacy sample projects) and is ignored by Git.
+SDK/reference material under `sdk` stays outside the app package. Capture/replay
+and hardware input are separate: offline tests do not activate takeover, post
+native input or play haptics.
