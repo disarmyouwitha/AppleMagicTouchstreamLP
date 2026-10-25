@@ -68,6 +68,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
+        func primaryClickConflicts(_ action:GestureAction) -> Bool {
+            drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
+        }
         var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
@@ -88,6 +91,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
+            guard !primaryClickConflicts(action(trigger,device:device)) else { return }
             guard let location = CGEvent(source:nil)?.location,
                 let events = GestureTapActionOutput.events(action:action(trigger,device:device),location:location,
                     time:time,doubleClickInterval:doubleClickInterval,
@@ -96,7 +100,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for event in events { event.post(tap:appleShortcuts[action(trigger,device:device)]?.eventTap ?? .cghidEventTap) }
         }
         mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double) {
-            guard action != .disabled else { return }
+            guard action != .disabled, !primaryClickConflicts(action) else { return }
             if appleShortcuts[action]?.dockMessage != nil {
                 _ = appleShortcuts[action]?.postDock(); clicks.reset(); return
             }
@@ -146,7 +150,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         mutating func reset(device: UInt64) {
             keyboardChordDevices.remove(device)
             zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
-            if drag.owner == device { drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
+            if drag.owners.contains(device) { drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
@@ -251,14 +255,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if state.twoHandEligible, let trigger = state.twoHandEngine.advance(now:now,settings:state.twoHandSettings) {
                 state.postCoordinated(trigger,time:now)
             }
-            if let owner = state.drag.owner, now-(state.lastReceipt[owner] ?? 0) > 0.2 {
+            for owner in state.drag.owners where now-(state.lastReceipt[owner] ?? 0) > 0.2 {
                 state.reset(device:owner)
             }
             for device in state.devices where state.zoomOutputs[device]?.active == true {
                 if now - (state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device) }
             }
             for device in state.devices where state.directionalStepper.direction(device:device) != nil {
-                if let owner = state.drag.owner, owner != device { state.reset(device:device); continue }
                 if now-(state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device); continue }
                 if let direction = state.directionalRepeater.tick(device:device,now:now),
                    let assignments = state.directionals[device] {
@@ -401,12 +404,6 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.threeFingerTaps.cancel(device:device)
                 return nil
             }
-            // Another pad must never release/click/scroll through the held button.
-            if let owner = state.drag.owner, owner != device {
-                state.reset(device:device)
-                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                return nil
-            }
             let hostTime = CACurrentMediaTime()
             state.lastReceipt[device] = hostTime
             let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
@@ -416,8 +413,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.threeFingerTaps.cancel(device:device) // braking a coast must not also click
             }
             let forceBindings = state.bindings[device] ?? GestureActionBindings()
+            let dragOnAnotherPad = state.drag.hasOtherOwner(than:device)
             if let trigger = state.forceClicks.recognize(device:device,time:time,contacts:contacts,
-                    enabled:{forceBindings.action(for:$0) != .disabled}),
+                    enabled:{ trigger in
+                        let action = forceBindings.action(for:trigger)
+                        return action != .disabled && !(dragOnAnotherPad && (action == .primaryClick || action == .primaryDoubleClick))
+                    }),
                let location = CGEvent(source:nil)?.location,
                let events = state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
                     ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
@@ -522,15 +523,19 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             let motion = update.gesture.flatMap { gesture in update.millimetres.map { (gesture:gesture,millimetres:$0) } }
             let motionAction = update.gesture.map { state.action($0,device:device) } ?? .disabled
             if motionAction == .primaryDrag && update.phase == .began {
-                for pad in state.scrollOutputs.keys { state.finishScroll(device:pad,cancelled:true) }
-                guard let location = CGEvent(source:nil)?.location,
-                      let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
-                    state.reset(device:device)
-                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                    return nil
+                state.finishScroll(device:device,cancelled:true)
+                if state.drag.owner != nil {
+                    guard state.drag.join(device:device) else { state.reset(device:device); return nil }
+                } else {
+                    guard let location = CGEvent(source:nil)?.location,
+                          let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
+                        state.reset(device:device)
+                        state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                        return nil
+                    }
+                    state.clicks.reset()
+                    down.post(tap:.cghidEventTap)
                 }
-                state.clicks.reset()
-                down.post(tap:.cghidEventTap)
             }
             if state.recognizes(.twoFingerTap,device:device), state.taps.process(device:device,time:time,
                 contacts:contacts,gestureActive:motion != nil) {
@@ -564,7 +569,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard motionAction.requiresPointerProfile else { state.reset(device:device); return nil }
             // Drag destinations accumulate from our last queued destination. Reading
             // WindowServer here can return an older cursor while posts are in flight.
-            let anchor = motionAction == .primaryDrag ? state.drag.location : CGEvent(source:nil)?.location
+            let anchor = state.drag.location ?? CGEvent(source:nil)?.location
             guard let delta = state.tracker.processMotion(device:device,time:time,millimetres:motion.millimetres),
                   let current = anchor else { state.reset(device:device); return nil }
             guard delta.x != 0 || delta.y != 0 else { return nil }
@@ -579,8 +584,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if d < distance { distance = d; closest = candidate }
             }
             if let closest { location = closest }
-            if motionAction == .primaryDrag {
-                guard let event = state.drag.move(device:device,location:location,delta:delta,
+            if state.drag.owner != nil {
+                guard let event = state.drag.movePointer(location:location,delta:delta,
                     flags:CGEventSource.flagsState(.combinedSessionState)) else { state.reset(device:device); return nil }
                 event.post(tap:.cghidEventTap); state.postedEvents &+= 1
                 return nil

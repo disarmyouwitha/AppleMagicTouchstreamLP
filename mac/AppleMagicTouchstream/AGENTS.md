@@ -254,3 +254,20 @@ invalid/moving/replaced contacts cancel output; stop/replay/emergency release an
 selection/settings changes reset coordination. Open Config is an app-local action;
 other actions retain AX/live-only gating and balanced one-shot output. Keymaps must
 round-trip coordinated settings; old profiles keep all existing per-hand settings.
+
+
+## Independent hands and repeat editing
+
+User authorizes simultaneous independent gestures across selected pads, including
+one pad dragging while the other moves the pointer. Do not restore the old
+other-pad-drag suppression. Gesture/contact/acceleration state stays per device;
+the global cursor and primary button are shared. Either pad's movement uses the
+latest queued drag position and posts dragged events while that button is held.
+Multiple drag owners share one down and release only after the last owner ends;
+stale/reset/disconnect cleanup must remove only that owner. Both acquisition and
+global stop still release every owner. Preserve physical-button interference
+handling and prevent discrete primary-click up edges from breaking another drag.
+
+The repeat interval editor must keep incomplete text local, permitting deletion
+of the entire old value. Validate/clamp 20–5000 ms only on Return/focus loss;
+blank/invalid commit restores the previous interval. The loop controls enablement.

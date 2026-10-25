@@ -773,3 +773,35 @@ Tap/Hold action can dispatch. Samples anchor at acquisition so preceding single-
 hand travel does not disqualify the new shared cycle. Both must lift to rearm.
 The tap duration is measured from the completed two-hand chord, not the first
 hand's earlier landing. Hold and tap recognition thresholds otherwise remain.
+
+
+## Independent simultaneous hands and editable repeat intervals
+
+The prior runtime globally rejected other-pad frames while a primary drag was
+owned. That restriction is removed. Per-device recognition, tap latches, scrolling,
+zooming, directional repeats and acceleration can now run concurrently. Starting
+a drag cancels only that device's scroll, preserving the other pad's scroll state.
+
+The system still has one cursor and one primary button. While any drag owner is
+active, two-finger pointer motion from either pad uses the last queued drag
+position and emits `leftMouseDragged` through the existing private drag source.
+It does not acquire button ownership. Releasing that pointer's pad therefore
+cannot end the drag. Two independently recognized drags may share one button down;
+ending/staling/resetting one owner retains the other, and the last owner posts
+the reserved up at the latest shared location. Emergency/global release emits one
+up and clears all owners. Coordinated Both acquisition still cancels both pads'
+independent outputs before taking ownership.
+
+Discrete primary click/double-click output is suppressed while a drag holds that
+same primary button, so its up edge cannot prematurely end another pad's drag.
+Other discrete output remains available; real external mouse presses retain the
+existing interruption policy. New regression tests exercise both hand orders,
+shared motion, dual owners, per-owner versus global release, and concurrent
+scroll/directional recognition without posting live input.
+
+The compact repeat interval now edits a local string draft. Backspace may leave
+it completely empty while entering a replacement such as 80. Return or focus loss
+commits a valid finite number bounded to 20–5000 ms. Blank/invalid commit restores
+the previous value. Typing an intermediate digit never saves settings, clamps the
+visible draft or resets an active gesture. Disabling repeat discards an unfinished
+edit and retains the saved interval. The loop remains the enable/disable control.

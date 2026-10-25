@@ -213,6 +213,7 @@ enum ThreeFingerRowChord {
 /// lock (or an offline test). The reserved up event exists before down is returned.
 struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var owner: UInt64?
+    private(set) var owners:Set<UInt64> = Set(minimumCapacity:2)
     private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
     private var source: CGEventSource?
@@ -221,13 +222,13 @@ struct PrimaryDragOutput: @unchecked Sendable {
               let source = CGEventSource(stateID:.privateState),
               let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
               let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        self.source = source; owner = device; self.location = location; releaseEvent = up
+        self.source = source; owner = device; owners.insert(device); self.location = location; releaseEvent = up
         Self.configure(down,flags:flags,pressure:1)
         Self.configure(up,flags:flags,pressure:0)
         return down
     }
     mutating func move(device: UInt64, location: CGPoint, delta: CGPoint, flags: CGEventFlags) -> CGEvent? {
-        guard owner == device, location.x.isFinite, location.y.isFinite,
+        guard owners.contains(device), location.x.isFinite, location.y.isFinite,
               delta.x.isFinite, delta.y.isFinite,
               let event = CGEvent(mouseEventSource:source,mouseType:.leftMouseDragged,mouseCursorPosition:location,mouseButton:.left) else { return nil }
         Self.configure(event,flags:flags,pressure:1)
@@ -237,12 +238,27 @@ struct PrimaryDragOutput: @unchecked Sendable {
         releaseEvent?.location = location; releaseEvent?.flags = flags
         return event
     }
+    func hasOtherOwner(than device:UInt64) -> Bool { owners.contains { $0 != device } }
+    /// Another drag can share the one system primary button without a second down.
+    mutating func join(device:UInt64) -> Bool {
+        guard owner != nil else { return false }
+        owners.insert(device); return true
+    }
+    /// Either pad's pointer can move a drag without becoming a button owner.
+    mutating func movePointer(location:CGPoint,delta:CGPoint,flags:CGEventFlags) -> CGEvent? {
+        guard let owner else { return nil }
+        return move(device:owner,location:location,delta:delta,flags:flags)
+    }
     mutating func end(device: UInt64? = nil, location: CGPoint? = nil) -> CGEvent? {
-        guard device == nil || owner == device else { return nil }
+        guard device == nil || owners.contains(device!) else { return nil }
+        if let device {
+            owners.remove(device)
+            if !owners.isEmpty { if owner == device { owner = owners.min() }; return nil }
+        }
         if let location, location.x.isFinite, location.y.isFinite { releaseEvent?.location = location }
         releaseEvent?.timestamp = DispatchTime.now().uptimeNanoseconds
         let up = releaseEvent
-        owner = nil; self.location = nil; releaseEvent = nil; source = nil
+        owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil; source = nil
         return up
     }
     private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {

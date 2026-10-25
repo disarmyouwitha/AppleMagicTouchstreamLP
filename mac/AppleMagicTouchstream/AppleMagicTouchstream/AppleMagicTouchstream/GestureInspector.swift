@@ -902,15 +902,9 @@ struct GestureAssignmentWorkspace: View {
                 .accessibilityLabel("Repeat while held")
                 .accessibilityValue(repeatEnabled.map { $0 ? "On" : "Off" } ?? "Mixed")
                 .help(repeatOff ? "Enable repeat" : "Disable repeat")
-                TextField("0",value:Binding(
-                    get:{settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope) ?? 20},
-                    set:{setDirectionalRepeatInterval(max(20,$0),direction,selected,editingScope)}),format:.number)
-                    .textFieldStyle(.plain).font(.system(size:11).monospacedDigit())
-                    .multilineTextAlignment(.center).padding(.vertical,3).frame(width:32.5)
-                    .background(RoundedRectangle(cornerRadius:5).fill(Color(nsColor:.textBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius:5).strokeBorder(Color.primary.opacity(0.15),lineWidth:1))
-                    .disabled(repeatOff)
-                    .accessibilityLabel("Repeat interval in milliseconds")
+                GestureRepeatIntervalField(value:settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope) ?? 20,
+                    enabled:!repeatOff) { setDirectionalRepeatInterval($0,direction,selected,editingScope) }
+                    .id("\(selected.rawValue).\(direction.rawValue).\(editingScope.rawValue)")
                 Text("ms while held").font(.callout)
                 if repeatOff { Text("Off").font(.caption).fontWeight(.medium) }
             }
@@ -1062,5 +1056,38 @@ private struct TwoHandChordExample:View {
         .background(GestureExampleWindowVisibility { value in visible = value; if value { start = Date() } }.frame(width:0,height:0))
         .onChange(of:chord) { _ in start = Date() }.onChange(of:phase) { _ in start = Date() }
         .accessibilityLabel("Both hands: \(chord.title), \(phase.title)")
+    }
+}
+
+
+/// Keep incomplete typing local; clamp only on Return or leaving the field.
+struct GestureRepeatIntervalField:View {
+    let value:Double
+    let enabled:Bool
+    let commit:(Double)->Void
+    @State private var draft = ""
+    @FocusState private var focused:Bool
+    static func committedValue(_ text:String) -> Double? {
+        guard let number = Double(text.trimmingCharacters(in:.whitespacesAndNewlines)), number.isFinite else { return nil }
+        return min(5000,max(20,number.rounded()))
+    }
+    private func apply() {
+        guard let result = Self.committedValue(draft) else { draft = String(Int(value)); return }
+        draft = String(Int(result))
+        if result != value { commit(result) }
+    }
+    var body:some View {
+        TextField("20",text:$draft)
+            .textFieldStyle(.plain).font(.system(size:11).monospacedDigit())
+            .multilineTextAlignment(.center).padding(.vertical,3).frame(width:32.5)
+            .background(RoundedRectangle(cornerRadius:5).fill(Color(nsColor:.textBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius:5).strokeBorder(Color.primary.opacity(0.15),lineWidth:1))
+            .focused($focused).disabled(!enabled)
+            .onAppear { draft = String(Int(value)) }
+            .onSubmit { apply() }
+            .onChange(of:focused) { value in if !value && enabled { apply() } }
+            .onChange(of:value) { value in if !focused { draft = String(Int(value)) } }
+            .onChange(of:enabled) { enabled in if !enabled { focused = false; draft = String(Int(value)) } }
+            .accessibilityLabel("Repeat interval in milliseconds")
     }
 }
