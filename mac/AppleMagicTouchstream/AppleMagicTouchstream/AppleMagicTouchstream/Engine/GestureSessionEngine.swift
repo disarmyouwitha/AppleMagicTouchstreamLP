@@ -181,11 +181,12 @@ struct GestureContactMotionTracker: Sendable {
     }
 }
 
-/// Direction changes after shared three-finger ownership. Repetition uses a separate host clock.
+/// Direction changes after shared two/three-finger ownership. Repetition uses a separate host clock.
 struct GestureDirectionalStepper {
     static let activationMM = 0.75
     static let minimumOutputInterval = 0.08
     private struct Session {
+        var trigger = GestureTrigger.threeFingerMove
         var initial = CGPoint.zero
         var direction: GestureMovementDirection?
         var candidate: GestureMovementDirection?
@@ -210,7 +211,8 @@ struct GestureDirectionalStepper {
     }
     mutating func process(device:UInt64,time:Double,update:GestureSessionUpdate<GestureTrigger>,
                           assignments:GestureDirectionalAssignments) -> GestureMovementDirection? {
-        guard assignments.mode == .directional, update.gesture == .threeFingerMove,
+        guard assignments.mode == .directional, let trigger = update.gesture,
+              GestureDirectionalAssignments.liveTriggers.contains(trigger),
               update.phase == .began || update.phase == .changed else { reset(device:device); return nil }
         if update.phase == .began { reset(device:device) }
         guard update.phase == .began || sessions[device] != nil,
@@ -218,7 +220,8 @@ struct GestureDirectionalStepper {
               delta.x.isFinite, delta.y.isFinite, abs(delta.x)<25, abs(delta.y)<25 else {
             reset(device:device); return nil
         }
-        var session = sessions[device] ?? Session()
+        var session = sessions[device] ?? Session(trigger:trigger)
+        guard session.trigger == trigger else { reset(device:device); return nil }
         if let previous = session.lastTime, !(time > previous && time-previous < 0.15) {
             reset(device:device); return nil
         }
@@ -246,6 +249,7 @@ struct GestureDirectionalStepper {
         return nil
     }
     func direction(device:UInt64) -> GestureMovementDirection? { sessions[device]?.direction }
+    func trigger(device:UInt64) -> GestureTrigger? { sessions[device]?.trigger }
 }
 
 /// Timer policy is pure and uses host time only. At most one event per tick,

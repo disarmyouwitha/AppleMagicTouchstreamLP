@@ -173,6 +173,7 @@ enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Send
 /// Per-input directional assignments; live recognition currently supports three fingers.
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
+    static let liveTriggers:[GestureTrigger] = [.twoFingerMove,.threeFingerMove]
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]
@@ -270,6 +271,12 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         editor.repeatEnabledOverrides?[direction.rawValue] = interval > 0
         if directionalMovement == nil { directionalMovement = [:] }
         directionalMovement?[trigger.rawValue] = editor
+    }
+    var liveDirectionalBindings:[GestureTrigger:GestureDirectionalAssignments] {
+        Dictionary(uniqueKeysWithValues:GestureDirectionalAssignments.liveTriggers.compactMap { trigger in
+            let config = movement(trigger)
+            return config.mode == .directional ? (trigger,config) : nil
+        })
     }
     var outputSettings: Self {
         var result = self

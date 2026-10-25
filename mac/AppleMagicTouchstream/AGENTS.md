@@ -271,3 +271,12 @@ handling and prevent discrete primary-click up edges from breaking another drag.
 The repeat interval editor must keep incomplete text local, permitting deletion
 of the entire old value. Validate/clamp 20–5000 ms only on Return/focus loss;
 blank/invalid commit restores the previous interval. The loop controls enablement.
+
+
+User authorizes live two-finger directional actions using the same engine, actions,
+thresholds, held repeats and safety gates as three fingers. This supersedes the
+three-only restriction for two fingers; four-finger directions remain saved-only.
+Keep directional configuration indexed by device AND input trigger, so two/three
+assignments coexist without overwriting. Shared ownership determines the active
+trigger for timer output; never infer it from the current finger count after
+latching. Continuous two-finger mouse mode remains unchanged when selected.

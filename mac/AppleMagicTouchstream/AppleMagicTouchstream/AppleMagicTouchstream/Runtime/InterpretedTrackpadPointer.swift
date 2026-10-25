@@ -59,7 +59,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var keyboardChordDevices: Set<UInt64> = []
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
-        var directionals: [UInt64:GestureDirectionalAssignments] = [:]
+        var directionals: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:]
         var directionalStepper = GestureDirectionalStepper()
         var directionalRepeater = GestureDirectionalRepeater()
         var needsDirectionalTimer:Bool { !directionals.isEmpty }
@@ -75,7 +75,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
-            if trigger == .threeFingerMove && directionals[device] != nil { return true }
+            if directionals[device]?[trigger] != nil { return true }
             let enabled: Bool
             switch trigger {
             case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch,
@@ -176,7 +176,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:GestureDirectionalAssignments] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
             guard state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
@@ -264,7 +264,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for device in state.devices where state.directionalStepper.direction(device:device) != nil {
                 if now-(state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device); continue }
                 if let direction = state.directionalRepeater.tick(device:device,now:now),
-                   let assignments = state.directionals[device] {
+                   let trigger = state.directionalStepper.trigger(device:device),
+                   let assignments = state.directionals[device]?[trigger] {
                     state.postDirectional(assignments.action(direction),device:device,time:now)
                 }
             }
@@ -385,9 +386,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 ($0.state == .making || $0.state == .touching) && $0.pressure.isFinite
                     && $0.pressure >= ForceClickRecognizer.threshold
             }
-            let directional = state.directionals[device] != nil
+            let directional = state.directionals[device] ?? [:]
             return state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick) {
-                ($0 == .threeFingerMove && directional) || bindings.action(for: $0) != .disabled
+                directional[$0] != nil || bindings.action(for: $0) != .disabled
             }
         }
     }
@@ -458,7 +459,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
-            if let assignments = state.directionals[device], update.gesture == .threeFingerMove {
+            if let gesture = update.gesture, let assignments = state.directionals[device]?[gesture] {
                 if allUp {
                     _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
                     _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,

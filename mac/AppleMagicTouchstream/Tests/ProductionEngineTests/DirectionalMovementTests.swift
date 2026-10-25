@@ -138,7 +138,7 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(stepper.process(device:1,time:2,update:update(.init(x:2,y:0),.began),assignments:assignments),.right)
         XCTAssertNil(stepper.process(device:1,time:2.01,update:update(nil,.ended),assignments:assignments))
         XCTAssertNil(stepper.process(device:1,time:2.02,update:update(.init(x:4,y:0)),assignments:assignments))
-        XCTAssertNil(stepper.process(device:1,time:3,update:update(.init(x:4,y:0),.began,gesture:.twoFingerMove),assignments:assignments))
+        XCTAssertNil(stepper.process(device:1,time:3,update:update(.init(x:4,y:0),.began,gesture:.fourFingerMove),assignments:assignments))
         XCTAssertNil(stepper.process(device:1,time:4,update:update(.init(x:Double.nan,y:0),.began),assignments:assignments))
         _ = stepper.process(device:1,time:5,update:update(.init(x:2,y:0),.began),assignments:assignments)
         stepper.reset(device:1)
@@ -166,6 +166,48 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
         let original = HandGestureSettings()
         XCTAssertEqual(settings.routed(to:.init(left:1,right:2))[1]?.bindings.twoFingerMove,original.left.bindings.twoFingerMove)
+    }
+    func testTwoAndThreeFingerDirectionalConfigurationsAreIndependent() {
+        var settings = PerHandGestureSettings()
+        settings.editMovement(.twoFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall)
+        settings.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:.brightnessUpSmall)
+        settings.editMovement(.fourFingerMove,mode:.directional,direction:.up,action:.missionControl)
+        XCTAssertEqual(Set(settings.liveDirectionalBindings.keys),[.twoFingerMove,.threeFingerMove])
+        XCTAssertEqual(settings.liveDirectionalBindings[.twoFingerMove]?.action(.up),.volumeUpSmall)
+        XCTAssertEqual(settings.liveDirectionalBindings[.threeFingerMove]?.action(.up),.brightnessUpSmall)
+        settings.editMovement(.twoFingerMove,mode:.continuous)
+        XCTAssertNil(settings.liveDirectionalBindings[.twoFingerMove])
+        XCTAssertEqual(settings.outputSettings.bindings.twoFingerMove,.pointer)
+    }
+    func testTwoFingerDirectionalsUseSharedOwnershipAndAllUpLatch() {
+        var router = TrackpadGestureRouter(), stepper = GestureDirectionalStepper()
+        let assignments = config()
+        let enabled:(GestureTrigger)->Bool = { $0 == .twoFingerMove }
+        _ = router.recognize(device:1,time:1,contacts:touches(2),enabled:enabled)
+        let began = router.recognize(device:1,time:1.01,contacts:touches(2,dy:0.01),enabled:enabled)
+        XCTAssertEqual(began.gesture,.twoFingerMove)
+        XCTAssertEqual(stepper.process(device:1,time:1.01,update:began,assignments:assignments),.up)
+        XCTAssertEqual(stepper.trigger(device:1),.twoFingerMove)
+        let changed = router.recognize(device:1,time:1.02,contacts:touches(1,dy:0.012),enabled:enabled)
+        XCTAssertEqual(changed.gesture,.twoFingerMove)
+        XCTAssertNil(stepper.process(device:1,time:1.02,update:changed,assignments:assignments))
+        let ended = router.recognize(device:1,time:1.03,contacts:touches(0),enabled:enabled)
+        XCTAssertNil(stepper.process(device:1,time:1.03,update:ended,assignments:assignments))
+        XCTAssertNil(stepper.trigger(device:1))
+    }
+    func testTwoFingerDirectionsTurnsAndRepeatUseSamePolicyAsThreeFingers() {
+        for trigger in GestureDirectionalAssignments.liveTriggers {
+            var stepper = GestureDirectionalStepper(), repeater = GestureDirectionalRepeater()
+            let config = config()
+            XCTAssertEqual(stepper.process(device:1,time:1,update:update(.init(x:0,y:-1),.began,gesture:trigger),assignments:config),.up)
+            repeater.refresh(device:1,direction:.up,intervalMS:80,now:10)
+            XCTAssertEqual(repeater.tick(device:1,now:10.081),.up)
+            XCTAssertEqual(stepper.process(device:1,time:1.1,update:update(.init(x:1,y:0),gesture:trigger),assignments:config),.right)
+            XCTAssertEqual(stepper.trigger(device:1),trigger)
+            XCTAssertNil(stepper.process(device:1,time:1.11,update:update(nil,.ended,gesture:trigger),assignments:config))
+            repeater.reset(device:1)
+            XCTAssertNil(repeater.tick(device:1,now:10.2))
+        }
     }
     private func touches(_ count:Int,dy:Float = 0) -> [OMSRawTouch] {
         (0..<count).map { i in OMSRawTouch(id:Int32(i+1),posX:0.3+Float(i)*0.11,posY:0.5+dy,

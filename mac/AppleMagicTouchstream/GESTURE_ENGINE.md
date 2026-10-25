@@ -805,3 +805,25 @@ commits a valid finite number bounded to 20–5000 ms. Blank/invalid commit rest
 the previous value. Typing an intermediate digit never saves settings, clamps the
 visible draft or resets an active gesture. Disabling repeat discards an unfinished
 edit and retains the saved interval. The loop remains the enable/disable control.
+
+
+## Two-finger directional output
+
+Two-finger directions are now live, using the same discrete action dispatcher and
+held-repeat policy as three fingers. The earlier two-finger editor saved actions
+but never dispatched them; the controller, keyboard reservation and runtime now
+route both supported inputs. Four-finger directions remain saved-only.
+
+Runtime configuration is keyed by selected device and movement trigger. Two- and
+three-finger assignments coexist independently. The latched directional stepper
+remembers its owning trigger; the shared repeat timer looks up that trigger's
+assignments, not the current finger count. A two-finger chord can continue through
+added/lifted fingers until all-up under the existing shared session rules.
+
+The 0.75 mm dominant-axis activation/turn threshold, timed repeats, tap exclusion,
+force/pinch arbitration, selected/owned/armed/AX/live gates and stale cancellation
+are shared with three fingers. Switching center Movement back to continuous
+restores normal pointer output without deleting directional assignments. Existing
+settings and import/export formats already contain both inputs; no migration or
+factory mode changes are required. Tests cover independent configurations,
+activation/turn/repeat, surviving one finger, release and continuous-mode fallback.

@@ -74,7 +74,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     private func requestDirectionalPermissionIfNeeded(_ trigger:GestureTrigger) {
-        guard trigger == .threeFingerMove, !AXIsProcessTrusted(),
+        guard GestureDirectionalAssignments.liveTriggers.contains(trigger), !AXIsProcessTrusted(),
               [settings.left,settings.right].contains(where:{ config in
                   let editor = config.movement(trigger)
                   return editor.mode == .directional && GestureMovementDirection.allCases.contains { editor.action($0) != .disabled }
@@ -138,7 +138,7 @@ final class TrackpadGestureController: ObservableObject {
         func hand(_ side: GestureHandScope) -> String {
             let directional = GestureDirectionalAssignments.triggers.contains(trigger)
                 && settings.movementMode(trigger,in:side) == .directional
-            if directional && trigger != .threeFingerMove { return "Directional mode: output not implemented yet." }
+            if directional && !GestureDirectionalAssignments.liveTriggers.contains(trigger) { return "Directional mode: output not implemented yet." }
             let action = settings.action(trigger, in: side) ?? .disabled
             guard directional || action != .disabled else { return "None" }
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
@@ -189,10 +189,7 @@ final class TrackpadGestureController: ObservableObject {
         let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
         let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
         let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
-        let directionalBindings = routed.compactMapValues { config -> GestureDirectionalAssignments? in
-            let assignments = config.movement(.threeFingerMove)
-            return assignments.mode == .directional ? assignments : nil
-        }
+        let directionalBindings = routed.mapValues(\.liveDirectionalBindings).filter { !$0.value.isEmpty }
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
