@@ -404,6 +404,9 @@ struct TwoHandGestureEngine {
 /// deadline; a fired Hold owns the remaining cycle, including membership changes.
 struct GestureHoldRecognizer {
     static let landingWindow = 0.08
+    // App policy: allow a stationary full-hand chord to assemble more gradually.
+    // This never extends eligibility for a smaller Hold or replaces a fired owner.
+    static let fiveFingerLandingWindow = 0.2
     static let movementSlopMM = 2.0
     static func motionClaimsHold(_ update:GestureSessionUpdate<GestureTrigger>,directional:Bool,
                                  direction:GestureMovementDirection?) -> Bool {
@@ -413,6 +416,7 @@ struct GestureHoldRecognizer {
         var baseline = GestureContactMotionTracker.Baseline(time:0)
         var first = 0.0, started = 0.0, receipt = 0.0
         var blocked = false, fired = false, sawThumb = false
+        var fiveFingerOnly = false
         var key:Int?
     }
     private var sessions:[UInt64:Session] = Dictionary(minimumCapacity:2)
@@ -455,8 +459,14 @@ struct GestureHoldRecognizer {
             }
         }
         if next.count != old.count {
-            guard next.count > old.count, now-session.first <= Self.landingWindow else {
+            guard next.count > old.count else {
                 session.blocked = true; return nil
+            }
+            if now-session.first > Self.landingWindow {
+                guard actions[5] != nil, now-session.first <= Self.fiveFingerLandingWindow else {
+                    session.blocked = true; return nil
+                }
+                session.fiveFingerOnly = true
             }
             session.baseline = next; session.started = now
         }
@@ -466,6 +476,9 @@ struct GestureHoldRecognizer {
                 session.key = ThumbTwoChord.matches(contacts) ? PerHandGestureSettings.thumbHoldKey : session.sawThumb ? nil : 3
             }
         } else { session.key = next.count; session.sawThumb = false }
+        // A late partial chord may only complete as five fingers. Neither the
+        // frame path nor the timer may turn it into a late smaller Hold.
+        if session.fiveFingerOnly && next.count < 5 { session.key = nil }
         // Preserve original positions for displacement, update only the frame clock.
         session.baseline.time = time; session.receipt = now
         if let key = session.key, actions[key] != nil && now-session.started >= GestureHoldTiming.validated(thresholds[key]) {

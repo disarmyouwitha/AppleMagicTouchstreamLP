@@ -116,6 +116,7 @@ finger labels have separate roles.
 | Tap minimum complete overlap | 20 ms |
 | Tap per-contact travel | ≤ 1 app mm |
 | Generic Hold landing window / settling | 80 ms / 2 app mm |
+| Five-finger Hold acquisition | Up to 200 ms to assemble when its Hold action is enabled; late partial chords cannot fire smaller Holds |
 | Generic Hold duration | 500 ms after complete chord landing |
 | Timer-driven freshness | 200 ms, using host receipt time |
 | Force freshness | Up to 200 ms between native samples |
@@ -126,6 +127,16 @@ finger labels have separate roles.
 | Direction axis dominance | 1.25× competing axis |
 | Minimum committed-turn interval | 80 ms |
 | Positive repeat interval | 20–5000 ms; 80 ms default for volume/brightness |
+
+Five-finger Hold uses the shared recognizer with a bounded acquisition extension,
+not a new latch. A stationary sequence of contact additions may assemble within
+200 ms of first landing if five-finger Hold is assigned. After the ordinary 80 ms
+window, a partial chord is eligible only to become five fingers; it cannot fire a
+smaller Hold from either frames or the timer. The configured Hold threshold starts
+at complete landing. Real lifts, ID replacements, excessive motion, invalid/stale
+input and competing activation still cancel acquisition. A previously fired Hold
+keeps ownership. Four-finger and other gesture acquisition windows stay unchanged.
+The 200 ms window is provisional app tuning, not a recovered firmware constant.
 
 Motion uses only IDs shared across adjacent frames, not the centroid of whichever
 contacts happen to be present. Pending count changes reset accumulated travel.

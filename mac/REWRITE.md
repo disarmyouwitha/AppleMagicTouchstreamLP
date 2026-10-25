@@ -1,8 +1,6 @@
 # NEXT:
 =======
-1. Better 4-finger latching for holds? Better 5-finger latching?
-**NEXT**: Do you see any places we could expand our logic to match what touchstream is doing? I feel like it is a good northern star because theirs works so well, and is the inspiration for my project.
-
+1. Better 5-finger latching for holds?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:
@@ -12,6 +10,7 @@
 [rotate left, blank?, rotate right]
 [↙, hold, ↘]
 
+
 `AppleMagicTouchstream`:
 ===
 0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
@@ -20,12 +19,6 @@
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
 ===
-* `Diagonals`:
-- Thumb + two fingers	↖ ↗ ↙ ↘	
-> I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
-[↖, tap, ↗]
-[rotate left, blank, rotate right]
-[↙, hold, ↘]
 * `Landings Zones`:
 - 4F hold above homerow, on homerow, below homerow
 - 3F tap above homerow, on homerow, below homerow
@@ -35,11 +28,15 @@
 ===
 * Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
 * Maybe add under "1 Finger" called `Drawing` > `Triangles`, `Sides` and we have some presets (Expand to offer `Custom` tomorrow)
+- "Record Gesture" custom gestures in the future would be awesome!
 * Gestures Finger changes during movement
+===
+- Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
 ===
 666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
 ===
+
 
 ===
 ## TELL CODEX:
@@ -48,10 +45,4 @@
 > I also have all of the templates for all of the gestures in the SDK.. do you think you could start implementing them in Gesturepad? Or should we start using AppleMagicTouchstream for implementation? I have the entire keyboard implemented there already. 
 
 > I really want to get the spellchecker logic out of the touchstream. 
-=== 
-
-
-=======
-- Update GTK `Windows` Driver instructions they should be dead simple now.
-- Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
-- "Record Gesture" custom gestures in the future would be awesome!
+===

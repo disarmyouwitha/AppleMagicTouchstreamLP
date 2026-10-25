@@ -92,6 +92,73 @@ final class GestureHoldTests:XCTestCase {
         XCTAssertEqual(engine.advance(device:1,now:1.501,actions:actions),3)
         XCTAssertNil(engine.advance(device:1,now:1.51,actions:actions))
     }
+    func testFiveFingerHoldAllowsGradualLandingButWaitsForCompleteChord() {
+        for timer in [false,true] {
+            var engine = GestureHoldRecognizer()
+            for (offset,count) in [(0.0,1),(0.04,2),(0.09,3),(0.13,4),(0.18,5)] {
+                let time = 1+offset
+                XCTAssertNil(engine.observe(device:1,time:time,now:time,contacts:touches(count),motionClaimed:false,actions:actions))
+                XCTAssertNil(engine.advance(device:1,now:time+0.001,actions:actions))
+            }
+            for offset in [0.28,0.38,0.48,0.58,0.679] {
+                let time = 1+offset
+                XCTAssertNil(engine.observe(device:1,time:time,now:time,contacts:touches(5),motionClaimed:false,actions:actions))
+            }
+            if timer {
+                XCTAssertEqual(engine.advance(device:1,now:1.681,actions:actions),5)
+            } else {
+                XCTAssertEqual(engine.observe(device:1,time:1.681,now:1.681,contacts:touches(5),motionClaimed:false,actions:actions),5)
+            }
+            XCTAssertNil(engine.observe(device:1,time:1.7,now:1.7,contacts:touches(2),motionClaimed:true,actions:actions))
+            XCTAssertTrue(engine.claimed(device:1))
+            XCTAssertNil(engine.observe(device:1,time:1.71,now:1.71,contacts:[OMSRawTouch](),motionClaimed:false,actions:actions))
+            XCTAssertFalse(engine.claimed(device:1))
+        }
+    }
+    func testLatePartialChordCannotFireSmallerHoldThroughFrameOrTimer() {
+        for count in 2...4 {
+            var engine = GestureHoldRecognizer()
+            XCTAssertNil(engine.observe(device:1,time:1,now:1,contacts:touches(1),motionClaimed:false,actions:actions))
+            XCTAssertNil(engine.observe(device:1,time:1.1,now:1.1,contacts:touches(count),motionClaimed:false,actions:actions))
+            for i in 1...7 {
+                let time = 1.1+Double(i)*0.1
+                XCTAssertNil(engine.observe(device:1,time:time,now:time,contacts:touches(count),motionClaimed:false,actions:actions))
+                XCTAssertNil(engine.advance(device:1,now:time+0.001,actions:actions))
+            }
+            XCTAssertFalse(engine.claimed(device:1))
+        }
+    }
+    func testFiveFingerAcquisitionDoesNotReviveCancelledCandidates() {
+        for failure in 0...5 {
+            var engine = GestureHoldRecognizer()
+            var bindings = actions
+            if failure == 0 { bindings[5] = nil }
+            func observe(_ time:Double,_ count:Int,_ dx:Float = 0,_ ids:Int32 = 0,_ motion:Bool = false) -> Int? {
+                engine.observe(device:1,time:time,now:time,contacts:touches(count,dx:dx,idOffset:ids),motionClaimed:motion,actions:bindings)
+            }
+            XCTAssertNil(observe(1,2))
+            if failure == 1 { XCTAssertNil(observe(1.05,1)) } // real lift
+            if failure == 2 { XCTAssertNil(observe(1.05,3,0.02)) } // movement
+            if failure == 3 { XCTAssertNil(observe(1.05,3,0,20)) } // replacement
+            if failure == 4 { XCTAssertNil(observe(1.05,3,0,0,true)) } // competing owner
+            XCTAssertNil(observe(1.1,4))
+            XCTAssertNil(observe(1.21,failure == 5 ? 5 : 4)) // outside acquisition deadline
+            for i in 1...7 { XCTAssertNil(observe(1.21+Double(i)*0.1,5)) }
+            XCTAssertFalse(engine.claimed(device:1))
+        }
+    }
+    func testFiredFourFingerHoldCannotBeUpgradedToFive() {
+        var engine = GestureHoldRecognizer()
+        let thresholds = [4:0.1,5:0.1]
+        XCTAssertNil(engine.observe(device:1,time:1,now:1,contacts:touches(4),motionClaimed:false,actions:actions,thresholds:thresholds))
+        XCTAssertEqual(engine.observe(device:1,time:1.11,now:1.11,contacts:touches(4),motionClaimed:false,actions:actions,thresholds:thresholds),4)
+        for i in 1...7 {
+            let time = 1.11+Double(i)*0.1
+            XCTAssertNil(engine.observe(device:1,time:time,now:time,contacts:touches(5),motionClaimed:false,actions:actions,thresholds:thresholds))
+            XCTAssertNil(engine.advance(device:1,now:time+0.001,actions:actions,thresholds:thresholds))
+        }
+        XCTAssertTrue(engine.claimed(device:1))
+    }
     func testMotionWinsBeforeHoldAndHoldWinsBeforeLaterMotion() {
         var engine = GestureHoldRecognizer(), router = TrackpadGestureRouter()
         for i in 0...7 {
