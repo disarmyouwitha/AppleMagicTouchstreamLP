@@ -132,13 +132,12 @@ struct GestureChordIcon: View {
                        with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
         if holding {
             context.opacity *= GestureExampleFade.opacity(phase)
-            let touching = phase >= 0.18 && phase < 0.8
             let offsets = gesture == .fourCorners ? [CGPoint(x:-55,y:-30),CGPoint(x:-55,y:30),CGPoint(x:55,y:-30),CGPoint(x:55,y:30)] : contactOffsets(count:gesture.holdCount,includesThumb:gesture == .thumbTwo)
             for (index,offset) in offsets.enumerated() {
                 let point = CGPoint(x:pad.midX+offset.x,y:pad.midY+offset.y)
                 let dot = Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12))
                 let colors = contactColors(index:index)
-                if touching { context.fill(dot,with:.color(colors.fill)) }
+                context.fill(dot,with:.color(colors.fill))
                 context.stroke(dot,with:.color(colors.outline),lineWidth:1.5)
             }
             return
@@ -1165,7 +1164,7 @@ private struct TwoHandChordExample:View {
         TimelineView(.animation(minimumInterval:1.0/30,paused:!visible || reduceMotion)) { timeline in
             let elapsed = timeline.date.timeIntervalSince(start).truncatingRemainder(dividingBy:3)
             let release = phase == .hold ? 2.3 : 1.1
-            let filled = reduceMotion || (elapsed > 0.4 && elapsed < release)
+            let filled = phase == .hold || reduceMotion || (elapsed > 0.4 && elapsed < release)
             let opacity = reduceMotion ? 1 : GestureExampleFade.opacity(elapsed/3,start:release/3,end:release/3+0.14)
             Canvas { context,size in
                 for hand in 0..<2 {

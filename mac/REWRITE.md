@@ -18,12 +18,11 @@
 ===
 0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
-- Need to consolidate / Unify Gesture Actions drop-downs after build-out!
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
 ===
-`Zones` Gestures? 
+`Zones` Gestures? (1Finger `Drawings`?)
 - Sides up/down left/right sides; left/right top/bottom sides
 - Triangles?
 ===
