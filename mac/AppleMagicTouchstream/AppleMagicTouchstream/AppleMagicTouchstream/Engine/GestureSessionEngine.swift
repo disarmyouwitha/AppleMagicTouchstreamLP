@@ -347,6 +347,19 @@ struct GestureDirectionalRepeater {
 }
 
 
+/// Shared initial targets for per-pad and coordinated corner chords.
+enum CornerGestureGeometry {
+    static let edgeFraction = 0.25
+    /// Four disjoint corner targets. The middle half of either axis is excluded.
+    static func corner(x:Double,y:Double) -> Int? {
+        guard x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
+        let column = x <= edgeFraction ? 0 : x >= 1-edgeFraction ? 1 : -1
+        let row = y <= edgeFraction ? 0 : y >= 1-edgeFraction ? 1 : -1
+        guard column >= 0, row >= 0 else { return nil }
+        return column*2+row
+    }
+}
+
 /// Both pads use host time: native clocks may have different offsets. No output,
 /// timers or I/O here; the live runtime supplies freshness ticks under its lock.
 struct TwoHandGestureEngine {
@@ -357,8 +370,10 @@ struct TwoHandGestureEngine {
         var ids = SIMD8<Int32>(repeating:0)
         var points = SIMD16<Double>(repeating:0)
         func corners(left:Bool) -> Bool {
-            count == 2 && !invalid && (left ? max(points[0],points[2]) <= 0.2 : min(points[0],points[2]) >= 0.8)
-                && min(points[1],points[3]) <= 0.2 && max(points[1],points[3]) >= 0.8
+            guard count == 2, !invalid,
+                  let a = CornerGestureGeometry.corner(x:points[0],y:points[1]),
+                  let b = CornerGestureGeometry.corner(x:points[2],y:points[3]) else { return false }
+            return ((1 << a) | (1 << b)) == (left ? 3 : 12)
         }
         func continues(_ anchor:Self) -> Bool {
             guard !invalid, count <= anchor.count else { return false }
@@ -586,10 +601,8 @@ struct SinglePadCornersEngine {
                   touch.posX >= 0, touch.posX <= 1, touch.posY >= 0, touch.posY <= 1 else { return false }
             for i in 0..<count where ids[i] == touch.id { return false }
             ids[count] = touch.id; count += 1
-            let column = touch.posX <= 0.2 ? 0 : touch.posX >= 0.8 ? 1 : -1
-            let row = touch.posY <= 0.2 ? 0 : touch.posY >= 0.8 ? 1 : -1
-            guard column >= 0, row >= 0 else { return false }
-            let bit = 1 << (column*2+row)
+            guard let corner = CornerGestureGeometry.corner(x:Double(touch.posX),y:Double(touch.posY)) else { return false }
+            let bit = 1 << corner
             guard mask & bit == 0 else { return false }; mask |= bit
         }
         return count == 4 && mask == 15

@@ -446,7 +446,7 @@ extension GestureTrigger {
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
-        case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Hold uses its configured threshold; movement allowance is 2 mm. Lift all fingers to rearm."
+        case .fourCornersTap: return "One contact in each outer 25% corner of this pad. Hold uses its configured threshold; movement allowance is 2 mm. Lift all fingers to rearm."
         case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 500 ms."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
         case .twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap: return "Tap window: 500 ms. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
@@ -985,7 +985,7 @@ struct GestureAssignmentWorkspace: View {
             Divider()
             Text("Recognition").font(.callout).fontWeight(.medium)
             Text(pane == .fourCorners
-                 ? "One contact in each outer 20% corner of this pad. Hold for \(holdTimingDescription); the action fires while fingers are down. Movement over 2 mm, early lifts or lost input cancel output. Lift all fingers to rearm."
+                 ? "One contact in each outer 25% corner of this pad. Hold for \(holdTimingDescription); the action fires while fingers are down. Movement over 2 mm, early lifts or lost input cancel output. Lift all fingers to rearm."
                  : "Keep \(holdCount) finger(s) still for \(holdTimingDescription). The action fires while the fingers are down; lifting is not required. Shortcut Behavior chooses one shot or a key held until release. The gesture owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             if pane == .thumbTwo {
@@ -1053,6 +1053,7 @@ struct GestureAssignmentWorkspace: View {
                     if !GestureDirectionalAssignments.triggers.contains(selected) {
                         shortcutBuilder(action) { apply($0,selected,editingScope) }
                     }
+                    Divider()
                     VStack(alignment:.leading,spacing:10) {
                         Text("Recognition").font(.callout).fontWeight(.medium)
                         Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1109,6 +1110,7 @@ struct GestureAssignmentWorkspace: View {
             }
             }
             shortcutBuilder(value) { setDirectionalAction($0,direction,selected,editingScope) }
+            Divider()
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
                 Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : selected == .fourFingerMove ? "four fingertips" : "five fingers") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")

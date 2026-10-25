@@ -148,11 +148,18 @@ finger labels have separate roles.
 | Force freshness | Up to 200 ms between native samples |
 | Both Tap maximum / overlap / lift skew | 500 ms / 20 ms / 150 ms |
 | Both and corner settling | 2 app mm |
-| Corner regions | Outer 20% of each axis |
+| Corner regions | Outer 25% of each axis, shared by single-pad and Both corners |
 | Direction commit / turn threshold | 0.75 app mm |
 | Direction axis dominance | 1.25× competing axis |
 | Minimum committed-turn interval | 80 ms |
 | Positive repeat interval | 20–5000 ms; 80 ms default for volume/brightness |
+
+Corner targets use one shared geometry policy for both variants: the outer quarter
+of each axis, with the middle half excluded. Single-pad input requires four distinct
+corners; Both requires the two left corners on the left pad and the two right
+corners on the right pad. The widened targets are provisional usability tuning,
+not capture-derived or recovered firmware dimensions. Hold thresholds, 2 app-mm
+settling allowance, contact validation, freshness and balanced release stay unchanged.
 
 In Mirror Edit, unequal repeat intervals display an empty field with a Mixed
 placeholder. Return explicitly applies the entered interval to both pads, including

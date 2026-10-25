@@ -4,9 +4,12 @@
 1. Autocorrect
 2. Snap-radius
 ===
-0. I am getting maybe some accidental scroll (or something) when placing my fingers for 4-finger hold (for shifts) shift_hold_accidental_scroll.atpcap
-1. In each of the "Action builders" (right side) can we put a light <hr> right above the Recognition bubble?
-2. Can we expand the recognizer for "4 Corners" to be a little more linient? <atpcap>
+* Can we add 4 new "Both" hands gestures?
+1. Can we Rename `All Corners` to `Outer Corners` (for all Both and Handed gestures)
+2. Can we add a new gesture called `Inner Corners` where the inner corners are held?
+2. I also want to do individual corners: Top outer, Top inner, Bottom outer, Bottom inner; where the hands use 1 finger each on mirrored sides of the trackpad (Does that make sense or do I need to clarify?) [If you can think of a clearer way to name these, feel free]
+* <I checked out 3-finger hold and I think you might need to clean it up how you did for 4-finger.>
+===
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 ===
 0. For our direction gestures there should be an behavior dropdown (repeat every ms, repeat with motion)

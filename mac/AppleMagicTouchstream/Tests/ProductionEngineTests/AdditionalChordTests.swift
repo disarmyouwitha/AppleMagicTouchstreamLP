@@ -156,6 +156,41 @@ final class AdditionalChordTests:XCTestCase {
         XCTAssertFalse(SinglePadCornersEngine.matches([corners[0],corners[0],corners[2],corners[3]]))
         XCTAssertFalse(SinglePadCornersEngine.matches([touch(1,.nan,0.1)]+Array(corners.dropFirst())))
     }
+    func testExpandedCornerTargetsShareBoundariesWithBothPadRecognition() {
+        for inset:Float in [0.20,0.23,0.25,0.251,0.5] {
+            let contacts = [touch(1,inset,inset),touch(2,inset,1-inset),
+                            touch(3,1-inset,inset),touch(4,1-inset,1-inset)]
+            let accepted = inset <= 0.25
+            XCTAssertEqual(SinglePadCornersEngine.matches(contacts),accepted)
+            let settings = TwoHandGestureSettings()
+            var both = TwoHandGestureEngine()
+            _ = both.process(leftHand:true,now:1,contacts:Array(contacts.prefix(2)),settings:settings)
+            let decision = both.process(leftHand:false,now:1.01,contacts:Array(contacts.suffix(2)),settings:settings)
+            XCTAssertEqual(decision.began,accepted)
+            if accepted {
+                var single = SinglePadCornersEngine()
+                XCTAssertTrue(single.process(now:1.01,contacts:contacts,settings:settings).began)
+                var singleOutput:[TwoHandTrigger] = [], bothOutput:[TwoHandTrigger] = []
+                for i in 1...6 {
+                    let now = 1.01+Double(i)*0.1
+                    if let t = single.process(now:now,contacts:contacts,settings:settings).trigger { singleOutput.append(t) }
+                    if let t = both.process(leftHand:true,now:now,contacts:Array(contacts.prefix(2)),settings:settings).trigger { bothOutput.append(t) }
+                    if let t = both.process(leftHand:false,now:now+0.001,contacts:Array(contacts.suffix(2)),settings:settings).trigger { bothOutput.append(t) }
+                }
+                XCTAssertEqual(singleOutput,[.init(chord:.fourCorners,phase:.hold)])
+                XCTAssertEqual(bothOutput,singleOutput)
+                _ = single.process(now:1.7,contacts:[OMSRawTouch](),settings:settings)
+                _ = both.process(leftHand:true,now:1.7,contacts:[OMSRawTouch](),settings:settings)
+                _ = both.process(leftHand:false,now:1.71,contacts:[OMSRawTouch](),settings:settings)
+                XCTAssertFalse(single.ownsCycle); XCTAssertFalse(both.ownsCycle)
+            }
+        }
+        XCTAssertNil(CornerGestureGeometry.corner(x:Double.nan,y:0))
+        XCTAssertNil(CornerGestureGeometry.corner(x:-0.01,y:0))
+        XCTAssertNil(CornerGestureGeometry.corner(x:0.9,y:1.01))
+        XCTAssertNil(CornerGestureGeometry.corner(x:0.5,y:0.1))
+        XCTAssertNil(CornerGestureGeometry.corner(x:0.1,y:0.5))
+    }
     func testCornerHoldFiresOnceWhileDownAndConsumesTap() {
         var engine = SinglePadCornersEngine(), fired = [TwoHandPhase]()
         let settings = cornerSettings()
