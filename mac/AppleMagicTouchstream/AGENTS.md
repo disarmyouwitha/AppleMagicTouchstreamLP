@@ -207,3 +207,10 @@ User authorized a Mirror Edit checkbox for Gesture editing. It uses the
 existing both-pad settings scope for subsequent edits, preserves differences on
 enable, and does not add coordinated two-pad recognition. This supersedes the
 Left/Right-only editing UI restriction; see GESTURE_ENGINE.md.
+
+User authorized a Movement cross editor GUI stage: center continuous action and
+four direction cards with mutually exclusive saved modes. Directions can save
+mouse/Apple shortcut/small-step volume/brightness actions, but direction recognition,
+dispatch and motion-based repeat remain unimplemented for a later pass. Mark that
+clearly. Directional mode suppresses that input's continuous output without erasing
+either mode's assignments. Preserve per-hand/Mirror Edit and keymap round-trips.

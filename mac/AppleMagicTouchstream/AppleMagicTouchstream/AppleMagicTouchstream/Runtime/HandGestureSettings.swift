@@ -160,10 +160,31 @@ struct ForceClickHapticSettings: Equatable, Codable, Sendable {
     }
 }
 
+enum GestureMovementMode: String, Codable, Sendable { case continuous, directional }
+enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Sendable {
+    case up, down, left, right
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+    var symbol: String { "arrow." + rawValue }
+}
+
+/// Saved editor configuration. Directional recognition/output is a later stage.
+struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
+    static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
+    static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
+    var mode: GestureMovementMode = .continuous
+    var actions: [String:GestureAction] = [:]
+    func action(_ direction:GestureMovementDirection) -> GestureAction {
+        let value = actions[direction.rawValue] ?? .disabled
+        return Self.allowedActions.contains(value) ? value : .disabled
+    }
+}
+
 struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var bindings = GestureActionBindings()
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
     var zoomSensitivity: Double?
+    var directionalMovement: [String:GestureDirectionalAssignments]?
     // Decode/round-trip prior experimental settings only. Live feedback uses .fixed.
     var forceHaptic: ForceClickHapticSettings?
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
@@ -185,6 +206,28 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
             let value = newValue.isFinite ? min(2,max(0.25,newValue)) : 1
             switch kind { case .pointer: pointerSensitivity = value; case .scroll: scrollSensitivity = value; case .zoom: zoomSensitivity = value }
         }
+    }
+    func movement(_ trigger:GestureTrigger) -> GestureDirectionalAssignments {
+        directionalMovement?[trigger.rawValue] ?? GestureDirectionalAssignments()
+    }
+    mutating func editMovement(_ trigger:GestureTrigger,mode:GestureMovementMode,
+                               direction:GestureMovementDirection? = nil,action:GestureAction? = nil) {
+        guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
+        var editor = movement(trigger)
+        if let direction, let action {
+            guard GestureDirectionalAssignments.allowedActions.contains(action) else { return }
+            editor.actions[direction.rawValue] = action
+        }
+        editor.mode = mode
+        if directionalMovement == nil { directionalMovement = [:] }
+        directionalMovement?[trigger.rawValue] = editor
+    }
+    var outputSettings: Self {
+        var result = self
+        for trigger in GestureDirectionalAssignments.triggers where movement(trigger).mode == .directional {
+            result.bindings[trigger] = .disabled
+        }
+        return result
     }
     mutating func normalize() {
         for trigger in GestureTrigger.allCases where bindings[trigger] != bindings.action(for:trigger) {
@@ -218,6 +261,19 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         if scope != .left { right.bindings[trigger] = action }
         return true
     }
+    func movementMode(_ trigger:GestureTrigger,in scope:GestureHandScope) -> GestureMovementMode? {
+        let a = left.movement(trigger).mode, b = right.movement(trigger).mode
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    func directionalAction(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> GestureAction? {
+        let a = left.movement(trigger).action(direction), b = right.movement(trigger).action(direction)
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func editMovement(_ trigger:GestureTrigger,mode:GestureMovementMode,
+                               direction:GestureMovementDirection? = nil,action:GestureAction? = nil,in scope:GestureHandScope) {
+        if scope != .right { left.editMovement(trigger,mode:mode,direction:direction,action:action) }
+        if scope != .left { right.editMovement(trigger,mode:mode,direction:direction,action:action) }
+    }
     func enabled(_ feature: GestureTrigger, in scope: GestureHandScope) -> Bool? {
         switch scope {
         case .left: return left[feature]; case .right: return right[feature]
@@ -240,6 +296,7 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         if scope != .left { right[kind] = value }
     }
     func routed(to pads: GestureSelectedPads) -> [UInt64:PerHandGestureSettings] {
+        let left = self.left.outputSettings, right = self.right.outputSettings
         var result: [UInt64:PerHandGestureSettings] = [:]
         if let id = pads.left { result[id] = left }
         if let id = pads.right {

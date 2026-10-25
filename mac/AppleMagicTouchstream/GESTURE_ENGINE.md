@@ -585,3 +585,26 @@ broadcasts coalesced revisions on its delivery queue, outside the input path and
 outside its subscriber lock. Input, recognition, takeover and snapshots continue
 through tab switches. Offline tests reproduce cancellation/re-attach and overlapping
 old/new subscribers; both failed against the previous single reusable AsyncStream.
+
+### Movement cross editor: GUI stage
+
+Two-, three- and four-finger movement use Up/Down/Left/Right cards around a center
+Movement card. Continuous and Directional are mutually exclusive modes per input
+and per hand. Active mode uses an accent tint; inactive cards are muted but remain
+clickable to switch. Tap and Force Click remain separate below the cross.
+
+Selecting an outer card selects directional mode; selecting the center restores
+continuous mode. Choosing a direction's Action also selects directional mode.
+Bindings in both modes are preserved. Directional actions allow None, mouse clicks,
+Apple shortcut actions and small-step volume/brightness controls. Mirror Edit
+updates both hands and displays Mixed for different modes or assignments.
+
+This pass saves the editor only: direction detection, dispatch and motion-based
+repeat are not implemented. Directional mode suppresses only that input's continuous
+output in the routed configuration, while retaining its original saved binding.
+The editor explicitly states that directional output is unavailable. Other gesture
+inputs remain unchanged. No new GestureTrigger values or recognition paths exist.
+
+Optional per-hand directionalMovement fields round-trip in existing gesture/keymap
+settings. Old profiles default to Continuous. Tests cover persistence, mirrored
+editing, mode switching without data loss, allowed actions and inactive-output gates.

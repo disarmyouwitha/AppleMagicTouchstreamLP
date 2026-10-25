@@ -406,7 +406,9 @@ struct GestureInspectorPanel: View {
         GestureAssignmentWorkspace(settings:controller.settings,
             status:{controller.status($0,scope:$1)},
             apply:{controller.setAction($0,for:$1,scope:$2)},
-            setSensitivity:{controller.setSensitivity($0,kind:$1,scope:$2)})
+            setSensitivity:{controller.setSensitivity($0,kind:$1,scope:$2)},
+            setMovementMode:{controller.setMovementMode($0,for:$1,scope:$2)},
+            setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)})
     }
 }
 
@@ -416,6 +418,9 @@ struct GestureAssignmentWorkspace: View {
     let status: (GestureTrigger,GestureHandScope) -> String
     let apply: (GestureAction,GestureTrigger,GestureHandScope) -> Void
     let setSensitivity: (Double,GestureSensitivity,GestureHandScope) -> Void
+    let setMovementMode: (GestureMovementMode,GestureTrigger,GestureHandScope) -> Void
+    let setDirectionalAction: (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
+    @State private var selectedDirection: GestureMovementDirection?
     @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
     @State private var pane: GesturePane
@@ -425,11 +430,16 @@ struct GestureAssignmentWorkspace: View {
     @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
+         initialDirection:GestureMovementDirection? = nil,
          status:@escaping (GestureTrigger,GestureHandScope)->String,
          apply:@escaping (GestureAction,GestureTrigger,GestureHandScope)->Void,
-         setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void) {
+         setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void,
+         setMovementMode:@escaping (GestureMovementMode,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
+         setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
+        self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         _pane = State(initialValue:initialPane)
+        _selectedDirection = State(initialValue:initialDirection)
         _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
     }
 
@@ -458,7 +468,7 @@ struct GestureAssignmentWorkspace: View {
                         header
                         Divider()
                         assignments
-                        lifecycle
+                        if selectedDirection == nil { lifecycle }
                         Text("Choose a card to edit its action. Changes apply to \(targetText).")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                     }
@@ -513,7 +523,7 @@ struct GestureAssignmentWorkspace: View {
                     }
                 }
             }
-            Text("\(scopeText) settings\nOnly available gestures are shown.")
+            Text("\(scopeText) settings\nDirectional assignments are a preview.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
         .padding(16)
@@ -523,6 +533,7 @@ struct GestureAssignmentWorkspace: View {
     private func navigationItem(_ item:GesturePane) -> some View {
         Button {
             pane = item
+            selectedDirection = nil
             selected = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
         } label: {
             HStack(alignment:.top,spacing:8) {
@@ -578,16 +589,69 @@ struct GestureAssignmentWorkspace: View {
                     ForEach(pane.triggers) { assignmentCard($0) }
                 }
             } else {
-                ForEach(pane.triggers.filter { $0.isContinuous }) { assignmentCard($0) }
+                ForEach(pane.triggers.filter { $0.isContinuous }) { movementCross($0) }
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers.filter { !$0.isContinuous }) { assignmentCard($0) }
                 }
             }
         }
     }
+    private func movementCross(_ trigger:GestureTrigger) -> some View {
+        let mode = settings.movementMode(trigger,in:editingScope)
+        return VStack(alignment:.leading,spacing:10) {
+            Text("Use continuous movement or separate directional actions.")
+                .font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
+                Color.clear.frame(height:1)
+                movementCard(trigger,direction:.up)
+                Color.clear.frame(height:1)
+                movementCard(trigger,direction:.left)
+                movementCard(trigger,direction:nil)
+                movementCard(trigger,direction:.right)
+                Color.clear.frame(height:1)
+                movementCard(trigger,direction:.down)
+                Color.clear.frame(height:1)
+            }
+            if mode != .continuous {
+                Text(mode == nil ? "Mixed modes. Directional output is not implemented yet." : "Directional mode: assignments save, but output is not implemented yet. Continuous movement is inactive.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+        }
+    }
+
+    private func movementCard(_ trigger:GestureTrigger,direction:GestureMovementDirection?) -> some View {
+        let mode = settings.movementMode(trigger,in:editingScope)
+        let targetMode: GestureMovementMode = direction == nil ? .continuous : .directional
+        let active = mode == targetMode
+        let isSelected = selected == trigger && selectedDirection == direction
+        let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
+        let title = direction.map { "Move " + $0.title } ?? "Movement"
+        return Button {
+            selected = trigger; selectedDirection = direction
+            if mode != targetMode { setMovementMode(targetMode,trigger,editingScope) }
+        } label: {
+            VStack(alignment:.leading,spacing:8) {
+                Label(title,systemImage:direction?.symbol ?? "arrow.up.and.down.and.arrow.left.and.right")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(assigned?.title ?? "Mixed").font(.system(size:16,weight:.medium))
+                    .fixedSize(horizontal:false,vertical:true)
+                Text(active ? (direction == nil ? "Continuous" : "Output coming later") : "Inactive · click to switch")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            .padding(12).frame(maxWidth:.infinity,minHeight:106,alignment:.topLeading)
+            .opacity(active ? 1 : 0.5)
+            .background(active ? Color.accentColor.opacity(0.07) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:10))
+            .overlay(RoundedRectangle(cornerRadius:10).stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:isSelected ? 2 : 1))
+            .contentShape(RoundedRectangle(cornerRadius:10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), \(assigned?.title ?? "Mixed"), \(active ? "active mode" : "inactive mode")")
+        .accessibilityHint("Select to edit and switch movement mode.")
+    }
+
     private func assignmentCard(_ trigger:GestureTrigger) -> some View {
         let assigned = settings.action(trigger,in:editingScope)
-        return Button { selected = trigger } label: {
+        return Button { selected = trigger; selectedDirection = nil } label: {
             VStack(alignment:.leading,spacing:10) {
                 HStack {
                     Image(systemName:trigger.assignmentSymbol).foregroundStyle(.secondary)
@@ -631,31 +695,35 @@ struct GestureAssignmentWorkspace: View {
             VStack(alignment:.leading,spacing:20) {
                 VStack(alignment:.leading,spacing:8) {
                     Text("SELECTED ASSIGNMENT").font(.caption2).fontWeight(.medium).foregroundStyle(.secondary)
-                    Text(selected.assignmentTitle).font(.title3).bold()
+                    Text(selectedDirection.map { "Move " + $0.title } ?? selected.assignmentTitle).font(.title3).bold()
                     Text("\(pane.group) · \(scopeText)").font(.caption).foregroundStyle(.secondary)
                 }
-                GestureActionPickerRow(trigger:selected,value:action,
-                    leftAction:settings.left.bindings.action(for:selected),
-                    rightAction:settings.right.bindings.action(for:selected),
-                    status:status(selected,editingScope),showsStatus:true) { value in
-                        apply(value,selected,editingScope)
+                if let direction = selectedDirection {
+                    directionalInspector(direction)
+                } else {
+                    GestureActionPickerRow(trigger:selected,value:action,
+                        leftAction:settings.left.bindings.action(for:selected),
+                        rightAction:settings.right.bindings.action(for:selected),
+                        status:status(selected,editingScope),showsStatus:true) { value in
+                            apply(value,selected,editingScope)
+                        }
+                    Divider()
+                    VStack(alignment:.leading,spacing:8) {
+                        Text("Behavior").font(.caption).foregroundStyle(.secondary)
+                        Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
+                        Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                     }
-                Divider()
-                VStack(alignment:.leading,spacing:8) {
-                    Text("Behavior").font(.caption).foregroundStyle(.secondary)
-                    Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
-                    Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    if let action {
+                        if action.requiresPointerProfile { sensitivity("Pointer sensitivity",kind:.pointer) }
+                        if action == .scroll { sensitivity("Scroll sensitivity",kind:.scroll) }
+                        if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
+                    }
+                    VStack(alignment:.leading,spacing:10) {
+                        Text("Recognition").font(.callout).fontWeight(.medium)
+                        Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    }
+                    .padding(14).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:9))
                 }
-                if let action {
-                    if action.requiresPointerProfile { sensitivity("Pointer sensitivity",kind:.pointer) }
-                    if action == .scroll { sensitivity("Scroll sensitivity",kind:.scroll) }
-                    if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
-                }
-                VStack(alignment:.leading,spacing:10) {
-                    Text("Recognition").font(.callout).fontWeight(.medium)
-                    Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                }
-                .padding(14).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:9))
                 Text("Changes save automatically and are included in keymap exports.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
@@ -663,6 +731,31 @@ struct GestureAssignmentWorkspace: View {
         }
         .background(Color.primary.opacity(0.025))
     }
+    private func directionalInspector(_ direction:GestureMovementDirection) -> some View {
+        let value = settings.directionalAction(direction,for:selected,in:editingScope)
+        return VStack(alignment:.leading,spacing:14) {
+            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
+                if let action { setDirectionalAction(action,direction,selected,editingScope) }
+            })) {
+                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
+                ForEach(GestureDirectionalAssignments.allowedActions) { action in
+                    Text(action.title).tag(Optional(action))
+                }
+            }
+            .pickerStyle(.menu)
+            if value == nil {
+                Text("Left: \(settings.left.movement(selected).action(direction).title) · Right: \(settings.right.movement(selected).action(direction).title)")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            Text("Directional output is not implemented yet.")
+                .font(.callout).fontWeight(.medium)
+            Text("This assignment is saved for the next gesture-engine stage. Direction detection and motion-based repeat will be added later. Continuous movement is inactive in directional mode.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+
     private var behaviorDetail:String {
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
         if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }

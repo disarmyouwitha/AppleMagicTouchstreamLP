@@ -41,6 +41,9 @@ final class TrackpadGestureController: ObservableObject {
         guard trigger.allowedActions.contains(action) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.setAction(action, for: trigger, in: scope)
+        if GestureDirectionalAssignments.triggers.contains(trigger) {
+            settings.editMovement(trigger,mode:.continuous,in:scope)
+        }
         settings.save(to: .standard)
         if action != .disabled {
             reloadProfiles()
@@ -48,6 +51,23 @@ final class TrackpadGestureController: ObservableObject {
                 _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             }
         }
+        configure()
+    }
+
+    func setMovementMode(_ mode:GestureMovementMode,for trigger:GestureTrigger,scope:GestureHandScope) {
+        guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.editMovement(trigger,mode:mode,in:scope)
+        settings.save(to:.standard)
+        configure()
+    }
+
+    func setDirectionalAction(_ action:GestureAction,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
+        guard GestureDirectionalAssignments.allowedActions.contains(action),
+              GestureDirectionalAssignments.triggers.contains(trigger) else { return }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.editMovement(trigger,mode:.directional,direction:direction,action:action,in:scope)
+        settings.save(to:.standard)
         configure()
     }
 
@@ -71,6 +91,10 @@ final class TrackpadGestureController: ObservableObject {
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
         func hand(_ side: GestureHandScope) -> String {
+            if GestureDirectionalAssignments.triggers.contains(trigger),
+               settings.movementMode(trigger,in:side) == .directional {
+                return "Directional mode: output not implemented yet."
+            }
             let action = settings.action(trigger, in: side) ?? .disabled
             guard action != .disabled else { return "None" }
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
