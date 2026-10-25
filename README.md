@@ -1,6 +1,21 @@
 # Apple Magic TouchstreamLP
 
-## Mac: **(Packaged with signed .DMG)**
+<img src="pics/AMT.jpg" />
+
+## Usage
+### I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/">Releases</a>!
+
+**Useful Tips:**
+- **TURN ON** "Trackpad Takeover" / "Mouse Takeover": 
+This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse + Gestures) this option takes full control of the mouse from the OS to enforce this. You can set Gestures such as Scroll, Zoom, etc in the Gestures menu to replace your OS-level gestures.
+
+**You can use just 1 Trackpad!**
+- I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit to two!
+- There is also a "Blank" mode where you can just use it as a Trackpad + Gestures + Custom buttons
+
+<hr>
+
+- ## Mac: **(Packaged with signed .DMG)**
 - Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
 
 *The app will ask for elevated permissions on first run*
@@ -10,42 +25,9 @@
 
 ## Windows: **(*PREREQUISITE INSTALL)**
 - Supports both the Official Apple Bootcamp drivers and Opensource drivers!
-- **Please follow the <a href="windows_linux/GlassToKey.Windows/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
+- **Please follow the <a href="windows_linux/GlassToKey.Windows/IN.STALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
-
-<hr>
-
-## Usage
-### I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Releases</a>!
-
-It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
-
-**TaskBar Indicators:** (You may need to expand it and drag it out on Windows)<br>
-**Green** 🟢: Mixed mode<br>
-**Purple**🟣: Keyboard mode (clicking disabled)<br>
-**Red** &nbsp;&nbsp;&nbsp;🔴: Mouse mode (typing disabled)<br>
-Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restart, and Exit.
-
-**Useful Tips:**
-- I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
-- In Keyboard mode Mouse clicks are disabled.
-- 5-finger left/right swipes will toggle Typing Mode on/off!
-- You can assign Shift to Hold gestures so holding it on 1 side will shift characters on the other side!
-- If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
-
-**You can use just 1 Trackpad!**
-- I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit to two! Just set your AMT to one side and next time you want to type just don't move your hand from the mouse~
-- There is also a "Blank" mode where you can just use it as a Trackpad + Gestures + Custom buttons
-- There is also a "Planck" mode where all 12x4 are on 1 trackpad xD (It's terrible)
-
-**Windows/Linux Haptics:**
-- Working over USB!!!
-- **~I do not see a path forward for Bluetooth Haptics outside of Mac!~**
-
-## GESTURES:
-- I have been adding Gestures that you can set in the Gesture Tuning config!
-- I am open to adding Gestures/Actions - just add a comment to issue https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/issues/16 with your idea or a .atpcap capture!
 
 <hr>
 
@@ -65,6 +47,4 @@ Since it is built on the same technology, I thought it would be fun to try and c
 
 **Special thank you to @FRANF23 and @InternOne1306 for being my very early adopters and helping me test!!**
 
-## macOS projects
-
-See [macOS build commands and research](mac/README.md) for AppleMagicTouchstream.
+**Special thank you to @karacodes for the inspiration and motivation to revisit this project!**
