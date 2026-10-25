@@ -16,7 +16,7 @@ final class DirectionalMovementTests: XCTestCase {
         GestureSessionUpdate(gesture:gesture,phase:phase,millimetres:delta,cancellation:nil)
     }
     func testAllDirectionsRequireTravelAndRejectDiagonalAmbiguity() {
-        for (delta,direction) in [(CGPoint(x:0,y:-1),GestureMovementDirection.up),(.init(x:0,y:1),.down),(.init(x:-1,y:0),.left),(.init(x:1,y:0),.right)] {
+        for (delta,direction) in [(CGPoint(x:0,y:-0.4),GestureMovementDirection.up),(.init(x:0,y:0.4),.down),(.init(x:-0.4,y:0),.left),(.init(x:0.4,y:0),.right)] {
             var stepper = GestureDirectionalStepper()
             XCTAssertNil(stepper.process(device:1,time:1,update:update(delta,.began),assignments:config()))
             XCTAssertEqual(stepper.process(device:1,time:1.01,update:update(delta),assignments:config()),direction)
@@ -26,18 +26,71 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertNil(stepper.process(device:1,time:1.01,update:update(.zero),assignments:config()))
         XCTAssertEqual(stepper.process(device:1,time:1.02,update:update(.init(x:2,y:0)),assignments:config()),.right)
     }
-    func testRepeatRequiresMotionAndDistanceWithNoStationaryCatchUp() {
-        var stepper = GestureDirectionalStepper()
-        XCTAssertEqual(stepper.process(device:1,time:1,update:update(.init(x:0,y:-2),.began),assignments:config()),.up)
-        // A fast stroke cannot create a burst or a timer-driven event later.
-        XCTAssertNil(stepper.process(device:1,time:1.01,update:update(.init(x:0,y:-20)),assignments:config()))
-        for i in 2...40 {
-            XCTAssertNil(stepper.process(device:1,time:1+Double(i)*0.01,update:update(.zero),assignments:config()))
+    func testHeldRepeatUsesTimeWhileStationaryAndNeverCatchesUp() {
+        var stepper = GestureDirectionalStepper(), repeater = GestureDirectionalRepeater()
+        XCTAssertEqual(stepper.process(device:1,time:1000,update:update(.init(x:0,y:-0.8),.began),assignments:config()),.up)
+        // Native timestamps and host timer timestamps intentionally have different epochs.
+        repeater.refresh(device:1,direction:stepper.direction(device:1),intervalMS:100,now:1)
+        XCTAssertNil(repeater.tick(device:1,now:1.09))
+        XCTAssertNil(stepper.process(device:1,time:1000.05,update:update(.zero),assignments:config()))
+        repeater.refresh(device:1,direction:stepper.direction(device:1),intervalMS:100,now:1.05)
+        XCTAssertEqual(repeater.tick(device:1,now:1.101),.up)
+        XCTAssertNil(repeater.tick(device:1,now:1.102))
+        repeater.refresh(device:1,direction:.up,intervalMS:100,now:1.19)
+        XCTAssertEqual(repeater.tick(device:1,now:1.30),.up)
+        XCTAssertNil(repeater.tick(device:1,now:1.301)) // No overdue burst.
+        XCTAssertNil(repeater.tick(device:1,now:1.5)) // Lost input cancels repeat.
+        XCTAssertNil(repeater.tick(device:1,now:1.6))
+    }
+    func testTimedRepeatTurnsReleaseAndIndependentDevices() {
+        var repeater = GestureDirectionalRepeater()
+        repeater.refresh(device:1,direction:.up,intervalMS:100,now:1)
+        repeater.refresh(device:2,direction:.left,intervalMS:150,now:1)
+        repeater.refresh(device:1,direction:.down,intervalMS:50,now:1.08)
+        XCTAssertNil(repeater.tick(device:1,now:1.11))
+        XCTAssertEqual(repeater.tick(device:1,now:1.14),.down)
+        XCTAssertEqual(repeater.tick(device:2,now:1.16),.left)
+        repeater.refresh(device:1,direction:nil,intervalMS:50,now:1.15)
+        XCTAssertNil(repeater.tick(device:1,now:1.2))
+        repeater.refresh(device:2,direction:.left,intervalMS:0,now:1.17)
+        XCTAssertNil(repeater.tick(device:2,now:1.32))
+        repeater.refresh(device:1,direction:.right,intervalMS:100,now:2)
+        repeater.reset(device:1)
+        XCTAssertNil(repeater.tick(device:1,now:2.1))
+        repeater.refresh(device:1,direction:.right,intervalMS:100,now:3)
+        repeater.reset()
+        XCTAssertNil(repeater.tick(device:1,now:3.1))
+    }
+    func testLongIntervalKeepsItsDeadlineAcrossStationaryFrames() {
+        var repeater = GestureDirectionalRepeater()
+        repeater.refresh(device:1,direction:.right,intervalMS:5000,now:1)
+        for i in 1...49 {
+            let now = 1+Double(i)*0.1
+            repeater.refresh(device:1,direction:.right,intervalMS:5000,now:now)
+            XCTAssertNil(repeater.tick(device:1,now:now))
         }
-        XCTAssertEqual(stepper.process(device:1,time:1.41,update:update(.init(x:0,y:-0.1)),assignments:config()),.up)
-        XCTAssertNil(stepper.process(device:1,time:1.42,update:update(.init(x:0,y:-0.1)),assignments:config()))
-        XCTAssertNil(stepper.process(device:1,time:1.50,update:update(.init(x:0,y:-2.7)),assignments:config()))
-        XCTAssertEqual(stepper.process(device:1,time:1.51,update:update(.init(x:0,y:-0.3)),assignments:config()),.up)
+        repeater.refresh(device:1,direction:.right,intervalMS:5000,now:6)
+        XCTAssertEqual(repeater.tick(device:1,now:6.001),.right)
+        repeater.refresh(device:1,direction:.right,intervalMS:Double.nan,now:6.01)
+        XCTAssertNil(repeater.tick(device:1,now:6.1))
+    }
+    func testIntervalBoundsMigrationAndMirrorPersistence() throws {
+        XCTAssertEqual(config().repeatIntervalMS(.up),100)
+        XCTAssertEqual(config(repeat:false).repeatIntervalMS(.up),0)
+        XCTAssertEqual(config(repeat:true).repeatIntervalMS(.up),100)
+        for (input,expected) in [(Double.nan,0.0),(.infinity,0),(-1,0),(0,0),(1,20),(250.4,250),(9000,5000)] {
+            XCTAssertEqual(GestureDirectionalAssignments.boundedIntervalMS(input),expected)
+        }
+        var settings = HandGestureSettings()
+        settings.setDirectionalRepeatInterval(250,direction:.up,for:.threeFingerMove,in:.both)
+        XCTAssertEqual(settings.directionalRepeatInterval(.up,for:.threeFingerMove,in:.both),250)
+        settings.setDirectionalRepeatInterval(0,direction:.up,for:.threeFingerMove,in:.left)
+        XCTAssertNil(settings.directionalRepeatInterval(.up,for:.threeFingerMove,in:.both))
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+        let legacy = try JSONDecoder().decode(GestureDirectionalAssignments.self,from:Data(#"{"mode":"directional","actions":{},"repeatOverrides":{"up":true,"down":false}}"#.utf8))
+        XCTAssertEqual(legacy.repeatIntervalMS(.up),100)
+        XCTAssertEqual(legacy.repeatIntervalMS(.down),0)
     }
     func testRepeatOffAndDeliberateReversalOrTurn() {
         var stepper = GestureDirectionalStepper()
@@ -71,7 +124,7 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(stepper.process(device:1,time:1,update:update(.init(x:2,y:0),.began),assignments:config()),.right)
         XCTAssertEqual(stepper.process(device:2,time:1,update:update(.init(x:0,y:-2),.began),assignments:config()),.up)
         stepper.reset(device:1)
-        XCTAssertEqual(stepper.process(device:2,time:1.1,update:update(.init(x:0,y:-3.1)),assignments:config()),.up)
+        XCTAssertNil(stepper.process(device:2,time:1.1,update:update(.init(x:0,y:-3.1)),assignments:config()))
         var settings = HandGestureSettings()
         settings.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall,in:.both)
         XCTAssertEqual(settings.directionalRepeats(.up,for:.threeFingerMove,in:.both),true)
@@ -106,7 +159,8 @@ final class DirectionalMovementTests: XCTestCase {
             XCTAssertNil(stepper.process(device:1,time:time,update:changed,assignments:assignments))
         }
         let repeated = router.recognize(device:1,time:1.11,contacts:touches(1,dy:0.08),enabled:enabled)
-        XCTAssertEqual(stepper.process(device:1,time:1.11,update:repeated,assignments:assignments),.up)
+        XCTAssertNil(stepper.process(device:1,time:1.11,update:repeated,assignments:assignments))
+        XCTAssertEqual(stepper.direction(device:1),.up)
         let ended = router.recognize(device:1,time:1.12,contacts:touches(0),enabled:enabled)
         XCTAssertEqual(ended.phase,.ended)
         XCTAssertNil(stepper.process(device:1,time:1.12,update:ended,assignments:assignments))

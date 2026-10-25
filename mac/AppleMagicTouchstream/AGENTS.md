@@ -221,6 +221,9 @@ with movement checkbox, default on for volume/brightness and off for other actio
 This supersedes the GUI-only policy for three fingers only; two/four directions
 remain saved-only. Reuse shared gesture ownership and all-up latching, preserve
 pinch/force/tap arbitration and keyboard reservation/established-MO priority, and
-keep all selected/owned/armed/AX/live-only gates. Motion drives repeats; no held-
-still timer or unbalanced key/button output. See GESTURE_ENGINE.md for provisional
+keep all selected/owned/armed/AX/live-only gates. User now authorizes a per-direction
+millisecond repeat field (0 off, 20–5000 ms positive), including stationary held
+repeats through the existing shared timer, with 200 ms stale-input cancellation,
+no catch-up bursts and balanced key/button output. Activation/turn threshold is
+now provisionally 0.75 mm; preserve shared tap/movement arbitration. See GESTURE_ENGINE.md for provisional
 thresholds and testing. Build/install signed Release, leave closed for hardware tests.

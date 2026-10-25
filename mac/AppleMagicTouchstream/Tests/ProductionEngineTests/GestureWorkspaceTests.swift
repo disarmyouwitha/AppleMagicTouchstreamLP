@@ -55,7 +55,7 @@ final class GestureWorkspaceTests: XCTestCase {
                             setSensitivity:{_,_,_ in XCTFail("Rendering must not change sensitivity")},
                             setMovementMode:{_,_,_ in XCTFail("Rendering must not switch modes")},
                             setDirectionalAction:{_,_,_,_ in XCTFail("Rendering must not assign directions")},
-                            setDirectionalRepeat:{_,_,_,_ in XCTFail("Rendering must not change repeat")})
+                            setDirectionalRepeatInterval:{_,_,_,_ in XCTFail("Rendering must not change repeat")})
                             .defaultAppStorage(defaults)
                             .frame(width:viewportWidth,height:650)
                         // ImageRenderer omits native scroll views/controls on macOS. Render an

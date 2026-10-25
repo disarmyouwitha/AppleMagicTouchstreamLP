@@ -174,9 +174,18 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]
-    var repeatOverrides: [String:Bool]?
+    var repeatOverrides: [String:Bool]? // Decode compatibility with the original checkbox.
+    var repeatIntervalsMS: [String:Double]?
+    static func boundedIntervalMS(_ value:Double) -> Double {
+        guard value.isFinite, value > 0 else { return 0 }
+        return min(5000,max(20,value.rounded()))
+    }
+    func repeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
+        if let value = repeatIntervalsMS?[direction.rawValue] { return Self.boundedIntervalMS(value) }
+        return (repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))) ? 100 : 0
+    }
     func repeats(_ direction:GestureMovementDirection) -> Bool {
-        repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))
+        repeatIntervalMS(direction) > 0
     }
     func action(_ direction:GestureMovementDirection) -> GestureAction {
         let value = actions[direction.rawValue] ?? .disabled
@@ -227,10 +236,13 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         directionalMovement?[trigger.rawValue] = editor
     }
     mutating func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger) {
+        setDirectionalRepeatInterval(enabled ? 100 : 0,direction:direction,for:trigger)
+    }
+    mutating func setDirectionalRepeatInterval(_ milliseconds:Double,direction:GestureMovementDirection,for trigger:GestureTrigger) {
         guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         var editor = movement(trigger)
-        if editor.repeatOverrides == nil { editor.repeatOverrides = [:] }
-        editor.repeatOverrides?[direction.rawValue] = enabled
+        if editor.repeatIntervalsMS == nil { editor.repeatIntervalsMS = [:] }
+        editor.repeatIntervalsMS?[direction.rawValue] = GestureDirectionalAssignments.boundedIntervalMS(milliseconds)
         if directionalMovement == nil { directionalMovement = [:] }
         directionalMovement?[trigger.rawValue] = editor
     }
@@ -280,6 +292,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     func directionalAction(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> GestureAction? {
         let a = left.movement(trigger).action(direction), b = right.movement(trigger).action(direction)
         return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    func directionalRepeatInterval(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> Double? {
+        let a = left.movement(trigger).repeatIntervalMS(direction), b = right.movement(trigger).repeatIntervalMS(direction)
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func setDirectionalRepeatInterval(_ milliseconds:Double,direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) {
+        if scope != .right { left.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
+        if scope != .left { right.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
     }
     func directionalRepeats(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> Bool? {
         let a = left.movement(trigger).repeats(direction), b = right.movement(trigger).repeats(direction)

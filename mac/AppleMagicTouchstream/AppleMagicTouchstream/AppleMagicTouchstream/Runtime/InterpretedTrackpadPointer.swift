@@ -50,6 +50,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var router = TrackpadGestureRouter()
         var directionals: [UInt64:GestureDirectionalAssignments] = [:]
         var directionalStepper = GestureDirectionalStepper()
+        var directionalRepeater = GestureDirectionalRepeater()
+        var needsDirectionalTimer:Bool { !directionals.isEmpty }
         var bindings: [UInt64:GestureActionBindings] = [:]
         var appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
@@ -137,7 +139,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
-            router.reset(device:device); directionalStepper.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
+            router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
             keyboardChordDevices.removeAll(keepingCapacity:true)
@@ -145,7 +147,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
             forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); clicks.reset()
-            router.reset(); directionalStepper.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
+            router.reset(); directionalStepper.reset(); directionalRepeater.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
         var postedEvents: UInt64 = 0
@@ -183,7 +185,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !state.needsDragObserver {
                 state.buttonObserver?.stop(); state.buttonObserver = nil; state.buttonObserverHealthy = false
             }
-            if !state.needsScrollTimer && !state.needsDragObserver && !state.needsZoomTimer { state.momentumTimer?.cancel(); state.momentumTimer = nil }
+            if !state.needsScrollTimer && !state.needsDragObserver && !state.needsZoomTimer && !state.needsDirectionalTimer { state.momentumTimer?.cancel(); state.momentumTimer = nil }
         }
     }
     func enable(devices: Set<UInt64>) {
@@ -218,7 +220,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     CGEvent.tapEnable(tap:tap,enable:true)
                 } else if let tap { CFMachPortInvalidate(tap) }
             }
-            if (state.needsScrollTimer || state.needsDragObserver || state.needsZoomTimer) && state.momentumTimer == nil {
+            if (state.needsScrollTimer || state.needsDragObserver || state.needsZoomTimer || state.needsDirectionalTimer) && state.momentumTimer == nil {
                 let timer = DispatchSource.makeTimerSource(queue:momentumQueue)
                 timer.schedule(deadline:.now()+0.008333,repeating:.nanoseconds(8_333_333),leeway:.milliseconds(1))
                 timer.setEventHandler { [weak self] in self?.tickMomentum() }
@@ -239,6 +241,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             for device in state.devices where state.zoomOutputs[device]?.active == true {
                 if now - (state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device) }
+            }
+            for device in state.devices where state.directionalStepper.direction(device:device) != nil {
+                if let owner = state.drag.owner, owner != device { state.reset(device:device); continue }
+                if now-(state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device); continue }
+                if let direction = state.directionalRepeater.tick(device:device,now:now),
+                   let assignments = state.directionals[device] {
+                    state.postDirectional(assignments.action(direction),device:device,time:now)
+                }
             }
             for device in state.devices where state.bindings[device]?.uses(.scroll) == true {
                 guard let step = state.momentum[device]?.advance(hostTime:now) else { continue }
@@ -370,7 +380,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if state.forceClicks.claimed(device:device) {
                 state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                state.router.reset(device:device); state.directionalStepper.reset(device:device); state.tracker.reset(device:device)
+                state.router.reset(device:device); state.directionalStepper.reset(device:device); state.directionalRepeater.reset(device:device); state.tracker.reset(device:device)
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
@@ -401,12 +411,17 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 }
                 state.finishScroll(device:device,cancelled:true)
                 state.tracker.reset(device:device)
+                if update.phase == .began { state.directionalRepeater.reset(device:device) }
                 if let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments) {
                     state.postDirectional(assignments.action(direction),device:device,time:hostTime)
                 }
+                let heldDirection = state.directionalStepper.direction(device:device)
+                state.directionalRepeater.refresh(device:device,direction:heldDirection,
+                    intervalMS:heldDirection.map { assignments.repeatIntervalMS($0) } ?? 0,now:hostTime)
                 return nil
             }
             // A different owner/discontinuity cannot retain directional progress.
+            state.directionalRepeater.reset(device:device)
             state.directionalStepper.reset(device:device)
             if let gesture = update.gesture, state.action(gesture,device:device).isAppleShortcut {
                 if allUp {

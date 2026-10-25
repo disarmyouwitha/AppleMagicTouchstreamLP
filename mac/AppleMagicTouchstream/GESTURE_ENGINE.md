@@ -631,21 +631,27 @@ Defaults do not change any assignments or activate directional mode automaticall
 
 The existing row/arched-three-fingertip router owns the gesture and latches through
 added/lifted contacts until all-up. Pinch/spread and force-click arbitration remain
-in place. After ownership, a pure per-device stepper needs 1.5 mm on a dominant
-axis (1.25 ratio) to emit a direction. Deliberate turns/reversals need 1.5 mm in
+in place. After ownership, a pure per-device stepper needs 0.75 mm on a dominant
+axis (1.25 ratio) to emit a direction. Deliberate turns/reversals need 0.75 mm in
 the new direction; small jitter does not switch it. Screen-space up is negative Y.
 These thresholds are provisional for hardware testing.
 
-Each direction has a saved Repeat with movement checkbox, including Mirror Edit
-and Mixed states. Missing overrides default on for small-step volume/brightness,
-off for clicks/Apple shortcuts/None. Explicit overrides survive action changes
-and keymap export/import. The GUI can save repeat choices for two/four fingers,
-but those directional outputs remain unavailable for now.
+Each direction has a saved millisecond interval field (repeat icon), including
+Mirror Edit and Mixed states. Zero disables repeat; positive values are bounded
+to 20–5000 ms. Missing settings default to 100 ms for small-step volume/brightness,
+zero for other actions. Old checkbox true/false decodes as 100/0 ms. Explicit
+intervals survive action changes and keymap export/import. Two/four-finger
+intervals remain saved-only, matching their directional assignments.
 
-Repeat spends 3 mm of additional forward motion per step, capped at one output
-per frame and 80 ms between outputs. Holding still never emits, including after
-a fast stroke; residual distance is bounded to prevent catch-up bursts. Repeat
-off emits once per directional activation (a deliberate turn can activate again).
+The first action fires when the direction activates. A host-clock scheduler then
+repeats at the selected interval while the same latched chord remains held, even
+when stationary. A deliberate direction change emits immediately (subject to the
+existing 80 ms direction-change guard) and starts the new direction's interval.
+At most one event is emitted per timer tick; missed ticks never cause catch-up
+bursts. The existing 120 Hz timer services repeats alongside momentum/watchdogs,
+so intervals are approximate. Native frame timestamps never enter repeat timing.
+0.75 mm is a provisional responsiveness threshold, not a tap minimum: the shared
+router already arbitrates movement ownership at 0.35 mm. Preserve that arbitration.
 Each click/shortcut dispatch uses balanced one-shot output; no directional mouse
 button or key is held. Dock actions use the existing cached native dispatch plan.
 
@@ -654,10 +660,10 @@ candidates reserve typing even when output permission is missing; an active owne
 cancels taps and other continuous outputs. Same-pad established layer/modifier
 holds keep their existing keyboard priority. Reset/reconfigure, force takeover,
 disconnect, all-up, stale/nonfinite input and contact discontinuity discard the
-stepper's progress. Replay never posts directional output. No repeat timer or
-new hot-path I/O is added.
+stepper and repeater. The timer stops held output after 200 ms without contact
+delivery; no indefinitely repeating stale chord. Replay never posts directional
+output. No new hot-path I/O is added.
 
-Offline tests cover all axes, thresholds/diagonal ambiguity, stationary/rate-limited
-motion, repeat off, direction changes, reset/stale input, independent pads, the
+Offline tests cover all axes, thresholds/diagonal ambiguity, stationary timed repeats/no catch-up bursts, repeat off, direction changes, reset/stale input, independent pads, the
 shared all-up latch through membership changes, unchanged two-finger routing and
-repeat defaults/persistence. Hardware acceptance remains the next step.
+repeat defaults/legacy migration/interval bounds/persistence. Hardware acceptance remains the next step.

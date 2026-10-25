@@ -181,18 +181,15 @@ struct GestureContactMotionTracker: Sendable {
     }
 }
 
-/// Motion-driven directional steps after the shared three-finger session owns
-/// the chord. No timers/output; all-up, stale data and resets discard progress.
+/// Direction changes after shared three-finger ownership. Repetition uses a separate host clock.
 struct GestureDirectionalStepper {
-    static let activationMM = 1.5
-    static let repeatMM = 3.0
+    static let activationMM = 0.75
     static let minimumOutputInterval = 0.08
     private struct Session {
         var initial = CGPoint.zero
         var direction: GestureMovementDirection?
         var candidate: GestureMovementDirection?
         var candidateMM = 0.0
-        var repeatTravelMM = 0.0
         var lastTime: Double?
         var lastOutput = -Double.infinity
     }
@@ -227,7 +224,7 @@ struct GestureDirectionalStepper {
         }
         session.lastTime = time
         defer { sessions[device] = session }
-        // A stationary frame never spends accumulated distance or emits a repeat.
+        // Stationary frames retain the direction; the host-clock repeater handles output.
         guard delta != .zero else { return nil }
         guard let current = session.direction else {
             session.initial.x += delta.x; session.initial.y += delta.y
@@ -237,7 +234,6 @@ struct GestureDirectionalStepper {
             return direction
         }
         if let candidate = dominant(delta), candidate != current {
-            session.repeatTravelMM = 0
             if candidate != session.candidate { session.candidate = candidate; session.candidateMM = 0 }
             session.candidateMM += projection(delta,onto:candidate)
             guard session.candidateMM >= Self.activationMM,
@@ -247,13 +243,41 @@ struct GestureDirectionalStepper {
             return candidate
         }
         session.candidate = nil; session.candidateMM = 0
-        guard assignments.repeats(current) else { session.repeatTravelMM = 0; return nil }
-        session.repeatTravelMM += max(0,projection(delta,onto:current))
-        // Bound residual travel: no catch-up burst after a fast stroke or pause.
-        session.repeatTravelMM = min(Self.repeatMM,session.repeatTravelMM)
-        guard session.repeatTravelMM >= Self.repeatMM,
-              time-session.lastOutput >= Self.minimumOutputInterval else { return nil }
-        session.repeatTravelMM = 0; session.lastOutput = time
-        return current
+        return nil
+    }
+    func direction(device:UInt64) -> GestureMovementDirection? { sessions[device]?.direction }
+}
+
+/// Timer policy is pure and uses host time only. At most one event per tick,
+/// with no catch-up bursts; loss of contact delivery cancels the held state.
+struct GestureDirectionalRepeater {
+    private struct Held {
+        var direction:GestureMovementDirection
+        var interval:Double
+        var deadline:Double
+        var receipt:Double
+    }
+    private var held:[UInt64:Held] = Dictionary(minimumCapacity:2)
+    mutating func reset() { held.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { held[device] = nil }
+    mutating func refresh(device:UInt64,direction:GestureMovementDirection?,intervalMS:Double,now:Double) {
+        let interval = GestureDirectionalAssignments.boundedIntervalMS(intervalMS)/1000
+        guard let direction, interval > 0, now.isFinite else { reset(device:device); return }
+        if var current = held[device], current.direction == direction, current.interval == interval,
+           now >= current.receipt, now-current.receipt <= 0.2 {
+            current.receipt = now; held[device] = current
+        } else {
+            held[device] = Held(direction:direction,interval:interval,deadline:now+interval,receipt:now)
+        }
+    }
+    mutating func tick(device:UInt64,now:Double) -> GestureMovementDirection? {
+        guard var current = held[device] else { return nil }
+        guard now.isFinite, now >= current.receipt, now-current.receipt <= 0.2 else {
+            reset(device:device); return nil
+        }
+        guard now >= current.deadline else { return nil }
+        current.deadline = now+current.interval
+        held[device] = current
+        return current.direction
     }
 }
