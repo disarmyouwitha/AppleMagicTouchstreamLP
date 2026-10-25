@@ -16,8 +16,9 @@ the architecture review and remaining work.
    and anatomical relabeling do not change its action. New membership is rebased
    without injecting motion from contact landing positions.
 4. Invalid input, lost identity continuity, stale delivery and lifecycle reset
-   cancel output. A cancelled candidate cannot emit a delayed tap. Keyboard
-   reservation includes the terminating frame and does not fall back to typing.
+   cancel output. An activated/cancelled gesture owner cannot emit delayed typing.
+   Unresolved count-only candidates retain keyboard proposals; only never-activated
+   rollover may resolve to typing. Cleanup includes the terminating frame.
 5. Normal completion and cancellation are distinct. Scroll may coast only after
    normal lift; cancellation balances output and stops momentum.
 6. Every acquired output has an explicit release obligation. Shared cursor/button
@@ -53,15 +54,34 @@ remain decodable but inactive.
 ## Arbitration and independent hands
 
 The serialized live frame path evaluates established keyboard chords, coordinated
-Both ownership, single-pad corners, keyboard reservation and local recognition.
-An established same-pad MO(n) layer or modifier chord retains keyboard priority
-through its final release. Its original contact is identified before gesture
-suppression; the other pad remains independent.
+Both ownership, single-pad corners, local candidate evidence and keyboard output.
+An established same-pad MO(n), modifier or committed key hold retains keyboard
+priority through final release; the opposite pad remains independent.
 
-Configured multi-finger candidates, pressure crossings and configured Hold
-candidates reserve keyboard input before a pending key can be emitted. Reservation
-is independent of permission/profile availability, so a paused gesture cannot type
-keys accidentally. Rejected candidates remain reserved until all-up.
+Count alone starts a provisional local candidate. Keyboard input is retained in
+two preallocated proposal banks (1,024 frames × 16 contacts per bank), with owned
+copies rather than retained native pooled buffers. Pointer/gesture processing
+continues immediately on original frames. A recognized movement, force, Hold or
+Tap wins the cycle and discards proposals. Corners/Both remain exclusive through
+their existing acquisition path. Permission/profile-paused gestures stay reserved.
+
+Without activation, rollover resolves to typing when fewer than two contacts
+remain and no fully formed tap can still complete, or at all-up. Retained keyboard
+input then uses the shared keyboard processor in original per-pad order, with
+original timestamps, sequences and captured modifier context. The typing cycle
+cannot be stolen again until all-up. Isolated one-finger taps use the direct path.
+Invalid/stale input, overflow, configuration/layer/lifecycle invalidation cancel
+proposals instead of flushing stale keys. The retired Typing Grace field is
+ignored in old imports and absent from active settings and new exports.
+
+For pending two-finger movement, the interval straddling arrival/removal of a chord
+member establishes its baseline; a surviving finger's earlier solo displacement
+cannot activate the new chord. Stable-pair activation remains 0.35 mm. Existing
+three-finger staggered drag keeps its activation policy; already activated latches
+keep their matched-contact deltas and count transitions unchanged. This uses an
+activation-rule policy in the shared session engine, not a second mouse recognizer.
+See [typing arbitration audit](TYPING_GESTURE_ARBITRATION.md) for the captured
+regression and differences from the recovered TouchStream firmware.
 
 Local output processing gives an already fired Hold its cycle, then evaluates
 Force, continuous/pinch recognition and pending Hold. A real movement activation

@@ -212,7 +212,6 @@ struct AppKeymapProfile: Codable {
     let forceClickCap: Double
     let forceClickThreshold: Double
     let hapticStrength: Double
-    let typingGraceMs: Double
     let intentMoveThresholdMm: Double
     let intentVelocityThresholdMmPerSec: Double
     let autocorrectEnabled: Bool
@@ -290,7 +289,6 @@ struct AppKeymapProfile: Codable {
             forceClickCap: GlassToKeySettings.forceClickCap,
             forceClickThreshold: GlassToKeySettings.forceClickThreshold,
             hapticStrength: GlassToKeySettings.hapticStrengthPercent,
-            typingGraceMs: GlassToKeySettings.typingGraceMs,
             intentMoveThresholdMm: GlassToKeySettings.intentMoveThresholdMm,
             intentVelocityThresholdMmPerSec: GlassToKeySettings.intentVelocityThresholdMmPerSec,
             autocorrectEnabled: GlassToKeySettings.autocorrectEnabled,
@@ -481,7 +479,6 @@ enum PortableKeymapInterop {
                     ?? Int(currentProfile.forceClickThreshold)
             ),
             hapticStrength: currentProfile.hapticStrength,
-            typingGraceMs: settings.typingGraceMs ?? currentProfile.typingGraceMs,
             intentMoveThresholdMm: settings.intentMoveMm ?? currentProfile.intentMoveThresholdMm,
             intentVelocityThresholdMmPerSec: settings.intentVelocityMmPerSec ?? currentProfile.intentVelocityThresholdMmPerSec,
             autocorrectEnabled: settings.autocorrectEnabled ?? currentProfile.autocorrectEnabled,
@@ -561,7 +558,6 @@ enum PortableKeymapInterop {
                 forceClickCap: profile.forceClickCap,
                 forceClickThreshold: hostExtension.forceClickThreshold ?? profile.forceClickThreshold,
                 hapticStrength: hostExtension.hapticStrength ?? profile.hapticStrength,
-                typingGraceMs: profile.typingGraceMs,
                 intentMoveThresholdMm: profile.intentMoveThresholdMm,
                 intentVelocityThresholdMmPerSec: profile.intentVelocityThresholdMmPerSec,
                 autocorrectEnabled: profile.autocorrectEnabled,
@@ -738,7 +734,6 @@ enum PortableKeymapInterop {
             forceClickCap: profile.forceClickCap,
             forceClickThreshold: profile.forceClickThreshold,
             hapticStrength: profile.hapticStrength,
-            typingGraceMs: profile.typingGraceMs,
             intentMoveThresholdMm: profile.intentMoveThresholdMm,
             intentVelocityThresholdMmPerSec: profile.intentVelocityThresholdMmPerSec,
             autocorrectEnabled: profile.autocorrectEnabled,
@@ -1014,7 +1009,6 @@ enum PortableKeymapInterop {
         var bottomRightForceClickAction: String?
         var holdDurationMs: Double?
         var dragCancelMm: Double?
-        var typingGraceMs: Double?
         var intentMoveMm: Double?
         var intentVelocityMmPerSec: Double?
         var snapRadiusPercent: Double?
@@ -1081,7 +1075,6 @@ enum PortableKeymapInterop {
             bottomRightForceClickAction = profile.bottomRightForceClickGestureAction
             holdDurationMs = profile.tapHoldDurationMs
             dragCancelMm = profile.dragCancelDistance
-            typingGraceMs = profile.typingGraceMs
             intentMoveMm = profile.intentMoveThresholdMm
             intentVelocityMmPerSec = profile.intentVelocityThresholdMmPerSec
             snapRadiusPercent = profile.snapRadiusPercent
@@ -1154,7 +1147,6 @@ enum PortableKeymapInterop {
             case bottomRightForceClickAction = "BottomRightForceClickAction"
             case holdDurationMs = "HoldDurationMs"
             case dragCancelMm = "DragCancelMm"
-            case typingGraceMs = "TypingGraceMs"
             case intentMoveMm = "IntentMoveMm"
             case intentVelocityMmPerSec = "IntentVelocityMmPerSec"
             case snapRadiusPercent = "SnapRadiusPercent"

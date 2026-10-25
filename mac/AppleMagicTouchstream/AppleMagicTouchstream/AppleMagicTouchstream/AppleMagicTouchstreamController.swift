@@ -9,7 +9,6 @@ enum GlassToKeySettings {
     static let forceClickCap: Double = 120.0
     static let forceClickThreshold: Double = 250.0
     static let hapticStrengthPercent: Double = 40.0
-    static let typingGraceMs: Double = 1000.0
     static let intentMoveThresholdMm: Double = 3.0
     static let intentVelocityThresholdMmPerSec: Double = 50.0
     static let autocorrectEnabled: Bool = true
@@ -90,7 +89,6 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.forceClickCap,
         GlassToKeyDefaultsKeys.forceClickThreshold,
         GlassToKeyDefaultsKeys.hapticStrength,
-        GlassToKeyDefaultsKeys.typingGraceMs,
         GlassToKeyDefaultsKeys.intentMoveThresholdMm,
         GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec,
         GlassToKeyDefaultsKeys.autocorrectEnabled,
@@ -174,7 +172,6 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.forceClickCap, forKey: GlassToKeyDefaultsKeys.forceClickCap)
         defaults.set(profile.forceClickThreshold, forKey: GlassToKeyDefaultsKeys.forceClickThreshold)
         defaults.set(profile.hapticStrength, forKey: GlassToKeyDefaultsKeys.hapticStrength)
-        defaults.set(profile.typingGraceMs, forKey: GlassToKeyDefaultsKeys.typingGraceMs)
         defaults.set(profile.intentMoveThresholdMm, forKey: GlassToKeyDefaultsKeys.intentMoveThresholdMm)
         defaults.set(profile.intentVelocityThresholdMmPerSec, forKey: GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec)
         defaults.set(profile.autocorrectEnabled, forKey: GlassToKeyDefaultsKeys.autocorrectEnabled)
@@ -527,11 +524,6 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.forceClickThreshold
         )
-        let typingGraceMs = GlassToKeySettings.persistedDouble(
-            forKey: GlassToKeyDefaultsKeys.typingGraceMs,
-            defaults: defaults,
-            fallback: GlassToKeySettings.typingGraceMs
-        )
         let intentMoveThresholdMm = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.intentMoveThresholdMm,
             defaults: defaults,
@@ -567,7 +559,6 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateForceClickMin(clampedForceMin)
         viewModel.updateForceClickCap(clampedForceCap)
         viewModel.updateForceClickThreshold(clampedForceClickThreshold)
-        viewModel.updateTypingGraceMs(typingGraceMs)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)

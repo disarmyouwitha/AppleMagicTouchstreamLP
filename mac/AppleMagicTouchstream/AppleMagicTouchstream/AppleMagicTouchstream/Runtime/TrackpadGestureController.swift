@@ -237,13 +237,21 @@ final class TrackpadGestureController: ObservableObject {
         let configuredScrollProfiles = Dictionary(uniqueKeysWithValues:scrollProfiles.map { id, profile in
             (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling))
         })
+        let recoverableKeyboard = Set(routed.filter { id,config in
+            let actions = GestureTrigger.allCases.map { config.bindings.action(for:$0) }
+            return eligible.contains(id)
+                && (!actions.contains(where:{$0.requiresPointerProfile}) || pointerProfiles[id] != nil)
+                && (!actions.contains(.scroll) || scrollProfiles[id] != nil)
+                && (config.liveDirectionalBindings.isEmpty || scrollProfiles[id] != nil
+                    || !config.liveDirectionalBindings.values.contains { assignment in GestureMovementDirection.allCases.contains { assignment.action($0).isDirectionalScroll } })
+        }.keys)
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
             twoFingerTapDevices: tap, fourFingerTapDevices:quad, fiveFingerTapDevices:quint, fiveFingerMoveDevices:five, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), recoverableKeyboardDevices:recoverableKeyboard, directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(five).union(quad).union(quint).union(tap).union(triple).union(thumb)

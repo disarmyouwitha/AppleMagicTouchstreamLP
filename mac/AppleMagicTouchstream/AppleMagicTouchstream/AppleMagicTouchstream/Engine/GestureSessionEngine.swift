@@ -47,6 +47,7 @@ struct GestureActivationRule<Gesture: Hashable & Sendable>: Sendable {
     let activationCount: Int
     let minimumMovementMM: Double
     var continuation: Continuation = .untilAllUp
+    var requiresFullChordMotion = false
 }
 
 /// Generic continuous gesture ownership, per physical pad. Discrete recognizers
@@ -90,7 +91,10 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
                     millimetres:nil,cancellation:completed ? nil : .contactDiscontinuity)
             }
         }
-        guard let movement else { return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil) }
+        guard let movement else {
+            if activeCount > 0 { sessions[device] = Session(pendingCount:activeCount) }
+            return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
+        }
         var session = sessions[device] ?? Session()
         if let index = session.ownerRule {
             let rule = rules[index]
@@ -98,7 +102,15 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
             guard rule.continuation.permits(activeCount) else { return cancel(device:device,reason:.continuationRejected) }
             return GestureSessionUpdate(gesture:rule.gesture,phase:.changed,millimetres:movement,cancellation:nil)
         }
-        if session.pendingCount != activeCount { session.pendingCount = activeCount; session.travel = .zero }
+        if session.pendingCount != activeCount {
+            // This interval straddles a membership change. Its matched old-contact
+            // displacement need not qualify as motion by the newly formed chord.
+            session.pendingCount = activeCount; session.travel = .zero
+            if rules.contains(where: { $0.activationCount == activeCount && $0.requiresFullChordMotion && enabled($0.gesture) }) {
+                sessions[device] = session
+                return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
+            }
+        }
         session.travel.x += movement.x; session.travel.y += movement.y
         let distance = hypot(session.travel.x,session.travel.y)
         let context = GestureActivationContext(time:time,activeCount:activeCount,

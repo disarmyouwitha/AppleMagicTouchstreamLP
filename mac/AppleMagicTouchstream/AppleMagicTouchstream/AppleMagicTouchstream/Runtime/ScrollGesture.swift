@@ -287,7 +287,7 @@ struct TrackpadGestureRouter {
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.fiveFingerMove,activationCount:5,minimumMovementMM:0.2),
-            GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
+            GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM,requiresFullChordMotion:true)
         ])
     }
     func owner(device:UInt64) -> GestureTrigger? { engine.owner(device:device) }

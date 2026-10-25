@@ -1162,9 +1162,6 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateDragCancelDistance(distance)
     }
 
-    func updateTypingGraceMs(_ milliseconds: Double) {
-        runtimeCommandService.updateTypingGrace(milliseconds)
-    }
 
     func updateIntentMoveThresholdMm(_ millimeters: Double) {
         runtimeCommandService.updateIntentMoveThreshold(millimeters)
@@ -1324,8 +1321,6 @@ final class ContentViewModel: ObservableObject {
                 ?? fallback.forceClickThreshold,
             hapticStrength: defaults.object(forKey: GlassToKeyDefaultsKeys.hapticStrength) as? Double
                 ?? fallback.hapticStrength,
-            typingGraceMs: defaults.object(forKey: GlassToKeyDefaultsKeys.typingGraceMs) as? Double
-                ?? fallback.typingGraceMs,
             intentMoveThresholdMm: defaults.object(forKey: GlassToKeyDefaultsKeys.intentMoveThresholdMm) as? Double
                 ?? fallback.intentMoveThresholdMm,
             intentVelocityThresholdMmPerSec: defaults.object(forKey: GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec) as? Double

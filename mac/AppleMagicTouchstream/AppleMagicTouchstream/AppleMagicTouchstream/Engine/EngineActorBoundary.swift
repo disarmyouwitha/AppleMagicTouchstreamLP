@@ -51,7 +51,6 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
     func setPersistentLayer(_ layer: Int) async
     func updateHoldThreshold(_ seconds: TimeInterval) async
     func updateDragCancelDistance(_ distance: CGFloat) async
-    func updateTypingGrace(_ milliseconds: Double) async
     func updateIntentMoveThreshold(_ millimeters: Double) async
     func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async
     func updateAllowMouseTakeover(_ enabled: Bool) async
@@ -166,6 +165,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private var leftDeviceID: String?
     private var rightDeviceID: String?
     private let processor: TouchProcessorEngine
+    private let keyboardProposals = [PendingKeyboardProposalBuffer(),PendingKeyboardProposalBuffer()]
     private let captureActiveLock = OSAllocatedUnfairLock<Bool>(uncheckedState: false)
     private var captureSession: RuntimeCaptureSessionState?
 
@@ -282,6 +282,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
 
     func setListening(_ isListening: Bool) async {
         await run {
+            if !isListening { self.keyboardProposals.forEach { $0.reset() } }
             self.processor.setListening(isListening)
         }
     }
@@ -293,6 +294,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         rightDeviceID: String?
     ) async {
         await run {
+            if self.leftDeviceID != leftDeviceID || self.rightDeviceID != rightDeviceID || self.leftDeviceIndex != leftIndex || self.rightDeviceIndex != rightIndex { self.keyboardProposals.forEach { $0.reset() } }
             self.leftDeviceIndex = leftIndex
             self.rightDeviceIndex = rightIndex
             self.leftDeviceID = leftDeviceID
@@ -356,11 +358,6 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
-    func updateTypingGrace(_ milliseconds: Double) async {
-        await run {
-            self.processor.updateTypingGrace(milliseconds)
-        }
-    }
 
     func updateIntentMoveThreshold(_ millimeters: Double) async {
         await run {
@@ -450,6 +447,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
 
     func reset(stopVoiceDictation: Bool) async {
         await run {
+            self.keyboardProposals.forEach { $0.reset() }
             self.processor.resetState(stopVoiceDictation: stopVoiceDictation)
             self.latestRender = RuntimeRenderSnapshot()
         }
@@ -529,15 +527,58 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
         let coordinated = liveGestures && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
         let corners = liveGestures && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)
-        let suppressKeyboard = liveGestures && !keyboardChord && (coordinated || corners || InterpretedTrackpadPointer.shared.reserveKeyboard(frame))
-        let diagnostic = processor.processRawFrame(frame, suppressKeyboard: suppressKeyboard)
-        // Release pending keyboard modifiers/holds before preparing gesture output.
-        if liveGestures && !coordinated && !corners {
-            if keyboardChord || processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) {
-                InterpretedTrackpadPointer.shared.suspendForKeyboardChord(frame)
-            } else {
-                InterpretedTrackpadPointer.shared.process(frame)
+        let pointer = InterpretedTrackpadPointer.shared
+        var diagnostic:RuntimeFrameDiagnostic?
+        let allUp = !frame.touches.contains { $0.state == .making || $0.state == .touching }
+        let count = frame.touches.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1 : 0) }
+        let proposal = keyboardProposals.first(where:{$0.device == frame.deviceIDNumeric})
+            ?? keyboardProposals.first(where:{$0.device == nil || $0.mode == .idle})
+        if let proposal {
+            if proposal.device != frame.deviceIDNumeric { proposal.reset(); proposal.device = frame.deviceIDNumeric }
+            let before = pointer.keyboardEvidence(device:frame.deviceIDNumeric)
+            if proposal.mode != .idle && (proposal.token != processor.keyboardProposalToken || proposal.gestureEpoch != before.epoch) {
+                proposal.clear(); proposal.mode = .gesture // Cancel rather than emit stale proposals.
             }
+            let candidate = liveGestures && !keyboardChord && !coordinated && !corners && pointer.reserveKeyboard(frame)
+            if !liveGestures || keyboardChord || coordinated || corners {
+                proposal.reset()
+                diagnostic = processor.processRawFrame(frame,suppressKeyboard:liveGestures && !keyboardChord && (coordinated || corners))
+                if liveGestures && !coordinated && !corners { pointer.suspendForKeyboardChord(frame) }
+            } else if proposal.mode == .typing {
+                diagnostic = processor.processRawFrame(frame)
+                pointer.suspendForKeyboardChord(frame)
+            } else if candidate || proposal.mode != .idle {
+                if proposal.mode == .idle {
+                    proposal.mode = .pending; proposal.token = processor.keyboardProposalToken; proposal.gestureEpoch = before.epoch
+                }
+                // Gesture recognition/output stays on the original frame, never on retained input.
+                pointer.process(frame)
+                let evidence = pointer.keyboardEvidence(device:frame.deviceIDNumeric,allUp:allUp)
+                if proposal.mode == .gesture || evidence.claimed || !evidence.enabled || evidence.epoch != proposal.gestureEpoch {
+                    proposal.clear(); proposal.mode = .gesture
+                    diagnostic = processor.processRawFrame(frame,suppressKeyboard:true)
+                } else if proposal.append(sequence:frame.sequence,index:frame.deviceIndex,time:frame.timestamp,touches:frame.touches,flags:processor.keyboardModifierFlagsSnapshot) {
+                    // Once no tap can complete and only one contact survives, rollover has
+                    // resolved. No post-typing grace timer, and no gesture resurrection.
+                    if PendingKeyboardProposalBuffer.resolvesToTyping(activeCount:count,tapPending:evidence.tapPending) {
+                        proposal.drain { header,touches in
+                            diagnostic = processor.processKeyboardFrame(sequence:header.sequence,deviceIndex:header.index,timestamp:header.time,touches:touches,modifierFlags:header.flags)
+                        }
+                        proposal.mode = .typing
+                        pointer.suspendForKeyboardChord(frame)
+                    }
+                } else {
+                    diagnostic = processor.processRawFrame(frame,suppressKeyboard:true)
+                }
+            } else {
+                diagnostic = processor.processRawFrame(frame)
+                if processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) { pointer.suspendForKeyboardChord(frame) }
+                else { pointer.process(frame) }
+            }
+            if allUp { _ = pointer.keyboardEvidence(device:frame.deviceIDNumeric,allUp:true); proposal.reset() }
+        } else {
+            // Frames outside the two selected ownership slots cannot evict proposals.
+            diagnostic = processor.processRawFrame(frame,suppressKeyboard:true)
         }
         let renderedSnapshot = captureRenderSnapshot
             ? updatedRenderSnapshot(from: frame)
@@ -776,7 +817,6 @@ final class ProductionReplaySession {
         engine.updateKeyMappings(profile.keyMappingsByLayout?[name] ?? [:])
         engine.updateHoldThreshold(profile.tapHoldDurationMs / 1000)
         engine.updateDragCancelDistance(CGFloat(profile.dragCancelDistance))
-        engine.updateTypingGrace(profile.typingGraceMs)
         engine.updateIntentMoveThreshold(profile.intentMoveThresholdMm)
         engine.updateIntentVelocityThreshold(profile.intentVelocityThresholdMmPerSec)
         engine.updateForceClickMin(profile.forceClickMin ?? GlassToKeySettings.forceClickMin)

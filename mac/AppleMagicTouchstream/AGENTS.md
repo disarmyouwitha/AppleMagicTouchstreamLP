@@ -27,9 +27,15 @@ live input, takeover, haptics or login registration as part of offline verificat
   counts. Preserve first-activated ownership through all-up, identity rebasing,
   independent pads, Both handoff and balanced cleanup. Do not add gesture-specific
   global resets or duplicate lifecycle paths as shortcuts.
-- Established MO/modifier chords retain same-pad keyboard priority. Gesture
-  candidates otherwise reserve the entire cycle before keyboard output; failed
-  candidates never fall back to typing. The terminating frame must reach cleanup.
+- Established MO/modifier chords and committed key holds retain same-pad keyboard
+  priority. Unresolved local candidates retain bounded keyboard proposals while
+  gesture recognition runs on the original frames. A winning gesture discards
+  those proposals; never resurrect typing from an activated/cancelled owner.
+  Never-activated rollover can resolve to typing at partial lift or all-up.
+  Invalid, stale, overflowed and reconfigured proposals cancel without output.
+  The terminating frame must reach cleanup. Two-finger movement excludes the
+  pre-cohort interval at a pending membership change; retain existing three-finger
+  staggered drag activation and all activated count-change latches.
 - Synthetic gesture output is live-only and selected/owned/armed/Accessibility
   gated, with pointer/scroll profile gates. Open Config is app-local. Replay never
   posts native input. Shared drag button ownership must preserve other-pad owners.

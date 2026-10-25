@@ -311,7 +311,7 @@ After the forced loop, C04624 processes hypotheses for one supplied candidate, n
 
 ## 12. Typing alternatives, no-key and confidence
 
-Although AppleMagicTouchstream currently has no keyboard output, these findings matter to later integration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it.
+AppleMagicTouchstream now combines keyboard and gesture output. These findings constrain their arbitration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it. The [typing arbitration audit](AppleMagicTouchstream/TYPING_GESTURE_ARBITRATION.md) records the current count-reservation problem and capture evidence.
 
 The initial TapArea is not always the final key.803653/8034FD generate alternatives from the selected/neighboring areas;80357F considers up to four related historical spatial records. That count does not establish a four-wide beam. Normal evidence is combined with cumulative/context scores and inserted through803936; **larger accumulated sequence18 wins**, unlike the smaller-is-better chord residual score.
 

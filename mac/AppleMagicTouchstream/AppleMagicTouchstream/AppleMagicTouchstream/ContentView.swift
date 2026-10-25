@@ -112,7 +112,6 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.forceClickCap) private var forceClickCapSetting: Double = GlassToKeySettings.forceClickCap
     @AppStorage(GlassToKeyDefaultsKeys.forceClickThreshold) private var forceClickThresholdSetting: Double = GlassToKeySettings.forceClickThreshold
     @AppStorage(GlassToKeyDefaultsKeys.hapticStrength) private var hapticStrengthSetting: Double = GlassToKeySettings.hapticStrengthPercent
-    @AppStorage(GlassToKeyDefaultsKeys.typingGraceMs) private var typingGraceMsSetting: Double = GlassToKeySettings.typingGraceMs
     @AppStorage(GlassToKeyDefaultsKeys.intentMoveThresholdMm)
     private var intentMoveThresholdMmSetting: Double = GlassToKeySettings.intentMoveThresholdMm
     @AppStorage(GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec)
@@ -243,7 +242,6 @@ struct ContentView: View {
     fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 0.0...500.0
     fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
     fileprivate static let forceClickThresholdRange: ClosedRange<Double> = 130.0...500.0
-    fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
     fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
     fileprivate static let intentMoveThresholdRange: ClosedRange<Double> = 0.5...10.0
     fileprivate static let intentVelocityThresholdRange: ClosedRange<Double> = 10.0...200.0
@@ -329,15 +327,6 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 0
         formatter.minimum = NSNumber(value: ContentView.forceClickRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.forceClickRange.upperBound)
-        return formatter
-    }()
-    fileprivate static let typingGraceFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        formatter.minimum = NSNumber(value: ContentView.typingGraceRange.lowerBound)
-        formatter.maximum = NSNumber(value: ContentView.typingGraceRange.upperBound)
         return formatter
     }()
     fileprivate static let twoFingerClickCadenceFormatter: NumberFormatter = {
@@ -684,9 +673,6 @@ struct ContentView: View {
             .onChange(of: hapticStrengthSetting) { newValue in
                 viewModel.updateHapticStrength(newValue / 100.0)
             }
-            .onChange(of: typingGraceMsSetting) { newValue in
-                viewModel.updateTypingGraceMs(newValue)
-            }
             .onChange(of: intentMoveThresholdMmSetting) { newValue in
                 viewModel.updateIntentMoveThresholdMm(newValue)
             }
@@ -933,7 +919,6 @@ struct ContentView: View {
             forceClickCapSetting: $forceClickCapSetting,
             forceClickThresholdSetting: $forceClickThresholdSetting,
             hapticStrengthSetting: $hapticStrengthSetting,
-            typingGraceMsSetting: $typingGraceMsSetting,
             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: $autocorrectEnabled,
@@ -1262,7 +1247,6 @@ struct ContentView: View {
         @Binding var forceClickCapSetting: Double
         @Binding var forceClickThresholdSetting: Double
         @Binding var hapticStrengthSetting: Double
-        @Binding var typingGraceMsSetting: Double
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var autocorrectEnabled: Bool
@@ -1425,7 +1409,6 @@ struct ContentView: View {
                             forceClickMinSetting: $forceClickMinSetting,
                             forceClickCapSetting: $forceClickCapSetting,
                             hapticStrengthSetting: $hapticStrengthSetting,
-                            typingGraceMsSetting: $typingGraceMsSetting,
                             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
                             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
                             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
@@ -2492,7 +2475,6 @@ struct ContentView: View {
         @Binding var forceClickMinSetting: Double
         @Binding var forceClickCapSetting: Double
         @Binding var hapticStrengthSetting: Double
-        @Binding var typingGraceMsSetting: Double
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var tapClickCadenceMsSetting: Double
@@ -3377,7 +3359,6 @@ struct ContentView: View {
         viewModel.updateForceClickCap(forceClickCapSetting)
         viewModel.updateForceClickThreshold(forceClickThresholdSetting)
         viewModel.updateHapticStrength(hapticStrengthSetting / 100.0)
-        viewModel.updateTypingGraceMs(typingGraceMsSetting)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMmSetting)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSecSetting)
         viewModel.updateAllowMouseTakeover(true)
@@ -3395,7 +3376,6 @@ struct ContentView: View {
         forceClickCapSetting = GlassToKeySettings.forceClickCap
         forceClickThresholdSetting = GlassToKeySettings.forceClickThreshold
         hapticStrengthSetting = GlassToKeySettings.hapticStrengthPercent
-        typingGraceMsSetting = GlassToKeySettings.typingGraceMs
         intentMoveThresholdMmSetting = GlassToKeySettings.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = GlassToKeySettings.intentVelocityThresholdMmPerSec
         autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
@@ -3573,7 +3553,6 @@ struct ContentView: View {
             forceClickCap: forceClickCapSetting,
             forceClickThreshold: forceClickThresholdSetting,
             hapticStrength: hapticStrengthSetting,
-            typingGraceMs: typingGraceMsSetting,
             intentMoveThresholdMm: intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSec: intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: autocorrectEnabled,
@@ -3666,7 +3645,6 @@ struct ContentView: View {
         forceClickCapSetting = profile.forceClickCap
         forceClickThresholdSetting = profile.forceClickThreshold
         hapticStrengthSetting = profile.hapticStrength
-        typingGraceMsSetting = profile.typingGraceMs
         intentMoveThresholdMmSetting = profile.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = profile.intentVelocityThresholdMmPerSec
         autocorrectEnabled = profile.autocorrectEnabled

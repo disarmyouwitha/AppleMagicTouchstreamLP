@@ -66,7 +66,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyDefaultsKeys.forceClickMin,
         GlassToKeyDefaultsKeys.forceClickCap,
         GlassToKeyDefaultsKeys.hapticStrength,
-        GlassToKeyDefaultsKeys.typingGraceMs,
         GlassToKeyDefaultsKeys.intentMoveThresholdMm,
         GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec,
         GlassToKeyDefaultsKeys.tapClickCadenceMs,

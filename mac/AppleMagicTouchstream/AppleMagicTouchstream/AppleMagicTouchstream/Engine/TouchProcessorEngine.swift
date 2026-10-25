@@ -7,7 +7,7 @@ import OpenMultitouchSupport
 import QuartzCore
 import os
 
-/// All recognition deadlines use this boundary, including repeats and typing grace.
+/// All recognition deadlines use this boundary, including repeats.
 /// Implementations run scheduled work on the engine's serial owner.
 protocol TouchEngineScheduler: AnyObject, Sendable {
     var now: TimeInterval { get }
@@ -736,9 +736,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         // Legacy profile field: this experiment uses fixed recognition thresholds.
     }
 
-    func updateTypingGrace(_ milliseconds: Double) {
-        // Legacy capture/profile compatibility only. GTK typing grace is removed.
-    }
 
     func updateIntentMoveThreshold(_ millimeters: Double) {
         // Legacy profile field: this experiment uses fixed recognition thresholds.
@@ -1034,94 +1031,18 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func processRawFrame(_ frame: OMSRawTouchFrame, suppressKeyboard: Bool = false) -> RuntimeFrameDiagnostic? {
-        guard isListening,
-              let leftLayout,
-              let rightLayout else {
-            return nil
-        }
-        if leftDeviceIndex == nil && rightDeviceIndex == nil {
-            return nil
-        }
-        currentFrameDeviceIndex = frame.deviceIndex
-        let now = frame.timestamp
-        currentProcessingTimestamp = now
-        beginFrameDiagnostics(sequence: frame.sequence)
-        defer {
-            currentProcessingSequence = nil
-            currentProcessingTimestamp = nil
-        }
-        let touches = frame.touches
-        let deviceIndex = frame.deviceIndex
-        let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
-        let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
-        guard isLeftDevice || isRightDevice else { return nil }
-        let keyboardReserved = reserveGestureKeyboard(deviceIndex: deviceIndex, touches: touches, requested: suppressKeyboard)
-        let leftTouches = isLeftDevice ? touches : OMSRawTouchBufferView.empty
-        let rightTouches = isRightDevice ? touches : OMSRawTouchBufferView.empty
-        let leftBindings = bindings(
-            for: .left,
-            layout: leftLayout,
-            labels: leftLabels,
-            canvasSize: trackpadSize
-        )
-        let rightBindings = bindings(
-            for: .right,
-            layout: rightLayout,
-            labels: rightLabels,
-            canvasSize: trackpadSize
-        )
-        let allowTypingGlobal = keyboardReserved ? isTypingEnabled : updateIntent(
-            leftTouches: leftTouches,
-            rightTouches: rightTouches,
-            leftDeviceIndex: leftDeviceIndex,
-            rightDeviceIndex: rightDeviceIndex,
-            now: now,
-            leftBindings: leftBindings,
-            rightBindings: rightBindings
-        )
-        currentFrameAllowsTyping = allowTypingGlobal
-        let allowTypingLeft = allowTypingGlobal
-        let allowTypingRight = allowTypingGlobal
-        if isLeftDevice {
-            processTouches(
-                leftTouches,
-                deviceIndex: deviceIndex,
-                bindings: leftBindings,
-                layout: leftLayout,
-                canvasSize: trackpadSize,
-                isLeftSide: true,
-                now: now,
-                gestureReserved: keyboardReserved,
-                intentAllowsTyping: allowTypingLeft
-            )
-        }
-        if isRightDevice {
-            processTouches(
-                rightTouches,
-                deviceIndex: deviceIndex,
-                bindings: rightBindings,
-                layout: rightLayout,
-                canvasSize: trackpadSize,
-                isLeftSide: false,
-                now: now,
-                gestureReserved: keyboardReserved,
-                intentAllowsTyping: allowTypingRight
-            )
-        }
-        if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
-        // Keyboard holds also activate on .starting; retain ownership on that frame.
-        if !touches.contains(where: { Self.isContactState($0.state) }) {
-            keyboardChordDevices.remove(deviceIndex)
-        }
-        return makeFrameDiagnostic(
-            deviceIndex: deviceIndex,
-            touches: touches,
-            bindings: isLeftDevice ? leftBindings : rightBindings,
-            now: now
-        )
+        processKeyboardFrame(sequence:frame.sequence,deviceIndex:frame.deviceIndex,timestamp:frame.timestamp,touches:frame.touches,suppressKeyboard:suppressKeyboard)
     }
-
-    func processRuntimeRawFrame(_ frame: RuntimeRawFrame, suppressKeyboard: Bool = false) -> RuntimeFrameDiagnostic? {
+    func processRuntimeRawFrame(_ frame:RuntimeRawFrame,suppressKeyboard:Bool = false) -> RuntimeFrameDiagnostic? {
+        processKeyboardFrame(sequence:frame.sequence,deviceIndex:frame.deviceIndex,timestamp:frame.timestamp,touches:frame.rawTouches,suppressKeyboard:suppressKeyboard)
+    }
+    // The token invalidates speculative proposals after configuration/layer/lifecycle changes.
+    var keyboardProposalToken:KeyboardProposalToken { .init(generation:bindingsGeneration,layer:activeLayer,epoch:keyboardProposalEpoch) }
+    private var keyboardProposalEpoch = 0
+    private var proposalModifierFlags:CGEventFlags?
+    var keyboardModifierFlagsSnapshot:UInt64 { currentModifierFlags().rawValue }
+    func processKeyboardFrame<C:RandomAccessCollection>(sequence:UInt64,deviceIndex:Int,timestamp:Double,
+        touches:C,suppressKeyboard:Bool = false,modifierFlags:UInt64? = nil) -> RuntimeFrameDiagnostic? where C.Element == OMSRawTouch {
         guard isListening,
               let leftLayout,
               let rightLayout else {
@@ -1130,22 +1051,22 @@ final class TouchProcessorEngine: @unchecked Sendable {
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
             return nil
         }
-        currentFrameDeviceIndex = frame.deviceIndex
-        let now = frame.timestamp
+        proposalModifierFlags = modifierFlags.map(CGEventFlags.init(rawValue:))
+        currentFrameDeviceIndex = deviceIndex
+        let now = timestamp
         currentProcessingTimestamp = now
-        beginFrameDiagnostics(sequence: frame.sequence)
+        beginFrameDiagnostics(sequence: sequence)
         defer {
             currentProcessingSequence = nil
             currentProcessingTimestamp = nil
+            proposalModifierFlags = nil
         }
-        let touches = frame.rawTouches
-        let deviceIndex = frame.deviceIndex
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         guard isLeftDevice || isRightDevice else { return nil }
         let keyboardReserved = reserveGestureKeyboard(deviceIndex: deviceIndex, touches: touches, requested: suppressKeyboard)
-        let leftTouches = isLeftDevice ? touches : []
-        let rightTouches = isRightDevice ? touches : []
+        let leftTouches = touches.prefix(isLeftDevice ? touches.count : 0)
+        let rightTouches = touches.prefix(isRightDevice ? touches.count : 0)
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -1248,7 +1169,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
     }
 
-    /// An established layer or modifier hold makes its originating pad a keyboard chord
+    /// An established layer, modifier or committed key hold makes its originating pad a keyboard chord
     /// through all-up; the opposite pad keeps normal gesture arbitration.
     func keyboardChordOwnsCycle(deviceIndex: Int) -> Bool { keyboardChordDevices.contains(deviceIndex) }
 
@@ -1950,7 +1871,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func hasActiveModifiers() -> Bool {
-        leftShiftTouchCount > 0
+        if proposalModifierFlags != nil { return !currentModifierFlags().isEmpty }
+        return leftShiftTouchCount > 0
             || controlTouchCount > 0
             || leftOptionTouchCount > 0
             || rightOptionTouchCount > 0
@@ -1977,7 +1899,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         touchStates.set(touchKey, .active(active))
         // Claim only after the modifier's key-down, including hold-assigned and
         // combination modifiers. Keep the pad owned until all-up, like MO.
-        if active.modifierEngaged {
+        if active.modifierEngaged || active.didHold || active.holdRepeatActive {
             keyboardChordDevices.insert(Self.touchKeyDeviceIndex(touchKey))
         }
     }
@@ -3038,6 +2960,17 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func currentModifierFlags() -> CGEventFlags {
+        if var proposalModifierFlags {
+            // Restore the recorded other-pad context, plus modifiers established
+            // by this pad while committing retained proposals in original order.
+            touchStates.forEach { key,state in
+                guard Self.touchKeyDeviceIndex(key) == currentFrameDeviceIndex,
+                      case let .active(active) = state, active.modifierEngaged,
+                      case let .key(_,flags) = (active.modifierBinding ?? active.binding).action else { return }
+                proposalModifierFlags.formUnion(flags)
+            }
+            return proposalModifierFlags
+        }
         var modifierFlags: CGEventFlags = []
         if leftShiftTouchCount > 0 {
             modifierFlags.insert(.maskShift)
@@ -3387,6 +3320,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
+        keyboardProposalEpoch &+= 1
         if leftShiftTouchCount > 0 {
             let shiftBinding = KeyBinding(
                 rect: .zero,

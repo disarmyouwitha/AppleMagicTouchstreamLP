@@ -390,12 +390,6 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
-    func updateTypingGrace(_ milliseconds: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTypingGrace(milliseconds)
-        }
-    }
 
     func updateIntentMoveThreshold(_ millimeters: Double) {
         let runtimeEngine = runtimeEngine

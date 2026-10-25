@@ -64,7 +64,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             else if twoHandTrusted, let device = twoHandPads.left { postDirectional(action,device:device,time:time,owner:.coordinated) }
         }
         var keyboardArbitration = GestureKeyboardArbitration()
+        var keyboardClaimed = Set<UInt64>(minimumCapacity:2)
+        var keyboardEpoch:UInt64 = 0
         var keyboardDevices: Set<UInt64> = []
+        var recoverableKeyboardDevices:Set<UInt64> = []
+        var keyboardRecoveryNeedsDragObserver:Set<UInt64> = []
         var keyboardChordDevices: Set<UInt64> = []
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
@@ -74,6 +78,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var holdThresholds:[UInt64:[Int:Double]] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
+            keyboardClaimed.insert(device)
             taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
             forceClicks.cancel(device:device)
             router.reset(device:device); directionalStepper.reset(device:device)
@@ -119,6 +124,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
+            keyboardClaimed.insert(device)
             // Same discrete dispatcher as Force/Hold/directions, including native
             // Dock actions (Mission Control / App Exposé have no CGEvent sequence).
             postDirectional(action(trigger,device:device),device:device,time:time)
@@ -222,6 +228,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
         }
         mutating func reset() {
+            keyboardEpoch &+= 1; keyboardClaimed.removeAll(keepingCapacity:true)
             for owner in Array(shortcutOwners) { releaseShortcut(owner) }
             for device in cornerEngines.keys { cornerEngines[device]?.reset() }
             holds.reset()
@@ -244,14 +251,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], holdThresholds: [UInt64:[Int:Double]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], recoverableKeyboardDevices:Set<UInt64> = [], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], holdThresholds: [UInt64:[Int:Double]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.recoverableKeyboardDevices != recoverableKeyboardDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
+            state.recoverableKeyboardDevices = recoverableKeyboardDevices
+            state.keyboardRecoveryNeedsDragObserver = Set(bindings.filter { $0.value.uses(.primaryDrag) }.keys)
             state.holdBindings = holdBindings
             state.holdThresholds = holdThresholds
             state.directionals = directionalBindings
@@ -511,6 +520,24 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
         }
     }
+    struct KeyboardEvidence {
+        let claimed:Bool
+        let tapPending:Bool
+        let enabled:Bool
+        let epoch:UInt64
+    }
+    func keyboardEvidence(device:UInt64,allUp:Bool = false) -> KeyboardEvidence {
+        lock.withLock { state in
+            let pending = (state.twoFingerTapDevices.contains(device) && state.taps.canStillComplete(device:device))
+                || ((state.threeFingerTapDevices.contains(device) || state.thumbTwoTapDevices.contains(device)) && state.threeFingerTaps.canStillComplete(device:device))
+                || (state.fourFingerTapDevices.contains(device) && state.fourFingerTaps.canStillComplete(device:device))
+                || (state.fiveFingerTapDevices.contains(device) && state.fiveFingerTaps.canStillComplete(device:device))
+            let result = KeyboardEvidence(claimed:state.keyboardClaimed.contains(device),tapPending:pending,
+                enabled:state.recoverableKeyboardDevices.contains(device) && (!state.keyboardRecoveryNeedsDragObserver.contains(device) || state.buttonObserverHealthy),epoch:state.keyboardEpoch)
+            if allUp { state.keyboardClaimed.remove(device) }
+            return result
+        }
+    }
     func process(_ frame: OMSRawTouchFrame) {
         process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
     }
@@ -533,6 +560,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.lastReceipt[device] = hostTime
             let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
             if !allUp && state.momentum[device]?.isCoasting == true {
+                state.keyboardClaimed.insert(device)
                 state.cancelMomentum(device:device)
                 state.taps.cancel(device:device)
                 state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device) // braking a coast must not also click
@@ -569,6 +597,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 }
             }
             if state.forceClicks.claimed(device:device) {
+                state.keyboardClaimed.insert(device)
                 state.holds.cancel(device:device)
                 state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 state.router.reset(device:device); state.directionalStepper.reset(device:device); state.directionalRepeater.reset(device:device); state.tracker.reset(device:device)
@@ -589,6 +618,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 default: return false
                 }
             })
+            if update.phase == .began || update.phase == .changed { state.keyboardClaimed.insert(device) }
             let directionalOwner = update.gesture.flatMap { state.directionals[device]?[$0] } != nil
             if !directionalOwner, let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
                     contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {

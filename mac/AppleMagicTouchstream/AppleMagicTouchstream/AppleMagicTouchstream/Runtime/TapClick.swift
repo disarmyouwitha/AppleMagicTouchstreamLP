@@ -67,6 +67,13 @@ struct TwoFingerTapRecognizer {
         var blocked = false
     }
     private var sessions: [UInt64:Session] = Dictionary(minimumCapacity:2)
+    func canStillComplete(device:UInt64) -> Bool {
+        guard let session = sessions[device], !session.blocked, session.paired != nil else { return false }
+        if let lifting = session.lifting {
+            guard let paired = session.paired, lifting-paired >= 0.02 else { return false }
+        }
+        return true
+    }
     mutating func cancel(device: UInt64) { sessions[device] = Session(blocked:true) }
     mutating func invalidate(device: UInt64) { if sessions[device] != nil { cancel(device:device) } }
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
@@ -301,6 +308,7 @@ struct ThreeFingerTapRecognizer {
         var handID: Int32 = 0
     }
     private var timing = TwoFingerTapRecognizer(requiredCount:3)
+    func canStillComplete(device:UInt64) -> Bool { timing.canStillComplete(device:device) }
     private var identities: [UInt64:Identity] = Dictionary(minimumCapacity:2)
     mutating func cancel(device: UInt64) { timing.cancel(device:device); identities[device] = nil }
     mutating func invalidate(device: UInt64) { timing.invalidate(device:device); identities[device] = nil }
