@@ -231,8 +231,9 @@ final class GestureWorkspaceTests: XCTestCase {
 extension GestureWorkspaceTests {
     func testSharedShortcutBuilderRendersWithoutAssigningOrOpeningApps() throws {
         XCTAssertEqual(WorkspaceColumnSizing.defaultGestureInspectorWidth,WorkspaceColumnSizing.defaultMenuWidth)
-        for (name,label) in [("shift","Shift"),("shortcut","Cmd+S"),("app",AppLaunchActionHelper.createActionLabel(fileName:"/Applications/Calculator.app")!)] {
-            let action = try XCTUnwrap(KeyActionCatalog.action(for:label))
+        for (name,label) in [("shift","Shift"),("shortcut","Cmd+S"),("named","Cmd+S"),("app",AppLaunchActionHelper.createActionLabel(fileName:"/Applications/Calculator.app")!)] {
+            var action = try XCTUnwrap(KeyActionCatalog.action(for:label))
+            if name == "named" { action.customName = "Save document" }
             let view = ShortcutActionBuilder(action:action,allowsHold:true,holdUntilRelease:name == "shift") { _,_ in
                 XCTFail("Rendering must not apply an action")
             }.padding(20).frame(width:381,height:340,alignment:.topLeading)
@@ -259,9 +260,10 @@ extension GestureWorkspaceTests {
         let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
         defer { defaults.removePersistentDomain(forName:suite) }
         let app = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app"))
-        let data = try XCTUnwrap(ShortcutActionLibraryStorage.encode(["Cmd+S","Hyper",app.label]))
+        var named = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S")); named.customName = "Save document"
+        let data = try XCTUnwrap(ShortcutActionLibraryStorage.encode(["Cmd+S",named.storageLabel,"Hyper",app.label]))
         defaults.set(data,forKey:GlassToKeyDefaultsKeys.shortcutActions)
-        let view = ShortcutLibraryManager(initialEditing:"Cmd+S").defaultAppStorage(defaults)
+        let view = ShortcutLibraryManager(initialEditing:named.storageLabel).defaultAppStorage(defaults)
             .background(Color(nsColor:.windowBackgroundColor))
         let host = NSHostingView(rootView:view)
         host.frame = NSRect(x:0,y:0,width:600,height:680)

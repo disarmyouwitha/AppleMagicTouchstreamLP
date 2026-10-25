@@ -1,7 +1,10 @@
 # NEXT:
 =======
-0. Can you look over the Touchstream quickstart guide and make a list of missing gesture ACTIONS and their commands?
-1. Better 4-finger latching for holds?
+* For anything we can add through the shortcut builder I think we will let it be. Can we give them the ability to name their shortcuts when they add them to the keyboard or shortcut list and we will display that label?
+0. I am getting maybe some accidental scroll when placing my fingers for 4-finger hold (for shifts) shift_hold_accidental_scroll.atpcap
+===
+0. For our direction gestures there should be an behavior dropdown (repeat every ms, repeat with motion)
+1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:
@@ -16,7 +19,14 @@
 ===
 0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
-2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
+2. Implement actions: Missing Apple actions:
+> Smart-zoom 
+2. Implement actions: Missing TouchStream actions:
+> Missing capability	    Command/output
+> Middle click and drag	    Mouse3 click or held drag
+> Secondary drag	        Mouse2 down → movement → release
+> Caps Word	                Capitalize the next word, then automatically stop
+**LATER:** I can go through and make a touchstream default keymap!! (I will need to hand-set a bunch of default keyboard shortcuts!)
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
 ===
@@ -37,7 +47,7 @@
 666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
 ===
-
+* `rubberbanding mouse`: Why does it happen? When?
 
 ===
 ## TELL CODEX:

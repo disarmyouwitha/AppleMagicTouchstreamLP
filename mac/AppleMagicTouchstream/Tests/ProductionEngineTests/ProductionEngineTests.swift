@@ -1063,6 +1063,76 @@ extension ProductionEngineTests {
 
 
 extension ProductionEngineTests {
+    func testNamedShortcutsPreserveCommandIdentityAndLegacyLabels() throws {
+        for label in ["Cmd+S","Hyper","Shift","Right Option+Left"] {
+            let original = try XCTUnwrap(KeyActionCatalog.action(for:label))
+            var named = original; named.customName = "My \"shortcut\" + ❤️"
+            XCTAssertEqual(named.label,original.label)
+            XCTAssertEqual(named.keyCode,original.keyCode)
+            XCTAssertEqual(named.flags,original.flags)
+            XCTAssertEqual(named.displayText,named.customName)
+            XCTAssertEqual(named.pickerText,named.customName)
+            XCTAssertEqual(named.holdLabelText,named.customName)
+            XCTAssertEqual(named.commandText,original.pickerText)
+            XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:named),KeyActionCatalog.shortcutSpec(for:original))
+            XCTAssertEqual(GestureShortcutKeyOwnership.keys(for:named),GestureShortcutKeyOwnership.keys(for:original))
+            XCTAssertEqual(KeyActionCatalog.action(for:named.storageLabel),named)
+            XCTAssertEqual(try JSONDecoder().decode(KeyAction.self,from:JSONEncoder().encode(named)),named)
+            XCTAssertEqual(KeyActionCatalog.action(for:original.storageLabel),original)
+            let encoded = try XCTUnwrap(ShortcutActionLibraryStorage.encode([original.storageLabel,named.storageLabel,named.storageLabel]))
+            XCTAssertEqual(ShortcutActionLibraryStorage.decode(from:encoded),[original.storageLabel,named.storageLabel])
+            named.customName = " \n "
+            XCTAssertEqual(named.storageLabel,original.label)
+            XCTAssertEqual(named.displayText,original.displayText)
+        }
+        XCTAssertNil(KeyActionCatalog.action(for:"NAMED_SHORTCUT:not json"))
+        XCTAssertNil(KeyActionCatalog.action(for:NamedShortcutStorage.label(name:"Bad",command:"not a command")))
+        XCTAssertNil(KeyActionCatalog.action(for:NamedShortcutStorage.label(name:"Nested",command:NamedShortcutStorage.label(name:"Inner",command:"Cmd+S"))))
+    }
+    func testNamedShortcutsRoundTripAcrossKeyboardGesturesAndLibrary() throws {
+        for base in [try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S")),
+                     try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app",arguments:"--example"))] {
+            var action = base; action.customName = "My custom name"
+            let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            let mapping = KeyMapping(primary:action,hold:action)
+            let button = CustomButton(id:UUID(),side:.right,rect:NormalizedRect(x:0.1,y:0.1,width:0.2,height:0.2),action:action,hold:action)
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+            object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[position:mapping]]]))
+            object["customButtonsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[button]]]))
+            object["shortcutActions"] = [action.storageLabel]
+            var profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+            var gestures = HandGestureSettings()
+            let assigned = GestureAction.shortcut(.init(label:action.storageLabel))
+            XCTAssertTrue(gestures.setAction(assigned,for:.twoFingerTap,in:.left))
+            if action.kind == .key {
+                gestures.setHoldAction(.shortcut(.init(label:action.storageLabel,holdUntilRelease:true)),count:4,in:.right)
+            }
+            profile.handGestureSettings = gestures
+            let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position],mapping)
+            XCTAssertEqual(imported.customButtonsByLayout["TouchStream"]?[0]?.first,button)
+            XCTAssertEqual(imported.handGestureSettings,gestures)
+            XCTAssertEqual(imported.shortcutActions,[action.storageLabel])
+            XCTAssertEqual(imported.handGestureSettings?.action(.twoFingerTap,in:.left)?.title,"My custom name")
+            var renamed = action; renamed.customName = "Renamed"
+            let edited = ShortcutActionLibraryStorage.replacing(action.storageLabel,with:renamed,in:imported.shortcutActions)
+            XCTAssertEqual(edited,[renamed.storageLabel])
+            XCTAssertEqual(assigned.title,"My custom name") // assignments remain snapshots
+        }
+    }
+    func testNamedKeyboardShortcutDispatchMatchesUnnamedCommand() throws {
+        for name in [nil,"Save document"] as [String?] {
+            var action = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S")); action.customName = name
+            let run = session()
+            let key = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            run.engine.updateKeyMappings([0:[key:KeyMapping(primary:action,hold:nil)]])
+            frame(run,1,[contact(state:.making)])
+            frame(run,1.04,[contact(state:.breaking)])
+            frame(run,1.05,[])
+            run.finish(at:1.2)
+            XCTAssertTrue(run.output.events.contains { if case let .keyStroke(code,flags,_) = $0.kind { return code == action.keyCode && flags.rawValue == action.flags }; return false })
+        }
+    }
     func testShortcutLibraryEditsDeduplicateAndPreserveAssignedActionsThroughExport() throws {
         let original = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S"))
         let replacement = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+O"))

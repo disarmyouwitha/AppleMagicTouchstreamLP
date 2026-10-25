@@ -250,8 +250,9 @@ System choices. No action modifies system shortcut preferences.
 
 Keyboard and Gesture inspectors share one Shortcut Builder: generic/left/right
 Ctrl, Shift, Option and Cmd, optional key (None means modifiers only), and App/file/
-folder/URL target with Browse. Apply assigns directly to the selected input and
-also makes the shortcut available in the shared Shortcuts library. The gesture
+folder/URL target with Browse, plus an optional Name. Keyboard Primary/Hold Apply
+assigns to the selected key; Keyboard Shortcuts Apply adds to the library. Gesture
+Apply assigns the input and adds to the shared library. The gesture
 Action sheet retains its built-in groups and includes a Shortcuts group. Rendering
 or editing a draft never posts input.
 
@@ -261,6 +262,17 @@ shared builder; Apply replaces that library entry and merges duplicates. Delete
 removes only the saved entry. Existing key and gesture assignments retain their
 own action snapshots, including after settings export/import; an assigned shortcut
 absent from the library appears under Current Assignment in the gesture picker.
+
+Named shortcuts display their name on keys, Hold labels, action cards and pickers.
+Manage Shortcuts shows the command beneath the name and can edit or clear the name.
+An empty/whitespace-only name falls back to the command's existing display label.
+Names are optional KeyAction metadata; canonical command label, code, flags and
+app target remain unchanged. String-only shortcut lists, portable key assignments
+and gesture identities preserve the metadata in a `NAMED_SHORTCUT:` JSON envelope.
+The catalog resolves it once into the ordinary action before dispatch. Existing
+unnamed labels/files remain valid; older app versions do not understand newly
+named envelopes. Named variants can coexist in the library, including with their
+unnamed command. Renaming a library entry keeps the existing snapshot semantics.
 
 Tap, Force, directions, movement activation, Pinch/Spread and rotation can dispatch
 custom shortcuts once. Directional repeat uses the same interval controls. Hold

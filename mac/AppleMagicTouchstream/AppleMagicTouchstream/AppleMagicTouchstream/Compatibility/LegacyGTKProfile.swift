@@ -431,7 +431,7 @@ enum PortableKeymapInterop {
                     label,
                     unsupportedLabels: &unsupportedShortcutLabels,
                     allowNil: true
-                )?.label
+                )?.storageLabel
             }
             guard unsupportedShortcutLabels.isEmpty else {
                 throw PortableKeymapImportError.unsupportedActions(Array(unsupportedShortcutLabels))
@@ -900,7 +900,7 @@ enum PortableKeymapInterop {
     }
 
     private static func portableLabel(for action: KeyAction) -> String {
-        action.label
+        action.storageLabel
     }
 
     private struct PortableProfileBundle: Codable {

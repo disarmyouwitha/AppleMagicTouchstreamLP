@@ -944,9 +944,9 @@ struct GestureAssignmentWorkspace: View {
             ShortcutActionBuilder(action:value?.shortcutAssignment?.action,allowsHold:allowsHold,
                 holdUntilRelease:value?.isHeldShortcut == true) { action,held in
                     var library = ShortcutActionLibraryStorage.decode(from:UserDefaults.standard.data(forKey:GlassToKeyDefaultsKeys.shortcutActions) ?? Data()) ?? []
-                    library.append(action.label)
+                    library.append(action.storageLabel)
                     UserDefaults.standard.set(ShortcutActionLibraryStorage.encode(library),forKey:GlassToKeyDefaultsKeys.shortcutActions)
-                    apply(.shortcut(.init(label:action.label,holdUntilRelease:held)))
+                    apply(.shortcut(.init(label:action.storageLabel,holdUntilRelease:held)))
                 }
                 .id("\(editingHand.rawValue).\(mirrorEdits).\(pane.rawValue).\(selected.rawValue).\(selectedHold).\(selectedDirection?.rawValue ?? "none").\(twoHandChord.rawValue).\(twoHandPhase.rawValue)")
         }
@@ -1398,7 +1398,7 @@ struct GestureActionChooser:View {
         let labels = ["Shift","Ctrl","Option","Cmd","Hyper"] + (ShortcutActionLibraryStorage.decode(from:shortcutLibrary) ?? [])
         var seen:Set<GestureAction> = []
         let shortcuts = labels.compactMap { KeyActionCatalog.action(for:$0) }.filter { $0.kind == .key || $0.kind == .appLaunch }
-            .map { GestureAction.shortcut(.init(label:$0.label)) }.filter { seen.insert($0).inserted }
+            .map { GestureAction.shortcut(.init(label:$0.storageLabel)) }.filter { seen.insert($0).inserted }
         let current:[SearchableActionGroup<GestureAction>] = value.flatMap { value in
             value.shortcutAssignment != nil && !shortcuts.contains(value) ? [.init(title:"Current Assignment",actions:[value])] : nil
         } ?? []
@@ -1446,6 +1446,7 @@ struct ShortcutActionBuilder:View {
     @State private var shortcutModifierPicker:ShortcutModifier?
     @State private var suppressShortcutModifierTap:ShortcutModifier?
     @State private var shortcutKeyLabel = ""
+    @State private var shortcutName = ""
     @State private var appLaunchTarget = ""
     @State private var appLaunchArguments = ""
     @State private var held = false
@@ -1454,6 +1455,11 @@ struct ShortcutActionBuilder:View {
     var body:some View {
         VStack(alignment:.leading,spacing:8) {
             Text("Shortcut Builder").font(.callout).fontWeight(.medium)
+                    HStack(spacing:8) {
+                        Text("Name").font(.caption).foregroundStyle(.secondary)
+                        TextField("Optional shortcut name",text:$shortcutName)
+                            .textFieldStyle(.roundedBorder).disabled(!canEditActionBuilder)
+                    }
                     HStack(spacing: 8) {
                         ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
                             shortcutModifierButton(modifier)
@@ -1507,7 +1513,8 @@ struct ShortcutActionBuilder:View {
         .onChange(of:holdUntilRelease) { _ in held = holdUntilRelease }
     }
     private func sync() {
-        clearShortcutBuilderState(); appLaunchTarget = ""; appLaunchArguments = ""; held = holdUntilRelease
+        clearShortcutBuilderState(); shortcutName = action?.customName ?? ""
+        appLaunchTarget = ""; appLaunchArguments = ""; held = holdUntilRelease
         guard let action else { return }
         if let spec = KeyActionCatalog.appLaunchSpec(for:action) {
             appLaunchTarget = spec.fileName; appLaunchArguments = spec.arguments
@@ -1685,7 +1692,9 @@ struct ShortcutActionBuilder:View {
         }
 
         private var builtAction: KeyAction? {
-            builtAppLaunchAction ?? builtShortcutAction
+            guard var action = builtAppLaunchAction ?? builtShortcutAction else { return nil }
+            action.customName = NamedShortcutStorage.normalizedName(shortcutName)
+            return action
         }
 
         private var actionBuilderPreview: String {
@@ -1754,25 +1763,29 @@ struct ShortcutLibraryManager:View {
             } else {
                 ScrollView {
                     LazyVStack(spacing:6) {
-                        ForEach(filtered,id:\.label) { action in
+                        ForEach(filtered,id:\.storageLabel) { action in
                             HStack(spacing:12) {
                                 VStack(alignment:.leading,spacing:3) {
                                     Text(action.pickerText).font(.callout).frame(maxWidth:.infinity,alignment:.leading)
+                                    if action.customName != nil {
+                                        Text(action.commandText).font(.caption).foregroundStyle(.secondary)
+                                            .lineLimit(1).truncationMode(.middle)
+                                    }
                                     if let target = KeyActionCatalog.appLaunchSpec(for:action) {
                                         Text(target.fileName).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                                     }
                                 }
-                                Button("Edit") { editing = action.label }
+                                Button("Edit") { editing = action.storageLabel }
                                     .disabled(action.kind != .key && action.kind != .appLaunch)
                                 Button(role:.destructive) {
-                                    write(ShortcutActionLibraryStorage.removing(action.label,from:labels))
-                                    if editing == action.label { editing = nil }
+                                    write(ShortcutActionLibraryStorage.removing(action.storageLabel,from:labels))
+                                    if editing == action.storageLabel { editing = nil }
                                 } label: { Image(systemName:"trash") }
                                 .accessibilityLabel("Delete \(action.pickerText)")
                                 .help("Remove from the saved list")
                             }
                             .padding(10)
-                            .background(editing == action.label ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
+                            .background(editing == action.storageLabel ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
                         }
                     }
                 }.frame(minHeight:120)

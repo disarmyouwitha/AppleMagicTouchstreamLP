@@ -507,7 +507,7 @@ enum ShortcutActionLibraryStorage {
                 continue
             }
 
-            let canonicalLabel = action.label
+            let canonicalLabel = action.storageLabel
             let dedupeKey = canonicalLabel.lowercased()
             guard seen.insert(dedupeKey).inserted else { continue }
             normalized.append(canonicalLabel)
@@ -519,7 +519,7 @@ enum ShortcutActionLibraryStorage {
     static func replacing(_ original:String,with action:KeyAction,in actions:[String]) -> [String] {
         var values = normalized(actions)
         guard let index = values.firstIndex(of:original),
-              let replacement = normalized([action.label]).first else { return values }
+              let replacement = normalized([action.storageLabel]).first else { return values }
         values[index] = replacement
         return normalized(values)
     }
@@ -538,6 +538,32 @@ enum ShortcutActionLibraryStorage {
 
     static func encode(_ actions: [String]?) -> Data? {
         try? encoder.encode(normalized(actions))
+    }
+}
+
+/// Names are presentation metadata. The command label/code/flags stay unchanged.
+/// String-only legacy stores carry a versioned envelope; object stores use the
+/// optional customName field. Resolution happens when settings are loaded.
+enum NamedShortcutStorage {
+    private static let prefix = "NAMED_SHORTCUT:"
+    struct Entry:Codable { let name:String; let command:String }
+    static func normalizedName(_ name:String?) -> String? {
+        guard let name = name?.trimmingCharacters(in:.whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
+    }
+    static func label(name:String,command:String) -> String {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let data = try! encoder.encode(Entry(name:name,command:command))
+        return prefix + String(decoding:data,as:UTF8.self)
+    }
+    static func resolve(_ label:String) -> KeyAction? {
+        guard label.hasPrefix(prefix), let data = String(label.dropFirst(prefix.count)).data(using:.utf8),
+              let entry = try? JSONDecoder().decode(Entry.self,from:data),
+              let name = normalizedName(entry.name), !entry.command.hasPrefix(prefix),
+              var action = KeyActionCatalog.action(for:entry.command),
+              action.kind == .key || action.kind == .appLaunch else { return nil }
+        action.customName = name
+        return action
     }
 }
 
@@ -1982,7 +2008,17 @@ struct KeyAction: Codable, Hashable, Sendable {
         var flags: UInt64
         var kind: KeyActionKind
         var layer: Int?
+        var customName: String?
+        var storageLabel:String {
+            guard let name = NamedShortcutStorage.normalizedName(customName) else { return label }
+            return NamedShortcutStorage.label(name:name,command:label)
+        }
+        var commandText:String {
+            var command = self; command.customName = nil
+            return command.pickerText
+        }
         var displayText: String {
+            if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
             case .none:
                 return KeyActionCatalog.noneLabel
@@ -2002,6 +2038,7 @@ struct KeyAction: Codable, Hashable, Sendable {
         }
 
         var pickerText: String {
+            if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
             case .typingToggle:
                 return KeyActionCatalog.typingToggleLabel
@@ -2024,6 +2061,7 @@ struct KeyAction: Codable, Hashable, Sendable {
         case flags
         case kind
         case layer
+        case customName
     }
 
     init(
@@ -2031,13 +2069,15 @@ struct KeyAction: Codable, Hashable, Sendable {
         keyCode: UInt16,
         flags: UInt64,
         kind: KeyActionKind = .key,
-        layer: Int? = nil
+        layer: Int? = nil,
+        customName: String? = nil
     ) {
         self.label = label
         self.keyCode = keyCode
         self.flags = flags
         self.kind = kind
         self.layer = layer
+        self.customName = NamedShortcutStorage.normalizedName(customName)
     }
 
     init(from decoder: Decoder) throws {
@@ -2047,6 +2087,7 @@ struct KeyAction: Codable, Hashable, Sendable {
         flags = try container.decode(UInt64.self, forKey: .flags)
         kind = try container.decodeIfPresent(KeyActionKind.self, forKey: .kind) ?? .key
         layer = try container.decodeIfPresent(Int.self, forKey: .layer)
+        customName = NamedShortcutStorage.normalizedName(try container.decodeIfPresent(String.self,forKey:.customName))
         if kind == .chordalShift || KeyActionCatalog.isChordalShiftAlias(label) {
             if let normalized = KeyActionCatalog.action(for: KeyActionCatalog.chordalShiftLabel) {
                 self = normalized
@@ -2061,6 +2102,7 @@ struct KeyAction: Codable, Hashable, Sendable {
         try container.encode(flags, forKey: .flags)
         try container.encode(kind, forKey: .kind)
         try container.encodeIfPresent(layer, forKey: .layer)
+        try container.encodeIfPresent(customName,forKey:.customName)
     }
 }
 
@@ -2650,6 +2692,7 @@ enum KeyActionCatalog {
     }
 
     static func action(for label: String) -> KeyAction? {
+        if let named = NamedShortcutStorage.resolve(label) { return named }
         // Archived GTK labels are decode-only. Never turn them into live actions.
         let removed = [typingToggleLabel, "TT", voiceLabel, "VOICE", gestureInnerCornersHoldLabel, volumeUpSmallLabel,
                        volumeDownSmallLabel, brightnessUpLabel, brightnessDownLabel,

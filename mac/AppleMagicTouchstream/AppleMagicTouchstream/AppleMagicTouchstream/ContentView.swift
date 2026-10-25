@@ -3727,7 +3727,7 @@ struct ContentView: View {
 
     private func saveShortcutLibraryAction(_ action: KeyAction) {
         var actions = ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData) ?? []
-        actions.append(action.label)
+        actions.append(action.storageLabel)
         storedShortcutActionsData = ShortcutActionLibraryStorage.encode(actions) ?? Data()
     }
 
