@@ -36,7 +36,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
             return "Choose actions for pinching, spreading and rotation. Pinch and Spread require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
-        case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners for one second."
+        case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners until the configured threshold."
         case .thumbTwo: return "Choose independent tap, hold and rotation actions for a spread thumb and two fingertips."
         }
     }
@@ -447,9 +447,9 @@ extension GestureTrigger {
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
         case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Hold uses its configured threshold; movement allowance is 2 mm. Lift all fingers to rearm."
-        case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 0.5 seconds."
+        case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 500 ms."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
-        case .twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
+        case .twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap: return "Tap window: 500 ms. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
         default: return "Movement owns its touch cycle until all-up, including added or lifted fingers. Motion and taps compete before activation."
         }
     }
@@ -521,7 +521,7 @@ struct GestureAssignmentWorkspace: View {
          setHoldAction:@escaping (GestureAction,Int,GestureHandScope)->Void = {_,_,_ in},
          setHoldThreshold:@escaping (Double,Int,GestureHandScope)->Void = {_,_,_ in},
          setTwoHandHoldThreshold:@escaping (Double,TwoHandChord)->Void = {_,_ in},
-         holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 0.5 seconds. Fires once until all-up."},
+         holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 500 ms. Fires once until all-up."},
          setNaturalScrolling:@escaping (Bool,GestureHandScope)->Void = {_,_ in}) {
         self.setNaturalScrolling = setNaturalScrolling
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
@@ -732,7 +732,7 @@ struct GestureAssignmentWorkspace: View {
                         VStack(alignment:.leading,spacing:12) {
                             Label(phase.title,systemImage:phase == .tap ? "hand.tap" : "pause.circle").font(.caption).foregroundStyle(.secondary)
                             Text(settings.twoHand.action(trigger).title).font(.headline)
-                            Text(phase == .tap ? "Once when both hands lift" : "Once after \(settings.twoHand.holdThreshold(for:twoHandChord), specifier:"%.2f") s")
+                            Text(phase == .tap ? "Once when both hands lift" : "Once after \(GestureHoldTiming.milliseconds(settings.twoHand.holdThreshold(for:twoHandChord))) ms")
                                 .font(.caption).foregroundStyle(.secondary)
                         }.frame(maxWidth:.infinity,minHeight:95,alignment:.topLeading).padding(16)
                             .background(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:10))
@@ -765,8 +765,8 @@ struct GestureAssignmentWorkspace: View {
                 Divider()
                 Text("Recognition").font(.callout).fontWeight(.medium)
                 Text(twoHandPhase == .tap
-                     ? "Both chords must lift within 0.5 s. Lift skew: 150 ms. Movement slop: 2 mm."
-                     : "Keep both chords still for \(settings.twoHand.holdThreshold(for:twoHandChord), specifier:"%.2f") s. The assigned action activates after the threshold. Shortcut Behavior chooses one shot or a key held until release.")
+                     ? "Both chords must lift within 500 ms. Lift skew: 150 ms. Movement slop: 2 mm."
+                     : "Keep both chords still for \(GestureHoldTiming.milliseconds(settings.twoHand.holdThreshold(for:twoHandChord))) ms. The assigned action activates after the threshold. Shortcut Behavior chooses one shot or a key held until release.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Text("Requires two distinct selected pads with Trackpad Takeover active. A joining hand releases the independent gesture. Layer/modifier holds keep priority. Losing contact delivery cancels the gesture.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -915,7 +915,7 @@ struct GestureAssignmentWorkspace: View {
     private var holdKey:Int { pane.holdKey }
     private var holdDuration:Double { settings.holdThreshold(count:holdKey,in:editingScope) ?? GestureHoldTiming.defaultSeconds }
     private var holdTimingDescription:String {
-        settings.holdThreshold(count:holdKey,in:editingScope).map { String(format:"%.2f seconds",$0) } ?? "each pad’s configured threshold"
+        settings.holdThreshold(count:holdKey,in:editingScope).map { "\(GestureHoldTiming.milliseconds($0)) ms" } ?? "each pad’s configured threshold"
     }
     private var holdEditable:Bool { Self.holdEditable(pane:pane,settings:settings,scope:editingScope) }
     private var holdCard:some View {
@@ -925,7 +925,7 @@ struct GestureAssignmentWorkspace: View {
                 Label("Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
                 Text(value?.title ?? "Mixed").font(.system(size:17,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text(settings.holdThreshold(count:holdKey,in:editingScope) == nil ? "Mixed hold thresholds" : "After \(holdDuration.formatted()) seconds · \(value?.isHeldShortcut == true ? "held until release" : "once while held")")
+                Text(settings.holdThreshold(count:holdKey,in:editingScope) == nil ? "Mixed hold thresholds" : "After \(GestureHoldTiming.milliseconds(holdDuration)) ms · \(value?.isHeldShortcut == true ? "held until release" : "once while held")")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) ? 106 : 112,alignment:.topLeading)
@@ -1805,28 +1805,28 @@ struct GestureHoldThresholdField:View {
     @State private var draft = ""
     @FocusState private var focused:Bool
     static func committedValue(_ text:String) -> Double? {
-        guard let seconds = Double(text.trimmingCharacters(in:.whitespacesAndNewlines)), seconds.isFinite else { return nil }
-        return GestureHoldTiming.validated(seconds)
+        guard let milliseconds = Double(text.trimmingCharacters(in:.whitespacesAndNewlines)), milliseconds.isFinite else { return nil }
+        return GestureHoldTiming.validated(milliseconds/1000)
     }
-    private func sync() { draft = value.map { String(format:"%.2f",$0) } ?? "" }
+    private func sync() { draft = value.map { String(GestureHoldTiming.milliseconds($0)) } ?? "" }
     private func apply() {
         guard let seconds = Self.committedValue(draft) else { sync(); return }
-        draft = String(format:"%.2f",seconds)
+        draft = String(GestureHoldTiming.milliseconds(seconds))
         if seconds != value { commit(seconds) }
     }
     var body:some View {
         HStack {
             Text("Hold threshold")
             Spacer(minLength:8)
-            TextField(value == nil ? "Mixed" : "0.5",text:$draft)
+            TextField(value == nil ? "Mixed" : "500",text:$draft)
                 .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width:62)
                 .focused($focused).onSubmit { apply() }
                 .onAppear { sync() }
                 .onChange(of:focused) { if !$0 { apply() } }
                 .onChange(of:value) { _ in if !focused { sync() } }
-                .accessibilityLabel("Hold threshold in seconds")
-            Text("sec").foregroundStyle(.secondary)
+                .accessibilityLabel("Hold threshold in milliseconds")
+            Text("ms").foregroundStyle(.secondary)
         }
-        .help("0.1–5 seconds. Saves on Return or when leaving the field.")
+        .help("100–5000 ms in 10 ms increments. Saves on Return or when leaving the field.")
     }
 }

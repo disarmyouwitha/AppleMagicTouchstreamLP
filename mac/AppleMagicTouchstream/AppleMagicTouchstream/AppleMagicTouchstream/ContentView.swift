@@ -2480,7 +2480,7 @@ struct ContentView: View {
                 Toggle("Hold Repeat", isOn: $holdRepeatEnabled)
                     .help("Repeats hold-enabled key actions while the touch stays held.")
                 Toggle("Auto-resync", isOn: $autoResyncEnabled)
-                    .help("Polls every 8 seconds to detect disconnected trackpads.")
+                    .help("Polls every 8000 ms to detect disconnected trackpads.")
             }
             .toggleStyle(.switch)
         }

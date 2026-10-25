@@ -79,7 +79,7 @@ final class TrackpadGestureController: ObservableObject {
         guard settings.holdAvailable(count:count,in:scope) else {
             return "Unsupported contact count."
         }
-        let duration = settings.holdThreshold(count:count,in:scope).map { String(format:"%.2f seconds",$0) } ?? "each pad’s configured threshold"
+        let duration = settings.holdThreshold(count:count,in:scope).map { "\(GestureHoldTiming.milliseconds($0)) ms" } ?? "each pad’s configured threshold"
         let timing = "Hold still for \(duration). Fires once until all-up."
         if settings.holdAction(count:count,in:scope) == .disabled { return timing }
         if !takeoverEnabled { return "Enable Trackpad Takeover." }

@@ -307,6 +307,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
 
 enum GestureHoldTiming {
     static let defaultSeconds = 0.5
+    static func milliseconds(_ seconds:Double) -> Int { Int((seconds*1000).rounded()) }
     static func validated(_ seconds:Double?) -> Double {
         guard let seconds, seconds.isFinite else { return defaultSeconds }
         return (min(5,max(0.1,seconds))*100).rounded()/100

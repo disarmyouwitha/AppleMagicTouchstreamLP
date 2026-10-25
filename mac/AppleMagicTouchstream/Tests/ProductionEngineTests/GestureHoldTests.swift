@@ -427,6 +427,12 @@ extension GestureHoldTests {
         XCTAssertEqual(GestureHoldTiming.validated(0.754),0.75)
         XCTAssertNil(GestureHoldThresholdField.committedValue(""))
         XCTAssertNil(GestureHoldThresholdField.committedValue("NaN"))
-        XCTAssertEqual(GestureHoldThresholdField.committedValue("0.75"),0.75)
+        XCTAssertEqual(GestureHoldThresholdField.committedValue("750"),0.75)
+        XCTAssertEqual(GestureHoldThresholdField.committedValue("500"),0.5)
+        XCTAssertEqual(GestureHoldThresholdField.committedValue("0"),0.1)
+        XCTAssertEqual(GestureHoldThresholdField.committedValue("9999"),5)
+        XCTAssertEqual(GestureHoldTiming.milliseconds(0.5),500)
+        XCTAssertEqual(GestureHoldTiming.milliseconds(0.75),750)
+        XCTAssertEqual(GestureHoldTiming.milliseconds(1.25),1250)
     }
 }

@@ -39,11 +39,11 @@ the architecture review and remaining work.
 | 2–5-finger Pinch and Spread | Zoom | Recognized thumb plus shape change; all-up completion |
 | 1-finger force click | Primary Click | Any active contact reaches P ≥ 130 |
 | 2–5-finger force click | None | Same pressure crossing, independently configured per count |
-| 2–5-finger stationary Hold | None | 0.5 s; one-shot or held shortcut output |
-| Thumb + 2 fingertips Hold | None | Own binding and shared spread-thumb geometry; 0.5 s |
-| Single-pad 4 Corners Hold | Open Config | Four outer corners; 0.5 s default |
-| Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 0.5 s default |
-| Both-pad 3 or 4 fingers per hand, Tap / Hold | None | Tap at all-up; Hold after 0.5 s |
+| 2–5-finger stationary Hold | None | 500 ms; one-shot or held shortcut output |
+| Thumb + 2 fingertips Hold | None | Own binding and shared spread-thumb geometry; 500 ms |
+| Single-pad 4 Corners Hold | Open Config | Four outer corners; 500 ms default |
+| Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 500 ms default |
+| Both-pad 3 or 4 fingers per hand, Tap / Hold | None | Tap at all-up; Hold after 500 ms |
 
 One-finger gesture Hold is unavailable. Its gray lifecycle card reads “No
 separate gesture is available for this.” Keyboard key holds remain supported.
@@ -214,10 +214,12 @@ custom shortcuts once. Directional repeat uses the same interval controls. Hold
 assignments (including Both and corners) additionally offer Once after threshold
 or Hold until release for keyboard shortcuts. App targets always open once. Hold
 recognition geometry remains unchanged. Each Hold assignment has a saved threshold
-(default 0.5 seconds), editable in its Action inspector from 0.1–5 seconds in
-0.01-second steps. Ordinary counts, Thumb+2 and per-pad corners are independent
+(default 500 ms), editable in its Action inspector from 100–5000 ms in
+10 ms steps. Ordinary counts, Thumb+2 and per-pad corners are independent
 per hand; Mirror Edit writes both hands. Both-hand chords have separate thresholds.
-Thresholds round-trip with settings; older files missing them use 0.5 seconds.
+Thresholds round-trip with settings; older files missing them use 500 ms.
+Timing controls and recognition labels use milliseconds; the existing serialized
+threshold fields and monotonic runtime clocks retain seconds for compatibility.
 Timing edits cancel current output through the existing settings-change cleanup.
 Normal movement/shape assignments cannot acquire a held-key lifetime through imported settings.
 
@@ -287,7 +289,7 @@ contact rotation fields remain inactive.
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
 and Force Click across the top; Left / Movement / Right in the middle; Hold beside
 Down at the bottom. Tap and Movement default to None to preserve existing settings.
-Its independent Hold defaults to 0.5 s, and only Lift stays under Session
+Its independent Hold defaults to 500 ms, and only Lift stays under Session
 Lifetime. Direction/repeat, scrolling/panning, gains, Mirror Edit and portable
 settings use the same engine as the other counts.
 
