@@ -598,7 +598,7 @@ struct GestureAssignmentWorkspace: View {
                 }
                 }
             }
-            Text(editingHand == .both ? "One gesture uses both selected pads. Mirror Edit is separate." : "\(scopeText) settings\nTwo- and three-finger directionals are ready to test.")
+            Text(editingHand == .both ? "One gesture uses both selected pads. Mirror Edit is separate." : "\(scopeText) settings\nTwo-, three- and four-finger directionals are ready to test.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
         .padding(16)
@@ -759,9 +759,7 @@ struct GestureAssignmentWorkspace: View {
                 Color.clear.frame(height:1)
             }
             if mode != .continuous {
-                Text(mode == nil ? "Mixed movement modes." : trigger == .threeFingerMove
-                     ? "Directional actions use three fingers. Continuous movement is inactive."
-                     : "Directional mode: assignments save, but output is not implemented yet. Continuous movement is inactive.")
+                Text(mode == nil ? "Mixed movement modes." : "Directional actions are active. Continuous movement is inactive.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
         }
@@ -785,8 +783,7 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Text(assigned?.title ?? "Mixed").font(.system(size:16,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text(active ? (direction == nil ? "Continuous" : !GestureDirectionalAssignments.liveTriggers.contains(trigger) ? "Output coming later"
-                     : repeatLabel) : "Inactive · click to switch")
+                Text(active ? (direction == nil ? "Continuous" : repeatLabel) : "Inactive · click to switch")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(12).frame(maxWidth:.infinity,minHeight:106,alignment:.topLeading)
@@ -928,11 +925,11 @@ struct GestureAssignmentWorkspace: View {
             }
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
-                Text("Move \(selected == .twoFingerMove ? "two fingertips" : "three aligned fingertips") 0.75 mm to choose a direction. Repeat continues at the selected interval while held, including when stationary. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
+                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : "four fingertips") 0.75 mm to choose a direction. Repeat continues at the selected interval while held, including when stationary. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             } else {
                 Text("Directional output is not implemented yet.").font(.callout).fontWeight(.medium)
-                Text("This assignment and its repeat choice are saved. Live direction recognition currently supports two and three fingers. Continuous movement is inactive in directional mode.")
+                Text("This assignment and its repeat choice are saved. Live direction recognition supports two, three and four fingers. Continuous movement is inactive in directional mode.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")

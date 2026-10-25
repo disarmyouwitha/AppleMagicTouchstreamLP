@@ -173,7 +173,7 @@ enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Send
 /// Per-input directional assignments; live recognition currently supports three fingers.
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
-    static let liveTriggers:[GestureTrigger] = [.twoFingerMove,.threeFingerMove]
+    static let liveTriggers = triggers
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]

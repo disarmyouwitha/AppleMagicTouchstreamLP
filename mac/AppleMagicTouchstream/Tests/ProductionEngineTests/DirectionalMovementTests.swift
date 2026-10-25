@@ -138,7 +138,7 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertEqual(stepper.process(device:1,time:2,update:update(.init(x:2,y:0),.began),assignments:assignments),.right)
         XCTAssertNil(stepper.process(device:1,time:2.01,update:update(nil,.ended),assignments:assignments))
         XCTAssertNil(stepper.process(device:1,time:2.02,update:update(.init(x:4,y:0)),assignments:assignments))
-        XCTAssertNil(stepper.process(device:1,time:3,update:update(.init(x:4,y:0),.began,gesture:.fourFingerMove),assignments:assignments))
+        XCTAssertNil(stepper.process(device:1,time:3,update:update(.init(x:4,y:0),.began,gesture:.oneFingerForce),assignments:assignments))
         XCTAssertNil(stepper.process(device:1,time:4,update:update(.init(x:Double.nan,y:0),.began),assignments:assignments))
         _ = stepper.process(device:1,time:5,update:update(.init(x:2,y:0),.began),assignments:assignments)
         stepper.reset(device:1)
@@ -167,14 +167,15 @@ final class DirectionalMovementTests: XCTestCase {
         let original = HandGestureSettings()
         XCTAssertEqual(settings.routed(to:.init(left:1,right:2))[1]?.bindings.twoFingerMove,original.left.bindings.twoFingerMove)
     }
-    func testTwoAndThreeFingerDirectionalConfigurationsAreIndependent() {
+    func testAllFingerCountDirectionalConfigurationsAreIndependent() {
         var settings = PerHandGestureSettings()
         settings.editMovement(.twoFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall)
         settings.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:.brightnessUpSmall)
         settings.editMovement(.fourFingerMove,mode:.directional,direction:.up,action:.missionControl)
-        XCTAssertEqual(Set(settings.liveDirectionalBindings.keys),[.twoFingerMove,.threeFingerMove])
+        XCTAssertEqual(Set(settings.liveDirectionalBindings.keys),[.twoFingerMove,.threeFingerMove,.fourFingerMove])
         XCTAssertEqual(settings.liveDirectionalBindings[.twoFingerMove]?.action(.up),.volumeUpSmall)
         XCTAssertEqual(settings.liveDirectionalBindings[.threeFingerMove]?.action(.up),.brightnessUpSmall)
+        XCTAssertEqual(settings.liveDirectionalBindings[.fourFingerMove]?.action(.up),.missionControl)
         settings.editMovement(.twoFingerMove,mode:.continuous)
         XCTAssertNil(settings.liveDirectionalBindings[.twoFingerMove])
         XCTAssertEqual(settings.outputSettings.bindings.twoFingerMove,.pointer)
@@ -195,7 +196,7 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertNil(stepper.process(device:1,time:1.03,update:ended,assignments:assignments))
         XCTAssertNil(stepper.trigger(device:1))
     }
-    func testTwoFingerDirectionsTurnsAndRepeatUseSamePolicyAsThreeFingers() {
+    func testEveryFingerCountUsesTheSameDirectionTurnAndRepeatPolicy() {
         for trigger in GestureDirectionalAssignments.liveTriggers {
             var stepper = GestureDirectionalStepper(), repeater = GestureDirectionalRepeater()
             let config = config()
@@ -208,6 +209,40 @@ final class DirectionalMovementTests: XCTestCase {
             repeater.reset(device:1)
             XCTAssertNil(repeater.tick(device:1,now:10.2))
         }
+    }
+    func testFourFingerDirectionsLatchWithoutContinuousScrollAndRestoreScrollOnSwitch() throws {
+        var settings = HandGestureSettings()
+        settings.editMovement(.fourFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall,in:.left)
+        settings.setDirectionalRepeatInterval(80,direction:.up,for:.fourFingerMove,in:.left)
+        let routed = settings.routed(to:.init(left:1,right:2))
+        let left = try XCTUnwrap(routed[1])
+        XCTAssertEqual(left.bindings.fourFingerMove,.disabled)
+        XCTAssertEqual(routed[2]?.bindings.fourFingerMove,.scroll)
+        let assignments = try XCTUnwrap(left.liveDirectionalBindings[.fourFingerMove])
+        var router = TrackpadGestureRouter(), stepper = GestureDirectionalStepper(), repeatEngine = GestureDirectionalRepeater()
+        let enabled:(GestureTrigger)->Bool = { left.liveDirectionalBindings[$0] != nil }
+        _ = router.recognize(device:1,time:1,contacts:touches(4),enabled:enabled)
+        let began = router.recognize(device:1,time:1.01,contacts:touches(4,dy:0.01),enabled:enabled)
+        XCTAssertEqual(began.gesture,.fourFingerMove)
+        XCTAssertEqual(stepper.process(device:1,time:1.01,update:began,assignments:assignments),.up)
+        repeatEngine.refresh(device:1,direction:.up,intervalMS:assignments.repeatIntervalMS(.up),now:20)
+        XCTAssertEqual(repeatEngine.tick(device:1,now:20.081),.up)
+        for (time,count,dy) in [(1.02,2,Float(0.012)),(1.03,1,Float(0.014))] {
+            let changed = router.recognize(device:1,time:time,contacts:touches(count,dy:dy),enabled:enabled)
+            XCTAssertEqual(changed.gesture,.fourFingerMove)
+            XCTAssertNil(stepper.process(device:1,time:time,update:changed,assignments:assignments))
+            XCTAssertEqual(stepper.trigger(device:1),.fourFingerMove)
+        }
+        let ended = router.recognize(device:1,time:1.04,contacts:touches(0),enabled:enabled)
+        XCTAssertNil(stepper.process(device:1,time:1.04,update:ended,assignments:assignments))
+        repeatEngine.reset(device:1)
+        XCTAssertNil(repeatEngine.tick(device:1,now:20.2))
+        settings.editMovement(.fourFingerMove,mode:.continuous,in:.left)
+        XCTAssertEqual(settings.routed(to:.init(left:1,right:2))[1]?.bindings.fourFingerMove,.scroll)
+        XCTAssertNil(settings.left.liveDirectionalBindings[.fourFingerMove])
+        XCTAssertEqual(settings.left.movement(.fourFingerMove).action(.up),.volumeUpSmall)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
     }
     private func touches(_ count:Int,dy:Float = 0) -> [OMSRawTouch] {
         (0..<count).map { i in OMSRawTouch(id:Int32(i+1),posX:0.3+Float(i)*0.11,posY:0.5+dy,

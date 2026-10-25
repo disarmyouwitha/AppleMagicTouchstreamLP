@@ -181,7 +181,7 @@ struct GestureContactMotionTracker: Sendable {
     }
 }
 
-/// Direction changes after shared two/three-finger ownership. Repetition uses a separate host clock.
+/// Direction changes after shared two/three/four-finger ownership. Repetition uses a separate host clock.
 struct GestureDirectionalStepper {
     static let activationMM = 0.75
     static let minimumOutputInterval = 0.08

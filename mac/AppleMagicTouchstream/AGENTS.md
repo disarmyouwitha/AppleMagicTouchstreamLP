@@ -280,3 +280,11 @@ Keep directional configuration indexed by device AND input trigger, so two/three
 assignments coexist without overwriting. Shared ownership determines the active
 trigger for timer output; never infer it from the current finger count after
 latching. Continuous two-finger mouse mode remains unchanged when selected.
+
+
+User now authorizes live FOUR-finger directions as well. All movement triggers
+(two/three/four fingers) share the existing directional engine, action dispatcher,
+repeat scheduling and lifecycle gates. This supersedes saved-only restrictions.
+Preserve per-pad/per-trigger settings, independent hands and Both handoff. In
+continuous mode, four fingers still scroll/pan with momentum; directional mode
+must not simultaneously scroll. Switching modes retains assignments and gains.

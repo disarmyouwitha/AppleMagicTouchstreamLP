@@ -827,3 +827,30 @@ restores normal pointer output without deleting directional assignments. Existin
 settings and import/export formats already contain both inputs; no migration or
 factory mode changes are required. Tests cover independent configurations,
 activation/turn/repeat, surviving one finger, release and continuous-mode fallback.
+
+
+## Four-finger directional output
+
+Four-finger Up/Down/Left/Right assignments now dispatch live through the same
+shared engine used by two and three fingers. This supersedes all earlier
+saved-only four-finger restrictions in this document. All movement inputs use
+one supported-trigger list; the controller/status, keyboard reservation, contact
+router, discrete dispatcher and held-repeat timer route the latched trigger.
+
+Each direction supports the same mouse/Apple/small-step volume/brightness actions
+and loop enable/disable with remembered 20–5000 ms intervals. Recognition uses
+the same 0.75 mm direction/turn threshold and dominant-axis rules, per-device
+contact ownership, force/pinch arbitration, stale-input cancellation, selected/
+owned/armed/AX/live gates, independent-hand output and Both-hand handoff.
+
+Four-finger continuous Scroll / Pan remains the factory assignment. Selecting a
+direction switches to directional mode and disables continuous scroll for that
+input; directional output must not feed scroll momentum. Selecting center
+Movement restores continuous scrolling/momentum while keeping all directional
+actions and repeat settings. No profile/default migration is needed; exported
+settings already include the four-finger configuration.
+
+Offline coverage includes four-finger activation, turns/timed repeats via the
+shared policy tests, partial-finger continuation, all-up, independent assignments,
+no continuous scroll routing in directional mode, scroll restoration and keymap
+round-trip. Offscreen previews include the four-finger directional editor.
