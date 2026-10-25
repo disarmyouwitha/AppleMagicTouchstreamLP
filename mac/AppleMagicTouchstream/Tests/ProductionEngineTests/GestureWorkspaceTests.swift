@@ -102,6 +102,19 @@ final class GestureWorkspaceTests: XCTestCase {
                 let bitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(renderer.cgImage))
                 try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
                     .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-\(trigger.rawValue).png"))
+                if trigger.isContinuous && !trigger.isPinch {
+                    for direction in GestureMovementDirection.allCases {
+                        let directionalStrip = HStack(spacing:16) {
+                            ForEach([0.03,0.16,0.40,0.67,0.82,0.96],id:\.self) { phase in
+                                GestureChordIcon(gesture:pane,trigger:trigger,direction:direction,previewPhase:phase)
+                            }
+                        }.padding(16).background(Color(nsColor:.windowBackgroundColor))
+                        let renderer = ImageRenderer(content:directionalStrip)
+                        let bitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(renderer.cgImage))
+                        try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
+                            .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-\(trigger.rawValue)-\(direction.rawValue).png"))
+                    }
+                }
             }
         }
     }

@@ -70,13 +70,15 @@ enum GesturePane: String, CaseIterable, Identifiable {
 struct GestureChordIcon: View {
     let gesture: GesturePane
     let trigger: GestureTrigger
+    var direction: GestureMovementDirection? = nil
+    private var demonstrationTitle: String { direction.map { "Swipe " + $0.title } ?? (fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle) }
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
     private var strokeExample: Bool { trigger.isContinuous && !trigger.isPinch }
     // Original stroke time units, with only stationary holds compressed by half.
     private static let outboundUnits = 0.82
     private static let returnUnits = 0.84
     private static let pairUnits = outboundUnits + returnUnits
-    private var cycleDuration: Double { strokeExample ? 2 * Self.pairUnits * 2.8 : 2.8 }
+    private var cycleDuration: Double { strokeExample && direction == nil ? 2 * Self.pairUnits * 2.8 : 2.8 }
     // Deterministic offscreen previews can choose a point in the continuous loop.
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -93,7 +95,7 @@ struct GestureChordIcon: View {
                 Canvas { context, size in draw(&context,size:size,phase:phase) }
                     .frame(width:180,height:116)
             }
-            Text(fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle).font(.caption2).foregroundStyle(.secondary)
+            Text(demonstrationTitle).font(.caption2).foregroundStyle(.secondary)
         }
         .background(GestureExampleWindowVisibility { visible in
             windowVisible = visible
@@ -102,11 +104,12 @@ struct GestureChordIcon: View {
         .onAppear { playbackStartedAt = Date() }
         .onChange(of:trigger) { _ in playbackStartedAt = Date() }
         .onChange(of:gesture) { _ in playbackStartedAt = Date() }
+        .onChange(of:direction) { _ in playbackStartedAt = Date() }
         .onChange(of:reduceMotion) { reduced in
             if !reduced { playbackStartedAt = Date() }
         }
         .accessibilityElement(children:.ignore)
-        .accessibilityLabel("\(gesture.contactLabel): \(trigger.assignmentTitle) demonstration")
+        .accessibilityLabel("\(gesture.contactLabel): \(demonstrationTitle) demonstration")
     }
 
     private func draw(_ context: inout GraphicsContext, size: CGSize, phase: Double) {
@@ -221,37 +224,48 @@ struct GestureChordIcon: View {
     }
 
     private func drawMovementStrokes(_ context: inout GraphicsContext, pad:CGRect, phase:Double) {
-        let cycleTime = phase * 2 * Self.pairUnits
-        let horizontal = cycleTime >= Self.pairUnits
-        let pairTime = cycleTime.truncatingRemainder(dividingBy:Self.pairUnits)
-        let secondStroke = pairTime >= Self.outboundUnits
-        let local = secondStroke ? pairTime-Self.outboundUnits : pairTime
+        let horizontal: Bool
+        let reversed: Bool
         let stage: Double
-        if !secondStroke {
-            // Keep touch/move timing; halve the bottom/right turnaround hold.
-            stage = local < 0.64 ? local : 0.64+(local-0.64)*2
-        } else if local < 0.10 {
-            stage = local*2 // Other half of the turnaround hold.
-        } else if local < 0.54 {
-            stage = local+0.10 // Return movement retains its original speed.
-        } else if local < 0.60 {
-            stage = 0.64+(local-0.54)*2 // Half-length pause before lift.
+        if let direction {
+            horizontal = direction == .left || direction == .right
+            reversed = direction == .up || direction == .left
+            stage = phase
         } else {
-            stage = local+0.16 // Lift/fade timing is unchanged.
+            let cycleTime = phase * 2 * Self.pairUnits
+            horizontal = cycleTime >= Self.pairUnits
+            let pairTime = cycleTime.truncatingRemainder(dividingBy:Self.pairUnits)
+            let secondStroke = pairTime >= Self.outboundUnits
+            reversed = secondStroke
+            let local = secondStroke ? pairTime-Self.outboundUnits : pairTime
+            if !secondStroke {
+                // Keep touch/move timing; halve the bottom/right turnaround hold.
+                stage = local < 0.64 ? local : 0.64+(local-0.64)*2
+            } else if local < 0.10 {
+                stage = local*2 // Other half of the turnaround hold.
+            } else if local < 0.54 {
+                stage = local+0.10 // Return movement retains its original speed.
+            } else if local < 0.60 {
+                stage = 0.64+(local-0.54)*2 // Half-length pause before lift.
+            } else {
+                stage = local+0.16 // Lift/fade timing is unchanged.
+            }
         }
         func ramp(_ value:Double, _ start:Double, _ end:Double) -> Double {
             let t = min(1,max(0,(value-start)/(end-start)))
             return t*t*(3-2*t)
         }
         let movement = ramp(stage,0.20,0.64)
-        let fill = secondStroke ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
-        let opacity = secondStroke ? 1-ramp(stage,0.84,0.96) : 1
+        let fill = direction != nil
+            ? ramp(stage,0.10,0.18)*(1-ramp(stage,0.70,0.78))
+            : reversed ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
+        let opacity = direction != nil ? 1-ramp(stage,0.78,0.90) : reversed ? 1-ramp(stage,0.84,0.96) : 1
         let count = gesture.activeFingers.count
         let offsets = contactOffsets(count:count)
         let halfWidth = offsets.map { abs($0.x) }.max() ?? 0
         func point(_ index:Int, _ progress:Double) -> CGPoint {
             let offset = offsets[index]
-            let distance = CGFloat(secondStroke ? 1-progress : progress)
+            let distance = CGFloat(reversed ? 1-progress : progress)
             return horizontal
                 ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset.x,y:pad.midY+offset.y)
                 : CGPoint(x:pad.midX+offset.x,y:pad.minY+24+distance*(pad.height-48)+offset.y)
@@ -562,7 +576,7 @@ struct GestureAssignmentWorkspace: View {
                     Text(pane.title).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                GestureChordIcon(gesture:pane,trigger:selected).padding(.leading,8)
+                GestureChordIcon(gesture:pane,trigger:selected,direction:selectedDirection).padding(.leading,8)
             }
             ViewThatFits(in:.horizontal) {
                 HStack(spacing:8) { metadata }

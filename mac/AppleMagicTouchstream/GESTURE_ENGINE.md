@@ -610,3 +610,10 @@ inputs remain unchanged. No new GestureTrigger values or recognition paths exist
 Optional per-hand directionalMovement fields round-trip in existing gesture/keymap
 settings. Old profiles default to Continuous. Tests cover persistence, mirrored
 editing, mode switching without data loss, allowed actions and inactive-output gates.
+
+Selecting an Up/Down/Left/Right card now shows a matching single-direction swipe
+illustration: hollow contacts at the opposite edge, touch/fill, slide in the chosen
+direction with colored trails, brief pause, release to hollow, fade, empty-pad
+rest. The 2.8 s loop restarts on direction changes. The center Movement card keeps
+its complete two-axis return cycle. This preview does not enable directional
+recognition or dispatch; direction assignments remain saved-only in this stage.
