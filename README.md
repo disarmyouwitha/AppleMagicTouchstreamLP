@@ -1,4 +1,4 @@
-# Apple Magic TouchstreamLP
+## Apple Magic TouchstreamLP
 
 <img src="pics/AMT.jpg" />
 
@@ -22,7 +22,7 @@ This app was written with specific preferences in mind (1-finger = typing, 2-fin
 
 ## Windows: **(*PREREQUISITE INSTALL)**
 - Supports both the Official Apple Bootcamp drivers and Opensource drivers!
-- **Please follow the <a href="windows_linux/GlassToKey.Windows/IN.STALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
+- **Please follow the <a href="windows_linux/GlassToKey.Windows/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
