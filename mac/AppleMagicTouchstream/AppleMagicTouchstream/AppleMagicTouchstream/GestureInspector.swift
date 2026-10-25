@@ -665,7 +665,7 @@ struct GestureAssignmentWorkspace: View {
                 }
                 }
             }
-            Text(editingHand == .both ? "One gesture uses both selected pads. Mirror Edit is separate." : "\(scopeText) settings\nTwo-, three- and four-finger directionals are ready to test.")
+            Text(editingHand == .both ? "One gesture uses both selected pads. Mirror Edit is separate." : "\(scopeText) settings")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
         .padding(16)
@@ -747,6 +747,9 @@ struct GestureAssignmentWorkspace: View {
                 Text(twoHandPhase.title).font(.title3).bold()
                 Text("\(twoHandChord.title) · Both hands").font(.caption).foregroundStyle(.secondary)
                 GestureActionChooser(value:settings.twoHand.action(twoHandTrigger),actions:TwoHandGestureSettings.allowedActions) { setTwoHandAction($0,twoHandTrigger) }
+                if twoHandPhase == .hold {
+                    holdBehavior(settings.twoHand.action(twoHandTrigger)) { setTwoHandAction($0,twoHandTrigger) }
+                }
                 Text(twoHandStatus(twoHandTrigger)).font(.callout).fontWeight(.medium).fixedSize(horizontal:false,vertical:true)
                 Divider()
                 shortcutBuilder(settings.twoHand.action(twoHandTrigger),allowsHold:twoHandPhase == .hold) { setTwoHandAction($0,twoHandTrigger) }
@@ -936,12 +939,28 @@ struct GestureAssignmentWorkspace: View {
                 .id("\(editingHand.rawValue).\(mirrorEdits).\(pane.rawValue).\(selected.rawValue).\(selectedHold).\(selectedDirection?.rawValue ?? "none").\(twoHandChord.rawValue).\(twoHandPhase.rawValue)")
         }
     }
+    private func holdBehavior(_ value:GestureAction?,apply:@escaping (GestureAction)->Void) -> some View {
+        Picker("Behavior",selection:Binding(
+            get:{ value?.isHeldShortcut == true },
+            set:{ held in
+                guard var shortcut = value?.shortcutAssignment, shortcut.action?.kind == .key else { return }
+                shortcut.holdUntilRelease = held
+                apply(.shortcut(shortcut))
+            })) {
+                Text("Once after threshold").tag(false)
+                Text("Hold until release").tag(true)
+            }
+            .disabled(value?.shortcutAssignment?.action?.kind != .key)
+            .help("Choose or apply a keyboard shortcut to enable Hold until release. Changes save automatically.")
+    }
     private var holdInspector:some View {
         let value = settings.holdAction(count:holdKey,in:editingScope)
         return VStack(alignment:.leading,spacing:14) {
             GestureActionChooser(value:value,actions:PerHandGestureSettings.holdActions(for:holdKey)) { action in
                 if holdEditable { setHoldAction(action,holdKey,editingScope) }
             }.disabled(!holdEditable)
+            holdBehavior(value) { if holdEditable { setHoldAction($0,holdKey,editingScope) } }
+                .disabled(!holdEditable)
             if value == nil {
                 Text("Left: \(settings.left.holdAction(count:holdKey).title) · Right: \(settings.right.holdAction(count:holdKey).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1003,20 +1022,22 @@ struct GestureAssignmentWorkspace: View {
                             apply(value,selected,editingScope)
                         }
                     Divider()
-                    VStack(alignment:.leading,spacing:8) {
-                        Text("Behavior").font(.caption).foregroundStyle(.secondary)
-                        Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
-                        Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                    }
                     if let action {
                         if action.requiresPointerProfile { sensitivity("Pointer sensitivity",kind:.pointer) }
                         if action == .scroll {
                             sensitivity("Scroll sensitivity",kind:.scroll)
                             naturalScrollingToggle
                         }
-                        if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
                     }
-                    shortcutBuilder(action) { apply($0,selected,editingScope) }
+                    VStack(alignment:.leading,spacing:8) {
+                        Text("Behavior").font(.caption).foregroundStyle(.secondary)
+                        Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
+                        Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    }
+                    if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
+                    if !GestureDirectionalAssignments.triggers.contains(selected) {
+                        shortcutBuilder(action) { apply($0,selected,editingScope) }
+                    }
                     VStack(alignment:.leading,spacing:10) {
                         Text("Recognition").font(.callout).fontWeight(.medium)
                         Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1448,14 +1469,6 @@ struct ShortcutActionBuilder:View {
                         .buttonStyle(.bordered)
                         .frame(width: shortcutBuilderActionButtonWidth)
                         .disabled(!canEditActionBuilder)
-                    }
-                    if allowsHold {
-                        Picker("Behavior", selection:$held) {
-                            Text("Once after threshold").tag(false)
-                            Text("Hold until release").tag(true)
-                        }
-                        .disabled(builtAppLaunchAction != nil)
-                        if builtAppLaunchAction != nil { Text("App targets open once.").font(.caption).foregroundStyle(.secondary) }
                     }
                     Text(actionBuilderPreview)
                         .font(.caption2)

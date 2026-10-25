@@ -1,8 +1,6 @@
 # NEXT:
 =======
-1. Maybe Movement Shouldn't have Shortcut builder? lmao.
-2. Lets remove this text at the bottom of the Gesture tab LHS column: "Two-, three- and four-finger directionals are ready to test."
-3. In the Action tab, move "Behavior" and it's dropdown underneath Action, (above: "Hold still for 0.5 seconds. Fires once until all-up") This text should change depending on the Behavior selection
+00. We need the ability to edit the shortcut list / remove items.
 ---
 0. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
 > TYPING GRACE? How does TouchStream do it? REVERSE???

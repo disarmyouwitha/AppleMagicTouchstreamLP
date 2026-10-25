@@ -283,7 +283,13 @@ The Gestures workspace has resizable navigation/inspector columns, searchable Ac
 sheets, movement cross cards and a shared right-hand inspector. Its default width
 is 381 px, matching Keyboard's settings column; navigation remains 286 px. The old
 untouched 286 px inspector default migrates, while deliberate resize values persist.
-The Shortcut Builder appears above Recognition on each assignment inspector. Hold uses the same
+Pointer/drag sensitivity and Scroll sensitivity/Natural scrolling appear above
+Behavior in the movement inspector. Zoom retains its separate placement.
+The Shortcut Builder appears above Recognition on discrete, directional and shape
+assignment inspectors; center continuous Movement omits it. Hold's Behavior picker
+sits immediately below Action, saves lifetime changes directly, and is enabled for
+assigned keyboard shortcuts. App targets and built-in one-shot actions cannot be
+held through that picker. Hold uses the same
 white unselected card background as Tap/Force; unavailable lifecycle cards are gray.
 Badges and descriptions sit beside the animation; assignment guidance shares its
 heading row with a narrow-width fallback.
