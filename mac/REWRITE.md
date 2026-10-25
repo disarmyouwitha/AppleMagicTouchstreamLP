@@ -1,5 +1,9 @@
 # NEXT:
 =======
+* Ohh Bro a while ago we branched off from the now removed mac/GlassToKey from this repo but before we did we ripped some really cool features our I want to add back! Can you go through my github and cherry-pick (or whatever) these changes for me?
+1. Autocorrect
+2. Snap-radius
+===
 0. I am getting maybe some accidental scroll (or something) when placing my fingers for 4-finger hold (for shifts) shift_hold_accidental_scroll.atpcap
 1. In each of the "Action builders" (right side) can we put a light <hr> right above the Recognition bubble?
 2. Can we expand the recognizer for "4 Corners" to be a little more linient? <atpcap>
