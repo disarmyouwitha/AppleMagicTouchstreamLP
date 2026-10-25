@@ -1,9 +1,8 @@
 # NOTES:
 =======
-0. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
-===
-2. Pinch,Spread, and ROTATE baby: Rotation gestures next!
-3. It looks like we have most gestures in to cover all of the touchstream stuff.. Can you add each of the Actions you find on the TouchStream QuickStart guide?
+0. Change to `Pinch,Spread, and Rotate`: We are adding Rotation gestures next! Below Pinch and Spread I want you to add 2 new buttons like them called "Rotate Left and "Rotate Right".
+1. It looks like we have most gestures in to cover all of the touchstream stuff.. Can you add each of the Actions you find on the TouchStream QuickStart guide?
+2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
 * Maybe add under "1 Finger" called `Drawing` > `Triangles`, `Sides` and we have some presets (Expand to offer `Custom` tomorrow)

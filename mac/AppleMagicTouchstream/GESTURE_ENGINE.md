@@ -227,6 +227,13 @@ Both, directional modes/actions/repeats and per-hand gains/Natural preference un
 Takeover opt-in and device selection remain app-local. Unsupported legacy fields
 stay inert and unknown action labels fail rather than silently losing mappings.
 
+The 2–5-contact shape pages are named **Pinch, Spread, and Rotate**. Rotate Left
+and Rotate Right cards sit beneath Pinch and Spread, with independent per-count,
+per-hand saved actions, Mirror Edit and settings import/export. Both rotation slots
+default to None. Rotation recognition/output is not active in this GUI preparation
+step; saved rotation slots do not reserve keyboard input or alter working gestures.
+The examples illustrate the selected turn direction and fade before restarting.
+
 The Gestures workspace has resizable navigation/inspector columns, searchable Action
 sheets, movement cross cards and a shared right-hand inspector. Hold uses the same
 white unselected card background as Tap/Force; unavailable lifecycle cards are gray.

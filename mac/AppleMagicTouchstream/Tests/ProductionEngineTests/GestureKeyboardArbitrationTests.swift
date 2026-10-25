@@ -63,7 +63,7 @@ final class GestureKeyboardArbitrationTests: XCTestCase {
         XCTAssertFalse(gate.process(device: 42, activeCount: 2) { _ in false })
     }
     func testEachConfiguredInputReservesItsChordRegardlessOfChosenAction() {
-        for trigger in GestureTrigger.allCases where trigger != .fourCornersTap {
+        for trigger in GestureTrigger.allCases where trigger != .fourCornersTap && !trigger.isRotation {
             // Corner reservation is geometry-aware and runs before this count gate.
             let count = trigger.forceCount ?? trigger.pinchCount ?? ((trigger == .fourFingerMove || trigger == .fourFingerTap) ? 4 : (trigger == .twoFingerMove || trigger == .twoFingerTap || trigger == .twoFingerPinch ? 2 : 3))
             var gate = GestureKeyboardArbitration()

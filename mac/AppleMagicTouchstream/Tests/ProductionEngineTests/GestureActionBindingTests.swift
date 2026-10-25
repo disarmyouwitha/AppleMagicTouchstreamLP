@@ -110,3 +110,32 @@ final class GestureActionBindingTests: XCTestCase {
         XCTAssertEqual(settings.routed(to:pads)[11]?.bindings.action(for:.twoFingerMove),.primaryDrag)
     }
 }
+
+
+extension GestureActionBindingTests {
+    func testRotationSlotsRoundTripIndependentlyWithoutReservingOrRecognizingInput() throws {
+        var settings = HandGestureSettings()
+        for count in 2...5 {
+            let left = try XCTUnwrap(GestureTrigger.rotation(count:count,right:false))
+            let right = try XCTUnwrap(GestureTrigger.rotation(count:count,right:true))
+            XCTAssertEqual(left.rotationCount,count); XCTAssertEqual(right.rotationCount,count)
+            XCTAssertFalse(left.isPinch); XCTAssertFalse(right.isPinch)
+            XCTAssertEqual(settings.action(left,in:.both),.disabled)
+            XCTAssertEqual(settings.action(right,in:.both),.disabled)
+            XCTAssertTrue(settings.setAction(.missionControl,for:left,in:.left))
+            XCTAssertTrue(settings.setAction(.volumeUpSmall,for:right,in:.both))
+            XCTAssertEqual(settings.action(left,in:.right),.disabled)
+            XCTAssertEqual(settings.action(right,in:.both),.volumeUpSmall)
+            var reservation = GestureKeyboardArbitration()
+            XCTAssertFalse(reservation.process(device:1,activeCount:count) { $0.isRotation })
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:contacts(Array(1...Int32(count))),enabled:{$0.isRotation})
+            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:contacts(Array(1...Int32(count)),dx:0.02),enabled:{$0.isRotation}).gesture)
+        }
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,settings)
+        let old = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(HandGestureSettings()))
+        XCTAssertTrue(GestureTrigger.rotationTriggers.allSatisfy { old.left.bindings.action(for:$0) == .disabled })
+    }
+}
