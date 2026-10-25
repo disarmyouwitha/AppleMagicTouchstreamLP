@@ -189,7 +189,7 @@ final class GestureWorkspaceTests: XCTestCase {
                 default: pane = .twoFingers
                 }
                 let strip = HStack(spacing:16) {
-                    ForEach((trigger.isContinuous && !trigger.isPinch) ? [0.02,0.10,0.20,0.35,0.46,0.52,0.60,0.70,0.85,0.96] : [0.08,0.30,0.60,0.90],id:\.self) { phase in
+                    ForEach((trigger.isContinuous && !trigger.isPinch) ? [0.02,0.10,0.20,0.35,0.46,0.52,0.60,0.70,0.85,0.96] : [0.08,0.30,0.60,0.80,0.86,0.94,0.98],id:\.self) { phase in
                         GestureChordIcon(gesture:pane,trigger:trigger,previewPhase:phase)
                     }
                 }.padding(16).background(Color(nsColor:.windowBackgroundColor))

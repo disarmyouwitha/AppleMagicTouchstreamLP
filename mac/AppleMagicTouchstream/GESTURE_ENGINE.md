@@ -1106,3 +1106,9 @@ ordinary four-finger Tap are unchanged.
 Page badges and descriptions now sit underneath the title beside the animation,
 removing the redundant full-width text row. Movement guidance shares the
 Assignments heading row and stacks when space is tight.
+
+All animated gesture examples end with contacts fading completely away before
+restarting: Tap/Force Click, Pinch/Spread, per-pad Hold and coordinated Both-hand
+Tap/Hold. Only contacts, halos and trails fade; trackpad outlines stay visible.
+Reduced Motion keeps a stable contact example. This is display-only and does not
+change recognition, timing thresholds or output.

@@ -70,6 +70,14 @@ enum GesturePane: String, CaseIterable, Identifiable {
     }
 }
 
+/// Fade only the contacts; keep the trackpad outline visible between cycles.
+private enum GestureExampleFade {
+    static func opacity(_ phase:Double,start:Double = 0.80,end:Double = 0.94) -> Double {
+        let t = min(1,max(0,(phase-start)/(end-start)))
+        return 1-t*t*(3-2*t)
+    }
+}
+
 /// Animated trackpad demonstrations, independent of live input and recognition.
 struct GestureChordIcon: View {
     let gesture: GesturePane
@@ -123,6 +131,7 @@ struct GestureChordIcon: View {
         context.stroke(Path(roundedRect:pad,cornerRadius:14),
                        with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
         if holding {
+            context.opacity *= GestureExampleFade.opacity(phase)
             let touching = phase >= 0.18 && phase < 0.8
             let offsets = gesture == .fourCorners ? [CGPoint(x:-55,y:-30),CGPoint(x:-55,y:30),CGPoint(x:55,y:-30),CGPoint(x:55,y:30)] : contactOffsets(count:gesture.holdCount,includesThumb:gesture == .thumbTwo)
             for (index,offset) in offsets.enumerated() {
@@ -168,13 +177,14 @@ struct GestureChordIcon: View {
             }
             return CGPoint(x:point.x + (moving ? -23+amount*46 : 0),y:point.y)
         }
+        if !discrete { context.opacity *= GestureExampleFade.opacity(phase) }
         for (index,start) in starts.enumerated() {
             let colors = contactColors(index:index)
             if discrete {
                 // Reference tap stages: small filled contact, expanding halo,
                 // hollow lift marker, then empty pad. Interpolate every frame.
                 let swell = min(1,max(0,(phase-0.10)/0.42))
-                let fade = 1-min(1,max(0,(phase-0.62)/0.14))
+                let fade = GestureExampleFade.opacity(phase,start:0.62,end:0.76)
                 let fill = 1-min(1,max(0,(phase-0.33)/0.20))
                 let point = position(start,at:0)
                 let radius = 5+2.8*swell
@@ -1154,11 +1164,15 @@ private struct TwoHandChordExample:View {
     var body:some View {
         TimelineView(.animation(minimumInterval:1.0/30,paused:!visible || reduceMotion)) { timeline in
             let elapsed = timeline.date.timeIntervalSince(start).truncatingRemainder(dividingBy:3)
-            let filled = reduceMotion || (elapsed > 0.4 && elapsed < (phase == .hold ? 2.3 : 1.1))
+            let release = phase == .hold ? 2.3 : 1.1
+            let filled = reduceMotion || (elapsed > 0.4 && elapsed < release)
+            let opacity = reduceMotion ? 1 : GestureExampleFade.opacity(elapsed/3,start:release/3,end:release/3+0.14)
             Canvas { context,size in
                 for hand in 0..<2 {
                     let rect = CGRect(x:CGFloat(hand)*100+4,y:5,width:92,height:65)
                     context.stroke(Path(roundedRect:rect,cornerRadius:8),with:.color(.secondary.opacity(0.5)),lineWidth:1.7)
+                    var contacts = context
+                    contacts.opacity *= opacity
                     for finger in 0..<chord.count {
                         let corner = chord == .fourCorners
                         // Index is toward the center seam; pinky toward the outer edge.
@@ -1168,8 +1182,8 @@ private struct TwoHandChordExample:View {
                         let y = corner ? (finger == 0 ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
                         let color:Color = corner ? (finger == 0 ? .blue : .orange) : [.blue,.green,.purple,.pink][finger]
                         let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
-                        context.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
-                        context.stroke(dot,with:.color(color),lineWidth:1.2)
+                        contacts.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
+                        contacts.stroke(dot,with:.color(color),lineWidth:1.2)
                     }
                 }
             }.frame(width:200,height:75)
