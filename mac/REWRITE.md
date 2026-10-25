@@ -1,22 +1,21 @@
 # NOTES:
 0. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 =======
-2. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening? @2finger_tap_cursor_error (In this case I repeatedly observed this after "holding s" which fires my CMD+S shortcut)
-===
-3. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
-“Both” means coordinated two-hand input, not the same gesture enabled
-independently on both pads." and you said:
-> "I’ll build the expanded gesture workspace around the gestures we already support, keeping recognition and defaults unchanged. The guide’s “Both” means coordinated two-hand input; I’ll distinguish that from editing the same settings on both pads.
+1. Yeah! I want to add a "Both" option now! When Both is selected it allows you to edit gestures that take both hands! For "Both" Gesture options it should allow actions to be assigned to <tap> and <hold>
 
-For the hand selector, I recommend Left / Right / Both pads, where Both pads edits the existing independent per-pad settings. Coordinated two-hand gestures would stay out of this pass because they need new recognition. Is that what you want?"
+Lets start with these!
+- "4 corners" like from the quickstart guide.. can we default it to open the config? (It is LHS top-left, bottom-left; RHS top-right, bottom-right) 
+- 3-finger tap with both hands
+- 3-finger hold with both hands
+- 4-finger tap with both hands
+- 4-finger hold with both hands
 
-I would like to implement this now!
+2. If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions! (Like if they use directional up,down,left,right we can allow for holds without interering with the gesture!)
+> Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
 ===
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
-0. ??? NOt sure if really nessisary or if it will be problematic to allow hold/lift?
-> If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions!
-> Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
+
 
 `AppleMagicTouchstream`:
 ===
