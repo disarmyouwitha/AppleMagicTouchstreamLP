@@ -773,7 +773,7 @@ final class ProductionEngineTests: XCTestCase {
     }
 
     func testImportedGTKActionKindsCannotDispatchThroughKeysOrCustomButtons() async throws {
-        let removed: [KeyActionKind] = [.voice, .typingToggle,
+        let removed: [KeyActionKind] = [.typingToggle,
             .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
             .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight,
             .volumeUpSmall, .volumeDownSmall, .brightnessUp, .brightnessDown,
@@ -802,12 +802,12 @@ final class ProductionEngineTests: XCTestCase {
 
     func testActionCatalogOffersOnlySupportedBootstrapActions() {
         let allowed: Set<KeyActionKind> = [.key, .leftClick, .doubleClick, .rightClick,
-            .middleClick, .volumeUp, .volumeDown, .layerMomentary, .layerToggle, .none]
+            .middleClick, .volumeUp, .volumeDown, .voice, .layerMomentary, .layerToggle, .none]
         for group in KeyActionCatalog.primaryActionGroups {
             for action in group.actions { XCTAssertTrue(allowed.contains(action.kind), action.label) }
         }
         XCTAssertNil(KeyActionCatalog.action(for: "TT"))
-        XCTAssertNil(KeyActionCatalog.action(for: "VOICE"))
+        XCTAssertEqual(KeyActionCatalog.action(for: "VOICE")?.kind, .voice)
         let app = AppLaunchActionHelper.createActionLabel(fileName: "/Applications/Calculator.app")!
         XCTAssertEqual(KeyActionCatalog.action(for: app)?.kind, .appLaunch)
     }

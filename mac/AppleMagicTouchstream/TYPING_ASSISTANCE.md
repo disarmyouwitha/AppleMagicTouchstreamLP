@@ -55,8 +55,11 @@ mapping retains the original US-keyboard limitation.
 Keyboard output publishes to a lock-protected, bounded 2,048-event buffer. An
 overflow cancels context instead of continuing a truncated word. New key output,
 clicks, system actions, app launches, output-queue resets and disabling autocorrect
-invalidate pending edits. Spellchecking and AX messaging run on a separate utility
-worker, outside gesture recognition and the output pump. The source uses a
+invalidate pending edits. Spellchecking runs on a separate utility worker. AX
+reads and writes are enqueued asynchronously on the main actor, outside gesture
+recognition and the output pump. Self-targeted AX calls can enter AppKit directly:
+the built-in test editor's selection operation traps if it runs on a worker.
+The source uses a
 generation check before an edit; continued typing can therefore skip a correction
 instead of editing a word whose output is already stale.
 
@@ -89,6 +92,11 @@ alternate-key restrictions, UTF-16 replacement ranges, generation invalidation,
 and production keyboard near-miss behavior on each pad. Production replay sinks
 remain output-free. The full existing gesture/typing suite protects accepted
 movement, tap, layer, Hold and paired-hand behavior.
+
+`AutocorrectEditorThreadTests` exercises worker-to-main text access against an
+offline NSTextView, including selection, replacement and caret restoration. Crash
+reports `AppleMagicTouchstream-2026-10-25-214243.ips` and `...-214320.ips` confirmed
+the original AppKit main-thread assertion under `VerifiedAutocorrectReplacement.setRange`.
 
 For hardware validation, use a disposable TextEdit document and the built-in test
 editor. Toggle Autocorrect, type a clear misspelling followed by Space, and compare

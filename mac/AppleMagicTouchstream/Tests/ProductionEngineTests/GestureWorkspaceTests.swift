@@ -231,6 +231,8 @@ final class GestureWorkspaceTests: XCTestCase {
 extension GestureWorkspaceTests {
     func testSharedShortcutBuilderRendersWithoutAssigningOrOpeningApps() throws {
         XCTAssertEqual(WorkspaceColumnSizing.defaultGestureInspectorWidth,WorkspaceColumnSizing.defaultMenuWidth)
+        XCTAssertEqual(WorkspaceColumnSizing.defaultMenuWidth,WorkspaceColumnSizing.compactMenuBreakpoint + 1)
+        XCTAssertEqual(WorkspaceColumnSizing.gestureInspectorWidthKey,WorkspaceColumnSizing.menuWidthKey)
         for (name,label) in [("shift","Shift"),("shortcut","Cmd+S"),("named","Cmd+S"),("app",AppLaunchActionHelper.createActionLabel(fileName:"/Applications/Calculator.app")!)] {
             var action = try XCTUnwrap(KeyActionCatalog.action(for:label))
             if name == "named" { action.customName = "Save document" }

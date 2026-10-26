@@ -166,7 +166,8 @@ extension HandGestureSettingsTests {
         for (column,item) in retired.enumerated() {
             let action = KeyAction(label:item.0,keyCode:0,flags:0,kind:item.1)
             mappings[GridKeyPosition(side:.left,row:0,column:column).storageKey] = KeyMapping(primary:action,hold:action)
-            XCTAssertNil(KeyActionCatalog.action(for:item.0)) // Still absent from live catalog.
+            if item.1 == .voice { XCTAssertEqual(KeyActionCatalog.action(for:item.0)?.kind,.voice) }
+            else { XCTAssertNil(KeyActionCatalog.action(for:item.0)) } // Other retired labels remain inert.
         }
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(profile)) as? [String:Any])
         object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:mappings]]))

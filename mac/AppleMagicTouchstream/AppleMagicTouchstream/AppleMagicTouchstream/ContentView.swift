@@ -2247,7 +2247,7 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .disabled(keySelection == nil)
                 }
-                Divider().padding(.vertical,4)
+                subsectionHeader("Shortcut Builder")
                 VStack(alignment:.leading,spacing:8) {
                     HStack(spacing:8) {
                         Picker("",selection:$actionBuilderTarget) {
@@ -2258,7 +2258,7 @@ struct ContentView: View {
                     }
                     .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
                     ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
-                        enabled:canEditActionBuilder) { action,_ in applyBuiltAction(action) }
+                        enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
                         .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
                 subsectionHeader("Custom Buttons")
@@ -2454,6 +2454,7 @@ struct ContentView: View {
     }
 
     private struct ModeTogglesSectionView: View {
+        @ObservedObject private var voice = VoiceDictationManager.shared
         @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
@@ -2479,6 +2480,13 @@ struct ContentView: View {
                     .help("Polls every 8000 ms to detect disconnected trackpads.")
             }
             .toggleStyle(.switch)
+            if voice.isActive || voice.status != "Voice: ready" {
+                HStack {
+                    Text(voice.status).font(.caption).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    if voice.isActive { Button("Cancel Voice") { VoiceDictationOutput.cancel() } }
+                }
+            }
         }
 
         private func modeToggle(_ title: String, isOn: Binding<Bool>) -> some View {

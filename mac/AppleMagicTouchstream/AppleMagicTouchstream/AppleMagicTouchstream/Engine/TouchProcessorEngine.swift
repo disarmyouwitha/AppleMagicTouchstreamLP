@@ -2083,8 +2083,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         holdForceThreshold: Float = 0
     ) -> KeyBinding? {
         switch action.kind {
-        case .typingToggle, .chordalShift, .voice, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
+        case .typingToggle, .chordalShift, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
             return nil
+        case .voice:
+            return KeyBinding(rect: rect, normalizedRect: normalizedRect, canvasSize: canvasSize,
+                label: action.label, action: .voice, position: position, customButtonID: customButtonID,
+                side: side, holdAction: holdAction, holdForceThreshold: holdForceThreshold)
         case .appLaunch:
             guard AppLaunchActionHelper.parse(action.label) != nil else { return nil }
             return KeyBinding(
@@ -2921,8 +2925,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
         case let .appLaunch(label):
             dispatchService.postAppLaunch(label, sourceSequence: currentDispatchSourceSequence())
+        case .voice:
+            dispatchService.postVoiceToggle(sourceSequence: currentDispatchSourceSequence())
         case .chordalShift, .typingToggle, .volumeUpSmall, .volumeDownSmall,
-             .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .voice, .gestureTwoFingerTap, .gestureThreeFingerTap,
+             .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .gestureTwoFingerTap, .gestureThreeFingerTap,
              .gestureFourFingerHold, .gestureInnerCornersHold,
              .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
             return

@@ -136,6 +136,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         }
         mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double,owner:GestureShortcutOwner? = nil) {
             guard action != .disabled, !primaryClickConflicts(action) else { return }
+            if action == .voice { DispatchService.shared.postVoiceToggle(); return }
             if let shortcut = action.shortcutAssignment {
                 let owner = owner ?? .pad(device)
                 if shortcut.holdUntilRelease { shortcutOwners.insert(owner) }
@@ -580,7 +581,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                         return action != .disabled && !(dragOnAnotherPad && (action == .primaryClick || action == .primaryDoubleClick))
                     }),
                let location = CGEvent(source:nil)?.location,
-               let events = forceBindings.action(for:trigger).shortcutAssignment != nil || state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
+               let events = forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil || state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
                     ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                         time:hostTime,doubleClickInterval:state.doubleClickInterval,
                         flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),clicks:&state.clicks,
@@ -588,7 +589,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
-                if forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
+                if forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
                 for event in events { event.post(tap:state.appleShortcuts[forceBindings.action(for:trigger)]?.eventTap ?? .cghidEventTap) }
                 if state.appleShortcuts[forceBindings.action(for:trigger)]?.postDock() == true { state.clicks.reset() }
                 if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {

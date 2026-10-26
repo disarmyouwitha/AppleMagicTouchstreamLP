@@ -567,8 +567,8 @@ struct GestureAssignmentWorkspace: View {
     var body: some View {
         GeometryReader { viewport in
             let menuWidth = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:WorkspaceColumnSizing.minimumInspector)
-            let inspectorMaximum = max(WorkspaceColumnSizing.minimumInspector,min(480,viewport.size.width-menuWidth-WorkspaceColumnSizing.dividerWidth*2-360))
-            let inspectorWidth = min(inspectorMaximum,max(WorkspaceColumnSizing.minimumInspector,inspectorColumnWidth))
+            let inspectorMaximum = WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:menuWidth)
+            let inspectorWidth = WorkspaceColumnSizing.menu(inspectorColumnWidth,available:viewport.size.width,reserved:menuWidth)
             HStack(spacing:0) {
                 navigation.frame(width:menuWidth)
                 WorkspaceColumnDivider(width:Binding(get:{menuWidth},set:{menuColumnWidth = $0}),
@@ -605,11 +605,6 @@ struct GestureAssignmentWorkspace: View {
         .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
         .onAppear { restoreMovementSelection() }
         .onChange(of:editingScope) { _ in restoreMovementSelection() }
-        .onAppear {
-            if inspectorColumnWidth == WorkspaceColumnSizing.defaultGestureColumnWidth {
-                inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureInspectorWidth
-            }
-        }
     }
 
     private var navigation: some View {
@@ -1166,17 +1161,18 @@ struct GestureAssignmentWorkspace: View {
 }
 
 
-/// Independent persisted widths for Keyboard settings and the two Gesture sidebars.
+/// Keyboard settings and Gesture actions share a persisted width. Gesture
+/// navigation remains independent; viewport constraints only affect presentation.
 enum WorkspaceColumnSizing {
     static let menuWidthKey = "AppleMagicTouchstream.assignmentMenuWidth"
     static let gestureNavigationWidthKey = "AppleMagicTouchstream.gestureNavigationWidth"
-    static let gestureInspectorWidthKey = "AppleMagicTouchstream.gestureInspectorWidth"
+    static let gestureInspectorWidthKey = menuWidthKey
     static let defaultGestureColumnWidth = 286.0
     static let defaultGestureInspectorWidth = defaultMenuWidth
     static let compactMenuBreakpoint = 380.0
     static let defaultMenuWidth = compactMenuBreakpoint + 1
     static let minimumMenu = 220.0
-    static let minimumInspector = 200.0
+    static let minimumInspector = minimumMenu
     static let dividerWidth = 8.0
     static func menuMaximum(available:Double,reserved:Double) -> Double {
         max(minimumMenu,min(620,available-reserved-360-dividerWidth*2))
@@ -1418,7 +1414,7 @@ struct GestureActionChooser:View {
             ("General",[.disabled]),
             ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
-            ("System",GestureAction.appleShortcuts),
+            ("System",GestureAction.appleShortcuts + [.voice]),
             ("Sound & Display",GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in
@@ -1448,6 +1444,7 @@ struct GestureActionChooser:View {
 struct ShortcutActionBuilder:View {
     let action:KeyAction?
     var enabled = true
+    var showsTitle = true
     var allowsHold = false
     var holdUntilRelease = false
     let apply:(KeyAction,Bool)->Void
@@ -1463,7 +1460,7 @@ struct ShortcutActionBuilder:View {
     private let shortcutBuilderActionButtonWidth:CGFloat = 84
     var body:some View {
         VStack(alignment:.leading,spacing:8) {
-            Text("Shortcut Builder").font(.callout).fontWeight(.medium)
+            if showsTitle { Text("Shortcut Builder").font(.callout).fontWeight(.medium) }
                     HStack(spacing:8) {
                         Text("Name").font(.caption).foregroundStyle(.secondary)
                         TextField("Optional shortcut name",text:$shortcutName)

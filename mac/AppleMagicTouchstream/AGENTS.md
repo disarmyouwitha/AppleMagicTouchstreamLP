@@ -81,8 +81,16 @@ profile keys. Snap uses shared tap eligibility/timing and cached per-key radii;
 gesture reservation cannot become snapped typing. Autocorrect observes posted live
 keys only, with bounded worker publication and generation cancellation. Keep AX and
 spellchecking off the input/output queues, require verified focus/text before
-replacement, and never fall back to blind backspacing. Replay stays output-free.
+replacement, and never fall back to blind backspacing. AX access must run on the
+main actor because self-targeted AX calls enter AppKit directly; spellchecking
+stays on its worker. Replay stays output-free.
 See [TYPING_ASSISTANCE.md](TYPING_ASSISTANCE.md).
+
+Voice is restored as an explicit toggle dictation action in Keymap and gesture
+menus. Speech/microphone permission and audio start occur only on invocation.
+Use token-gated permission/chunk callbacks, a focused-target check before Unicode
+insertion, and cancellation on suspend/ownership loss/reset. Never start speech,
+record audio, request permissions or emit transcript output in tests/replay.
 
 Import/Export Settings include independent per-hand and Both gestures, direction
 modes/actions/repeat and gains under the Mac host extension. Missing fields preserve

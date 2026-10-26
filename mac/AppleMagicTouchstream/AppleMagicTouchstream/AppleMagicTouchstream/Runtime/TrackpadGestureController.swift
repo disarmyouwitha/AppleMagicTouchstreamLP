@@ -27,11 +27,13 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     func updateOwnership(enabled: Bool, armed: Bool, owned: Set<UInt64>) {
+        if !enabled || !armed || !self.owned.isSubset(of: owned) { VoiceDictationOutput.cancel() }
         takeoverEnabled = enabled; self.armed = armed; self.owned = owned
         configure()
     }
 
     func suspend() {
+        VoiceDictationOutput.cancel()
         armed = false
         InterpretedTrackpadPointer.shared.stop()
         statusRevision &+= 1

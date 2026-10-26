@@ -1,10 +1,10 @@
 # NEXT:
 =======
-* Ohh Bro a while ago we branched off from the now removed mac/GlassToKey from this repo but before we did we ripped some really cool features our I want to add back! Can you go through my github and cherry-pick (or whatever) these changes for me?
-1. Autocorrect
-2. Snap-radius
+0. Fix autocorrect crashing
+1. Test VOICE (Add under Shortcuts like Screenshot)
+2. Add Emoji shortcut for mac (Add under Shortcuts like Screenshot)
 > double check autocorret clears memory on toggle/minimize
-> export new keymaps
+> export new keymaps (default & MY)
 ===
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 ===

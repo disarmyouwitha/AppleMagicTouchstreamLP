@@ -2619,6 +2619,7 @@ enum KeyActionCatalog {
             (dashedHeader("System Controls"), [
                 volumeUpLabel,
                 volumeDownLabel,
+                voiceLabel,
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Hyper",
@@ -2694,7 +2695,7 @@ enum KeyActionCatalog {
     static func action(for label: String) -> KeyAction? {
         if let named = NamedShortcutStorage.resolve(label) { return named }
         // Archived GTK labels are decode-only. Never turn them into live actions.
-        let removed = [typingToggleLabel, "TT", voiceLabel, "VOICE", gestureInnerCornersHoldLabel, volumeUpSmallLabel,
+        let removed = [typingToggleLabel, "TT", gestureInnerCornersHoldLabel, volumeUpSmallLabel,
                        volumeDownSmallLabel, brightnessUpLabel, brightnessDownLabel,
                        brightnessUpSmallLabel, brightnessDownSmallLabel,
                        brightnessScriptUpLabel, brightnessScriptDownLabel]
@@ -2771,6 +2772,9 @@ enum KeyActionCatalog {
             return noneAction
         }
 
+        if normalizedLabel == voiceLabel {
+            return KeyAction(label: voiceLabel, keyCode: 0, flags: 0, kind: .voice)
+        }
         if normalizedLabel == leftClickLabel {
             return KeyAction(
                 label: label,

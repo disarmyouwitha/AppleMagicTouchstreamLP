@@ -4,6 +4,12 @@ import Carbon
 import Dispatch
 import os
 
+enum AutocorrectTextAccess {
+    static func enqueue(_ action: @escaping @MainActor @Sendable () -> Void) {
+        DispatchQueue.main.async(execute: action)
+    }
+}
+
 /// Recovered from GlassToKey's word/context and alternate-key correction logic.
 /// Pure state: only committed keyboard output enters here, never raw contacts.
 struct AutocorrectSession {
@@ -124,8 +130,8 @@ struct AutocorrectInputBuffer {
     func isCurrent(_ generation: UInt64) -> Bool { enabled && self.generation == generation }
 }
 
-/// Spelling and AX calls run on a separate worker; no spellchecking, AX messaging,
-/// string construction or output delay is added to the input/gesture state queue.
+/// Spellchecking runs on a worker. Accessibility calls run asynchronously on
+/// the main thread: AX can enter this app's own NSTextView directly.
 final class AutocorrectEngine: @unchecked Sendable {
     static let shared = AutocorrectEngine()
     private let state = OSAllocatedUnfairLock(initialState: AutocorrectInputBuffer())
@@ -133,7 +139,7 @@ final class AutocorrectEngine: @unchecked Sendable {
     private let wake: DispatchSourceUserDataAdd
     private var session = AutocorrectSession()
     private struct Target: @unchecked Sendable { let element: AXUIElement }
-    private var target: Target?
+    @MainActor private var target: Target?
     private var checker: NSSpellChecker?
     private var documentTag: Int?
 
@@ -176,25 +182,33 @@ final class AutocorrectEngine: @unchecked Sendable {
     private func drain() {
         while true {
             let next = state.withLock { $0.pop() }
-            if next.0 { session.reset(); target = nil }
+            if next.0 {
+                session.reset()
+                AutocorrectTextAccess.enqueue { self.target = nil }
+            }
             guard let entry = next.1 else { return }
             autoreleasepool {
                 if entry.event.kind == .text && session.isStartingWord {
-                    target = VerifiedAutocorrectReplacement.focusedElement().map { Target(element: $0) }
+                    AutocorrectTextAccess.enqueue {
+                        self.target = VerifiedAutocorrectReplacement.focusedElement().map { Target(element: $0) }
+                    }
                 }
-                if let candidate = session.consume(entry.event), let target,
+                if let candidate = session.consume(entry.event),
                    isCurrent(entry.generation), let correction = correction(for: candidate),
                    isCurrent(entry.generation) {
-                    apply(candidate, correction: correction, target: target, generation: entry.generation)
+                    AutocorrectTextAccess.enqueue {
+                        guard let target = self.target else { return }
+                        self.apply(candidate, correction: correction, target: target, generation: entry.generation)
+                    }
                 }
                 if entry.event.kind == .boundary || entry.event.kind == .navigation || entry.event.kind == .nonText {
-                    target = nil
+                    AutocorrectTextAccess.enqueue { self.target = nil }
                 }
             }
         }
     }
 
-    private func apply(_ candidate: AutocorrectSession.Candidate, correction: String, target: Target,
+    @MainActor private func apply(_ candidate: AutocorrectSession.Candidate, correction: String, target: Target,
                        generation: UInt64, attempt: Int = 0) {
         guard isCurrent(generation) else { return }
         let result = VerifiedAutocorrectReplacement.replace(candidate, with: correction, in: target.element,
@@ -202,7 +216,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         // CGEvent posting precedes delivery to the destination app. Give the
         // delimiter a bounded opportunity to arrive, without delaying typing.
         if result == .notReady && attempt < 3 {
-            queue.asyncAfter(deadline: .now() + .milliseconds(15)) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(15)) { [weak self] in
                 self?.apply(candidate, correction: correction, target: target, generation: generation, attempt: attempt + 1)
             }
         }
@@ -224,7 +238,7 @@ final class AutocorrectEngine: @unchecked Sendable {
 
 /// Never delete text speculatively: require the original field, an empty selection,
 /// an exact complete word+delimiter immediately before the caret, and current output.
-enum VerifiedAutocorrectReplacement {
+@MainActor enum VerifiedAutocorrectReplacement {
     enum Result { case applied, notReady, rejected }
     static func focusedElement() -> AXUIElement? {
         guard !IsSecureEventInputEnabled(), AXIsProcessTrusted() else { return nil }
@@ -239,7 +253,7 @@ enum VerifiedAutocorrectReplacement {
     }
 
     /// Pure range validation used by the AX adapter and offline tests.
-    static func replacementRange(prefix: String, caret: Int, word: String, boundary: UInt8) -> CFRange? {
+    nonisolated static func replacementRange(prefix: String, caret: Int, word: String, boundary: UInt8) -> CFRange? {
         let suffix = word + String(UnicodeScalar(boundary))
         let value = prefix as NSString
         guard caret == value.length, value.hasSuffix(suffix) else { return nil }

@@ -746,6 +746,7 @@ final class DispatchService: @unchecked Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case appLaunch(String)
+        case voiceToggle
         case leftClick(clickCount: Int)
         case rightClick
         case middleClick
@@ -893,6 +894,10 @@ final class DispatchService: @unchecked Sendable {
         }
     }
 
+    func postVoiceToggle(sourceSequence: UInt64? = nil) {
+        enqueue(.voiceToggle, sourceSequence: sourceSequence)
+    }
+
     func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
         enqueue(.appLaunch(actionLabel), sourceSequence: sourceSequence)
     }
@@ -960,7 +965,10 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func clearQueue() {
-        if keyDispatcher != nil { AutocorrectEngine.shared.invalidate() }
+        if keyDispatcher != nil {
+            AutocorrectEngine.shared.invalidate()
+            VoiceDictationOutput.cancel()
+        }
         let cancelledCommands = stateLock.withLockUnchecked { state in
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
@@ -1055,6 +1063,9 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
+        case .voiceToggle:
+            AutocorrectEngine.shared.invalidate()
+            VoiceDictationOutput.toggle()
         case let .appLaunch(actionLabel):
             AutocorrectEngine.shared.invalidate()
             appLaunchDispatcher.open(actionLabel)
@@ -1099,6 +1110,9 @@ final class DispatchService: @unchecked Sendable {
                 status: status,
                 sourceSequence: command.sourceSequence
             )
+        case .voiceToggle:
+            return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
+                status: status, sourceSequence: command.sourceSequence)
         case let .appLaunch(actionLabel):
             return makeDispatchEvent(
                 commandID: command.id,

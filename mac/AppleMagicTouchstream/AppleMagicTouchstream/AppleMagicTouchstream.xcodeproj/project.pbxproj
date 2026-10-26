@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000A01; };
         AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000901; };
 		AC7100000000000000000802 /* GestureKeyboardArbitration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000801; };
 		AC7100000000000000000702 /* TrackpadGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000701; };
@@ -43,6 +44,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AC7100000000000000000A01 /* VoiceDictationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceDictationManager.swift; sourceTree = "<group>"; };
         AC7100000000000000000901 /* AutocorrectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocorrectEngine.swift; sourceTree = "<group>"; };
 		AC7100000000000000000801 /* GestureKeyboardArbitration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Engine/GestureKeyboardArbitration.swift"; sourceTree = "<group>"; };
 		AC7100000000000000000701 /* TrackpadGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Runtime/TrackpadGestureController.swift"; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */,
 				E0B1C2D3E4F5678901234567 /* KeyEventDispatcher.swift */,
                 AC7100000000000000000901 /* AutocorrectEngine.swift */,
+                AC7100000000000000000A01 /* VoiceDictationManager.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppleMagicTouchstreamDefaultsKeys.swift */,
 				31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */,
 			);
@@ -275,6 +278,7 @@
 				A1B2C3D4E5F6A7B8C9D0E1F4 /* AppleMagicTouchstreamController.swift in Sources */,
 				E0B1C2D3E4F5678901234568 /* KeyEventDispatcher.swift in Sources */,
                 AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */,
+                AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */,
 				5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */,
 				D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */,
 				3C193E5CB3384DBB97B4BD76 /* LegacyMobileLayout.swift in Sources */,
@@ -427,6 +431,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+                INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice uses your microphone to dictate text when you trigger the Voice action.";
+                INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice transcribes your speech and inserts it when you trigger Voice again. Apple may process audio when on-device recognition is unavailable.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -455,6 +461,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+                INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice uses your microphone to dictate text when you trigger the Voice action.";
+                INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice transcribes your speech and inserts it when you trigger Voice again. Apple may process audio when on-device recognition is unavailable.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
