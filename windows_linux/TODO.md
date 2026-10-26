@@ -1,4 +1,12 @@
 # Notes:
+=======
+0. Lets remove "Hide Controls" toggle and code.
+1. Can we move Decoder Profiles above Mouse Takeover?
+2. No scrollbars between columns please.
+3. 
+* ?Can we make the emergency release CTRL + SHIFT + R? Or is that a shortcut for something?
+===
+* "Live events bypass the intermediate ring buffer; output overflow cancels and releases keys"
 * 4-Finger latching is so bad I am always triggering drag instead. Please use mac/AppleMagicTouchstream as a reference. 
 ###
 0. Test GUI.
