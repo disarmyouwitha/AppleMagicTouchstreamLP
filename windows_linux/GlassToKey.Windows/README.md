@@ -10,7 +10,7 @@ By default, GlassToKey opens the config window on launch. To start tray-only (ta
 
 ### Configuration layout
 
-The left column contains device/decoder selectors, Mouse Takeover, the two trackpad views, and the typing test. The right column has **Keyboard** and **Gestures** tabs, matching the Mac inspector arrangement. Selecting a key or custom button opens its keyboard editor. **Hide Settings** expands the trackpad area; narrow windows can scroll the trackpad workspace. See [layout notes and previews](WINDOWS_UI_LAYOUT.md).
+The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing test and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. Selecting a key or custom button returns to Keyboard. **Hide Settings** expands the keyboard trackpad area. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
 
 ### Mouse Takeover
 
@@ -27,29 +27,15 @@ Below the decoder selectors, enable **Mouse Takeover** for this session or use *
 
 
 ## Typing Tuning
-- Hold duration (ms): Time in miliseconds until a tap becomes a hold
-- Typing Grace (ms): Time after a key dispatch to keep typing intent active.
-- Drag cancel (mm): How far you need to move before tap becomes a drag
-- Intent Move (mm): Movement threshold before a touch is treated as mouse intent.
-- Intent Velocity (mm/s): Speed threshold before a touch is treated as mouse intent.
-- Force Instead of Hold is configured per key/custom button. Windows ignores the old global Force Min/Max gates.
-- Gestures: grouped per-hand tap/movement, 1–5-finger force click and independent 2–5-finger pinch/spread with Zoom or Windows system actions. See [the latest Mac gesture port](WINDOWS_MAC_GESTURE_PORT.md) for input requirements and live checks. Existing two-finger pointer/tap, three-finger row drag/tap and four-finger scroll/pan with momentum remain available. Movement/tap actions are configurable; pointer/drag use Apple reference acceleration, sensitivity uses sliders, and Natural scrolling switches direction. Output requires Mouse Takeover. See [Windows gesture engine](WINDOWS_GESTURE_ENGINE.md) for defaults, platform differences, and the hardware check.
-- Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 
-## Intent State Machine
-GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The internal diagnostic states use these labels (the old intent/mode badges are no longer displayed): `idle`, `cand`, `typing`, `mouse`, `gest`.
+- **Hold Duration** sets the delay before a key hold commits; the default is 220 ms.
+- **Haptic Strength** controls the existing Windows haptic output. **Restore Defaults** restores these two settings.
+- Force Instead of Hold remains a per-key/custom-button setting. Windows ignores the old global Force Min/Max gates.
+- Snap Radius allows eligible off-key releases to choose a nearby key, bounded to 0–100% of the key's smaller dimension.
 
-- **Idle (`idle`)**: No active contacts. Any touch that begins on a key enters `keyCandidate`; otherwise it enters `mouseCandidate`.
-- **KeyCandidate (`cand`)**: A short buffer window (fixed at 20ms) watches for mouse-like motion. If the touch stays within thresholds, it becomes `typingCommitted`.
-- **TypingCommitted (`typing`)**: Key dispatches are allowed. Typing Grace keeps this state alive for a short window after a key is released.
-- **MouseCandidate (`mouse`)**: Short buffer window (fixed at 20ms) watching for mouse-like motion. If motion exceeds thresholds or the buffer elapses, it becomes `mouseActive`.
-- **MouseActive (`mouse`)**: Typing is suppressed while mouse intent is active.
-- **GestureCandidate (`gest`)**: Multi-finger gesture guard. If 2+ touches begin within the 20ms buffer (or 3+ touches arrive together), typing is suppressed and intent displays as gesture until the contact count drops.
+Typing Grace, Drag Cancel, Intent Move and Intent Velocity have been removed from the Windows controls. Their saved legacy fields remain readable but cannot select mouse intent or cancel unified Windows typing. Unreserved contacts remain keyboard input. A tap must finish within max(200 ms, Hold Duration) and satisfy its original key/release geometry or snap eligibility; movement distance alone does not cancel it. Committed holds retain ownership through drift.
 
-Transitions and notes:
-- **Typing Grace** extends `typingCommitted` after a key dispatch, even if all fingers lift.
-- **Tap/Drag** immediately disqualifies the touch and forces `mouseActive`.
-- **GestureCandidate** enters when 2+ touches start within the key buffer window (or 3+ simultaneous touches) and exits back to `idle` once fewer than two contacts remain.
+Established MO/modifier chords and committed key holds keep priority on their pad until all fingers lift. While a gesture is unresolved, keyboard proposals retain their original frames, timestamps and modifier snapshots. A winning or cancelled gesture discards them; a never-activated rollover can resolve to typing. Held gesture shortcuts share keyboard key/modifier ownership and release on lift, cancellation or teardown. See [current parity and hardware testing](MAC_GOLD_PARITY.md) for gesture behavior and remaining platform differences.
 
 
 ## Build

@@ -15,6 +15,8 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, "Unified input/icon tests failed: " + unifiedFailure);
         if (!HandGestureTests.Run(out string handGestureFailure))
             return new SelfTestResult(false, "Hand gesture tests failed: " + handGestureFailure);
+        try { MacKeyboardParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Mac keyboard parity tests failed: "+error.Message); }
         if (!RunMouseTakeoverGateTests(out string takeoverFailure))
             return new SelfTestResult(false, "Mouse takeover gate tests failed: " + takeoverFailure);
         if (!RunParserTests(out string parserFailure))

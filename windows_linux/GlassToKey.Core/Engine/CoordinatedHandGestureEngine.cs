@@ -19,11 +19,14 @@ internal sealed class CoordinatedHandGestureEngine
     private double? _firstLift;
     private bool _blocked, _fired, _available, _reserved;
     public bool Claimed => _fired;
+    public void Cancel(IHandGestureOutput output) { _blocked=true; _chord=null; output.HeldAssignment(2,null); }
     private void Emit(CoordinatedHandChord chord,bool hold,IHandGestureOutput output)
     {
         var action=_settings.Action(chord,hold);
         if (action==HandGestureAction.Custom)
-        { if (_settings.CustomActions.GetValueOrDefault(chord+"/"+(hold ? "Hold" : "Tap")) is {} label) output.AssignedAction(label); }
+        { string slot=chord+"/"+(hold ? "Hold" : "Tap");
+          if (_settings.CustomActions.GetValueOrDefault(slot) is {} label)
+          { if (hold && _settings.HeldShortcuts.Contains(slot) && !AppLaunchActionHelper.TryParse(label,out _)) output.HeldAssignment(2,label); else output.AssignedAction(label); } }
         else if (action!=HandGestureAction.None) output.Tap(action);
     }
     public void Configure(CoordinatedGestureSettings settings, bool available)
@@ -34,13 +37,13 @@ internal sealed class CoordinatedHandGestureEngine
         _firstLift = null;
         foreach (var p in _pads) { p.Count = p.OriginalCount = 0; p.Receipt = p.Landed = p.Lifted = 0; }
     }
-    public void Tick(double now, bool eligible)
+    public void Tick(double now, bool eligible,IHandGestureOutput output)
     {
         bool stale=false;
         foreach (var pad in _pads)
             if (pad.Count>0 && now-pad.Receipt>.15) { pad.Count=0; stale=true; }
         if (!eligible || stale)
-        { _blocked = true; _chord = null; }
+        { _blocked = true; _chord = null; output.HeldAssignment(2,null); }
         // A disconnected pad cannot supply all-up. Retire stale samples so its
         // cached contact count cannot indefinitely reserve the healthy pad.
         if (stale && _pads[0].Count==0 && _pads[1].Count==0)
@@ -60,9 +63,10 @@ internal sealed class CoordinatedHandGestureEngine
         }
         bool reserved = _reserved;
         if (!_available || !eligible || independentOwner || !double.IsFinite(now))
-        { _blocked = true; _chord = null; }
+        { _blocked = true; _chord = null; output.HeldAssignment(2,null); }
         if (_pads[0].Count == 0 && _pads[1].Count == 0)
         {
+            output.HeldAssignment(2,null);
             if (_chord is {} chord && !_blocked && !_fired && now-_started is >= .02 and <= .5
                 && now-(_firstLift ?? now) <= .15)
                 Emit(chord,false,output);

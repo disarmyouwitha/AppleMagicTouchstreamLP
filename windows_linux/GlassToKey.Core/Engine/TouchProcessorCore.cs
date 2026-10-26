@@ -80,6 +80,38 @@ internal sealed class TouchProcessorCore
     private BindingIndex? _leftBindingIndex;
     private BindingIndex? _rightBindingIndex;
     private int _bindingsGeneration;
+    private int _keyboardProposalEpoch;
+    private IEngineDispatchSink? _dispatchSink;
+    internal void SetDispatchSink(IEngineDispatchSink? sink) { _dispatchSink=sink; _keyboardProposalEpoch++; }
+    private DispatchModifierFlags? _proposalModifiers;
+    private DispatchSemanticAction WithProposalModifiers(DispatchSemanticAction action)=>_proposalModifiers is {} flags && flags!=DispatchModifierFlags.None
+        && action.Kind is DispatchSemanticKind.Key or DispatchSemanticKind.KeyChord
+        ? action with { Kind=DispatchSemanticKind.KeyChord,Modifiers=action.Modifiers|flags } : action;
+    internal KeyboardProposalToken ProposalToken { get { EnsureBindingIndexes(); return new(_bindingsGeneration,_activeLayer,_keyboardProposalEpoch); } }
+    internal bool KeyboardChordOwnsCycle(TrackpadSide side)
+    {
+        for(int i=0;i<_touchStates.Capacity;i++) if(_touchStates.IsOccupiedAt(i) && TouchSideFromKey(_touchStates.KeyAt(i))==side)
+        {
+            ref var state=ref _touchStates.ValueRefAt(i);
+            if(state.MomentaryLayerTarget>=0 || (state.DispatchDownSent && (state.HoldTriggered || state.DispatchDownKind==DispatchEventKind.ModifierDown
+                || state.DispatchDownSemanticAction.Modifiers!=DispatchModifierFlags.None))) return true;
+        }
+        return false;
+    }
+    internal DispatchModifierFlags KeyboardModifiersSnapshot
+    {
+        get
+        {
+            var flags=DispatchModifierFlags.None;
+            for(int i=0;i<_touchStates.Capacity;i++) if(_touchStates.IsOccupiedAt(i))
+            {
+                ref var state=ref _touchStates.ValueRefAt(i); if(!state.DispatchDownSent) continue;
+                flags|=state.DispatchDownSemanticAction.Modifiers;
+                if(state.DispatchDownKind==DispatchEventKind.ModifierDown) flags|=DispatchShortcutHelper.ToModifierFlag(state.DispatchDownSemanticAction.PrimaryCode);
+            }
+            return flags;
+        }
+    }
     private int _bindingsLayer = -1;
 
     private IntentMode _intentMode = IntentMode.Idle;
@@ -277,6 +309,7 @@ internal sealed class TouchProcessorCore
 
     public void Configure(TouchProcessorConfig config)
     {
+        _keyboardProposalEpoch++;
         TouchProcessorConfig normalized = NormalizeConfig(config);
         bool rebuildBindings =
             Math.Abs(normalized.SnapRadiusPercent - _config.SnapRadiusPercent) > 0.0001 ||
@@ -490,6 +523,7 @@ internal sealed class TouchProcessorCore
 
     public void ResetState()
     {
+        _keyboardProposalEpoch++;
         _handReservedLeft = _handReservedRight = false;
         EndAllGestureDispatches(Stopwatch.GetTimestamp());
         _intentTouches.RemoveAll();
@@ -587,8 +621,9 @@ internal sealed class TouchProcessorCore
         ushort maxX,
         ushort maxY,
         long timestampTicks,
-        bool handGestureReserved = false)
+        bool handGestureReserved = false, DispatchModifierFlags? proposalModifiers=null)
     {
+        _proposalModifiers=proposalModifiers;
         CaptureClockAnchor(timestampTicks);
         _framesProcessed++;
         EnsureBindingIndexes();
@@ -1126,7 +1161,7 @@ internal sealed class TouchProcessorCore
             existing.LastYNorm = yNorm;
             existing.MaxDistanceMm = Math.Max(existing.MaxDistanceMm, movementMm);
 
-            if (existing.DispatchDownSent &&
+            if (!_unifiedInputPolicy && existing.DispatchDownSent &&
                 existing.MaxDistanceMm > _config.DragCancelMm &&
                 ShouldCancelHeldDispatchOnDrag(in existing))
             {
@@ -1137,7 +1172,7 @@ internal sealed class TouchProcessorCore
             {
                 BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                 EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
-                if (existing.MaxDistanceMm <= _config.DragCancelMm &&
+                if ((_unifiedInputPolicy || existing.MaxDistanceMm <= _config.DragCancelMm) &&
                     !IsGestureDispatchPriorityActive(side) &&
                     IsHoldTriggerSatisfied(existingBinding.Mapping, in existing, timestampTicks))
                 {
@@ -1351,7 +1386,7 @@ internal sealed class TouchProcessorCore
             }
         }
 
-        if (state.MaxDistanceMm > _config.DragCancelMm)
+        if (!_unifiedInputPolicy && state.MaxDistanceMm > _config.DragCancelMm)
         {
             RecordReleaseDropped(state.Side, action, timestampTicks, "drag_cancel");
             return;
@@ -1361,6 +1396,8 @@ internal sealed class TouchProcessorCore
         {
             return;
         }
+        if(_unifiedInputPolicy && timestampTicks-state.StartTicks>MsToTicks(Math.Max(200,_config.HoldDurationMs)))
+        { RecordReleaseDropped(state.Side,action,timestampTicks,"tap_timed_out"); return; }
         if (state.HoldTriggered)
         {
             RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
@@ -1469,7 +1506,7 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        return _intentMode is IntentMode.KeyCandidate or IntentMode.TypingCommitted;
+        return _unifiedInputPolicy || _intentMode is IntentMode.KeyCandidate or IntentMode.TypingCommitted;
     }
 
     private bool ShouldTrackOffKeyTouchForSnap()
@@ -1704,7 +1741,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = 0;
                     state.DispatchDownLabel = action.Label;
-                    state.DispatchDownSemanticAction = action.SemanticAction;
+                    state.DispatchDownSemanticAction = WithProposalModifiers(action.SemanticAction);
                 }
                 break;
             case EngineActionKind.Continuous:
@@ -1739,7 +1776,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
-                    state.DispatchDownSemanticAction = action.SemanticAction;
+                    state.DispatchDownSemanticAction = WithProposalModifiers(action.SemanticAction);
                 }
                 break;
             case EngineActionKind.KeyChord:
@@ -1779,7 +1816,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
-                    state.DispatchDownSemanticAction = action.SemanticAction;
+                    state.DispatchDownSemanticAction = WithProposalModifiers(action.SemanticAction);
                 }
                 break;
             default:
@@ -2259,6 +2296,7 @@ internal sealed class TouchProcessorCore
         int forceNorm = -1,
         DispatchRepeatProfile repeatProfile = default)
     {
+        if(kind is DispatchEventKind.KeyTap or DispatchEventKind.KeyDown) semanticAction=WithProposalModifiers(semanticAction);
         if (_hapticsOnKeyDispatch && kind == DispatchEventKind.KeyTap)
         {
             flags |= DispatchEventFlags.Haptic;
@@ -2293,7 +2331,7 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        if (forceNorm >= 0 &&
+        if (!_unifiedInputPolicy && forceNorm >= 0 &&
             IsForceSuppressedDispatch(kind) &&
             (_config.ForceCap <= 0 || forceNorm < _config.ForceMin || forceNorm > _config.ForceCap))
         {
@@ -2320,7 +2358,7 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        if (_dispatchRingCount >= _dispatchRing.Length)
+        if (_dispatchSink==null && _dispatchRingCount >= _dispatchRing.Length)
         {
             _dispatchSuppressedRingFull++;
             _dispatchDrops++;
@@ -2347,7 +2385,7 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        _dispatchRing[_dispatchRingHead] = new DispatchEvent(
+        var dispatchEvent = new DispatchEvent(
             timestampTicks,
             kind,
             virtualKey,
@@ -2358,8 +2396,16 @@ internal sealed class TouchProcessorCore
             normalizedDispatchLabel,
             semanticAction,
             repeatProfile);
-        _dispatchRingHead = (_dispatchRingHead + 1) % _dispatchRing.Length;
-        _dispatchRingCount++;
+        if(_dispatchSink!=null)
+        {
+            if(!_dispatchSink.TryPublish(in dispatchEvent)) { _dispatchDrops++; return false; }
+        }
+        else
+        {
+            _dispatchRing[_dispatchRingHead]=dispatchEvent;
+            _dispatchRingHead = (_dispatchRingHead + 1) % _dispatchRing.Length;
+            _dispatchRingCount++;
+        }
         _dispatchEnqueued++;
         RecordDiagnostic(
             timestampTicks,
@@ -2623,6 +2669,13 @@ internal sealed class TouchProcessorCore
 
     private void UpdateIntentState(in IntentAggregate aggregate, long nowTicks)
     {
+        if(_unifiedInputPolicy)
+        {
+            _typingGraceDeadlineTicks=0; _lastContactCount=aggregate.ContactCount;
+            if(aggregate.ContactCount==0) TransitionTo(IntentMode.Idle,nowTicks,"all_up");
+            else SetTypingCommittedState(nowTicks,true,"unreserved_keyboard");
+            return;
+        }
         bool graceActive = IsTypingGraceActive(nowTicks);
         bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
         bool pointerIntentEnabled = _pointerIntentEnabled;
@@ -6920,10 +6973,14 @@ internal sealed class TouchProcessorCore
 
 }
 
-internal sealed class TouchProcessorActor : IDisposable
+internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
 {
     private readonly TouchProcessorCore _core;
     private readonly IHandGestureRuntime? _handGestures;
+    private readonly GestureKeyboardArbiter? _keyboardArbiter;
+    private readonly DispatchEvent[] _proposalDispatchScratch=new DispatchEvent[32];
+    private int _proposalOverflow;
+    private int _publicationOverflow;
     private readonly object _coreGate = new();
     private readonly DispatchEventQueue? _dispatchQueue;
     private readonly IThreeFingerDragSink? _threeFingerDragSink;
@@ -6948,6 +7005,11 @@ internal sealed class TouchProcessorActor : IDisposable
         _core = core;
         _handGestures = handGestures;
         _dispatchQueue = dispatchQueue;
+        if(handGestures?.SupportsKeyboardProposals==true)
+        {
+            if(dispatchQueue!=null) core.SetDispatchSink(this);
+            _keyboardArbiter=new(core,handGestures,FlushQueuedDispatch);
+        }
         _threeFingerDragSink = threeFingerDragSink;
         _queue = new FrameEnvelope[Math.Max(16, queueCapacity)];
         _thread = new Thread(RunLoop)
@@ -6970,6 +7032,7 @@ internal sealed class TouchProcessorActor : IDisposable
             if (_count >= _queue.Length)
             {
                 _core.RecordQueueDrop();
+                Interlocked.Exchange(ref _proposalOverflow,1);
                 return false;
             }
 
@@ -7184,13 +7247,13 @@ internal sealed class TouchProcessorActor : IDisposable
         }
 
         _thread.Join();
+        lock(_coreGate) _core.SetDispatchSink(null);
         _handGestures?.Dispose();
         _signal.Dispose();
     }
 
     private void RunLoop()
     {
-        DispatchEvent[] scratchBuffer = new DispatchEvent[16];
         TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[16];
         while (true)
         {
@@ -7217,7 +7280,7 @@ internal sealed class TouchProcessorActor : IDisposable
 
             if (!hasFrame)
             {
-                lock (_coreGate) _handGestures?.Tick();
+                lock (_coreGate) { _handGestures?.Tick(); _keyboardArbiter?.Tick(Stopwatch.GetTimestamp()); }
                 _signal.WaitOne(4);
                 continue;
             }
@@ -7225,8 +7288,16 @@ internal sealed class TouchProcessorActor : IDisposable
             InputFrame payload = frame.Frame;
             lock (_coreGate)
             {
-                bool reserved = _handGestures?.Process(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true;
-                _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks, reserved);
+                if(Interlocked.Exchange(ref _proposalOverflow,0)!=0 && _keyboardArbiter!=null)
+                { _keyboardArbiter.Invalidate(true); _handGestures?.Cancel(); _core.ResetState(); }
+                if(_keyboardArbiter!=null && Stopwatch.GetTimestamp()-frame.TimestampTicks>Stopwatch.Frequency*.15)
+                { _keyboardArbiter.Reject(frame.Side); _handGestures?.Cancel(frame.Side); }
+                if(_keyboardArbiter!=null) _keyboardArbiter.Process(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
+                else
+                {
+                    bool reserved = _handGestures?.Process(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true;
+                    _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks, reserved);
+                }
                 _handGestures?.Tick();
                 while (true)
                 {
@@ -7242,30 +7313,46 @@ internal sealed class TouchProcessorActor : IDisposable
                     }
                 }
 
-                if (_dispatchQueue != null)
-                {
-                    while (true)
-                    {
-                        int drained = _core.DrainDispatchEvents(scratchBuffer);
-                        if (drained <= 0)
-                        {
-                            break;
-                        }
-
-                        for (int i = 0; i < drained; i++)
-                        {
-                            if (!_dispatchQueue.TryEnqueue(in scratchBuffer[i]))
-                            {
-                                _core.RecordDispatchDrop();
-                            }
-                        }
-                    }
-                }
+                FlushQueuedDispatch();
             }
             Interlocked.Increment(ref _processedCount);
         }
     }
 
+    private bool FlushQueuedDispatch()
+    {
+        if(_dispatchQueue==null) return true;
+        if(Volatile.Read(ref _publicationOverflow)!=0) return CancelOutputPublication();
+        while(true)
+        {
+            int count=_core.DrainDispatchEvents(_proposalDispatchScratch); if(count==0) return true;
+            for(int i=0;i<count;i++) if(!_dispatchQueue.TryEnqueue(_proposalDispatchScratch[i]))
+            {
+                _core.RecordDispatchDrop();
+                if(_keyboardArbiter!=null)
+                {
+                    return CancelOutputPublication();
+                }
+            }
+        }
+    }
+    bool IEngineDispatchSink.TryPublish(in DispatchEvent dispatchEvent)
+    {
+        if(Volatile.Read(ref _publicationOverflow)!=0) return false;
+        if(_dispatchQueue?.TryEnqueue(in dispatchEvent)==true) return true;
+        Interlocked.Exchange(ref _publicationOverflow,1); return false;
+    }
+    private bool CancelOutputPublication()
+    {
+        if(_dispatchQueue==null) return false;
+        Interlocked.Exchange(ref _publicationOverflow,1);
+        _dispatchQueue.Clear(); _keyboardArbiter?.Invalidate(true); _handGestures?.Cancel();
+        while(_core.DrainDispatchEvents(_proposalDispatchScratch)>0) { }
+        _core.ResetState();
+        Interlocked.Exchange(ref _publicationOverflow,0);
+        _dispatchQueue.TryEnqueue(new(Stopwatch.GetTimestamp(),DispatchEventKind.ReleaseAllKeyboard,0,DispatchMouseButton.None,0,DispatchEventFlags.None,TrackpadSide.Left,"output_overflow"));
+        return false;
+    }
     private void ApplyPointerDragEffect(in TouchProcessorCore.PointerDragEffect effect)
     {
         IThreeFingerDragSink? sink = _threeFingerDragSink;

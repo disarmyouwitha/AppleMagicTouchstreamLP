@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -252,6 +252,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
+        RestoreTypingDefaultsButton.Click+=(_,_)=>
+        {
+            var defaults=new UserSettings(); _settings.HoldDurationMs=defaults.HoldDurationMs; _settings.HapticsStrength=defaults.HapticsStrength;
+            HoldDurationBox.Text=FormatNumber(_settings.HoldDurationMs); SetHapticsStrengthUiFromSettings();
+            _settings.Save(); ApplyCoreSettings();
+        };
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
@@ -312,14 +318,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
             _touchCore.UseHandGestureRecognition();
             _touchCore.UseUnifiedInputPolicy();
+            _dispatchQueue = new DispatchEventQueue();
+            _sendInputDispatcher = new SendInputDispatcher();
             if (!IsReplayMode)
             {
                 _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
-                    () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
+                    () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason),_dispatchQueue,_sendInputDispatcher);
                 _handGestures.Configure(_settings);
             }
-            _dispatchQueue = new DispatchEventQueue();
-            _sendInputDispatcher = new SendInputDispatcher();
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
@@ -567,10 +573,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshDecoderProfileCombos();
 
         HoldDurationBox.Text = FormatNumber(_settings.HoldDurationMs);
-        DragCancelBox.Text = FormatNumber(_settings.DragCancelMm);
-        TypingGraceBox.Text = FormatNumber(_settings.TypingGraceMs);
-        IntentMoveBox.Text = FormatNumber(_settings.IntentMoveMm);
-        IntentVelocityBox.Text = FormatNumber(_settings.IntentVelocityMmPerSec);
         SetForceThresholdUiFromSettings();
         SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
@@ -863,10 +865,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         List<TextBox> boxes =
         [
             HoldDurationBox,
-            DragCancelBox,
-            TypingGraceBox,
-            IntentMoveBox,
-            IntentVelocityBox,
             KeyPaddingBox,
             AutocorrectBlacklistBox,
             AutocorrectOverridesBox,
@@ -1524,7 +1522,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.AutocorrectBlacklistCsv = NormalizeMultilineText(AutocorrectBlacklistBox.Text);
         _settings.AutocorrectOverridesCsv = NormalizeMultilineText(AutocorrectOverridesBox.Text);
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
-            ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
+            ? 100.0
             : 0.0;
         _settings.HoldRepeatEnabled = HoldRepeatModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
@@ -1552,10 +1550,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.VisualizerEnabled = true;
 
         _settings.HoldDurationMs = ReadDouble(HoldDurationBox, _settings.HoldDurationMs);
-        _settings.DragCancelMm = ReadDouble(DragCancelBox, _settings.DragCancelMm);
-        _settings.TypingGraceMs = ReadDouble(TypingGraceBox, _settings.TypingGraceMs);
-        _settings.IntentMoveMm = ReadDouble(IntentMoveBox, _settings.IntentMoveMm);
-        _settings.IntentVelocityMmPerSec = ReadDouble(IntentVelocityBox, _settings.IntentVelocityMmPerSec);
         _settings.KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
         _settings.ForceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
         _settings.ForceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
@@ -1935,7 +1929,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private TouchProcessorConfig BuildConfigFromSettings()
     {
-        return RuntimeConfigurationFactory.BuildTouchConfig(_settings);
+        return WindowsInputPolicy.BuildTouchConfig(_settings);
     }
 
     private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)

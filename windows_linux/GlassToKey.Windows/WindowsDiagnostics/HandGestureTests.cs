@@ -267,46 +267,38 @@ internal static class HandGestureTests
     }
     private static void RunPanelPreferences()
     {
-        var settings = new UserSettings();
-        HandGesturePanel? panel = null;
-        panel = new HandGesturePanel(settings,()=>panel?.Refresh(settings));
-        panel.MirrorEdits = true;
-        var natural = Controls<System.Windows.Controls.CheckBox>(panel).First(c=>Equals(c.Content,"Natural scrolling"));
-        natural.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-        Check(!settings.HandGesturesV1.Left.NaturalScrolling && !settings.HandGesturesV1.Right.NaturalScrolling,"Natural checkbox could not switch off");
-        natural = Controls<System.Windows.Controls.CheckBox>(panel).First(c=>Equals(c.Content,"Natural scrolling"));
-        natural.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-        Check(settings.HandGesturesV1.Left.NaturalScrolling && settings.HandGesturesV1.Right.NaturalScrolling,"Natural checkbox could not switch back on");
-        var combo = Controls<System.Windows.Controls.ComboBox>(panel).Single(c=>Equals(c.Tag,HandGestureTrigger.ThumbTwoTap));
-        Check(combo.IsEnabled && combo.Items.Count >= 4,"thumb menu lost tap assignments");
-        combo.SelectedIndex = 0;
-        Check(settings.HandGesturesV1.Left.ThumbTwoTap == HandGestureAction.None && settings.HandGesturesV1.Right.ThumbTwoTap == HandGestureAction.None,"thumb None selection did not persist");
-        System.Windows.Controls.Slider slider(int kind) => Controls<System.Windows.Controls.Slider>(panel).First(s=>Equals(s.Tag,kind));
-        var pointer=slider(0); pointer.Value=1.35; pointer.Value=1.4; slider(1).Value=.65;
-        Check(ReferenceEquals(pointer,slider(0)),"settings refresh replaced the active slider");
-        Check(settings.HandGesturesV1.Left.PointerSensitivity == 1.4 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4
-            && settings.HandGesturesV1.Left.ScrollSensitivity == .65 && settings.HandGesturesV1.Right.ScrollSensitivity == .65,"sensitivity sliders did not apply to both hands");
-        panel.MirrorEdits=false; panel.EditingScope=HandGestureScope.Left; slider(0).Value=.8;
-        Check(settings.HandGesturesV1.Left.PointerSensitivity == .8 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4,"Left sensitivity changed the other hand");
+        var settings=new UserSettings();
+        HandGesturePanel? panel=null; panel=new HandGesturePanel(settings,()=>panel?.Refresh(settings));
+        Check(panel.ColumnDefinitions.Count==5,"Gestures is not a three-column workspace with two dividers");
+        System.Windows.Controls.Slider slider(int kind)=>Controls<System.Windows.Controls.Slider>(panel).First(s=>Equals(s.Tag,kind));
         panel.MirrorEdits=true;
-        Check(Controls<System.Windows.Controls.TextBlock>(panel).Any(t=>t.Text.Contains("Mixed")),"mixed sensitivity was hidden");
-        slider(2).Value=1.2;
-        Check(settings.HandGesturesV1.Left.ZoomSensitivity==1.2 && settings.HandGesturesV1.Right.ZoomSensitivity==1.2,"zoom slider did not persist");
-        Check(Controls<System.Windows.Controls.ComboBox>(panel).Count(c=>c.Tag is HandGestureTrigger)==22,"not all available gesture inputs have menus");
-        var expand=Controls<System.Windows.Controls.Expander>(panel).First(x=>Equals(x.Header,"Pinch and Spread"));
-        expand.IsExpanded=true; panel.Refresh(settings);
-        Check(Controls<System.Windows.Controls.Expander>(panel).First(x=>Equals(x.Header,"Pinch and Spread")).IsExpanded,"settings refresh collapsed the user's gesture section");
-        panel.EditingScope=HandGestureScope.Both;
-        Check(Controls<System.Windows.Controls.ComboBox>(panel).Count()==10,"Both did not expose independent coordinated tap/hold assignments");
-        Check(settings.HandGesturesV1.Coordinated.HoldActions.Count==0,"Mirror Edit changed coordinated settings");
-        settings.HandGesturesV1.Left.PointerResponse = HandPointerResponse.Fixed;
-        settings.HandGesturesV1.Right.PointerResponse = HandPointerResponse.ImportedApple;
-        settings.HandGesturesV1.Right.ImportedPointerProfile = ApplePointerProfile.Reference;
-        WindowsInputPolicy.NormalizeLegacyModes(settings);
-        Check(settings.HandGesturesV1.Left.PointerResponse == HandPointerResponse.AppleReference
-            && settings.HandGesturesV1.Right.PointerResponse == HandPointerResponse.AppleReference,"old settings bypassed the Windows Apple response policy");
+        var pointer=slider(0); pointer.Value=1.35; pointer.Value=1.4;
+        Check(ReferenceEquals(pointer,slider(0)),"refresh replaced the active sensitivity slider");
+        Check(settings.HandGesturesV1.Left.PointerSensitivity==1.4 && settings.HandGesturesV1.Right.PointerSensitivity==1.4,"Mirror Edit did not update both hands");
+        panel.MirrorEdits=false; slider(0).Value=.8;
+        Check(settings.HandGesturesV1.Left.PointerSensitivity==.8 && settings.HandGesturesV1.Right.PointerSensitivity==1.4,"Left edit changed Right");
+        panel.SelectPage("4-main"); panel.SelectSlot(nameof(HandGestureTrigger.FourFingerMove)); panel.MirrorEdits=true;
+        var natural=Controls<System.Windows.Controls.CheckBox>(panel).Single(c=>Equals(c.Content,"Natural scrolling"));
+        natural.IsChecked=false; natural.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        Check(!settings.HandGesturesV1.Left.NaturalScrolling && !settings.HandGesturesV1.Right.NaturalScrolling,"Natural scrolling edit failed");
+        slider(1).Value=.65;
+        Check(settings.HandGesturesV1.Left.ScrollSensitivity==.65 && settings.HandGesturesV1.Right.ScrollSensitivity==.65,"scroll gain did not mirror");
+        panel.SelectPage("2-shape"); slider(2).Value=1.2;
+        Check(settings.HandGesturesV1.Left.ZoomSensitivity==1.2 && settings.HandGesturesV1.Right.ZoomSensitivity==1.2,"zoom gain did not mirror");
+        panel.SelectPage("thumb");
+        var combo=Controls<System.Windows.Controls.ComboBox>(panel).Single(c=>Equals(c.Tag,HandGestureTrigger.ThumbTwoTap)); combo.SelectedIndex=0;
+        Check(settings.HandGesturesV1.Left.ThumbTwoTap==HandGestureAction.None && settings.HandGesturesV1.Right.ThumbTwoTap==HandGestureAction.None,"thumb compatibility assignment was lost");
+        panel.EditingScope=HandGestureScope.Both; panel.SelectPage("both-InnerCorners");
+        settings.HandGesturesV1.Coordinated.HoldActions[CoordinatedHandChord.InnerCorners]=HandGestureAction.Custom;
+        settings.HandGesturesV1.Coordinated.CustomActions["InnerCorners/Hold"]="Hyper"; panel.Refresh(settings);
+        var held=Controls<System.Windows.Controls.CheckBox>(panel).Single(c=>Equals(c.Tag,"HeldShortcut"));
+        Check(held.IsEnabled,"held shortcut control is unavailable on Hold");
+        held.IsChecked=true; held.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        Check(settings.HandGesturesV1.Coordinated.HeldShortcuts.Contains("InnerCorners/Hold") && settings.HandGesturesV1.Left.HeldShortcuts.Count==0,"Both Hold changed independent settings");
+        settings.HandGesturesV1.Left.PointerResponse=HandPointerResponse.Fixed; WindowsInputPolicy.NormalizeLegacyModes(settings);
+        Check(settings.HandGesturesV1.Left.PointerResponse==HandPointerResponse.AppleReference,"Windows Apple response policy was bypassed");
     }
-    private static IEnumerable<T> Controls<T>(object root) where T : System.Windows.FrameworkElement
+    internal static IEnumerable<T> Controls<T>(object root) where T : System.Windows.FrameworkElement
     {
         if (root is T element) yield return element;
         IEnumerable<object> children = root switch

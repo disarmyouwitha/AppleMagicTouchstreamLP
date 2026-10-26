@@ -66,14 +66,14 @@ internal sealed class TouchRuntimeService : IDisposable
             _keymap.SetActiveLayout(_preset.Name);
             RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
 
-            _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, RuntimeConfigurationFactory.BuildTouchConfig(_settings));
+            _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, WindowsInputPolicy.BuildTouchConfig(_settings));
             _touchCore.UseHandGestureRecognition();
             _touchCore.UseUnifiedInputPolicy();
-            _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
-                () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
-            _handGestures.Configure(_settings);
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
+            _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
+                () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason),_dispatchQueue,_sendInputDispatcher);
+            _handGestures.Configure(_settings);
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
@@ -149,7 +149,7 @@ internal sealed class TouchRuntimeService : IDisposable
             return;
         }
 
-        actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(_settings));
+        actor.Configure(WindowsInputPolicy.BuildTouchConfig(_settings));
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));

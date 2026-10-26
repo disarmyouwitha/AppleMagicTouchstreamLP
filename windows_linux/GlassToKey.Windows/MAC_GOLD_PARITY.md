@@ -6,15 +6,20 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
-- Dark keyboard/gesture controls, a resizable inspector and resizable gesture
-  navigation/detail columns. Keyboard remains the default workspace. Selecting a
-  key/custom button retains the existing keyboard editor workflow.
+- Top-level **Gestures / Keyboard** workspace selector, in Mac order. Keyboard
+  remains the default. Device/takeover controls span both workspaces. Gestures hides
+  the visualizer and keyboard inspector and presents navigation, assignment cards
+  and a separate Action column, with two resizable dividers and independent scroll
+  areas. Cards select the Action inspector, including the movement cross, Hold,
+  directional actions and coordinated Both assignments. The Shortcut Builder is
+  inline in the Action column. Selecting a keyboard key returns to Keyboard.
 - Gesture Left and Right select independent settings. Mirror Edit writes the same
   edit to both independent settings. Both edits a separate coordinated namespace.
   Mirror Edit never changes coordinated assignments.
 - Searchable gesture actions and a shared-identity Action Builder: modifier/key
   shortcuts, Hyper, modifier-only shortcuts, apps, files, folders and URLs.
-  These actions fire once, including assignments on Hold. Windows Voice uses the
+  Hold shortcuts can fire once or keep their keys down until release. Other actions
+  fire once. Windows Voice uses the
   explicit Win+H invocation. Nothing starts recording during build/replay/tests.
 - Four/five-finger taps, five-finger movement and per-count 2–5-finger Hold.
   New taps/movement/ordinary holds default to None. Hold thresholds are independent,
@@ -37,6 +42,13 @@ This is a substantial functional port; the remaining differences below are real.
   contacts. Windows never assigns a thumb/finger color from contact order.
 - Global typing Force Min/Max gates are neutralized for Windows. Per-key Force
   Instead of Hold remains available. Linux's legacy settings remain intact.
+- Typing Tuning contains Hold Duration, Haptic Strength and Restore Defaults.
+  Typing Grace, Drag Cancel and intent movement/velocity controls are removed.
+  Their legacy saved fields cannot select a mouse mode or cancel Windows typing.
+  Unreserved contacts default to keyboard input, including off-key snap candidates.
+  Movement within a key no longer cancels typing. A release still must match its
+  key/snap eligibility and finish within max(200 ms, Hold Duration). Holds retain
+  ownership through movement. Snap is bounded to 0–100%; toggling on selects 100%.
 
 ## Recognition, ownership and cleanup
 
@@ -52,16 +64,34 @@ Coordinated chords require two different selected devices, landing within 80 ms,
 fresh samples within 150 ms and stationary original identities within 2 mm.
 Coordinated taps finish within 500 ms and 150 ms of the first partial lift.
 Rejoining, replacement, invalid data, stale input and loss of eligibility cancel
-the session without fallback output. Fired Holds remain one-shot until both pads
-lift. An already active independent gesture takes precedence.
+the session without fallback output. Holds activate once per cycle; a held shortcut
+retains its keys until both pads lift. An already active independent gesture takes precedence.
 
-Native output still uses the single gated worker: eligibility, generation,
-bounded queue, staleness, emergency release and failed-send cleanup apply to the
-new actions. Shortcut plans have balanced key edges, including modifier-only
-groups. Shortcuts skip output when existing modifiers are held, preserving keys
-owned by physical input or the typing engine. Replay never creates this worker.
-Settings/export round-trip the new dictionaries, with deep clones. Existing enum
-numbers remain unchanged.
+Keyboard arbitration follows the Mac actor boundary. Established MO/modifier
+chords and committed key holds own their pad through all-up. Unresolved candidates
+retain up to 1,024 owned frames per pad with original timestamps and modifier
+snapshots. Gestures see original input once. Activated/cancelled owners discard
+proposals. A never-activated rollover resolves to typing at all-up or partial lift
+once no tap remains viable. Configuration/layer/epoch changes, invalid IDs,
+staleness and overflow cancel rather than resurrect typing. The other pad remains
+independent. Replay never posts live gesture output.
+
+Gesture keyboard output shares the existing keyboard pump and reference counts;
+the pointer worker no longer owns gesture shortcut keys. Left, Right and Both have
+separate leases. Modifier-only/Hyper groups have no dummy character or repeat.
+Keyboard and gesture owners may overlap the same modifiers or ordinary held key;
+only the final owner releases it. A physical-key observer distinguishes physical
+owners from injected input without recording text. Cleanup runs on all-up,
+staleness, eligibility loss, reconfiguration, fault and teardown. Failed gesture
+releases are retried on the output pump and faults reach takeover's release path.
+
+Live keyboard events publish directly into the bounded dispatch queue, bypassing
+the 512-event ring retained for offline replay/diagnostics. Deferred batches cannot
+overflow that intermediate ring. If output publication overflows, the actor stops
+the batch, invalidates proposals, resets recognition and inserts a keyboard release
+barrier. Deferred holds cannot replay historical typematic repeats in a burst.
+Settings/export round-trip held modes and all dictionaries with deep clones.
+Existing serialized identities and capture formats remain unchanged.
 
 ## Remaining differences
 
@@ -70,13 +100,8 @@ numbers remain unchanged.
   Thumb+2 tap assignments remain saved but inert on Windows. Pinch/spread retains
   the previously accepted geometric Windows recognizer; it cannot enforce the
   Mac's positive-thumb prerequisite.
-- Gesture shortcuts held until release need shared ownership with the keyboard
-  dispatcher's modifier/key reference counts. This port deliberately offers
-  one-shot gesture shortcuts; ordinary keyboard key holds remain supported.
 - Coordinated movement/directional gestures, growth of pending corner pairs
-  into larger chords, and the Mac's bounded deferred keyboard-proposal arbitration
-  are not ported. Current Windows gesture reservations retain their existing
-  keyboard-cancellation semantics.
+  into larger chords, and thumb/rotation recognition remain outside this pass.
 - Mouse Takeover retains Windows' session-only all-mouse hook and emergency
   Ctrl+Alt+R. It cannot reproduce Mac selected-device FLTR ownership. Windows shell
   3/4-finger actions may still conflict. No driver/settings changes are made.
@@ -96,22 +121,26 @@ custom shortcut-plan, settings export/clone and TouchStream geometry checks.
 Optional off-screen rendering parses a plain XAML Window, never MainWindow's
 live constructor, and opens no devices or input hooks.
 
-The normal Release folder was locked by a running app during this work. The
-verified build is `bin/MacGold/GlassToKey.Windows.exe`. Exit the old tray instance
+The normal Release folder can be locked by a running app. The
+updated build is `bin/MacWorkspace/GlassToKey.Windows.exe`. Exit the old tray instance
 before starting it. No live takeover or hardware input tests were run by the agent.
 
 Hardware sequence:
 
-1. With takeover off, inspect Keyboard, TouchStream and all gesture pages. Resize
-   both column dividers. Confirm selecting a key opens its keyboard inspector.
+1. With takeover off, switch Gestures / Keyboard. Confirm Gestures replaces the
+   visualizer with three columns and cards edit the separate Action column. Resize
+   both dividers. Inspect TouchStream and the reduced Typing Tuning controls.
 2. Check Left/Right and Mirror Edit separately; export/import settings and verify
    the new Hold, directional and Both assignments survive.
 3. Use the existing **30sec test** on a blank document. Check ordinary typing,
    two-finger tap/pointer, three-finger drag and four-finger scroll first.
 4. Assign a harmless action to a 4/5-finger tap and each desired Hold. Check early
    lift, movement before the deadline, added/lifted fingers and one action per cycle.
-5. Test a directional action/repeat, Hyper/shortcut and app/URL target. Check that
-   held physical modifiers are not released by gesture output.
+5. Assign Hyper or a shortcut to Hold and enable **Hold keys until release**.
+   Test it while the other pad holds the same modifier/key. Lift each owner in
+   either order; release must happen only after the final owner. Repeat with a
+   physical modifier, emergency release and a disconnect. Check ordinary typing
+   rollover, MO chords and key holds while another contact lands on that pad.
 6. With two different pads selected, test Both taps/holds, the corner chords and
    the per-pad four-corner Open Config gesture. Try staggered lift and reconnect.
 7. Confirm Ctrl+Alt+R and timed expiry release takeover. Capture any unexpected

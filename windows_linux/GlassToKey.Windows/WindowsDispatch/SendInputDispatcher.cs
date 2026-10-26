@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace GlassToKey;
 
-internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectController, IThreeFingerDragSink
+internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorrectController, IThreeFingerDragSink
 {
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
@@ -126,9 +126,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         ConsumePendingPointerActivity();
+        ConsumeGestureKeyboardRelease();
 
         switch (dispatchEvent.Kind)
         {
+            case DispatchEventKind.ReleaseAllKeyboard:
+                GestureKeyboardSession?.ReleaseAll(); ConsumeGestureKeyboardRelease(); ReleaseAllHeldKeys(); break;
+            case DispatchEventKind.GestureShortcutDown:
+            case DispatchEventKind.GestureShortcutUp:
+            case DispatchEventKind.GestureShortcutTap:
+                HandleGestureKeyboard(dispatchEvent); break;
             case DispatchEventKind.AppLaunch:
                 HandleAppLaunch(dispatchEvent);
                 break;
@@ -348,6 +355,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         ConsumePendingPointerActivity();
+        ConsumeGestureKeyboardRelease(); MaintainBorrowedKeys();
         ProcessTapReleases(nowTicks);
 
         for (int i = 0; i < _repeatEntries.Length; i++)
@@ -376,6 +384,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
         _disposed = true;
         _autocorrect.Dispose();
+        ReleaseGestureLeases();
         ReleaseAllHeldKeys();
     }
 
@@ -393,6 +402,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         int vk = virtualKey;
+        if((uint)vk<256 && RegisterKeyboardOwner(repeatToken,virtualKey)<0) return;
         if ((uint)vk < (uint)_keyDown.Length)
         {
             if (_tapHeldDown[vk])
@@ -404,7 +414,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
             if (!_keyDown[vk])
             {
-                SendKeyboard(virtualKey, keyUp: false);
+                if(_gestureKeyRefCounts[vk]==0 && !PhysicalKeyDown(virtualKey)) SendKeyboard(virtualKey, keyUp: false);
                 _keyDown[vk] = true;
             }
         }
@@ -428,16 +438,10 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         int vk = virtualKey;
-        if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
-        {
-            CancelTapRelease(virtualKey);
-            _tapHeldDown[vk] = false;
-            SendKeyboard(virtualKey, keyUp: true);
-        }
-
+        if((uint)vk<256 && (!RemoveKeyboardOwner(repeatToken,virtualKey) || _keyboardKeyRefCounts[vk]>0)) return;
         if ((uint)vk < (uint)_keyDown.Length && _keyDown[vk])
         {
-            SendKeyboard(virtualKey, keyUp: true);
+            if(_gestureKeyRefCounts[vk]==0 && !_tapHeldDown[vk] && !PhysicalKeyDown(virtualKey)) SendKeyboard(virtualKey, keyUp: true);
             _keyDown[vk] = false;
         }
     }
@@ -494,7 +498,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         _modifierRefCounts[vk]++;
         if (_modifierRefCounts[vk] == 1)
         {
-            SendKeyboard(virtualKey, keyUp: false);
+            _borrowedModifiers[vk]=ExistingPhysicalKey((ushort)vk);
+            if(!_borrowedModifiers[vk]) SendKeyboard(virtualKey, keyUp: false);
             _keyDown[vk] = true;
         }
 
@@ -536,12 +541,13 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        _modifierRefCounts[vk]--;
-        if (_modifierRefCounts[vk] == 0)
+        if (_modifierRefCounts[vk] == 1)
         {
-            SendKeyboard(virtualKey, keyUp: true);
+            if(!_borrowedModifiers[vk] && !PhysicalKeyDown((ushort)vk)) SendKeyboard(virtualKey, keyUp: true);
+            _borrowedModifiers[vk]=false;
             _keyDown[vk] = false;
         }
+        _modifierRefCounts[vk]--;
     }
 
     private void HandleAltGrModifierDown()
@@ -611,7 +617,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                 Token = token,
                 VirtualKey = virtualKey,
                 SemanticAction = semanticAction,
-                NextTick = timestampTicks + initialDelayTicks,
+                // Retained keyboard proposals keep recognition timestamps. Live
+                // output must not replay historical typematic repeats in a burst.
+                NextTick = (_suppressPhysicalOutput ? timestampTicks : Math.Max(timestampTicks,Stopwatch.GetTimestamp())) + initialDelayTicks,
                 IntervalTicks = intervalTicks
             };
             return;
@@ -634,6 +642,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
     private void ReleaseAllHeldKeys()
     {
+        Array.Clear(_keyboardOwners); Array.Clear(_keyboardKeyRefCounts);
         _autocorrect.ForceReset("release_all");
         for (int i = 0; i < _repeatEntries.Length; i++)
         {
@@ -647,7 +656,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
         for (int vk = 0; vk < _tapHeldDown.Length; vk++)
         {
-            if (_tapHeldDown[vk] && !_keyDown[vk] && _modifierRefCounts[vk] <= 0)
+            if (_tapHeldDown[vk] && !_keyDown[vk] && _modifierRefCounts[vk] <= 0 && !PhysicalKeyDown((ushort)vk))
             {
                 SendKeyboard((ushort)vk, keyUp: true);
             }
@@ -659,7 +668,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         {
             if (_modifierRefCounts[vk] > 0 || _keyDown[vk])
             {
-                SendKeyboard((ushort)vk, keyUp: true);
+                if(!_borrowedModifiers[vk] && !PhysicalKeyDown((ushort)vk)) SendKeyboard((ushort)vk, keyUp: true);
+                _borrowedModifiers[vk]=false;
                 _modifierRefCounts[vk] = 0;
                 _keyDown[vk] = false;
             }
@@ -686,7 +696,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         {
             CancelTapRelease(virtualKey);
             _tapHeldDown[vk] = false;
-            SendKeyboard(virtualKey, keyUp: true);
+            if(_gestureKeyRefCounts[vk]==0 && !PhysicalKeyDown(virtualKey)) SendKeyboard(virtualKey, keyUp: true);
         }
 
         SendKeyboard(virtualKey, keyUp: false);
@@ -758,7 +768,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
             {
                 _tapHeldDown[vk] = false;
-                if (_modifierRefCounts[vk] <= 0)
+                if (_modifierRefCounts[vk] <= 0 && _gestureKeyRefCounts[vk]==0 && !_keyDown[vk] && !PhysicalKeyDown(virtualKey))
                 {
                     SendKeyboard(virtualKey, keyUp: true);
                 }
@@ -804,7 +814,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             if ((uint)replacedVk < (uint)_tapHeldDown.Length && _tapHeldDown[replacedVk])
             {
                 _tapHeldDown[replacedVk] = false;
-                if (_modifierRefCounts[replacedVk] <= 0)
+                if (_modifierRefCounts[replacedVk] <= 0 && _gestureKeyRefCounts[replacedVk]==0 && !_keyDown[replacedVk] && !PhysicalKeyDown(replacedVirtualKey))
                 {
                     SendKeyboard(replacedVirtualKey, keyUp: true);
                 }
@@ -833,13 +843,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
     private void SendKeyboard(ushort virtualKey, bool keyUp)
     {
+        if(!keyUp && virtualKey<256) _lastNativeDownTicks[ModifierReferenceIndex(virtualKey)]=Stopwatch.GetTimestamp();
+        KeyEdgeObserver?.Invoke(virtualKey,keyUp);
         if (_suppressPhysicalOutput)
         {
             return;
         }
 
         _singleInput[0] = CreateKeyboardInput(virtualKey, keyUp);
-        SendInput(1, _singleInput, Marshal.SizeOf<Input>());
+        uint sent=SendInput(1, _singleInput, Marshal.SizeOf<Input>());
+        if(_requireCheckedKeyboardOutput && sent!=1) throw new InvalidOperationException("Shortcut keyboard output failed ("+Marshal.GetLastWin32Error()+")");
     }
 
     private static Input CreateKeyboardInput(ushort virtualKey, bool keyUp)

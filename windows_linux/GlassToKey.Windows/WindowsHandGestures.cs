@@ -16,11 +16,18 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     private readonly HandGestureEngine _engine;
     private bool _disposed;
     private long _frames, _reserved;
-    public WindowsHandGestures(GlobalMouseInputHook hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover)
+    private readonly bool[] _keyboardPriority=new bool[2];
+    public bool SupportsKeyboardProposals => true;
+    public void SetKeyboardPriority(TrackpadSide side,bool priority) { lock(_sync) _keyboardPriority[(int)side]=priority; }
+    public HandGestureEvidence Evidence(TrackpadSide side) { lock(_sync) return _engine.Evidence(side); }
+    public void Cancel(TrackpadSide? side=null) { lock(_sync) { if(side is {} pad) _engine.Cancel(pad); else { _output.Release(); _engine.Reset(); } } }
+    public WindowsHandGestures(GlobalMouseInputHook hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover,
+        DispatchEventQueue? keyboardQueue=null,SendInputDispatcher? keyboardDispatcher=null)
     {
         _hook = hook; _hook.DiagnosticEvent += ObserveButton;
         _eligible = eligible; _pointerActivity = pointerActivity; _releaseTakeover = releaseTakeover;
-        _output = new WindowsGestureOutput(eligible);
+        var keyboard=keyboardQueue!=null && keyboardDispatcher!=null ? new WindowsGestureKeyboardSession(keyboardQueue,keyboardDispatcher,eligible,hook.PhysicalKeyboard) : null;
+        _output = new WindowsGestureOutput(eligible,keyboard);
         _engine = new(_output);
     }
     // Hook callback only records a flag. Never acquire engine/output locks here.
@@ -69,13 +76,14 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             }
             try
             {
+                _output.ObserveFrame();
                 CheckButtonInterference();
                 _output.ThrowIfFaulted();
                 bool takeover = _eligible();
                 bool eligible = takeover && !_output.ForeignButtonDown;
                 if (Stopwatch.GetTimestamp()-timestamp > Stopwatch.Frequency*.15) eligible = false;
                 bool reserved = _engine.Process(side, contacts[..count], timestamp/(double)Stopwatch.Frequency,
-                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: takeover);
+                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: takeover, keyboardPriority:_keyboardPriority[(int)side]);
                 _frames++; if (reserved) { _reserved++; _pointerActivity(); }
                 return reserved;
             }

@@ -24,6 +24,7 @@ public sealed class CoordinatedGestureSettings
     public Dictionary<CoordinatedHandChord, HandGestureAction> HoldActions { get; set; } = new();
     public Dictionary<CoordinatedHandChord, double> HoldThresholds { get; set; } = new();
     public Dictionary<string, string> CustomActions { get; set; } = new();
+    public HashSet<string> HeldShortcuts { get; set; } = new();
     public HandGestureAction Action(CoordinatedHandChord chord, bool hold) => ((hold ? HoldActions : TapActions)?.GetValueOrDefault(chord,
         hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)
         ?? (hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)) is {} action
@@ -31,7 +32,7 @@ public sealed class CoordinatedGestureSettings
         ? action : HandGestureAction.None;
     public double Milliseconds(CoordinatedHandChord chord) => HoldThresholds?.GetValueOrDefault(chord, 500) is {} value && double.IsFinite(value)
         ? Math.Clamp(value,100,5000) : 500;
-    public CoordinatedGestureSettings Clone() => new() { TapActions = new(TapActions ?? new()), HoldActions = new(HoldActions ?? new()), HoldThresholds = new(HoldThresholds ?? new()), CustomActions = new(CustomActions ?? new()) };
+    public CoordinatedGestureSettings Clone() => new() { TapActions = new(TapActions ?? new()), HoldActions = new(HoldActions ?? new()), HoldThresholds = new(HoldThresholds ?? new()), CustomActions = new(CustomActions ?? new()), HeldShortcuts = new(HeldShortcuts ?? new()) };
 }
 
 public sealed class HandDirectionalSettings
@@ -64,6 +65,7 @@ public sealed class PerHandGestureSettings
     public double ZoomSensitivity { get; set; } = 1;
     public Dictionary<HandGestureTrigger, HandGestureAction>? AdditionalActions { get; set; }
     public Dictionary<string,string>? CustomActions { get; set; }
+    public HashSet<string> HeldShortcuts { get; set; } = new();
     public Dictionary<int, HandGestureAction>? HoldActions { get; set; }
     public Dictionary<int, double>? HoldThresholds { get; set; }
     public Dictionary<HandGestureTrigger, HandDirectionalSettings>? DirectionalMovement { get; set; }
@@ -88,6 +90,7 @@ public sealed class PerHandGestureSettings
         clone.ImportedPointerProfile = ImportedPointerProfile?.Copy();
         clone.AdditionalActions = AdditionalActions == null ? null : new(AdditionalActions);
         clone.CustomActions = CustomActions == null ? null : new(CustomActions);
+        clone.HeldShortcuts = new(HeldShortcuts ?? new());
         clone.HoldActions = HoldActions == null ? null : new(HoldActions);
         clone.HoldThresholds = HoldThresholds == null ? null : new(HoldThresholds);
         clone.DirectionalMovement = DirectionalMovement?.Where(p=>p.Value!=null).ToDictionary(p => p.Key, p => p.Value.Clone());
@@ -133,6 +136,7 @@ public sealed class PerHandGestureSettings
         : t == HandGestureTrigger.OneFingerForce ? HandGestureAction.PrimaryClick : HandGestureAction.None;
     public void Normalize()
     {
+        HeldShortcuts ??= new();
         foreach (var t in Enum.GetValues<HandGestureTrigger>()) Set(t, Get(t));
         if (!Enum.IsDefined(PointerResponse)) PointerResponse = HandPointerResponse.AppleReference;
         if (PointerResponse == HandPointerResponse.ImportedApple && ImportedPointerProfile == null) PointerResponse = HandPointerResponse.AppleReference;
@@ -165,6 +169,7 @@ public sealed class HandGestureSettings
     {
         Left ??= new(); Right ??= new(); Left.Normalize(); Right.Normalize();
         Coordinated ??= new(); Coordinated.TapActions ??= new(); Coordinated.HoldActions ??= new(); Coordinated.HoldThresholds ??= new(); Coordinated.CustomActions ??= new();
+        Coordinated.HeldShortcuts ??= new();
         foreach (var chord in Enum.GetValues<CoordinatedHandChord>()) foreach (bool hold in new[] {false,true})
             if (Coordinated.Action(chord,hold)==HandGestureAction.Custom
                 && !PerHandGestureSettings.IsValidCustom(Coordinated.CustomActions.GetValueOrDefault(chord+"/"+(hold ? "Hold" : "Tap"))))
@@ -176,7 +181,8 @@ public sealed class HandGestureSettings
         if (sameDevice)
         {
             void copyCustom(string slot)
-            { if (Right.CustomActions?.GetValueOrDefault(slot) is {} label) (result.CustomActions ??= new())[slot]=label; }
+            { if (Right.CustomActions?.GetValueOrDefault(slot) is {} label) (result.CustomActions ??= new())[slot]=label;
+                if (Right.HeldShortcuts?.Contains(slot)==true) result.HeldShortcuts.Add(slot); else result.HeldShortcuts.Remove(slot); }
             foreach (var t in Enum.GetValues<HandGestureTrigger>())
                 if (!result.Enabled(t))
                 {

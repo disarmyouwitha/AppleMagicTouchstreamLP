@@ -1,4 +1,6 @@
 # Notes:
+* 4-Finger latching is so bad I am always triggering drag instead. Please use mac/AppleMagicTouchstream as a reference. 
+###
 0. Test GUI.
 1. I want you to review the mac vs windows implementation using Mac as the gold standard — tell me where we are passing, where we are failing and were we still need work (be specific) in our implementation.
 2. I want you to take a hard look at how Mouse actions (Primary, Secondard, Middle click, Mouse Movement, Drag, Pan/Zoom) and particularly the Gesture implementation of 2-finger taps, movement, etc. are done on mac/AppleMagicTouchstream with a specific focus of getting the FEEL right of mousing and clicking.

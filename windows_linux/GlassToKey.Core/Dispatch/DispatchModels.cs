@@ -13,7 +13,11 @@ public enum DispatchEventKind : byte
     MouseButtonClick = 6,
     MouseButtonDown = 7,
     MouseButtonUp = 8,
-    AppLaunch = 9
+    AppLaunch = 9,
+    GestureShortcutDown = 10,
+    GestureShortcutUp = 11,
+    GestureShortcutTap = 12,
+    ReleaseAllKeyboard = 13
 }
 
 public enum DispatchMouseButton : byte
@@ -205,4 +209,5 @@ public readonly record struct DispatchEvent(
     TrackpadSide Side,
     string DispatchLabel,
     DispatchSemanticAction SemanticAction = default,
-    DispatchRepeatProfile RepeatProfile = default);
+    DispatchRepeatProfile RepeatProfile = default,
+    [property:System.Text.Json.Serialization.JsonIgnore] long GestureGeneration = 0);

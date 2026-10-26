@@ -8,6 +8,9 @@ namespace GlassToKey;
 // Presentation only: no runtime, device handles or output adapters.
 internal sealed class GestureDemonstration : FrameworkElement
 {
+    public bool Holding { get; set; }
+    public bool Force { get; set; }
+    public bool Tapping { get; set; }
     private readonly int _count;
     private readonly bool _shape, _corners;
     private readonly Stopwatch _elapsed = new();
@@ -47,13 +50,14 @@ internal sealed class GestureDemonstration : FrameworkElement
             {
                 double spacing=Math.Min(24,(width-50)/Math.Max(1,_count-1));
                 double offset=(i-(_count-1)/2.0)*spacing;
-                x=center+offset*(_shape ? .65+motion*.8 : 1)+(_shape ? 0 : -14+28*motion);
+                x=center+offset*(_shape ? .65+motion*.8 : 1)+(_shape || Holding || Force || Tapping ? 0 : -14+28*motion);
                 y=60+(_shape && i==0 ? 12 : 0);
             }
             int color=_shape || _count==5 ? i : Math.Min(4,i+1);
             if (_shape && phase>.18 && phase<.8)
                 dc.DrawLine(new Pen(Palette[color],1),new Point(center+(i-(_count-1)/2.0)*18,60),new Point(x,y));
             dc.DrawEllipse(Palette[color],null,new(x,y),5.5,5.5);
+            if(Force || Tapping) dc.DrawEllipse(null,new Pen(Force ? Brushes.IndianRed : Palette[color],1.5),new(x,y),8+motion*5,8+motion*5);
             if (_corners) dc.DrawEllipse(null,new Pen(Palette[color],1),new(x,y),8+motion*3,8+motion*3);
         }
         dc.Pop();

@@ -187,6 +187,7 @@ internal static class MacGoldParityTests
         Check(!Frame(invalidEngine,Contacts(5),1),"unusable custom assignment reserved keyboard input");
         Frame(invalidEngine,[],1.05); Check(invalidOutput.Assignments.Count==0,"invalid custom assignment reached output");
         var uiSettings=new UserSettings(); var ui=new HandGesturePanel(uiSettings,()=>{});
+        ui.SelectSlot(nameof(HandGestureTrigger.TwoFingerTap));
         var searchCombo=FindCombos(ui).Single(c=>Equals(c.Tag,HandGestureTrigger.TwoFingerTap));
         ui.FilterActionOptions(searchCombo,"paste");
         Check(searchCombo.Items.Count==1 && uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.PrimaryClick,

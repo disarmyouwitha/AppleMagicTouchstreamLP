@@ -46,6 +46,7 @@ internal sealed class GlobalMouseInputHook : IDisposable
     private int _takeoverReleaseKey = 0x79;
     private int _takeoverEscapeReleaseEnabled = 1;
     private bool _disposed;
+    internal PhysicalKeyboardTracker PhysicalKeyboard { get; }=new();
     public event Action? ClickObserved;
     public event Action<MouseHookDiagnosticEvent>? DiagnosticEvent;
 
@@ -82,6 +83,7 @@ internal sealed class GlobalMouseInputHook : IDisposable
         }
 
         error = null;
+        PhysicalKeyboard.Install();
         return true;
     }
 
@@ -113,6 +115,7 @@ internal sealed class GlobalMouseInputHook : IDisposable
         }
 
         _disposed = true;
+        PhysicalKeyboard.Dispose();
         ReleaseMouseTakeover();
         ReleaseMovementGate();
         if (_hookHandle != IntPtr.Zero)

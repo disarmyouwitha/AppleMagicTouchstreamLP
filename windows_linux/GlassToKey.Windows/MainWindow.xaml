@@ -5,6 +5,18 @@
         Title="GlassToKey" Height="780" Width="1240" MinWidth="900" MinHeight="520"
         Background="#101214">
   <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="WorkspaceVisibility" />
+    <Style x:Key="GestureNavigationItemStyle" TargetType="ListBoxItem">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+        <Border x:Name="NavigationChrome" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsSelected" Value="True"><Setter TargetName="NavigationChrome" Property="Background" Value="#203746" /><Setter TargetName="NavigationChrome" Property="BorderBrush" Value="#496172" /></Trigger>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavigationChrome" Property="Background" Value="#1b2934" /></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="NavigationChrome" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style TargetType="CheckBox">
       <Setter Property="Foreground" Value="#cfd7dc" /><Setter Property="Padding" Value="0,2" />
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
@@ -31,11 +43,12 @@
       <Setter Property="Padding" Value="6,3" /><Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style TargetType="Button">
+      <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Foreground" Value="#e7e9ea" /><Setter Property="Background" Value="#202e39" />
       <Setter Property="BorderBrush" Value="#3b4c59" /><Setter Property="BorderThickness" Value="1" />
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
         <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
         </Border>
         <ControlTemplate.Triggers>
           <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="#304858" /></Trigger>
@@ -249,7 +262,7 @@
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type TabControl}">
             <Grid KeyboardNavigation.TabNavigation="Local">
-              <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+              <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
               <Border Background="#151d24" CornerRadius="8" Margin="8,8,8,0" Padding="2">
                 <UniformGrid Rows="1" IsItemsHost="True" KeyboardNavigation.TabNavigation="Once" />
               </Border>
@@ -261,7 +274,7 @@
     </Style>
   </Window.Resources>
   <Grid>
-    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
     <Border Grid.Row="0" Background="#14171a" Padding="12" BorderBrush="#2b2f33" BorderThickness="0,0,0,1">
       <DockPanel LastChildFill="False">
         <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
@@ -282,12 +295,39 @@
           </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,8,0">
-          <Button x:Name="ToggleControlsButton" Content="Hide Settings" Padding="10,4" Margin="0,0,12,0" />
+          <TabControl x:Name="SettingsTabs" Width="260" SelectedIndex="1" Style="{StaticResource InspectorTabsStyle}" ItemContainerStyle="{StaticResource InspectorTabStyle}" Margin="0,0,12,0">
+            <TabItem Header="_Gestures" x:Name="GestureSettingsTab" />
+            <TabItem Header="_Keyboard" x:Name="KeyboardSettingsTab" />
+          </TabControl>
+          <Button x:Name="ToggleControlsButton" Visibility="{Binding IsSelected, ElementName=KeyboardSettingsTab, Converter={StaticResource WorkspaceVisibility}}" Content="Hide Settings" Padding="10,4" Margin="0,0,12,0" />
 
         </StackPanel>
       </DockPanel>
     </Border>
-    <Grid Grid.Row="1" Margin="16">
+    <Border Grid.Row="1" Margin="16,8,16,0" Padding="12" Background="#0f1215" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="10">
+      <StackPanel>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <StackPanel Margin="0,0,6,0"><TextBlock Text="Left Trackpad" Foreground="#8b949e" FontSize="12" Margin="0,0,0,5" /><ComboBox x:Name="LeftDeviceCombo" Height="28" /></StackPanel>
+          <StackPanel Grid.Column="1" Margin="6,0,12,0"><TextBlock Text="Right Trackpad" Foreground="#8b949e" FontSize="12" Margin="0,0,0,5" /><ComboBox x:Name="RightDeviceCombo" Height="28" /></StackPanel>
+          <Button x:Name="RefreshButton" Grid.Column="2" Content="Refresh" Padding="10,4" Height="28" VerticalAlignment="Bottom" />
+        </Grid>
+        <WrapPanel Margin="0,9,0,0">
+          <CheckBox x:Name="MouseTakeoverCheck" Content="_Mouse Takeover" Foreground="#e7e9ea" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Session-only all-mouse takeover. Ctrl+Alt+R releases. Windows shell gestures may still run." />
+          <Button x:Name="MouseTakeoverTestButton" Content="30sec test" Padding="8,3" Margin="0,0,12,0" />
+          <TextBlock Text="Release: Ctrl+Alt+R" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
+          <TextBlock x:Name="MouseTakeoverStatusText" Text="Off" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="500" />
+        </WrapPanel>
+        <Expander Header="Decoder profiles" Foreground="#8b949e" FontSize="11" Margin="0,5,0,0" IsExpanded="False" Style="{StaticResource GestureSectionStyle}">
+          <Grid Margin="0,5,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <ComboBox x:Name="LeftDecoderProfileCombo" Height="26" Margin="0,0,6,0" AutomationProperties.Name="Left decoder profile" />
+            <ComboBox x:Name="RightDecoderProfileCombo" Grid.Column="1" Height="26" Margin="6,0,0,0" AutomationProperties.Name="Right decoder profile" />
+          </Grid>
+        </Expander>
+      </StackPanel>
+    </Border>
+    <Grid x:Name="KeyboardWorkspace" Grid.Row="2" Margin="16">
+      <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected, ElementName=GestureSettingsTab}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
       <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
       <ScrollViewer x:Name="TrackpadScrollViewer" Grid.Column="0" Margin="0,0,12,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
         <Grid x:Name="TrackpadWorkspace" MinWidth="360" MinHeight="580">
@@ -302,39 +342,7 @@
             <Slider x:Name="ReplayTimelineSlider" Width="220" Height="22" Minimum="0" Maximum="1000" Margin="10,0,0,0" />
             <TextBlock x:Name="ReplayTimeText" Text="0.00s" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
           </WrapPanel>
-          <Border Grid.Row="1" Background="#0f1215" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="12" Padding="12">
-            <StackPanel>
-              <DockPanel Margin="0,0,0,10">
-                <Button x:Name="RefreshButton" Content="Refresh" DockPanel.Dock="Right" Padding="10,4" Height="28" HorizontalAlignment="Right" />
-                <TextBlock Text="Trackpads" Foreground="#e7e9ea" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
-              </DockPanel>
-              <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,6,0">
-                  <TextBlock Text="Left Trackpad" Foreground="#8b949e" FontSize="12" />
-                  <ComboBox x:Name="LeftDeviceCombo" Height="28" />
-                  <TextBlock Text="Decoder" Foreground="#8b949e" FontSize="12" Margin="0,6,0,0" />
-                  <ComboBox x:Name="LeftDecoderProfileCombo" Height="26" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Vertical" Margin="6,0,0,0">
-                  <TextBlock Text="Right Trackpad" Foreground="#8b949e" FontSize="12" />
-                  <ComboBox x:Name="RightDeviceCombo" Height="28" />
-                  <TextBlock Text="Decoder" Foreground="#8b949e" FontSize="12" Margin="0,6,0,0" />
-                  <ComboBox x:Name="RightDecoderProfileCombo" Height="26" />
-                </StackPanel>
-              </Grid>
-              <WrapPanel Margin="0,12,0,0">
-                <CheckBox x:Name="MouseTakeoverCheck" Content="_Mouse Takeover" Foreground="#e7e9ea"
-                          VerticalAlignment="Center" Margin="0,0,12,0"
-                          ToolTip="Blocks physical movement, clicks, and scrolling from all mice. Injected GlassToKey output continues. Ctrl+Alt+R releases; Alt+M or Space toggles this checkbox in Config. Session-only; off at startup. Windows shell gestures may still run." />
-                <Button x:Name="MouseTakeoverTestButton" Content="30sec test" Padding="8,3" Margin="0,0,12,0"
-                        ToolTip="Enable Mouse Takeover for 30 seconds, then release and uncheck." />
-                <TextBlock Text="Release: Ctrl+Alt+R" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBlock x:Name="MouseTakeoverStatusText" Text="Off" Foreground="#8b949e" FontSize="12"
-                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="500" />
-              </WrapPanel>
-            </StackPanel>
-          </Border>
+
           <Grid Grid.Row="2" Margin="0,12,0,0" MinHeight="260">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Border Grid.Column="0" Margin="0,0,6,0" Background="#0c0f12" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="12">
@@ -360,9 +368,7 @@
         <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"><Border Width="2" Height="48" Background="#496172" CornerRadius="1" /></Border></ControlTemplate></Thumb.Template>
       </Thumb>
       <Border x:Name="ControlsPaneBorder" Grid.Column="2" Width="420" Background="#0c0f12" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="12">
-        <TabControl x:Name="SettingsTabs" SelectedIndex="0" Style="{StaticResource InspectorTabsStyle}" ItemContainerStyle="{StaticResource InspectorTabStyle}">
-          <TabItem Header="_Keyboard" x:Name="KeyboardSettingsTab">
-            <ScrollViewer x:Name="KeyboardSettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
+<ScrollViewer x:Name="KeyboardSettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
               <StackPanel Orientation="Vertical">
                 <TextBlock Text="Keyboard settings" Foreground="#e7e9ea" FontSize="14" FontWeight="SemiBold" />
 
@@ -739,38 +745,10 @@
                       <TextBlock Text="Hold Duration (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="HoldDurationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                     </Grid>
-                    <Grid Margin="0,6,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                      <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-                    </Grid>
-                    <Grid Margin="0,6,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                      <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-                    </Grid>
-                    <Grid Margin="0,6,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="Intent Move (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                      <TextBox x:Name="IntentMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-                    </Grid>
-                    <Grid Margin="0,6,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                      <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-                    </Grid>
+
+
+
+
                     <StackPanel x:Name="ForceTypingTuningPanel" Visibility="Collapsed">
                       <Grid Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
@@ -831,6 +809,7 @@
                         </Grid>
                       </StackPanel>
                     </Grid>
+                    <Button x:Name="RestoreTypingDefaultsButton" Content="Restore Defaults" Padding="10,6" Margin="0,12,0,0" />
                   </StackPanel>
                 </Expander>
 
@@ -895,16 +874,11 @@
 
               </StackPanel>
             </ScrollViewer>
-          </TabItem>
-          <TabItem Header="_Gestures" x:Name="GestureSettingsTab">
-            <ScrollViewer x:Name="GestureSettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
-              <StackPanel>
-                <StackPanel x:Name="HandGesturePanelHost" Margin="0,8,0,0" />
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
-        </TabControl>
       </Border>
+    </Grid>
+    <Grid x:Name="GestureWorkspace" Grid.Row="2" Margin="16,12,16,16">
+      <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected, ElementName=GestureSettingsTab}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+      <Grid x:Name="HandGesturePanelHost" />
     </Grid>
   </Grid>
 </Window>

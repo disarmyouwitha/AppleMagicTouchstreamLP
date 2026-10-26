@@ -18,8 +18,10 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
     private long _generation;
     private string? _fault;
     private long _lastActivity;
-    public WindowsGestureOutput(Func<bool> eligible)
+    private readonly WindowsGestureKeyboardSession? _keyboard;
+    public WindowsGestureOutput(Func<bool> eligible,WindowsGestureKeyboardSession? keyboard=null)
     {
+        _keyboard=keyboard;
         _eligible = eligible;
         _thread = new Thread(Run) { IsBackground = true, Name = "GlassToKey.GestureOutput" };
         _thread.Start();
@@ -28,18 +30,24 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
     public void Move(double xPixels, double yPixels) => Enqueue(0,xPixels,yPixels);
     public void Scroll(double xPoints, double yPoints) => Enqueue(1,xPoints,yPoints);
     public void PrimaryButton(bool down) => Enqueue(down ? 2 : 3);
-    public void Tap(HandGestureAction action) => Enqueue(4,action:action);
-    public void AssignedAction(string label) => Enqueue(8,label:label);
+    public void Tap(HandGestureAction action)
+    { if(_keyboard!=null && WindowsGestureShortcutPlan.Assignment(action) is {} label) _keyboard.Tap(label); else Enqueue(4,action:action); }
+    public void AssignedAction(string label)
+    { if(_keyboard!=null && !AppLaunchActionHelper.TryParse(label,out _)) _keyboard.Tap(label); else Enqueue(8,label:label); }
+    public void HeldAssignment(int owner,string? label)=>_keyboard?.SetHeld(owner,label);
+    public void ObserveFrame()=>_keyboard?.Heartbeat();
     public void Zoom(double scaleDelta) => Enqueue(6,scaleDelta);
     public void ForceFeedback(TrackpadSide side) => Enqueue(7,(int)side);
     public void ResetRemainders() => Enqueue(5);
     public void ThrowIfFaulted()
     {
+        _keyboard?.ThrowIfFaulted();
         string? fault = Interlocked.Exchange(ref _fault,null);
         if (fault != null) throw new InvalidOperationException(fault);
     }
     public void Release()
     {
+        _keyboard?.ReleaseAll();
         lock (_gate)
         {
             _generation++; _queue.Clear();
@@ -132,6 +140,7 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
     }
     public void Dispose()
     {
+        _keyboard?.ReleaseAll();
         lock (_gate) { if (_stopping) return; _stopping = true; _generation++; _queue.Clear(); _wake.Set(); }
         if (_thread.Join(1000)) _wake.Dispose();
     }

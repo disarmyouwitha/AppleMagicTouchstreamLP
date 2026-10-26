@@ -1,6 +1,6 @@
 # Windows configuration layout
 
-For the latest grouped gesture inspector and Import/Export placement, see [the Mac gesture port](WINDOWS_MAC_GESTURE_PORT.md). Screenshots below document the initial two-column layout.
+This document records the initial two-column layout and its old previews. For the current Gestures / Keyboard workspaces, three-column gesture assignments and hardware checks, see [Mac gold parity](MAC_GOLD_PARITY.md). The historical descriptions below do not describe the current Gestures workspace.
 
 The configuration window follows the arrangement in the Mac application's `ContentView.swift`: a trackpad workspace on the left and a 420-pixel settings inspector on the right.
 

@@ -5,6 +5,9 @@ namespace GlassToKey;
 internal static class WindowsGestureShortcutPlan
 {
     internal readonly record struct Edge(ushort Key, bool Up);
+    internal static string? Assignment(HandGestureAction action)=>action switch
+    { HandGestureAction.Copy=>"Ctrl+C",HandGestureAction.Paste=>"Ctrl+V",HandGestureAction.Cut=>"Ctrl+X",HandGestureAction.Undo=>"Ctrl+Z",HandGestureAction.Redo=>"Ctrl+Y",HandGestureAction.SelectAll=>"Ctrl+A",
+      HandGestureAction.Back=>"Alt+Left",HandGestureAction.Forward=>"Alt+Right",HandGestureAction.NotificationCenter=>"Win+N",HandGestureAction.TaskView=>"Win+Tab",HandGestureAction.StartMenu=>"Win",HandGestureAction.ShowDesktop=>"Win+D",HandGestureAction.Voice=>"Win+H",_=>null };
     internal static Edge[] ForAssignment(string label)
     {
         var keys=new List<ushort>();
