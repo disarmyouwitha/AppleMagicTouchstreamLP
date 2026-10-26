@@ -335,7 +335,17 @@ See [preserved acceleration research](../RESEARCH_ARCHIVE.md).
 
 Pointer retains fractional motion. Scroll retains independent per-axis history,
 fractional precise events and phase sequences. Momentum uses recent release velocity
-and analytic exponential decay; a same-pad touch brakes it without also clicking.
+and analytic exponential decay. An active contact on either selected/owned pad
+brakes released momentum on both pads, before keyboard/gesture arbitration. Each
+started momentum output receives one ended phase and its velocity is cleared;
+terminal, hover and unselected-pad frames do not brake. Active scrolling under
+fingers is independent and is not cancelled by this coast-only operation.
+A same-pad brake remains consumed without also clicking/typing; an opposite-pad
+touch keeps its normal tap, pointer, typing, Hold and coordinated-chord eligibility.
+The frame and momentum timer share the output lock, so no subsequent coast tick
+can race past the interruption. This does not reset the other pad's motion tracker,
+gesture owner or held output. `cross-pad-momentum.json` preserves the right-flick /
+left-pointer handoff from `momentum.atpcap` for offline regression.
 
 The primary button is globally shared, with explicit per-pad drag owners. One down
 is posted for the first owner and one up after the last owner ends. Either pad can

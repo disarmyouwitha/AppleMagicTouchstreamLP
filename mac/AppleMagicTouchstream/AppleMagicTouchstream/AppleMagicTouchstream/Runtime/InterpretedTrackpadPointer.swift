@@ -482,6 +482,18 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { $0.keyboardDevices = devices }
     }
 
+    func interruptMomentum(_ frame:OMSRawTouchFrame) {
+        lock.withLock { state in
+            let device = frame.deviceIDNumeric
+            if ScrollMomentumInterruption.process(device:device,contacts:frame.touches,selected:state.keyboardDevices,
+                    momentum:&state.momentum,outputs:&state.scrollOutputs,endMomentum:{$0.post(tap:.cghidEventTap)}) {
+                state.keyboardClaimed.insert(device)
+                state.taps.cancel(device:device)
+                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
+            }
+        }
+    }
+
     /// An established layer or modifier hold owns keyboard input on this pad. Cancel only its gesture
     /// state and consume its all-up frame so no recognizer remains blocked.
     func suspendForKeyboardChord(_ frame: OMSRawTouchFrame) {
@@ -515,10 +527,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     && $0.pressure >= ForceClickRecognizer.threshold
             }
             let directional = state.directionals[device] ?? [:]
-            return state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick,
+            let candidate = state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick,
                 holdCandidate:state.holdBindings[device]?[count] != nil || (count == 3 && state.holdBindings[device]?[PerHandGestureSettings.thumbHoldKey] != nil)) {
                 directional[$0] != nil || bindings.action(for: $0) != .disabled
             }
+            return candidate || state.keyboardClaimed.contains(device)
         }
     }
     struct KeyboardEvidence {
@@ -560,12 +573,6 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.lastContactTime[device] = time
             state.lastReceipt[device] = hostTime
             let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
-            if !allUp && state.momentum[device]?.isCoasting == true {
-                state.keyboardClaimed.insert(device)
-                state.cancelMomentum(device:device)
-                state.taps.cancel(device:device)
-                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device) // braking a coast must not also click
-            }
             if state.holds.claimed(device:device) {
                 _ = state.holds.observe(device:device,time:time,now:hostTime,contacts:contacts,motionClaimed:false,actions:[:])
                 if allUp {

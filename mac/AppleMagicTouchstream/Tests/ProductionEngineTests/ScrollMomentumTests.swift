@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import XCTest
+import OpenMultitouchSupport
 @testable import GlassToKeyRuntime
 
 final class ScrollMomentumTests: XCTestCase {
@@ -9,6 +10,134 @@ final class ScrollMomentumTests: XCTestCase {
         momentum.observe(points:.zero,contactTime:0.99)
         for i in 0..<8 { momentum.observe(points:point,contactTime:1+Double(i)*0.01) }
         return momentum
+    }
+    private func contact(_ id:Int32 = 1,state:OMSState = .touching) -> OMSRawTouch {
+        OMSRawTouch(id:id,posX:0.3+Float(id)*0.1,posY:0.5,total:1,pressure:40,
+            majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+    }
+
+    func testEitherPadBrakesEveryReleasedCoastWithOneBalancedEnd() throws {
+        for source:UInt64 in [1,2] {
+            var momentum:[UInt64:ScrollMomentum] = [1:flick(),2:flick()]
+            var outputs:[UInt64:PreciseScrollOutput] = [1:.init(),2:.init()]
+            for owner:UInt64 in [1,2] {
+                _ = outputs[owner]?.event(points:.init(x:0,y:1))
+                XCTAssertTrue(momentum[owner]!.start(contactTime:1.071,hostTime:10))
+                _ = outputs[owner]?.finish(cancelled:false,preserveForMomentum:true)
+                _ = outputs[owner]?.event(points:.init(x:0,y:1),momentum:true)
+            }
+            var ended:[CGEvent] = []
+            XCTAssertTrue(ScrollMomentumInterruption.process(device:source,contacts:[contact()],selected:[1,2],
+                momentum:&momentum,outputs:&outputs,endMomentum:{ended.append($0)}))
+            XCTAssertEqual(ended.count,2)
+            for event in ended { XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:event)).momentumPhase,.ended) }
+            for owner:UInt64 in [1,2] {
+                XCTAssertFalse(momentum[owner]!.isCoasting)
+                XCTAssertNil(momentum[owner]?.advance(hostTime:10.01))
+                XCTAssertFalse(outputs[owner]!.momentumActive)
+            }
+            XCTAssertFalse(ScrollMomentumInterruption.process(device:source,contacts:[contact()],selected:[1,2],
+                momentum:&momentum,outputs:&outputs,endMomentum:{_ in XCTFail("Duplicate end")}))
+        }
+    }
+
+    func testTerminalHoverAndUnselectedFramesDoNotBrakeOrCancelPhysicalScroll() throws {
+        var momentum:[UInt64:ScrollMomentum] = [1:flick(),2:.init()]
+        XCTAssertTrue(momentum[1]!.start(contactTime:1.071,hostTime:10))
+        var outputs:[UInt64:PreciseScrollOutput] = [1:.init(),2:.init()]
+        _ = outputs[1]?.event(points:.init(x:0,y:1),momentum:true)
+        _ = outputs[2]?.event(points:.init(x:0,y:1)) // Still under fingers, not a coast.
+        for (source,touches) in [(UInt64(2),[OMSRawTouch]()),(2,[contact(state:.breaking)]),
+                                  (2,[contact(state:.hovering)]),(99,[contact()])] {
+            XCTAssertFalse(ScrollMomentumInterruption.process(device:source,contacts:touches,selected:[1,2],
+                momentum:&momentum,outputs:&outputs,endMomentum:{_ in XCTFail("Not an eligible contact")}))
+            XCTAssertTrue(momentum[1]!.isCoasting)
+        }
+        var ends = 0
+        XCTAssertFalse(ScrollMomentumInterruption.process(device:2,contacts:[contact()],selected:[1,2],
+            momentum:&momentum,outputs:&outputs,endMomentum:{_ in ends += 1}))
+        XCTAssertEqual(ends,1)
+        XCTAssertFalse(momentum[1]!.isCoasting)
+        XCTAssertTrue(outputs[2]!.active)
+        XCTAssertNotNil(outputs[2]?.event(points:.init(x:0,y:1)))
+    }
+
+    func testOtherPadKeepsTapEligibilityAndCoastCanBeCancelledBeforeItsFirstTick() throws {
+        for source:UInt64 in [1,2] {
+            var momentum:[UInt64:ScrollMomentum] = [1:flick()]
+            var outputs:[UInt64:PreciseScrollOutput] = [1:.init()]
+            XCTAssertTrue(momentum[1]!.start(contactTime:1.071,hostTime:10))
+            _ = outputs[1]?.event(points:.init(x:0,y:1))
+            _ = outputs[1]?.finish(cancelled:false,preserveForMomentum:true)
+            let consumed = ScrollMomentumInterruption.process(device:source,contacts:[contact()],selected:[1,2],
+                momentum:&momentum,outputs:&outputs,endMomentum:{_ in XCTFail("No momentum begin was emitted")} )
+            XCTAssertEqual(consumed,source == 1)
+            XCTAssertNil(momentum[1]?.advance(hostTime:10.01))
+            var tap = TwoFingerTapRecognizer()
+            let pair = [contact(),contact(2)]
+            _ = tap.process(device:source,time:1,contacts:pair,gestureActive:consumed)
+            _ = tap.process(device:source,time:1.04,contacts:pair,gestureActive:consumed)
+            XCTAssertEqual(tap.process(device:source,time:1.06,contacts:[OMSRawTouch](),gestureActive:consumed),source == 2)
+        }
+    }
+
+    func testCapturedOtherHandContactStopsMomentumBeforePointerMovement() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:Int64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"cross-pad-momentum",withExtension:"json",subdirectory:"Fixtures"))
+        let fixture = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url))
+        let right:UInt64 = 288230377507875157, left:UInt64 = 288230377507812716
+        let axis = try ApplePointerAccelerationProfile(resolution:400,acceleration:0,
+            curves:[ApplePointerCurve(index:0,linear:1,parabolic:1)])
+        var referenceMoves:[CGPoint] = []
+        for crossPad in [false,true] {
+            var router = TrackpadGestureRouter(), scroll = FourFingerScrollEngine(profile:.init(horizontal:axis,vertical:axis,natural:true))
+            var momentum:[UInt64:ScrollMomentum] = [right:.init()]
+            var outputs:[UInt64:PreciseScrollOutput] = [right:.init()]
+            var overlap = 0, coasts = 0, ends:[UInt64] = [], moves:[CGPoint] = []
+            var tick = Double(fixture.frames[0].arrivalTicks)/1e9
+            for sample in fixture.frames {
+                let f = sample.frame, now = Double(sample.arrivalTicks)/1e9
+                while tick+1/120 < now {
+                    tick += 1/120
+                    if let step = momentum[right]?.advance(hostTime:tick) {
+                        _ = outputs[right]?.event(points:step.points,momentum:true)
+                        if step.finished { _ = outputs[right]?.finishMomentum() }
+                    }
+                }
+                _ = ScrollMomentumInterruption.process(device:f.deviceNumericID,contacts:f.rawTouches,
+                    selected:crossPad ? [left,right] : [f.deviceNumericID],momentum:&momentum,outputs:&outputs,
+                    endMomentum:{_ in ends.append(f.sequence)})
+                if f.deviceNumericID == left && f.rawTouches.contains(where:{$0.state == .making || $0.state == .touching}) && momentum[right]!.isCoasting { overlap += 1 }
+                let update = router.recognize(device:f.deviceNumericID,time:f.timestamp,contacts:f.rawTouches,
+                    enabled:{$0 == .twoFingerMove || $0 == .fourFingerMove})
+                if update.gesture == .fourFingerMove {
+                    if update.phase == .ended {
+                        let coast = momentum[right]!.start(contactTime:f.timestamp,hostTime:now)
+                        if coast { coasts += 1; tick = now }
+                        _ = outputs[right]?.finish(cancelled:false,preserveForMomentum:coast)
+                        scroll.reset()
+                    } else if let delta = update.millimetres,
+                              let points = scroll.process(time:f.timestamp,millimetres:delta,sensitivity:1) {
+                        _ = outputs[right]?.event(points:points)
+                        momentum[right]?.observe(points:points,contactTime:f.timestamp)
+                    }
+                } else if update.gesture == .twoFingerMove, f.deviceNumericID == left, let delta = update.millimetres { moves.append(delta) }
+            }
+            XCTAssertEqual(coasts,2)
+            XCTAssertFalse(moves.isEmpty)
+            if crossPad {
+                XCTAssertEqual(overlap,0)
+                XCTAssertEqual(ends,[13523,13623]) // First left contacts, before pointer recognition.
+                XCTAssertEqual(moves,referenceMoves) // No reset or altered mouse acquisition/deltas.
+                XCTAssertFalse(momentum[right]!.isCoasting)
+            } else {
+                XCTAssertGreaterThan(overlap,0) // Reproduces the previous same-pad-only policy.
+                referenceMoves = moves
+            }
+        }
     }
     func testFlickCoastsDecaysAndTerminatesWithoutReversing() throws {
         var momentum = flick(CGPoint(x:3,y:-10))

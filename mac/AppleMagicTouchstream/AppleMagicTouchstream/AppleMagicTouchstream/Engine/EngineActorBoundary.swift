@@ -524,6 +524,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool,
         liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
+        if liveGestures { InterpretedTrackpadPointer.shared.interruptMomentum(frame) }
         let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
         let coordinated = liveGestures && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
         let corners = liveGestures && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)

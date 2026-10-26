@@ -1,4 +1,4 @@
-## Apple Magic TouchstreamLP
+## Apple Magic Touchstream
 
 <img src="pics/AMT.jpg" />
 
@@ -6,7 +6,7 @@
 ### I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/">Releases</a>!
 
 **Useful Tips:**
-- **TURN ON** "Trackpad Takeover": 
+- **TURN ON "Trackpad Takeover"**: 
 This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse + Gestures) this option takes full control of the Trackpad from the OS to enforce this. You can set Gestures within the app to replace your OS-level gestures.
 
 **You can use just 1 Trackpad!**

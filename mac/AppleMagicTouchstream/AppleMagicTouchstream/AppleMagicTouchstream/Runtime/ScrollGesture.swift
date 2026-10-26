@@ -433,6 +433,24 @@ struct ScrollMomentum {
     }
 }
 
+/// Momentum is per pad, but either selected pad can brake released scrolling.
+/// Run before arbitration so typing, modifiers and coordinated chords also brake.
+/// Return whether this touch interrupted its own coast (the existing no-click
+/// braking policy); an opposite-pad touch keeps its ordinary action eligibility.
+enum ScrollMomentumInterruption {
+    static func process<C:Collection>(device:UInt64,contacts:C,selected:Set<UInt64>,
+        momentum:inout [UInt64:ScrollMomentum],outputs:inout [UInt64:PreciseScrollOutput],
+        endMomentum:(CGEvent)->Void) -> Bool where C.Element == OMSRawTouch {
+        guard selected.contains(device), contacts.contains(where:{$0.state == .making || $0.state == .touching}) else { return false }
+        let ownCoast = momentum[device]?.isCoasting == true
+        for owner in selected where momentum[owner]?.isCoasting == true {
+            if let end = outputs[owner]?.finishMomentum() { endMomentum(end) }
+            momentum[owner]?.cancel()
+        }
+        return ownCoast
+    }
+}
+
 /// Creates continuous, phase-labelled scroll events; tests can inspect without posting.
 struct PreciseScrollOutput {
     private(set) var active = false
