@@ -1,7 +1,11 @@
 # Voice dictation
 
-Voice is a configurable action in Keymap Tuning Primary/Hold and gesture Action
-menus. Invoke it once to start listening, then again to finish and insert the
+Voice is a configurable action under Shortcuts in Keymap Tuning Primary/Hold and
+gesture Action menus, alongside Emoji and saved shortcuts such as Screenshot.
+Screenshot, Voice and Emoji are built-in menu entries; they do not modify or
+duplicate saved library entries. Modifiers appear in Shortcuts only when saved
+by the user. Voice retains its original action identity and behavior.
+Invoke it once to start listening, then again to finish and insert the
 transcript into the original focused text field. A Hold assignment starts the
 toggle after its recognition threshold; lifting does not stop dictation. Mode
 Toggles shows status and a Cancel Voice button while active. Defaults do not change.

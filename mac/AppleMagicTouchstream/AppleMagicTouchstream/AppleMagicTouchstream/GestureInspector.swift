@@ -1400,21 +1400,28 @@ struct GestureActionChooser:View {
     @State private var managingShortcuts = false
     @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var shortcutLibrary = Data()
     private var pickerGroups:[SearchableActionGroup<GestureAction>] {
-        let labels = ["Shift","Ctrl","Option","Cmd","Hyper"] + (ShortcutActionLibraryStorage.decode(from:shortcutLibrary) ?? [])
-        var seen:Set<GestureAction> = []
-        let shortcuts = labels.compactMap { KeyActionCatalog.action(for:$0) }.filter { $0.kind == .key || $0.kind == .appLaunch }
-            .map { GestureAction.shortcut(.init(label:$0.storageLabel)) }.filter { seen.insert($0).inserted }
+        let shortcuts = Self.shortcutActions(actions,savedLabels:ShortcutActionLibraryStorage.decode(from:shortcutLibrary) ?? [])
         let current:[SearchableActionGroup<GestureAction>] = value.flatMap { value in
             value.shortcutAssignment != nil && !shortcuts.contains(value) ? [.init(title:"Current Assignment",actions:[value])] : nil
         } ?? []
         return Self.groups(actions) + current + (shortcuts.isEmpty ? [] : [.init(title:"Shortcuts",actions:shortcuts)])
+    }
+
+    static func shortcutActions(_ actions:[GestureAction],savedLabels:[String]) -> [GestureAction] {
+        var seen:Set<GestureAction> = []
+        return KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
+            .compactMap { action -> GestureAction? in
+                if action.kind == .voice { return actions.contains(.voice) ? .voice : nil }
+                guard action.kind == .key || action.kind == .appLaunch else { return nil }
+                return .shortcut(.init(label:action.storageLabel))
+            }.filter { seen.insert($0).inserted }
     }
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
             ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
-            ("System",GestureAction.appleShortcuts + [.voice]),
+            ("System",GestureAction.appleShortcuts),
             ("Sound & Display",GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in

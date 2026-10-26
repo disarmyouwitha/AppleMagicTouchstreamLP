@@ -1151,9 +1151,8 @@ struct ContentView: View {
     }
 
     private func shortcutLibraryActions() -> [KeyAction] {
-        ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData)?
-            .compactMap(KeyActionCatalog.action(for:))
-            ?? []
+        KeyActionCatalog.shortcutMenuActions(savedLabels:
+            ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData) ?? [])
     }
 
     private struct TrackpadSectionView: View {

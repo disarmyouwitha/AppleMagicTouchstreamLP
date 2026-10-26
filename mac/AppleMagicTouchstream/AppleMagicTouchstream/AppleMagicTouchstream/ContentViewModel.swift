@@ -2256,6 +2256,13 @@ enum KeyActionCatalog {
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let screenshotLabel = "Screenshot"
     static let screenshotShortcutLabel = "Shift+Cmd+4"
+
+    /// Built-in entries share the Shortcuts section with the user's saved list.
+    /// They don't mutate that list or duplicate an existing canonical entry.
+    static func shortcutMenuActions(savedLabels: [String]) -> [KeyAction] {
+        ShortcutActionLibraryStorage.normalized(savedLabels + [screenshotShortcutLabel, voiceLabel, "Emoji"])
+            .compactMap { action(for: $0) }
+    }
     static let noneLabel = "None"
     static let leftClickLabel = "Left Click"
     static let doubleClickLabel = "Double Click"
@@ -2619,7 +2626,6 @@ enum KeyActionCatalog {
             (dashedHeader("System Controls"), [
                 volumeUpLabel,
                 volumeDownLabel,
-                voiceLabel,
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Hyper",

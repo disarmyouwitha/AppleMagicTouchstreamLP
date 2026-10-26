@@ -1,16 +1,12 @@
 # NEXT:
 =======
-0. Fix autocorrect crashing
-1. Test VOICE (Add under Shortcuts like Screenshot)
-2. Add Emoji shortcut for mac (Add under Shortcuts like Screenshot)
-> double check autocorret clears memory on toggle/minimize
 > export new keymaps (default & MY)
-===
-3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 ===
 0. For our Directional gestures there should be a behavior dropdown (repeat every ms, repeat with motion)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
+3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
+> (Setting Default keymap back to default was a good example)
 ===
 * `Thumb + two fingers`: ↖ ↗ ↙ ↘	
 - I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
