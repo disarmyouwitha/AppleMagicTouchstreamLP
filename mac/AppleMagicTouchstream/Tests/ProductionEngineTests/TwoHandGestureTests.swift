@@ -13,6 +13,24 @@ final class TwoHandGestureTests:XCTestCase {
         (0..<2).map { i in OMSRawTouch(id:Int32(i+1),posX:left != inner ? 0.08 : 0.92,posY:i == 0 ? 0.08 : 0.92,
             total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }
     }
+    private func chordContacts(_ chord:TwoHandChord,left:Bool) -> [OMSRawTouch] {
+        switch chord {
+        case .fourCorners:return corners(left:left)
+        case .innerCorners:return corners(left:left,inner:true)
+        case .threeFingers,.fourFingers:return contacts(chord.count)
+        default:
+            let inner = chord == .topInnerCorners || chord == .bottomInnerCorners
+            let top = chord == .topInnerCorners || chord == .topOuterCorners
+            return [OMSRawTouch(id:1,posX:left != inner ? 0.08 : 0.92,posY:top ? 0.92 : 0.08,
+                total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)]
+        }
+    }
+    private func cornerSettings(_ chord:TwoHandChord) -> TwoHandGestureSettings {
+        var value = TwoHandGestureSettings()
+        for c in TwoHandChord.allCases { value.setAction(.disabled,for:.init(chord:c,phase:.hold)) }
+        value.setAction(.missionControl,for:.init(chord:chord,phase:.hold))
+        return value
+    }
     private func settings(_ chord:TwoHandChord) -> TwoHandGestureSettings {
         var settings = TwoHandGestureSettings()
         settings.setAction(.primaryClick,for:.init(chord:chord,phase:.tap))
@@ -71,7 +89,7 @@ final class TwoHandGestureTests:XCTestCase {
         }
         XCTAssertEqual(outputs,[.init(chord:.fourCorners,phase:.hold)])
     }
-    func testInnerCornersWrongCountsAndAsynchronousChordsCannotMatch() {
+    func testUnassignedInnerCornersWrongCountsAndAsynchronousChordsCannotMatch() {
         for kind in 0..<4 {
             var engine = TwoHandGestureEngine()
             let settings = kind == 0 ? TwoHandGestureSettings() : settings(.threeFingers)
@@ -280,13 +298,150 @@ final class TwoHandGestureTests:XCTestCase {
 
 
 extension TwoHandGestureTests {
+    func testCornerFamiliesDefaultToHoldOnlyAndPreserveOuterSavedIdentity() throws {
+        let defaults = TwoHandGestureSettings()
+        XCTAssertEqual(TwoHandChord.fourCorners.title,"Outer Corners")
+        XCTAssertEqual(GesturePane.fourCorners.title,"Outer Corners")
+        XCTAssertEqual(TwoHandTrigger(chord:.fourCorners,phase:.hold).key,"fourCorners.hold")
+        for chord in TwoHandChord.allCases where chord.isCorner {
+            XCTAssertEqual(chord.phases,[.hold])
+            XCTAssertEqual(defaults.action(.init(chord:chord,phase:.hold)),chord == .fourCorners ? .openConfig : .disabled)
+            XCTAssertEqual(defaults.holdThreshold(for:chord),0.5)
+            var value = defaults
+            value.setAction(.primaryClick,for:.init(chord:chord,phase:.tap))
+            XCTAssertEqual(value.action(.init(chord:chord,phase:.tap)),.disabled)
+        }
+        let old = Data(#"{"assignments":{"fourCorners.hold":"showDesktop"},"holdThresholds":{"fourCorners":0.8}}"#.utf8)
+        let decoded = try JSONDecoder().decode(TwoHandGestureSettings.self,from:old)
+        XCTAssertEqual(decoded.action(.init(chord:.fourCorners,phase:.hold)),.showDesktop)
+        XCTAssertEqual(decoded.holdThreshold(for:.fourCorners),0.8)
+        XCTAssertFalse(decoded.enabled(.innerCorners))
+    }
+    func testEveryCornerFamilyRecognizesOnlyItsMirroredPositionsAndCleansUp() {
+        for chord in TwoHandChord.allCases where chord.isCorner {
+            let settings = cornerSettings(chord)
+            for candidate in TwoHandChord.allCases where candidate.isCorner {
+                var engine = TwoHandGestureEngine()
+                let left = chordContacts(candidate,left:true), right = chordContacts(candidate,left:false)
+                XCTAssertFalse(engine.process(leftHand:true,now:1,contacts:left,settings:settings).reserved)
+                let acquired = engine.process(leftHand:false,now:1.01,contacts:right,settings:settings)
+                XCTAssertEqual(acquired.began,candidate == chord,"\(chord) versus \(candidate)")
+                if candidate != chord { continue }
+                var fired:[TwoHandTrigger] = []
+                for i in 1...7 {
+                    let time = 1.01+Double(i)*0.1
+                    if let t = engine.process(leftHand:true,now:time,contacts:left,settings:settings).trigger { fired.append(t) }
+                    if let t = engine.process(leftHand:false,now:time+0.001,contacts:right,settings:settings).trigger { fired.append(t) }
+                }
+                XCTAssertEqual(fired,[.init(chord:chord,phase:.hold)])
+                XCTAssertTrue(engine.maintainsHeldOutput)
+                _ = engine.process(leftHand:true,now:1.8,contacts:contacts(0),settings:settings)
+                XCTAssertTrue(engine.ownsCycle)
+                _ = engine.process(leftHand:false,now:1.81,contacts:contacts(0),settings:settings)
+                XCTAssertFalse(engine.ownsCycle); XCTAssertFalse(engine.maintainsHeldOutput)
+            }
+        }
+    }
+    func testCornerPairMayGrowBeforeActivationButNeverReplacesFiredOutput() {
+        for pair in [TwoHandChord.topOuterCorners,.bottomOuterCorners,.topInnerCorners,.bottomInnerCorners] {
+            let full = pair.expandedCornerChord!
+            for activateFirst in [false,true] {
+                var settings = cornerSettings(pair), engine = TwoHandGestureEngine()
+                settings.setAction(.showDesktop,for:.init(chord:full,phase:.hold))
+                settings.setHoldThreshold(0.1,for:pair); settings.setHoldThreshold(0.1,for:full)
+                let left = chordContacts(pair,left:true), right = chordContacts(pair,left:false)
+                // Keep the original pair's IDs when the complementary corners join.
+                func expanded(_ initial:[OMSRawTouch],left:Bool) -> [OMSRawTouch] {
+                    let other = chordContacts(full,left:left).first { $0.posY != initial[0].posY }!
+                    return initial + [OMSRawTouch(id:2,posX:other.posX,posY:other.posY,total:1,pressure:40,
+                        majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)]
+                }
+                let fullLeft = expanded(left,left:true), fullRight = expanded(right,left:false)
+                _ = engine.process(leftHand:true,now:1,contacts:left,settings:settings)
+                XCTAssertTrue(engine.process(leftHand:false,now:1,contacts:right,settings:settings).began)
+                if activateFirst { XCTAssertEqual(engine.advance(now:1.101,settings:settings),.init(chord:pair,phase:.hold)) }
+                let t = activateFirst ? 1.12 : 1.02
+                XCTAssertNil(engine.process(leftHand:true,now:t,contacts:fullLeft,settings:settings).trigger)
+                XCTAssertNil(engine.advance(now:t+0.11,settings:settings)) // incomplete expansion cannot fire pair
+                _ = engine.process(leftHand:false,now:t+0.12,contacts:fullRight,settings:settings)
+                var fired:[TwoHandTrigger] = []
+                for i in 1...3 {
+                    let time = t+0.12+Double(i)*0.05
+                    if let result = engine.process(leftHand:true,now:time,contacts:fullLeft,settings:settings).trigger { fired.append(result) }
+                    if let result = engine.process(leftHand:false,now:time+0.001,contacts:fullRight,settings:settings).trigger { fired.append(result) }
+                }
+                XCTAssertEqual(fired,activateFirst ? [] : [.init(chord:full,phase:.hold)])
+            }
+        }
+    }
+    func testCornerHoldFamiliesCancelInvalidStaleExtraOrLiftedInputUntilAllUp() {
+        for chord in TwoHandChord.allCases where chord.isCorner {
+            for failure in 0...5 {
+                let settings = cornerSettings(chord)
+                let left = chordContacts(chord,left:true), right = chordContacts(chord,left:false)
+                var engine = TwoHandGestureEngine()
+                _ = engine.process(leftHand:true,now:1,contacts:left,settings:settings)
+                _ = engine.process(leftHand:false,now:1.01,contacts:right,settings:settings)
+                var bad = left
+                let first = left[0]
+                switch failure {
+                case 0:bad = []
+                case 1:bad.append(contacts(1,idBase:9)[0])
+                case 2:bad[0] = OMSRawTouch(id:9,posX:first.posX,posY:first.posY,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                case 3:bad[0] = OMSRawTouch(id:first.id,posX:first.posX+0.03,posY:first.posY,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                case 4:bad[0] = OMSRawTouch(id:first.id,posX:.nan,posY:first.posY,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                default:XCTAssertNil(engine.advance(now:1.25,settings:settings))
+                }
+                let attempted = failure == 5 ? 1.3 : 1.1
+                XCTAssertNil(engine.process(leftHand:true,now:attempted,contacts:bad,settings:settings).trigger)
+                for i in 1...7 {
+                    let time = attempted+Double(i)*0.1
+                    XCTAssertNil(engine.process(leftHand:true,now:time,contacts:left,settings:settings).trigger)
+                    XCTAssertNil(engine.process(leftHand:false,now:time+0.001,contacts:right,settings:settings).trigger)
+                }
+                XCTAssertFalse(engine.maintainsHeldOutput)
+                _ = engine.process(leftHand:true,now:attempted+0.8,contacts:contacts(0),settings:settings)
+                _ = engine.process(leftHand:false,now:attempted+0.81,contacts:contacts(0),settings:settings)
+                XCTAssertFalse(engine.ownsCycle)
+            }
+        }
+    }
+    func testAbandonedCornerExpansionCannotReviveTheOriginalPairHold() {
+        var settings = cornerSettings(.topInnerCorners), engine = TwoHandGestureEngine()
+        settings.setAction(.showDesktop,for:.init(chord:.innerCorners,phase:.hold))
+        let left = chordContacts(.topInnerCorners,left:true), right = chordContacts(.topInnerCorners,left:false)
+        _ = engine.process(leftHand:true,now:1,contacts:left,settings:settings)
+        _ = engine.process(leftHand:false,now:1.01,contacts:right,settings:settings)
+        let extra = OMSRawTouch(id:2,posX:0.92,posY:0.08,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        _ = engine.process(leftHand:true,now:1.02,contacts:left+[extra],settings:settings)
+        _ = engine.process(leftHand:true,now:1.03,contacts:left,settings:settings)
+        for i in 1...8 {
+            let time = 1.03+Double(i)*0.1
+            XCTAssertNil(engine.process(leftHand:true,now:time,contacts:left,settings:settings).trigger)
+            XCTAssertNil(engine.process(leftHand:false,now:time+0.001,contacts:right,settings:settings).trigger)
+        }
+        XCTAssertFalse(engine.maintainsHeldOutput)
+    }
+    func testNewCornerAssignmentsAndThresholdsRoundTripWithHeldNamedShortcuts() throws {
+        var settings = HandGestureSettings(), both = settings.twoHand
+        var shortcut = KeyActionCatalog.action(for:"Shift")!; shortcut.customName = "Corner Shift"
+        let action = GestureAction.shortcut(.init(label:shortcut.storageLabel,holdUntilRelease:true))
+        for (i,chord) in TwoHandChord.allCases.enumerated() where chord.isCorner {
+            both.setAction(action,for:.init(chord:chord,phase:.hold))
+            both.setHoldThreshold(0.2+Double(i)*0.1,for:chord)
+        }
+        settings.coordinated = both
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,settings)
+    }
     func testEachCoordinatedChordUsesItsConfiguredHoldThreshold() {
         for chord in TwoHandChord.allCases {
             for duration in [0.25,0.8] {
                 var settings = settings(chord), engine = TwoHandGestureEngine()
                 settings.setHoldThreshold(duration,for:chord)
-                let left = chord == .fourCorners ? corners(left:true) : contacts(chord.count)
-                let right = chord == .fourCorners ? corners(left:false) : contacts(chord.count)
+                let left = chordContacts(chord,left:true)
+                let right = chordContacts(chord,left:false)
                 _ = engine.process(leftHand:true,now:0,contacts:left,settings:settings)
                 XCTAssertTrue(engine.process(leftHand:false,now:0,contacts:right,settings:settings).began)
                 for i in 1..<Int(duration*100) {

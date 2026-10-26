@@ -42,13 +42,15 @@ the architecture review and remaining work.
 | 2–5-finger force click | None | Same pressure crossing, independently configured per count |
 | 2–5-finger stationary Hold | None | 500 ms; one-shot or held shortcut output |
 | Thumb + 2 fingertips Hold | None | Own binding and shared spread-thumb geometry; 500 ms |
-| Single-pad 4 Corners Hold | Open Config | Four outer corners; 500 ms default |
-| Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 500 ms default |
+| Single-pad Outer Corners Hold | Open Config | Four corners of one pad; 500 ms default |
+| Both Outer Corners Hold | Open Config | Outer two corners on each pad; 500 ms default |
+| Both Inner Corners Hold | None | Inner two corners on each pad; 500 ms default |
+| Both Top/Bottom Outer/Inner Corners Hold | None | One finger per pad in the mirrored corner pair; 500 ms default |
 | Both-pad 3 or 4 fingers per hand, Tap / Hold | None | Tap at all-up; Hold after 500 ms |
 
 One-finger gesture Hold is unavailable. Its gray lifecycle card reads “No
 separate gesture is available for this.” Keyboard key holds remain supported.
-Both corner families are Hold-only. Legacy one-finger Hold and corner Tap fields
+All corner families are Hold-only. Legacy one-finger Hold and corner Tap fields
 remain decodable but inactive.
 
 ## Arbitration and independent hands
@@ -156,8 +158,35 @@ finger labels have separate roles.
 
 Corner targets use one shared geometry policy for both variants: the outer quarter
 of each axis, with the middle half excluded. Single-pad input requires four distinct
-corners; Both requires the two left corners on the left pad and the two right
-corners on the right pad. The widened targets are provisional usability tuning,
+corners. Both targets are relative to the two selected pads, not anatomical labels:
+
+| Both gesture | Left pad | Right pad | Contacts total |
+| --- | --- | --- | --- |
+| Outer Corners | Top-left + bottom-left | Top-right + bottom-right | 4 |
+| Inner Corners | Top-right + bottom-right | Top-left + bottom-left | 4 |
+| Top Outer Corners | Top-left | Top-right | 2 |
+| Top Inner Corners | Top-right | Top-left | 2 |
+| Bottom Outer Corners | Bottom-left | Bottom-right | 2 |
+| Bottom Inner Corners | Bottom-right | Bottom-left | 2 |
+
+All use the shared coordinated recognizer, exact per-pad counts, independent saved
+Hold thresholds (500 ms default), existing action/held-shortcut output, freshness
+and cleanup. Inner Corners and the four pairs are Both-only; the per-pad four-corner
+gesture is renamed Outer Corners without changing its geometry or saved identity.
+The new coordinated bindings default to None and reserve nothing until assigned.
+The original `fourCorners.hold` and `fourCorners` threshold keys remain unchanged.
+
+An unactivated top/bottom pair may acquire its enabled complete Outer/Inner chord
+when complementary corners join. Original contacts must remain within 2 app mm;
+new contacts must occupy distinct complementary corners on the same edges. An
+incomplete expansion cannot fire the smaller Hold from a timer. Full acquisition
+rebases the chord and starts its own Hold threshold. A lift during expansion,
+replacement, stale input or invalid geometry cancels rather than reviving the pair.
+Fired Holds never promote; ordinary Both continuation/cancellation still applies,
+and the cycle stays reserved until both pads are all-up. The same mechanism serves
+all four pairs, rather than separate recognizers or output handlers.
+
+The widened corner targets are provisional usability tuning,
 not capture-derived or recovered firmware dimensions. Hold thresholds, 2 app-mm
 settling allowance, contact validation, freshness and balanced release stay unchanged.
 

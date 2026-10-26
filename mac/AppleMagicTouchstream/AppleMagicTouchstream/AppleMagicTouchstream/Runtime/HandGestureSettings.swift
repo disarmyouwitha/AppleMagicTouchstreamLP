@@ -54,7 +54,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .fourFingerTap: return "4-finger tap"
         case .fiveFingerMove: return "5-finger movement"
         case .fiveFingerTap: return "5-finger tap"
-        case .fourCornersTap: return "4 corners tap"
+        case .fourCornersTap: return "Outer corners tap"
         case .thumbTwoTap: return "Spread thumb + 2 fingertips tap"
         default: return "Force click"
         }
@@ -584,14 +584,65 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
 
 /// Coordinated inputs have their own namespace; Mirror Edit never writes these.
 enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
-    case fourCorners, threeFingers, fourFingers
+    // Keep the existing fourCorners identity for saved Outer Corners settings.
+    case fourCorners, innerCorners
+    case topOuterCorners, topInnerCorners, bottomOuterCorners, bottomInnerCorners
+    case threeFingers, fourFingers
     var id:String { rawValue }
     var title:String {
-        switch self { case .fourCorners:return "4 corners"; case .threeFingers:return "3 fingers per hand"; case .fourFingers:return "4 fingers per hand" }
+        switch self {
+        case .fourCorners:return "Outer Corners"
+        case .innerCorners:return "Inner Corners"
+        case .topOuterCorners:return "Top-outer"
+        case .topInnerCorners:return "Top-inner"
+        case .bottomOuterCorners:return "Bottom-outer"
+        case .bottomInnerCorners:return "Bottom-inner"
+        case .threeFingers:return "3 fingers per hand"
+        case .fourFingers:return "4 fingers per hand"
+        }
     }
-    var count:Int { self == .fourCorners ? 2 : self == .threeFingers ? 3 : 4 }
-    var phases:[TwoHandPhase] { self == .fourCorners ? [.hold] : TwoHandPhase.allCases }
-    static let recognitionOrder:[Self] = [.fourCorners,.threeFingers,.fourFingers]
+    var count:Int {
+        switch self {
+        case .fourCorners,.innerCorners:return 2
+        case .topOuterCorners,.topInnerCorners,.bottomOuterCorners,.bottomInnerCorners:return 1
+        case .threeFingers:return 3
+        case .fourFingers:return 4
+        }
+    }
+    var isCorner:Bool { self != .threeFingers && self != .fourFingers }
+    var expandedCornerChord:Self? {
+        switch self {
+        case .topOuterCorners,.bottomOuterCorners:return .fourCorners
+        case .topInnerCorners,.bottomInnerCorners:return .innerCorners
+        default:return nil
+        }
+    }
+    var phases:[TwoHandPhase] { isCorner ? [.hold] : TwoHandPhase.allCases }
+    /// Bits match CornerGestureGeometry: bottom-left, top-left, bottom-right,
+    /// top-right. Native Y increases toward the top of the pad.
+    func cornerMask(leftHand:Bool) -> Int? {
+        switch self {
+        case .fourCorners:return leftHand ? 0b0011 : 0b1100
+        case .innerCorners:return leftHand ? 0b1100 : 0b0011
+        case .topOuterCorners:return leftHand ? 0b0010 : 0b1000
+        case .topInnerCorners:return leftHand ? 0b1000 : 0b0010
+        case .bottomOuterCorners:return leftHand ? 0b0001 : 0b0100
+        case .bottomInnerCorners:return leftHand ? 0b0100 : 0b0001
+        case .threeFingers,.fourFingers:return nil
+        }
+    }
+    var placementDescription:String {
+        switch self {
+        case .fourCorners:return "Left pad: top-left + bottom-left. Right pad: top-right + bottom-right. Hold all four outside corners to open Config by default."
+        case .innerCorners:return "Left pad: top-right + bottom-right. Right pad: top-left + bottom-left. Hold the four corners facing the gap between the pads."
+        case .topOuterCorners:return "Hold one finger at the top-left of the left pad and one at the top-right of the right pad."
+        case .topInnerCorners:return "Hold one finger at the top-right of the left pad and one at the top-left of the right pad."
+        case .bottomOuterCorners:return "Hold one finger at the bottom-left of the left pad and one at the bottom-right of the right pad."
+        case .bottomInnerCorners:return "Hold one finger at the bottom-right of the left pad and one at the bottom-left of the right pad."
+        case .threeFingers,.fourFingers:return "Use \(count) fingers on each pad (\(count*2) total). Both hands form one gesture; this does not mirror independent assignments."
+        }
+    }
+    static let recognitionOrder:[Self] = allCases
 }
 enum TwoHandPhase:String,CaseIterable,Codable,Identifiable,Sendable {
     case tap, hold
@@ -605,6 +656,16 @@ struct TwoHandTrigger:Equatable,Sendable {
         switch (chord,phase) {
         case (.fourCorners,.tap):return "fourCorners.tap"
         case (.fourCorners,.hold):return "fourCorners.hold"
+        case (.innerCorners,.tap):return "innerCorners.tap"
+        case (.innerCorners,.hold):return "innerCorners.hold"
+        case (.topOuterCorners,.tap):return "topOuterCorners.tap"
+        case (.topOuterCorners,.hold):return "topOuterCorners.hold"
+        case (.topInnerCorners,.tap):return "topInnerCorners.tap"
+        case (.topInnerCorners,.hold):return "topInnerCorners.hold"
+        case (.bottomOuterCorners,.tap):return "bottomOuterCorners.tap"
+        case (.bottomOuterCorners,.hold):return "bottomOuterCorners.hold"
+        case (.bottomInnerCorners,.tap):return "bottomInnerCorners.tap"
+        case (.bottomInnerCorners,.hold):return "bottomInnerCorners.hold"
         case (.threeFingers,.tap):return "threeFingers.tap"
         case (.threeFingers,.hold):return "threeFingers.hold"
         case (.fourFingers,.tap):return "fourFingers.tap"
@@ -622,7 +683,7 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     }
     static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick]+GestureAction.oneShotActions
     func action(_ trigger:TwoHandTrigger) -> GestureAction {
-        guard trigger.chord != .fourCorners || trigger.phase == .hold else { return .disabled }
+        guard !trigger.chord.isCorner || trigger.phase == .hold else { return .disabled }
         let value = assignments[trigger.key] ?? (trigger.chord == .fourCorners && trigger.phase == .hold ? .openConfig : .disabled)
         return Self.allowedActions.acceptsGestureAction(value,held:trigger.phase == .hold) ? value : .disabled
     }
@@ -630,7 +691,7 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
         action(.init(chord:chord,phase:.tap)) != .disabled || action(.init(chord:chord,phase:.hold)) != .disabled
     }
     mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
-        guard (trigger.chord != .fourCorners || trigger.phase == .hold), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
+        guard (!trigger.chord.isCorner || trigger.phase == .hold), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
         assignments[trigger.key] = action
     }
 }

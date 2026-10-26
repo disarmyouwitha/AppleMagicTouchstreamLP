@@ -369,11 +369,24 @@ struct TwoHandGestureEngine {
         var count = 0, invalid = false
         var ids = SIMD8<Int32>(repeating:0)
         var points = SIMD16<Double>(repeating:0)
-        func corners(left:Bool) -> Bool {
-            guard count == 2, !invalid,
-                  let a = CornerGestureGeometry.corner(x:points[0],y:points[1]),
-                  let b = CornerGestureGeometry.corner(x:points[2],y:points[3]) else { return false }
-            return ((1 << a) | (1 << b)) == (left ? 3 : 12)
+        func matchesCorners(mask expected:Int,allowSubset:Bool = false) -> Bool {
+            guard !invalid else { return false }
+            var mask = 0
+            for i in 0..<count {
+                guard let corner = CornerGestureGeometry.corner(x:points[i*2],y:points[i*2+1]) else { return false }
+                let bit = 1 << corner
+                guard mask & bit == 0 else { return false }
+                mask |= bit
+            }
+            return mask != 0 && (allowSubset ? mask & expected == mask : mask == expected)
+        }
+        func continuesCornerExpansion(_ anchor:Self,mask:Int) -> Bool {
+            guard count >= anchor.count, count <= 2, matchesCorners(mask:mask,allowSubset:true) else { return false }
+            for i in 0..<anchor.count {
+                guard let j = (0..<count).first(where:{ids[$0] == anchor.ids[i]}),
+                      hypot((points[j*2]-anchor.points[i*2])*160,(points[j*2+1]-anchor.points[i*2+1])*114.9) <= TwoHandGestureEngine.movementSlopMM else { return false }
+            }
+            return true
         }
         func continues(_ anchor:Self) -> Bool {
             guard !invalid, count <= anchor.count else { return false }
@@ -387,6 +400,7 @@ struct TwoHandGestureEngine {
     private struct Session {
         var chord:TwoHandChord, left:Sample, right:Sample, start:Double
         var valid = true, held = false
+        var growing = false
         var firstLift:Double?
     }
     struct Decision { var reserved:Bool = false; var trigger:TwoHandTrigger?; var began:Bool = false }
@@ -414,7 +428,22 @@ struct TwoHandGestureEngine {
         }
         if leftHand { left = sample } else { right = sample }
         if var current = session, let left, let right {
-            if !fresh(left,now:now) || !fresh(right,now:now) || !left.continues(current.left) || !right.continues(current.right) { current.valid = false }
+            if !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
+            if current.growing && sample.count < (previous?.count ?? 0) { current.valid = false }
+            // A pending corner pair can grow into its complete inner/outer chord.
+            // Retain original identities and settling bounds; never replace an
+            // activated output or revive an invalid/lifted candidate.
+            if current.valid, !current.held, current.firstLift == nil,
+               let larger = current.chord.expandedCornerChord, settings.enabled(larger),
+               let leftMask = larger.cornerMask(leftHand:true), let rightMask = larger.cornerMask(leftHand:false),
+               left.continuesCornerExpansion(current.left,mask:leftMask),
+               right.continuesCornerExpansion(current.right,mask:rightMask) {
+                if left.count == larger.count && right.count == larger.count {
+                    current = Session(chord:larger,left:left,right:right,start:now)
+                } else if left.count > current.left.count || right.count > current.right.count {
+                    current.growing = true
+                }
+            } else if !left.continues(current.left) || !right.continues(current.right) { current.valid = false }
             if current.firstLift != nil && sample.count > (previous?.count ?? 0) { current.valid = false }
             if left.count < current.left.count || right.count < current.right.count {
                 if current.firstLift == nil { current.firstLift = now }
@@ -432,8 +461,8 @@ struct TwoHandGestureEngine {
         if let left, let right, fresh(left,now:now), fresh(right,now:now), !left.invalid, !right.invalid {
             for chord in TwoHandChord.recognitionOrder where settings.enabled(chord) {
                 guard left.count == chord.count, right.count == chord.count else { continue }
-                if chord == .fourCorners {
-                    guard left.corners(left:true), right.corners(left:false) else { continue }
+                if let leftMask = chord.cornerMask(leftHand:true), let rightMask = chord.cornerMask(leftHand:false) {
+                    guard left.matchesCorners(mask:leftMask), right.matchesCorners(mask:rightMask) else { continue }
                 }
                 session = Session(chord:chord,left:left,right:right,start:now)
                 return Decision(reserved:true,began:true)
@@ -446,6 +475,7 @@ struct TwoHandGestureEngine {
         if !now.isFinite || !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
         defer { session = current }
         guard current.valid, !current.held, current.firstLift == nil,
+              left.count == current.chord.count, right.count == current.chord.count,
               now-current.start >= settings.holdThreshold(for:current.chord) else { return nil }
         current.held = true
         let hold = TwoHandTrigger(chord:current.chord,phase:.hold)

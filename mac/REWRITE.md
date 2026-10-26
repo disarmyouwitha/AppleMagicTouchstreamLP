@@ -3,12 +3,7 @@
 * Ohh Bro a while ago we branched off from the now removed mac/GlassToKey from this repo but before we did we ripped some really cool features our I want to add back! Can you go through my github and cherry-pick (or whatever) these changes for me?
 1. Autocorrect
 2. Snap-radius
-===
-* Can we add 4 new "Both" hands gestures?
-1. Can we Rename `All Corners` to `Outer Corners` (for all Both and Handed gestures)
-2. Can we add a new gesture called `Inner Corners` where the inner corners are held?
-2. I also want to do individual corners: Top outer, Top inner, Bottom outer, Bottom inner; where the hands use 1 finger each on mirrored sides of the trackpad (Does that make sense or do I need to clarify?) [If you can think of a clearer way to name these, feel free]
-* <I checked out 3-finger hold and I think you might need to clean it up how you did for 4-finger.>
+> export new 
 ===
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 ===
@@ -16,9 +11,8 @@
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
-* `Diagonals`:
-- Thumb + two fingers	↖ ↗ ↙ ↘	
-> I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
+* `Thumb + two fingers` `Diagonals`: ↖ ↗ ↙ ↘	
+- I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
 [↖, tap, ↗]
 [rotate left, blank?, rotate right]
 [↙, hold, ↘]
@@ -59,7 +53,12 @@
 ===
 * `rubberbanding mouse`: Why does it happen? When?
 
+
+
 ===
+# WINDOWS: 
+0. Can you look at both mac/AppleMagicTouchstream and windows/GlassToKey.windows (and core) and plan an extensive re-write for ONLY `windows_linux` you will use `mac/AppleMagicTouchstream` as the GOLDEN REFERENCE. We are recreating the look, feel, and functionality of each one of it's features. 
+=======
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
 > I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far.

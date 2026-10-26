@@ -40,7 +40,12 @@ live input, takeover, haptics or login registration as part of offline verificat
   gated, with pointer/scroll profile gates. Open Config is app-local. Replay never
   posts native input. Shared drag button ownership must preserve other-pad owners.
 - One-finger gesture Hold is unavailable; keyboard key holds remain. Corner inputs
-  are Hold-only, Open Config by default. All gesture Holds default to 500 ms and
+  are Hold-only. Existing per-pad/Both Outer Corners default to Open Config; Both
+  Inner Corners and mirrored top/bottom inner/outer pairs default to None. Preserve
+  the legacy fourCorners serialized identity. Corner geometry and coordinated
+  lifecycle are shared; pending pairs may grow into enabled full corner chords,
+  retaining original IDs and settling limits, but never replace a fired owner.
+  All gesture Holds default to 500 ms and
   have independently saved thresholds (per hand/count or coordinated chord),
   editable from 100–5000 ms. Ordinary counts 2–5 and Thumb+2 Hold are independent
   inputs. Keyboard shortcuts on Hold can fire once or remain held until release;

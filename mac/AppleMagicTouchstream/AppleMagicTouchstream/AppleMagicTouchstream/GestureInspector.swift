@@ -21,7 +21,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Tap and Move"
-        case .fourCorners:return "4 Corners"
+        case .fourCorners:return "Outer Corners"
         case .thumbTwo: return "Thumb+2fingers"
         }
     }
@@ -639,11 +639,11 @@ struct GestureAssignmentWorkspace: View {
                 if editingHand == .both {
                     VStack(alignment:.leading,spacing:8) {
                         Text("COORDINATED TWO-HAND INPUT").font(.caption2).foregroundStyle(.secondary).padding(.horizontal,8)
-                        ForEach(TwoHandChord.allCases.filter { chord in
+                        ForEach(([TwoHandChord.threeFingers, .fourFingers] + TwoHandChord.allCases.filter(\.isCorner)).filter { chord in
                             search.isEmpty || (chord.title+" "+settings.twoHand.action(.init(chord:chord,phase:.tap)).title+" "+settings.twoHand.action(.init(chord:chord,phase:.hold)).title).localizedCaseInsensitiveContains(search)
                         }) { chord in
                             Button {
-                                twoHandChord = chord; twoHandPhase = chord == .fourCorners ? .hold : .tap
+                                twoHandChord = chord; twoHandPhase = chord.isCorner ? .hold : .tap
                             } label: {
                                 HStack(spacing:8) {
                                     Circle().fill(twoHandChord == chord ? Color.accentColor : Color.secondary.opacity(0.5)).frame(width:6,height:6)
@@ -711,10 +711,8 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
-                    Text(twoHandChord == .fourCorners ? "Coordinated Hold" : "Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
-                    Text(twoHandChord == .fourCorners
-                         ? "Left pad: top-left + bottom-left. Right pad: top-right + bottom-right. Hold all four corners to open Config by default."
-                         : "Use \(twoHandChord.count) fingers on each pad (\(twoHandChord.count*2) total). Both hands form one gesture; this does not mirror independent assignments.")
+                    Text(twoHandChord.isCorner ? "Coordinated Hold" : "Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
+                    Text(twoHandChord.placementDescription)
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true).padding(.top,10)
                 }.frame(maxWidth:.infinity,alignment:.leading)
                 TwoHandChordExample(chord:twoHandChord,phase:twoHandPhase)
@@ -741,9 +739,12 @@ struct GestureAssignmentWorkspace: View {
                     }.buttonStyle(.plain)
                 }
             }
-            Text(twoHandChord == .fourCorners
+            Text(twoHandChord.expandedCornerChord.map {
+                    "Before Hold activates, adding the remaining corners can select \($0.title). Lift every finger from both pads to rearm."
+                 } ?? (twoHandChord.isCorner
                  ? "Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture."
                  : "A hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
+                 )
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -1253,14 +1254,17 @@ private struct TwoHandChordExample:View {
                     var contacts = context
                     contacts.opacity *= opacity
                     for finger in 0..<chord.count {
-                        let corner = chord == .fourCorners
+                        let cornerMask = chord.cornerMask(leftHand:hand == 0)
+                        let corner = cornerMask != nil
+                        let leftEdge = (cornerMask ?? 0) & 0b0011 != 0
+                        let topEdge = chord.count == 2 ? finger == 0 : (cornerMask ?? 0) & 0b1010 != 0
                         // Index is toward the center seam; pinky toward the outer edge.
                         let fingerOffset = CGFloat(finger)*14-CGFloat(chord.count-1)*7
-                        let x = corner ? (hand == 0 ? rect.minX+10 : rect.maxX-10)
+                        let x = corner ? (leftEdge ? rect.minX+10 : rect.maxX-10)
                             : rect.midX+(hand == 0 ? -fingerOffset : fingerOffset)
-                        let y = corner ? (finger == 0 ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
+                        let y = corner ? (topEdge ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
                         let color:Color = corner
-                            ? Color(nsColor:AnatomicalFingerPalette.color(fingerID:finger == 0 ? 2 : 1))
+                            ? Color(nsColor:AnatomicalFingerPalette.color(fingerID:chord.count == 1 || finger == 0 ? 2 : 1))
                             : [.blue,.green,.purple,.pink][finger]
                         let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
                         contacts.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
