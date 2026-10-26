@@ -6,8 +6,8 @@
 ### I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/">Releases</a>!
 
 **Useful Tips:**
-- **TURN ON** "Trackpad Takeover" / "Mouse Takeover": 
-This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse + Gestures) this option takes full control of the mouse from the OS to enforce this. You can set Gestures such as Scroll, Zoom, etc in the Gestures menu to replace your OS-level gestures.
+- **TURN ON** "Trackpad Takeover": 
+This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse + Gestures) this option takes full control of the Trackpad from the OS to enforce this. You can set Gestures within the app to replace your OS-level gestures.
 
 **You can use just 1 Trackpad!**
 - I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit to two!
