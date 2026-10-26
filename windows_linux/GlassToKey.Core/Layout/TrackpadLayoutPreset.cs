@@ -163,6 +163,9 @@ public sealed class TrackpadLayoutPreset
         allowsColumnSettings: true
     );
 
+    public static TrackpadLayoutPreset TouchStream { get; } = new("touchstream", "TouchStream", 9, 6,
+        Array.Empty<PointMm>(), TouchStreamLayoutDefinition.Labels(false), allowsColumnSettings:false);
+
     public static TrackpadLayoutPreset[] All { get; } =
     {
         Blank,
@@ -170,6 +173,7 @@ public sealed class TrackpadLayoutPreset
         SixByFour,
         FiveByThree,
         FiveByFour,
+        TouchStream,
         MobileOrthoTwelveByFour,
         Mobile
     };
@@ -181,6 +185,7 @@ public sealed class TrackpadLayoutPreset
         SixByFour,
         FiveByThree,
         FiveByFour,
+        TouchStream,
         MobileOrthoTwelveByFour
     };
 
@@ -194,7 +199,7 @@ public sealed class TrackpadLayoutPreset
     public bool UseFixedRightStaggeredQwerty { get; }
     public double FixedKeyScale { get; }
     public bool AllowsColumnSettings { get; }
-    public string[][] LeftLabels => Mirror(RightLabels);
+    public string[][] LeftLabels => Name == "touchstream" ? TouchStreamLayoutDefinition.Labels(true) : Mirror(RightLabels);
 
     private TrackpadLayoutPreset(
         string name,

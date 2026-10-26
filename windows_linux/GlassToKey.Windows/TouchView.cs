@@ -23,13 +23,30 @@ public sealed class TouchView : FrameworkElement
     public string LastHitLabel { get; set; } = "--";
     public string PeakLabel { get; set; } = "--";
     public bool ShowPressureValues { get; set; } = true;
+    public bool ShowTouchStreamReference { get; set; }
+    public TrackpadSide Side { get; set; }
+    internal Rect PadBounds => CreatePadRect(new Rect(0,0,ActualWidth,ActualHeight));
+    private static readonly ImageSource[] TouchStreamReference = LoadReferences();
+    private static ImageSource[] LoadReferences()
+    {
+        var image=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/GlassToKey.Windows;component/Assets/TouchStreamReference.gif"));
+        int half=image.PixelWidth/2;
+        ImageSource crop(int x) { var result=new System.Windows.Media.Imaging.CroppedBitmap(image,new Int32Rect(x,0,half,image.PixelHeight)); result.Freeze(); return result; }
+        return [crop(0),crop(half)];
+    }
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
     private readonly Brush _canvasBrush = new SolidColorBrush(Color.FromRgb(12, 15, 18));
     private readonly Brush _padBrush = new SolidColorBrush(Color.FromRgb(15, 19, 23));
     private readonly Brush _gridBrush = new SolidColorBrush(Color.FromRgb(20, 24, 28));
     private readonly Pen _gridPen;
-    private readonly Brush _tipBrush = new SolidColorBrush(Color.FromRgb(60, 196, 110));
+    private readonly Brush _tipBrush = Brushes.Black; // PTP supplies unknown anatomy; never imply a finger identity.
+    private readonly Pen _contactOutline = new(Brushes.SlateGray,1.5);
+    private readonly Brush _referenceKeyFill = new SolidColorBrush(Color.FromArgb(65,14,18,22));
+    private const int TrailLength = 48;
+    private readonly uint[] _trailIds = new uint[PtpReport.MaxContacts];
+    private readonly int[] _trailCounts = new int[PtpReport.MaxContacts], _trailHeads = new int[PtpReport.MaxContacts];
+    private readonly Point[] _trailPoints = new Point[PtpReport.MaxContacts*TrailLength];
     private readonly Brush _textBrush = new SolidColorBrush(Color.FromRgb(220, 225, 230));
     private readonly Brush _keyStrokeBrush = new SolidColorBrush(Color.FromRgb(100, 108, 116));
     private readonly Pen _keyStrokePen;
@@ -57,6 +74,7 @@ public sealed class TouchView : FrameworkElement
     public TouchView()
     {
         SnapsToDevicePixels = true;
+        ClipToBounds = true;
         Focusable = false;
         _gridPen = new Pen(_gridBrush, 1);
         _keyStrokePen = new Pen(_keyStrokeBrush, 1);
@@ -81,7 +99,6 @@ public sealed class TouchView : FrameworkElement
         Rect bounds = new Rect(0, 0, width, height);
         dc.DrawRectangle(_canvasBrush, null, bounds);
 
-        DrawGrid(dc, bounds);
         DrawSurface(dc, bounds);
     }
 
@@ -120,16 +137,23 @@ public sealed class TouchView : FrameworkElement
 
         Rect pad = CreatePadRect(bounds);
         dc.DrawRoundedRectangle(_padBrush, _borderPen, pad, 14, 14);
+        if (ShowTouchStreamReference)
+        {
+            dc.PushClip(new RectangleGeometry(pad,14,14)); dc.PushOpacity(.42);
+            dc.DrawImage(TouchStreamReference[(int)Side],pad); dc.Pop(); dc.Pop();
+        }
+        DrawGrid(dc,pad);
 
         DrawKeyGrid(dc, pad);
         DrawCustomButtons(dc, pad);
+        DrawContactPaths(dc,pad,contacts[..contactCount],maxX,maxY);
         for (int i = 0; i < contactCount; i++)
         {
             TouchContact c = contacts[i];
             double x = pad.Left + (c.X / (double)maxX) * pad.Width;
             double y = pad.Top + (c.Y / (double)maxY) * pad.Height;
 
-            dc.DrawEllipse(_tipBrush, null, new Point(x, y), 20, 20);
+            dc.DrawEllipse(_tipBrush, _contactOutline, new Point(x, y), 20, 20);
 
             if (ShowPressureValues && pressureCapability != PressureCapability.Unsupported)
             {
@@ -142,7 +166,7 @@ public sealed class TouchView : FrameworkElement
                     _textBrush,
                     1.0);
                 FormattedText pressureText = new(
-                    $"f:{c.ForceNorm}",
+                    $"P:{c.Pressure}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,
@@ -192,7 +216,7 @@ public sealed class TouchView : FrameworkElement
             _footerBrush,
             1.0);
 
-        string peakText = $"Peak: {PeakLabel}";
+        string peakText = $"{Side} · Peak: {PeakLabel}";
         FormattedText footerPeak = new(
             peakText,
             CultureInfo.InvariantCulture,
@@ -203,10 +227,37 @@ public sealed class TouchView : FrameworkElement
             1.0);
 
         const double rightPadding = 18;
-        double footerY = pad.Bottom - 24;
-        dc.DrawText(footerPeak, new Point(pad.Left + 18, footerY));
+        double footerY = pad.Bottom + 5;
+        dc.DrawText(footerPeak, new Point(pad.Left + 8, pad.Top-23));
         double hitX = pad.Right - footerRight.Width - rightPadding;
         dc.DrawText(footerRight, new Point(hitX, footerY));
+    }
+    private void DrawContactPaths(DrawingContext dc,Rect pad,ReadOnlySpan<TouchContact> contacts,ushort maxX,ushort maxY)
+    {
+        for (int slot=0;slot<_trailCounts.Length;slot++)
+        {
+            bool present=false; foreach (var c in contacts) present|=c.Id==_trailIds[slot];
+            if (!present) _trailCounts[slot]=_trailHeads[slot]=0;
+        }
+        foreach (var c in contacts)
+        {
+            int slot=0;
+            while (slot<_trailCounts.Length && (_trailCounts[slot]==0 || _trailIds[slot]!=c.Id)) slot++;
+            if (slot==_trailCounts.Length) { slot=0; while (slot<_trailCounts.Length && _trailCounts[slot]!=0) slot++; }
+            if (slot==_trailCounts.Length) continue;
+            _trailIds[slot]=c.Id;
+            var point=new Point(c.X/(double)maxX,c.Y/(double)maxY);
+            int start=slot*TrailLength, head=_trailHeads[slot], count=_trailCounts[slot];
+            if (count==0 || _trailPoints[start+(head+TrailLength-1)%TrailLength]!=point)
+            { _trailPoints[start+head]=point; _trailHeads[slot]=(head+1)%TrailLength; _trailCounts[slot]=Math.Min(TrailLength,count+1); }
+            count=_trailCounts[slot]; head=_trailHeads[slot];
+            for (int age=count-1;age>0;age--)
+            {
+                var a=_trailPoints[start+(head+TrailLength-1-age)%TrailLength];
+                var b=_trailPoints[start+(head+TrailLength-age)%TrailLength];
+                dc.DrawLine(_contactOutline,new(pad.Left+a.X*pad.Width,pad.Top+a.Y*pad.Height),new(pad.Left+b.X*pad.Width,pad.Top+b.Y*pad.Height));
+            }
+        }
     }
 
     private void DrawKeyGrid(DrawingContext dc, Rect pad)
@@ -222,7 +273,7 @@ public sealed class TouchView : FrameworkElement
             for (int col = 0; col < rowRects.Length; col++)
             {
                 Rect rect = rowRects[col].ToRect(pad);
-                DrawKeyRect(dc, rowRects[col], rect, _keyFillBrush, _keyStrokePen);
+                DrawKeyRect(dc, rowRects[col], rect, ShowTouchStreamReference ? _referenceKeyFill : _keyFillBrush, _keyStrokePen);
 
                 if (HighlightedKey.HasValue && RectEquals(rowRects[col], HighlightedKey.Value))
                 {
@@ -388,8 +439,7 @@ public sealed class TouchView : FrameworkElement
 
     private Rect CreatePadRect(Rect bounds)
     {
-        double padding = 0;
-        Rect inner = new Rect(bounds.Left + padding, bounds.Top + padding, bounds.Width - padding * 2, bounds.Height - padding * 2);
+        Rect inner = new Rect(bounds.Left+1,bounds.Top+28,Math.Max(0,bounds.Width-2),Math.Max(0,bounds.Height-54));
         if (inner.Width <= 0 || inner.Height <= 0)
         {
             return inner;

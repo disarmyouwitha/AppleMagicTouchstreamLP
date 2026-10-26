@@ -12,6 +12,8 @@ public interface IHandGestureOutput
     void Tap(HandGestureAction action);
     void Zoom(double scaleDelta);
     void ForceFeedback(TrackpadSide side);
+    // Semantic catalog identity, dispatched only by live platform adapters.
+    void AssignedAction(string label) { }
 }
 internal interface IHandGestureRuntime : IDisposable
 {
@@ -30,13 +32,19 @@ public sealed class HandGestureEngine
         public bool Reserved, Blocked, SawFour, ForceBlocked, ForceClaimed;
         public HandGestureTrigger? Owner;
         public ApplePointerAccelerator? Accelerator;
-        public readonly CountTap Two = new(2), Three = new(3);
+        public readonly CountTap Two = new(2), Three = new(3), Four = new(4), Five = new(5);
+        public readonly HandGestureContact[] HoldOrigin = new HandGestureContact[5];
+        public int HoldCount;
+        public double HoldSince, DirectionTime, DirectionTravel;
+        public bool HoldBlocked, HoldClaimed, CornerPending;
+        public HandMovementDirection? Direction;
         public readonly ThumbIdentity Thumb = new();
         public readonly HandScrollMomentum Momentum = new();
         public readonly HandShapeTracker Shape = new();
     }
     private readonly Pad[] _pads = [new(), new()];
     private readonly IHandGestureOutput _output;
+    private readonly CoordinatedHandGestureEngine _coordinated = new();
     private readonly PerHandGestureSettings[] _settings = [new(), new()];
     private TrackpadSide? _dragOwner;
     public HandGestureEngine(IHandGestureOutput output) { _output = output; }
@@ -46,6 +54,7 @@ public sealed class HandGestureEngine
         Reset(); settings = settings.Clone(); settings.Normalize();
         _settings[0] = settings.For(TrackpadSide.Left, sameDevice);
         _settings[1] = settings.For(TrackpadSide.Right);
+        _coordinated.Configure(settings.Coordinated ?? new(), !sameDevice);
         for (int i = 0; i < 2; i++)
         {
             var config = _settings[i];
@@ -56,15 +65,25 @@ public sealed class HandGestureEngine
     public void Reset()
     {
         foreach (var p in _pads) Cancel(p);
+        _coordinated.Reset();
         if (_dragOwner != null) { _output.PrimaryButton(false); _dragOwner = null; }
     }
     private static void Cancel(Pad p)
     {
         p.Owner = null; p.PreviousCount = 0; p.TravelX = p.TravelY = 0;
         p.PendingCount = 0; p.Blocked = true; p.ThreeChordSince = double.NaN; p.SawFour = false;
-        p.Two.Cancel(); p.Three.Cancel(); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset();
+        CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset();
+        p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
+        p.CornerPending = false;
         p.Shape.Reset(); p.ForceBlocked = true; p.ForceClaimed = false;
         // Keep reservation through all-up, including setting/permission transitions.
+    }
+    private static void CancelTaps(Pad p) { p.Two.Cancel(); p.Three.Cancel(); p.Four.Cancel(); p.Five.Cancel(); }
+    private void Emit(PerHandGestureSettings settings,HandGestureAction action,string slot)
+    {
+        if (action == HandGestureAction.Custom)
+        { if (settings.CustomActions?.GetValueOrDefault(slot) is {} label) _output.AssignedAction(label); }
+        else if (action != HandGestureAction.None) _output.Tap(action);
     }
     private void EndOwner(TrackpadSide side, Pad p)
     {
@@ -73,6 +92,7 @@ public sealed class HandGestureEngine
     }
     public void Tick(double hostTime, bool eligible)
     {
+        _coordinated.Tick(hostTime,eligible);
         for (int i = 0; i < 2; i++)
         {
             var p = _pads[i];
@@ -88,10 +108,14 @@ public sealed class HandGestureEngine
         int index = (int)side;
         var p = _pads[index]; var settings = _settings[index];
         int count = contacts.Length;
-        bool enabled(HandGestureTrigger t) => settings.Get(t) != HandGestureAction.None;
+        bool enabled(HandGestureTrigger t) => settings.Enabled(t);
         bool candidate = count switch { 2 => enabled(HandGestureTrigger.TwoFingerMove) || enabled(HandGestureTrigger.TwoFingerTap),
             3 => enabled(HandGestureTrigger.ThreeFingerMove) || enabled(HandGestureTrigger.ThreeFingerTap) || enabled(HandGestureTrigger.ThumbTwoTap),
-            4 => enabled(HandGestureTrigger.FourFingerMove), _ => false };
+            4 => enabled(HandGestureTrigger.FourFingerMove) || enabled(HandGestureTrigger.FourFingerTap),
+            5 => enabled(HandGestureTrigger.FiveFingerMove) || enabled(HandGestureTrigger.FiveFingerTap), _ => false };
+        candidate |= settings.Hold(count) != HandGestureAction.None;
+        candidate |= count == 4 && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None
+            && CoordinatedHandGestureEngine.CornerMask(contacts) == 15;
         if (PerHandGestureSettings.Pinch(count) is {} inward && PerHandGestureSettings.Pinch(count,true) is {} outward)
             candidate |= enabled(inward) || enabled(outward);
         var forceTrigger = PerHandGestureSettings.Force(count);
@@ -109,10 +133,18 @@ public sealed class HandGestureEngine
             for (int b = 0; b < a; b++) valid &= contacts[a].Id != contacts[b].Id;
         }
         p.LastReceipt = hostTime;
+        bool independentOwner = false;
+        foreach (var pad in _pads) independentOwner |= pad.Owner.HasValue || pad.HoldClaimed || pad.ForceClaimed;
+        bool pairReserved = _coordinated.Process(side, valid ? contacts : [], hostTime, eligible && valid, independentOwner, _output);
+        if (pairReserved)
+        {
+            Cancel(p); p.Reserved = count > 0; p.Blocked = count > 0;
+            return true;
+        }
         if (!eligible || !valid || (_dragOwner.HasValue && _dragOwner != side))
         {
             EndOwner(side, p); Cancel(p);
-            if (count == 0) { p.Blocked = false; p.ForceBlocked = false; p.Two.Clear(); p.Three.Clear(); }
+            if (count == 0) { p.Blocked = p.ForceBlocked = p.HoldBlocked = false; p.Two.Clear(); p.Three.Clear(); p.Four.Clear(); p.Five.Clear(); }
             return reserved;
         }
         // Starting takeover/settings mid-contact waits for a clean lift.
@@ -136,41 +168,73 @@ public sealed class HandGestureEngine
             EndOwner(side, p); Cancel(p); return reserved;
         }
         if (count > 0 && p.Momentum.IsCoasting)
-        { p.Momentum.Cancel(); p.Two.Cancel(); p.Three.Cancel(); }
+        { p.Momentum.Cancel(); CancelTaps(p); p.HoldBlocked = true; }
         if (count == 0)
         {
             bool scrolling = p.Owner.HasValue && settings.Get(p.Owner.Value) == HandGestureAction.Scroll;
-            bool owned = p.Owner.HasValue || p.ForceClaimed;
+            bool owned = p.Owner.HasValue || p.ForceClaimed || p.HoldClaimed || p.CornerPending;
             EndOwner(side, p);
             if (scrolling && normalEnd) p.Momentum.Start(time, hostTime); else if (owned) p.Momentum.Cancel();
             bool two = p.Two.Process(contacts, time, owned);
             bool three = p.Three.Process(contacts, time, owned);
+            bool four = p.Four.Process(contacts, time, owned);
+            bool five = p.Five.Process(contacts, time, owned);
             var threeTrigger = p.Thumb.Complete();
-            if (two && enabled(HandGestureTrigger.TwoFingerTap) && _dragOwner == null) _output.Tap(settings.Get(HandGestureTrigger.TwoFingerTap));
-            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value) && _dragOwner == null) _output.Tap(settings.Get(threeTrigger.Value));
+            if (two && enabled(HandGestureTrigger.TwoFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.TwoFingerTap),nameof(HandGestureTrigger.TwoFingerTap));
+            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value) && _dragOwner == null) Emit(settings,settings.Get(threeTrigger.Value),threeTrigger.Value.ToString());
+            if (four && enabled(HandGestureTrigger.FourFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FourFingerTap),nameof(HandGestureTrigger.FourFingerTap));
+            if (five && enabled(HandGestureTrigger.FiveFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FiveFingerTap),nameof(HandGestureTrigger.FiveFingerTap));
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
             p.ThreeChordSince = double.NaN; p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset();
+            p.HoldCount = 0; p.HoldBlocked = p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
+            p.CornerPending = false;
             return reserved;
         }
         // Match Mac force arbitration: additions before pressing are allowed,
         // but lifting/substituting fingers blocks a later force action this cycle.
         if (p.PreviousCount > 0 && (count < p.PreviousCount || shared != p.PreviousCount)) p.ForceBlocked = true;
-        if (!p.ForceClaimed && !p.ForceBlocked && forcePress)
+        if (!p.Owner.HasValue && !p.HoldClaimed && !p.ForceClaimed && !p.ForceBlocked && forcePress)
         {
             EndOwner(side,p); p.Shape.Reset(); p.Momentum.Cancel();
-            p.Two.Cancel(); p.Three.Cancel(); p.ForceClaimed = true;
-            _output.Tap(settings.Get(forceTrigger!.Value)); _output.ForceFeedback(side);
+            CancelTaps(p); p.ForceClaimed = true;
+            Emit(settings,settings.Get(forceTrigger!.Value),forceTrigger.Value.ToString()); _output.ForceFeedback(side);
         }
-        if (p.ForceClaimed)
+        // Holds share the same all-up ownership and cleanup path as motion/force.
+        // A changed cohort restarts an unresolved hold; an activated owner never changes.
+        if (p.CornerPending && (count!=4 || shared!=4)) p.HoldBlocked=true;
+        if (!p.Owner.HasValue && !p.ForceClaimed && !p.HoldClaimed && !p.HoldBlocked && count is >= 2 and <= 5)
+        {
+            if (p.HoldCount != count || shared != count)
+            { p.HoldCount = count; p.HoldSince = time; contacts.CopyTo(p.HoldOrigin); }
+            for (int i = 0; i < count; i++)
+            {
+                int origin = 0; while (origin < p.HoldCount && p.HoldOrigin[origin].Id != contacts[i].Id) origin++;
+                if (origin == p.HoldCount || Distance(contacts[i], p.HoldOrigin[origin]) > 2) p.HoldBlocked = true;
+            }
+            bool cornerCandidate = count == 4 && CoordinatedHandGestureEngine.CornerMask(contacts) == 15
+                && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None;
+            p.CornerPending |= cornerCandidate;
+            if (!p.HoldBlocked && !cornerCandidate && settings.Hold(count) != HandGestureAction.None && time-p.HoldSince >= settings.HoldMilliseconds(count)/1000)
+            { p.HoldClaimed = true; CancelTaps(p); p.Shape.Reset(); Emit(settings,settings.Hold(count),"Hold"+count); }
+            if (!p.HoldBlocked && !p.HoldClaimed && count == 4 && CoordinatedHandGestureEngine.CornerMask(contacts) == 15
+                && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None
+                && time-p.HoldSince >= settings.CornerMilliseconds(HandCornerChord.OuterCorners)/1000)
+            { p.HoldClaimed = true; CancelTaps(p); p.Shape.Reset(); Emit(settings,settings.CornerAction(HandCornerChord.OuterCorners),"CornerHold"); }
+        }
+        if (p.ForceClaimed || p.HoldClaimed || p.CornerPending)
         {
             contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
             return reserved;
         }
         p.Two.Process(contacts, time, p.Owner.HasValue);
         p.Three.Process(contacts, time, p.Owner.HasValue);
+        p.Four.Process(contacts, time, p.Owner.HasValue);
+        p.Five.Process(contacts, time, p.Owner.HasValue);
         bool tapStillPossible = (count == 2 && enabled(HandGestureTrigger.TwoFingerTap) && p.Two.CanComplete)
-            || (count == 3 && (enabled(HandGestureTrigger.ThreeFingerTap) || enabled(HandGestureTrigger.ThumbTwoTap)) && p.Three.CanComplete);
+            || (count == 3 && (enabled(HandGestureTrigger.ThreeFingerTap) || enabled(HandGestureTrigger.ThumbTwoTap)) && p.Three.CanComplete)
+            || (count == 4 && enabled(HandGestureTrigger.FourFingerTap) && p.Four.CanComplete)
+            || (count == 5 && enabled(HandGestureTrigger.FiveFingerTap) && p.Five.CanComplete);
         bool pinchOwned = p.Owner.HasValue && PerHandGestureSettings.IsPinch(p.Owner.Value);
         var shape = p.Shape.Process(contacts,time,pinchOwned);
         bool pinchBegan = false;
@@ -195,15 +259,14 @@ public sealed class HandGestureEngine
             // single shared finger's shift as pair motion turns taps into moves.
             // Already-owned gestures bypass this branch and keep shared-ID motion.
             // With tap=None, movement retains its original activation behavior.
-            bool formingTapChord = count == 2 && enabled(HandGestureTrigger.TwoFingerTap)
-                && (p.PreviousCount != 2 || shared != 2);
+            bool formingTapChord = tapStillPossible && (p.PreviousCount != count || shared != count);
             bool formingScrollChord = count == 4 && enabled(HandGestureTrigger.FourFingerMove)
                 && (p.PreviousCount != 4 || shared != 4);
             bool waitingForScroll = count == 3 && dragScrollConflict
                 && (p.SawFour || time - p.ThreeChordSince < DragScrollSettleSeconds);
             if (formingTapChord || formingScrollChord || waitingForScroll) p.TravelX = p.TravelY = 0;
             else { p.TravelX += dx; p.TravelY += dy; }
-            HandGestureTrigger? trigger = count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, _ => null };
+            HandGestureTrigger? trigger = PerHandGestureSettings.Movement(count);
             double threshold = count == 4 ? .2 : .35;
             double translation = Math.Sqrt(p.TravelX*p.TravelX+p.TravelY*p.TravelY);
             var direction = PerHandGestureSettings.Pinch(count,(shape?.Change ?? 0) > 0);
@@ -212,17 +275,25 @@ public sealed class HandGestureEngine
             if (shapeDominant && !tapStillPossible && Math.Abs(shape!.Value.Change) >= .6)
             {
                 p.Owner = direction; pinchBegan = true;
-                p.Two.Cancel(); p.Three.Cancel(); p.Momentum.Cancel();
+                CancelTaps(p); p.Momentum.Cancel();
                 var action = settings.Get(direction!.Value);
-                if (PerHandGestureSettings.IsSystemAction(action)) _output.Tap(action);
+                if (PerHandGestureSettings.IsDiscrete(action)) Emit(settings,action,direction.Value.ToString());
             }
-            else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= threshold
-                && !waitingForScroll && (count != 3 || AcceptsRow(contacts)))
+            else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= (settings.Directional(trigger.Value) != null ? 3 : threshold)
+                && !waitingForScroll && (count != 3 || settings.Directional(trigger.Value) != null || AcceptsRow(contacts)))
             {
                 p.Owner = trigger;
                 dx = p.TravelX; dy = p.TravelY;
-                p.Two.Cancel(); p.Three.Cancel();
-                if (settings.Get(trigger.Value) == HandGestureAction.PrimaryDrag)
+                CancelTaps(p);
+                if (settings.Directional(trigger.Value) is {} directions)
+                {
+                    p.Direction = Math.Abs(dx) > Math.Abs(dy) ? (dx > 0 ? HandMovementDirection.Right : HandMovementDirection.Left)
+                        : (dy > 0 ? HandMovementDirection.Down : HandMovementDirection.Up);
+                    p.DirectionTime = time; p.DirectionTravel = 0;
+                    Emit(settings,directions.Get(p.Direction.Value),trigger.Value+"/"+p.Direction.Value);
+                    dx = dy = 0;
+                }
+                else if (settings.Get(trigger.Value) == HandGestureAction.PrimaryDrag)
                 {
                     foreach (var pad in _pads) pad.Momentum.Cancel();
                     _output.PrimaryButton(true); _dragOwner = side;
@@ -233,7 +304,15 @@ public sealed class HandGestureEngine
         if (p.Owner.HasValue && continued)
         {
             var action = settings.Get(p.Owner.Value);
-            if (PerHandGestureSettings.IsPinch(p.Owner.Value))
+            if (p.Direction is {} direction && settings.Directional(p.Owner.Value) is {} directions)
+            {
+                double projection = direction switch { HandMovementDirection.Up => -dy, HandMovementDirection.Down => dy, HandMovementDirection.Left => -dx, _ => dx };
+                p.DirectionTravel = Math.Max(0, p.DirectionTravel + projection);
+                double interval = directions.Repeat(direction)/1000;
+                if (interval > 0 && time-p.DirectionTime >= interval && p.DirectionTravel >= 1)
+                { Emit(settings,directions.Get(direction),p.Owner.Value+"/"+direction); p.DirectionTime = time; p.DirectionTravel = 0; }
+            }
+            else if (PerHandGestureSettings.IsPinch(p.Owner.Value))
             {
                 if (!shape.HasValue) { EndOwner(side,p); Cancel(p); }
                 else if (action == HandGestureAction.Zoom)
@@ -242,8 +321,8 @@ public sealed class HandGestureEngine
             else if (action == HandGestureAction.Scroll)
             {
                 // Windows adapter uses 6 scroll points/mm; no installed Apple profile exists here.
-                double direction = settings.NaturalScrolling ? 1 : -1;
-                double x = dx * 6 * settings.ScrollSensitivity * direction, y = dy * 6 * settings.ScrollSensitivity * direction;
+                double scrollSign = settings.NaturalScrolling ? 1 : -1;
+                double x = dx * 6 * settings.ScrollSensitivity * scrollSign, y = dy * 6 * settings.ScrollSensitivity * scrollSign;
                 if (Math.Abs(x) < 150 && Math.Abs(y) < 150)
                 { p.Momentum.Observe(x, y, time); _output.Scroll(x, y); }
                 else { EndOwner(side, p); Cancel(p); }
@@ -279,7 +358,7 @@ public sealed class HandGestureEngine
     private sealed class CountTap(int required)
     {
         public bool CanComplete => !_blocked && _paired.HasValue;
-        private readonly HandGestureContact[] _fingers = new HandGestureContact[3];
+        private readonly HandGestureContact[] _fingers = new HandGestureContact[5];
         private int _known;
         private double _started, _last;
         private double? _paired, _lifting;

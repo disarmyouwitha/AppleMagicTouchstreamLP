@@ -101,7 +101,7 @@ internal static class MacGesturePortTests
             output=new(); engine=new(output); configure(); frame(Shape(3),1); frame(Shape(3),1.08); frame(Shape(3,translation:.4),1.13);
             Check(output.Buttons.SequenceEqual(new[]{true}),"drag fixture failed to activate after settling");
             frame(Shape(3,translation:.5,pressure:150,hasPressure:true),1.14); frame([],1.16);
-            Check(output.Buttons.SequenceEqual(new[]{true,false}) && output.Actions.SequenceEqual(new[]{HandGestureAction.ShowDesktop}),"force interruption failed to release drag");
+            Check(output.Buttons.SequenceEqual(new[]{true,false}) && output.Actions.Count==0,"force replaced an already activated drag owner");
             hand.Set(HandGestureTrigger.ThreeFingerForce,HandGestureAction.None);
             output=new(); engine=new(output); configure(); frame(Shape(2),1); frame(Shape(2,.84),1.01);
             frame(Shape(2,.90,pressure:140,hasPressure:true),1.02); // two force is None: continue Zoom.

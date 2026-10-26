@@ -12,6 +12,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets\GlassToKeyHand.ico" />
     <EmbeddedResource Include="Assets\GlassToKeyTrayHand.ico" />
+    <Resource Include="Assets\TouchStreamReference.gif" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
   </ItemGroup>

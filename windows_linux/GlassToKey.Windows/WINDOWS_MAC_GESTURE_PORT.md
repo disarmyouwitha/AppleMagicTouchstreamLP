@@ -1,6 +1,9 @@
-# Latest Mac gesture inspector and recognizer port to Windows
+# Mac gesture port — initial force/pinch implementation
 
-Updated: 2026-10-23. This document distinguishes implemented/offline-verified behavior from live behavior still awaiting acceptance.
+Historical snapshot: 2026-10-23. The current implementation, ownership rules,
+Mirror Edit/Both distinction and hardware checklist are documented in
+[Mac gold-standard parity](MAC_GOLD_PARITY.md). The sections below describe the
+earlier force/pinch port and its original verification, not the current UI contract.
 
 ## Reference reviewed
 

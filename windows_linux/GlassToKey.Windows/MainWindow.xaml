@@ -5,6 +5,81 @@
         Title="GlassToKey" Height="780" Width="1240" MinWidth="900" MinHeight="520"
         Background="#101214">
   <Window.Resources>
+    <Style TargetType="CheckBox">
+      <Setter Property="Foreground" Value="#cfd7dc" /><Setter Property="Padding" Value="0,2" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+        <Border x:Name="SwitchFocus" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+          <DockPanel LastChildFill="True">
+            <Grid Width="28" Height="16" Margin="0,0,7,0" VerticalAlignment="Center">
+              <Border x:Name="SwitchTrack" Background="#3b4c59" CornerRadius="8" />
+              <Ellipse x:Name="SwitchKnob" Width="12" Height="12" Margin="2" Fill="#e7e9ea" HorizontalAlignment="Left" />
+            </Grid>
+            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </DockPanel>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsChecked" Value="True"><Setter TargetName="SwitchTrack" Property="Background" Value="#327caa" /><Setter TargetName="SwitchKnob" Property="HorizontalAlignment" Value="Right" /></Trigger>
+          <Trigger Property="IsChecked" Value="{x:Null}"><Setter TargetName="SwitchTrack" Property="Background" Value="#756540" /><Setter TargetName="SwitchKnob" Property="HorizontalAlignment" Value="Center" /></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SwitchFocus" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Foreground" Value="#e7e9ea" /><Setter Property="Background" Value="#111821" />
+      <Setter Property="BorderBrush" Value="#2f4251" /><Setter Property="CaretBrush" Value="#e7e9ea" />
+      <Setter Property="Padding" Value="6,3" /><Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style TargetType="Button">
+      <Setter Property="Foreground" Value="#e7e9ea" /><Setter Property="Background" Value="#202e39" />
+      <Setter Property="BorderBrush" Value="#3b4c59" /><Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+        <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="#304858" /></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="#1f4a67" /></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="#e7e9ea" /><Setter Property="Padding" Value="8,5" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+        <Border x:Name="ItemChrome" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="#304858" /></Trigger>
+          <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="#1f4a67" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Foreground" Value="#e7e9ea" /><Setter Property="Background" Value="#111821" />
+      <Setter Property="BorderBrush" Value="#3b4c59" /><Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+        <Grid>
+          <Border x:Name="ComboChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4" />
+          <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+            <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="⌄" Foreground="#8fb6cf" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,2" /></Border></ControlTemplate></ToggleButton.Template>
+          </ToggleButton>
+          <ContentPresenter x:Name="SelectedAction" IsHitTestVisible="False" Margin="7,2,24,2" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
+          <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="4,1,24,1" Background="Transparent" Foreground="{TemplateBinding Foreground}" BorderThickness="0" Padding="2,0" IsReadOnly="{TemplateBinding IsReadOnly}" />
+          <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+            <Border Background="#151d24" BorderBrush="#496172" BorderThickness="1" CornerRadius="4" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+              <ScrollViewer CanContentScroll="True"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer>
+            </Border>
+          </Popup>
+        </Grid>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsEditable" Value="True"><Setter TargetName="SelectedAction" Property="Visibility" Value="Collapsed" /><Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" /></Trigger>
+          <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ComboChrome" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="GestureScopeButtonStyle" TargetType="RadioButton">
       <Setter Property="Template">
         <Setter.Value>
@@ -61,7 +136,7 @@
         </DataTemplate>
       </GroupStyle.HeaderTemplate>
     </GroupStyle>
-    <Style x:Key="KeymapActionComboItemStyle" TargetType="{x:Type ComboBoxItem}">
+    <Style x:Key="KeymapActionComboItemStyle" TargetType="{x:Type ComboBoxItem}" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
       <Setter Property="Padding" Value="8,3" />
     </Style>
     <Style x:Key="ShortcutModifierToggleStyle" TargetType="{x:Type ToggleButton}">
@@ -100,7 +175,7 @@
         </Setter.Value>
       </Setter>
     </Style>
-    <Style x:Key="WatermarkTextBoxStyle" TargetType="{x:Type TextBox}">
+    <Style x:Key="WatermarkTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
       <Setter Property="Foreground" Value="#e7e9ea" />
       <Setter Property="Background" Value="#111418" />
       <Setter Property="BorderBrush" Value="#2b2f33" />
@@ -213,9 +288,9 @@
       </DockPanel>
     </Border>
     <Grid Grid.Row="1" Margin="16">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
       <ScrollViewer x:Name="TrackpadScrollViewer" Grid.Column="0" Margin="0,0,12,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-        <Grid x:Name="TrackpadWorkspace" MinWidth="600" MinHeight="580">
+        <Grid x:Name="TrackpadWorkspace" MinWidth="360" MinHeight="580">
           <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
           <WrapPanel x:Name="ReplayPanel" VerticalAlignment="Center" Grid.Row="0" Margin="0,0,0,12" Visibility="Collapsed">
             <Button x:Name="ReplayToggleButton" Content="Play" Padding="10,4" />
@@ -281,7 +356,10 @@
           </Border>
         </Grid>
       </ScrollViewer>
-      <Border x:Name="ControlsPaneBorder" Grid.Column="1" Width="420" Background="#0c0f12" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="12">
+      <Thumb x:Name="InspectorResizeThumb" Grid.Column="1" Cursor="SizeWE" ToolTip="Drag to resize the inspector" AutomationProperties.Name="Resize settings inspector">
+        <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"><Border Width="2" Height="48" Background="#496172" CornerRadius="1" /></Border></ControlTemplate></Thumb.Template>
+      </Thumb>
+      <Border x:Name="ControlsPaneBorder" Grid.Column="2" Width="420" Background="#0c0f12" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="12">
         <TabControl x:Name="SettingsTabs" SelectedIndex="0" Style="{StaticResource InspectorTabsStyle}" ItemContainerStyle="{StaticResource InspectorTabStyle}">
           <TabItem Header="_Keyboard" x:Name="KeyboardSettingsTab">
             <ScrollViewer x:Name="KeyboardSettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
@@ -693,7 +771,7 @@
                       <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                     </Grid>
-                    <StackPanel x:Name="ForceTypingTuningPanel">
+                    <StackPanel x:Name="ForceTypingTuningPanel" Visibility="Collapsed">
                       <Grid Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="*" />
@@ -783,7 +861,7 @@
                       <Button x:Name="KeymapImportButton" Content="Import Settings" Padding="10,4" Margin="0,0,4,0" />
                       <Button x:Name="KeymapExportButton" Content="Export Settings" Padding="10,4" Margin="4,0,0,0" />
                     </UniformGrid>
-                    <Border x:Name="AutocorrectStatusBorder" Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
+                    <Border x:Name="AutocorrectStatusBorder" Visibility="Collapsed" Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                       <StackPanel>
                         <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
                         <TextBlock Foreground="#8b949e" FontSize="11">

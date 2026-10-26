@@ -8,6 +8,9 @@ internal static class WindowsInputPolicy
     {
         settings.KeyboardModeEnabled = false;
         settings.TypingEnabled = true;
+        // Mac's keyboard has per-key Force instead of global typing pressure gates.
+        settings.ForceMin = 0;
+        settings.ForceCap = 255;
         settings.HandGesturesV1 ??= new();
         settings.HandGesturesV1.Normalize();
         settings.HandGesturesV1.Left.PointerResponse = settings.HandGesturesV1.Right.PointerResponse = HandPointerResponse.AppleReference;

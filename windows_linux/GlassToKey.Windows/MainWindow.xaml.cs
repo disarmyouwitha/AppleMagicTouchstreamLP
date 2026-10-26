@@ -28,7 +28,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double KeyHeightMm = RuntimeConfigurationFactory.KeyHeightMm;
     private const double MxKeyWidthMm = 19.05;
     private const double MxKeyHeightMm = 19.05;
-    private const double ControlsPaneExpandedWidth = 420.0;
+    private double ControlsPaneExpandedWidth = 420.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
     private const ushort DefaultMaxX = 7612;
@@ -230,6 +230,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnAutoSplayButton.Click += OnColumnAutoSplayClicked;
         ColumnEvenSpaceButton.Click += OnColumnEvenSpaceClicked;
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
+        InspectorResizeThumb.DragDelta += (_,e) =>
+        {
+            if (!_controlsPaneVisible) return;
+            ControlsPaneExpandedWidth = Math.Clamp(ControlsPaneBorder.ActualWidth-e.HorizontalChange,360,Math.Max(360,ActualWidth-420));
+            ControlsPaneBorder.BeginAnimation(FrameworkElement.WidthProperty,null);
+            ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
+        };
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
         AutocorrectModeCheck.Checked += OnModeSettingChanged;
@@ -2349,6 +2356,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Content = visible ? "Hide Settings" : "Show Settings";
         double targetWidth = visible ? ControlsPaneExpandedWidth : ControlsPaneCollapsedWidth;
         ControlsPaneBorder.IsHitTestVisible = visible;
+        InspectorResizeThumb.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
 
         if (!animated)
         {
@@ -3253,6 +3261,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         LeftSurface.LabelMatrix = BuildLabelMatrix(TrackpadSide.Left);
         RightSurface.LabelMatrix = BuildLabelMatrix(TrackpadSide.Right);
+        LeftSurface.Side = TrackpadSide.Left; RightSurface.Side = TrackpadSide.Right;
+        LeftSurface.ShowTouchStreamReference = RightSurface.ShowTouchStreamReference = _preset.Name == "touchstream";
         LeftSurface.CustomButtons = BuildSurfaceCustomButtons(TrackpadSide.Left);
         RightSurface.CustomButtons = BuildSurfaceCustomButtons(TrackpadSide.Right);
         LeftSurface.InvalidateVisual();
@@ -3301,6 +3311,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label)
                     ? defaultLabel
                     : GetActionSurfaceLabel(mapping.Primary.Label);
+                if (_preset.Name=="touchstream" && mapping.Primary.Label=="None" && defaultLabel is "Hand" or "Caps Lock" or "Scroll Lock" or "Num Lock" or "Popup" or "Print Screen" or "Pause")
+                    primary=defaultLabel;
                 string? hold = string.IsNullOrWhiteSpace(mapping.Hold?.Label)
                     ? null
                     : GetActionSurfaceLabel(mapping.Hold.Label);
@@ -3949,7 +3961,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RightSurface.InvalidateVisual();
     }
 
-    private static bool TryHitSelectionAtPoint(
+    internal static bool TryHitSelectionAtPoint(
         TouchView surface,
         KeyLayout layout,
         IReadOnlyList<CustomButton> customButtons,
@@ -3972,10 +3984,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
-        if (!TryCreatePadRect(bounds, surface.TrackpadWidthMm, surface.TrackpadHeightMm, out Rect pad))
-        {
-            return false;
-        }
+        Rect pad = surface.PadBounds;
 
         if (!pad.Contains(point))
         {
@@ -4035,31 +4044,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         return row >= 0 || !string.IsNullOrWhiteSpace(customButtonId);
-    }
-
-    private static bool TryCreatePadRect(Rect bounds, double trackpadWidthMm, double trackpadHeightMm, out Rect pad)
-    {
-        pad = default;
-        double padding = 20;
-        Rect inner = new(bounds.Left + padding, bounds.Top + padding, bounds.Width - padding * 2, bounds.Height - padding * 2);
-        if (inner.Width <= 0 || inner.Height <= 0)
-        {
-            return false;
-        }
-
-        double aspect = trackpadWidthMm <= 0 || trackpadHeightMm <= 0 ? 1.0 : trackpadWidthMm / trackpadHeightMm;
-        double width = inner.Width;
-        double height = width / aspect;
-        if (height > inner.Height)
-        {
-            height = inner.Height;
-            width = height * aspect;
-        }
-
-        double x = inner.Left + (inner.Width - width) / 2;
-        double y = inner.Top + (inner.Height - height) / 2;
-        pad = new Rect(x, y, width, height);
-        return true;
     }
 
     private int GetSelectedLayer()

@@ -109,11 +109,11 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
 internal sealed class NativeGestureOutput : IHandGestureOutput
 {
     internal const ulong EventTag = 0x47544b47;
-    private readonly NativeInput[] _inputs = new NativeInput[4];
+    private readonly NativeInput[] _inputs = new NativeInput[32];
     private volatile bool _held;
     private double _xRemainder, _yRemainder, _wheelX, _wheelY;
     private double _zoomRemainder;
-    private readonly ushort[] _keyUps = new ushort[4];
+    private readonly ushort[] _keyUps = new ushort[16];
     private int _keyUpCount;
     private readonly long[] _lastForceHaptic = new long[2];
     public bool NeedsKeyRelease => _keyUpCount > 0;
@@ -168,7 +168,13 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     public void Tap(HandGestureAction action)
     {
         if (_held || ForeignButtonDown) return;
-        if (PerHandGestureSettings.IsSystemAction(action)) { Shortcut(action); return; }
+        if (action is HandGestureAction.ScrollUp or HandGestureAction.ScrollDown or HandGestureAction.PanLeft or HandGestureAction.PanRight)
+        {
+            Scroll(action == HandGestureAction.PanLeft ? 10 : action == HandGestureAction.PanRight ? -10 : 0,
+                action == HandGestureAction.ScrollUp ? 10 : action == HandGestureAction.ScrollDown ? -10 : 0);
+            return;
+        }
+        if (WindowsGestureShortcutPlan.For(action).Length > 0) { Shortcut(action); return; }
         bool secondary = action == HandGestureAction.SecondaryClick;
         if (action is not (HandGestureAction.PrimaryClick or HandGestureAction.DoubleClick or HandGestureAction.SecondaryClick)) return;
         int n = action == HandGestureAction.DoubleClick ? 4 : 2;
@@ -188,6 +194,19 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     {
         if (ModifierBusy) return; // Never release a physical/typing modifier owned elsewhere.
         var edges = WindowsGestureShortcutPlan.For(action);
+        foreach (var edge in edges) if (!edge.Up && Down(edge.Key)) return;
+        PostShortcut(edges);
+    }
+    public void AssignedAction(string label)
+    {
+        if (_held || ForeignButtonDown || ModifierBusy) return;
+        var edges=WindowsGestureShortcutPlan.ForAssignment(label);
+        foreach (var edge in edges) if (!edge.Up && Down(edge.Key)) return;
+        PostShortcut(edges);
+    }
+    private void PostShortcut(WindowsGestureShortcutPlan.Edge[] edges)
+    {
+        if (edges.Length==0) return;
         for (int i=0; i<edges.Length; i++) _inputs[i] = Key(edges[i].Key,edges[i].Up);
         _keyUpCount=0;
         foreach (var edge in edges) if (edge.Up) _keyUps[_keyUpCount++]=edge.Key;
@@ -231,7 +250,7 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     private static NativeInput Input(uint flags, int x = 0, int y = 0, uint data = 0) => new()
     { Payload = new InputPayload { Mouse = new MouseInput { X = x, Y = y, Flags = flags, Data = data, Extra = unchecked((nuint)EventTag) } } };
     private static NativeInput Key(ushort key, bool up) => new() { Type=1,
-        Payload=new InputPayload { Keyboard=new KeyboardInput { Key=key, Flags=(up ? 2u : 0u) | (key==0x5B ? 1u : 0u), Extra=unchecked((nuint)EventTag) } } };
+        Payload=new InputPayload { Keyboard=new KeyboardInput { Key=key, Flags=(up ? 2u : 0u) | (WindowsVirtualKeyMapper.IsExtendedVirtualKey(key) ? 1u : 0u), Extra=unchecked((nuint)EventTag) } } };
     [StructLayout(LayoutKind.Sequential)] private struct NativeInput { public uint Type; public InputPayload Payload; }
     [StructLayout(LayoutKind.Explicit)] private struct InputPayload
     {

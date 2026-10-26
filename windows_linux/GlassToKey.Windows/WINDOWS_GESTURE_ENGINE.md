@@ -1,6 +1,8 @@
 # Windows gesture engine
 
-Latest port: [grouped Mac inspector, 1–5-finger force and 2–5-finger pinch/spread](WINDOWS_MAC_GESTURE_PORT.md). This is the current feature/verification reference; earlier sections below record the initial port.
+Current reference: [Mac gold-standard parity and hardware checklist](MAC_GOLD_PARITY.md).
+The sections below are historical notes for the initial 2026-10-23 port. They
+describe earlier scope controls and action menus; current behavior takes precedence.
 
 Current Windows pointer controls: movement and drag always use the accepted Apple reference acceleration profile. Pointer response selection and Mac-profile import have been removed from the inspector; older saved response choices are overridden by Windows policy. Shared profile fields and numerical models remain for compatibility and offline verification. The import instructions below describe the earlier research UI and are no longer an available Windows workflow.
 

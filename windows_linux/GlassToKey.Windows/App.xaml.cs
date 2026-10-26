@@ -361,7 +361,7 @@ public partial class App : Application
         }
     }
 
-    private void OpenConfigWindow()
+    internal void OpenConfigWindow()
     {
         if (_startupOptions == null)
         {

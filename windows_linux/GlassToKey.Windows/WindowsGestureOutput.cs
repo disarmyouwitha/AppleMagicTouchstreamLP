@@ -7,7 +7,7 @@ namespace GlassToKey;
 // the sole native writer owns its buffers, fractional motion and drag destination.
 internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
 {
-    private readonly record struct Command(int Kind, double X, double Y, HandGestureAction Action, long Time, long Generation);
+    private readonly record struct Command(int Kind, double X, double Y, HandGestureAction Action, long Time, long Generation, string? Label=null);
     private readonly object _gate = new();
     private readonly Queue<Command> _queue = new();
     private readonly AutoResetEvent _wake = new(false);
@@ -29,6 +29,7 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
     public void Scroll(double xPoints, double yPoints) => Enqueue(1,xPoints,yPoints);
     public void PrimaryButton(bool down) => Enqueue(down ? 2 : 3);
     public void Tap(HandGestureAction action) => Enqueue(4,action:action);
+    public void AssignedAction(string label) => Enqueue(8,label:label);
     public void Zoom(double scaleDelta) => Enqueue(6,scaleDelta);
     public void ForceFeedback(TrackpadSide side) => Enqueue(7,(int)side);
     public void ResetRemainders() => Enqueue(5);
@@ -46,7 +47,7 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
             _wake.Set();
         }
     }
-    private void Enqueue(int kind, double x = 0, double y = 0, HandGestureAction action = default)
+    private void Enqueue(int kind, double x = 0, double y = 0, HandGestureAction action = default,string? label=null)
     {
         lock (_gate)
         {
@@ -57,7 +58,7 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
                 Interlocked.Exchange(ref _fault,"Gesture output queue overflow");
                 _queue.Enqueue(new(3,0,0,default,Stopwatch.GetTimestamp(),_generation));
             }
-            else _queue.Enqueue(new(kind,x,y,action,Stopwatch.GetTimestamp(),_generation));
+            else _queue.Enqueue(new(kind,x,y,action,Stopwatch.GetTimestamp(),_generation,label));
             _wake.Set();
         }
     }
@@ -95,10 +96,28 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
                         case 1: _native.Scroll(command.X,command.Y); break;
                         case 2: _native.PrimaryButton(true); break;
                         case 3: _native.PrimaryButton(false); break;
-                        case 4: _native.Tap(command.Action); break;
+                        case 4:
+                            if (command.Action == HandGestureAction.OpenConfig)
+                                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                                {
+                                    if (System.Windows.Application.Current is App app) app.OpenConfigWindow();
+                                });
+                            else _native.Tap(command.Action);
+                            break;
                         case 5: _native.ResetRemainders(); break;
                         case 6: _native.Zoom(command.X); break;
                         case 7: _native.ForceFeedback((TrackpadSide)(int)command.X); break;
+                        case 8:
+                            if (command.Label is {} label)
+                            {
+                                if (AppLaunchActionHelper.TryParse(label,out var spec))
+                                {
+                                    try { using var process=Process.Start(new ProcessStartInfo { FileName=spec.FileName,Arguments=spec.Arguments,UseShellExecute=true }); }
+                                    catch (System.ComponentModel.Win32Exception) { /* Target removed or unavailable. */ }
+                                }
+                                else _native.AssignedAction(label);
+                            }
+                            break;
                     }
                 }
                 catch (Exception ex)

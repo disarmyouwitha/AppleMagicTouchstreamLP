@@ -41,6 +41,7 @@ public static class LayoutBuilder
     {
         int columns = preset.Columns;
         int rows = preset.Rows;
+        if (preset.Name == "touchstream") return TouchStreamLayoutDefinition.Build(mirrored,keymap);
         if (mirrored && preset.BlankLeftSide)
         {
             return new KeyLayout(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
@@ -261,7 +262,7 @@ public static class LayoutBuilder
         return new KeyLayout(rects, labels);
     }
 
-    private static NormalizedRect ApplyKeyGeometryOverride(NormalizedRect rect, KeyGeometryOverride geometry)
+    internal static NormalizedRect ApplyKeyGeometryOverride(NormalizedRect rect, KeyGeometryOverride geometry)
     {
         double widthScale = geometry.WidthScale > 0.0 ? geometry.WidthScale : 1.0;
         double heightScale = geometry.HeightScale > 0.0 ? geometry.HeightScale : 1.0;

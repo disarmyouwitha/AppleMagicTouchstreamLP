@@ -250,7 +250,7 @@ public sealed class KeymapStore
 
         return new KeyMapping
         {
-            Primary = new KeyAction { Label = defaultLabel },
+            Primary = new KeyAction { Label = _activeLayoutKey == "touchstream" && defaultLabel is "Hand" or "Caps Lock" or "Scroll Lock" or "Num Lock" or "Popup" or "Print Screen" or "Pause" ? "None" : defaultLabel },
             Hold = null,
             HoldForceThreshold = 0
         };

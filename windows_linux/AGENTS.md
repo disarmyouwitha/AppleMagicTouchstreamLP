@@ -66,7 +66,9 @@
 - Windows output injection: `GlassToKey.Windows/WindowsDispatch/SendInputDispatcher.cs`
 - Windows haptics helper: `GlassToKey.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`
 - Windows diagnostics/self-test surface: `GlassToKey.Windows/WindowsDiagnostics/`
-- Windows Config uses a left trackpad workspace (selectors, takeover, both pads, typing test) and a 420-pixel right inspector with Keyboard/Gestures tabs. Selecting a key/custom button opens the Keyboard tab. Preserve the existing named controls and runtime bindings when editing layout.
+- Windows Config uses a left trackpad workspace (selectors, takeover, both pads, typing test) and a resizable right inspector (420 pixels initially) with Keyboard/Gestures tabs. Gestures has a resizable navigation/detail split. Selecting a key/custom button opens Keyboard. Preserve named controls and runtime bindings.
+- Mac is the UI reference. TouchStream has independent traced geometry, automatic reference backgrounds and disabled column tuning. Gesture Left/Right, Mirror Edit and coordinated Both are distinct. Existing numeric enum identities must remain stable; append new identities. See `GlassToKey.Windows/MAC_GOLD_PARITY.md` for implemented contracts, limitations and verification.
+- Windows global Force Min/Max typing gates are neutralized; per-key Force Instead of Hold remains. Gesture holds are one-shot, 100–5000 ms (500 default), with all-up re-arming. Custom gesture actions reuse semantic shortcut/APP identities and the gated output worker. Do not add held gesture shortcuts without shared keyboard/gesture key ownership.
 - Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
 - `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover retains its session-only control and Ctrl+Alt+R release. The tray/app icon uses the Mac hand silhouette filled black.
 
