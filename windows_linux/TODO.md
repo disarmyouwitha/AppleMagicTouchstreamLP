@@ -1,13 +1,15 @@
 # Notes:
 =======
+Yooo a lot of this is really good!
 0. Lets remove "Hide Controls" toggle and code.
 1. Can we move Decoder Profiles above Mouse Takeover?
 2. No scrollbars between columns please.
-3. 
 * ?Can we make the emergency release CTRL + SHIFT + R? Or is that a shortcut for something?
+---
+0. Pinch and Spread animations are crazy wrong
 ===
 * "Live events bypass the intermediate ring buffer; output overflow cancels and releases keys"
-* 4-Finger latching is so bad I am always triggering drag instead. Please use mac/AppleMagicTouchstream as a reference. 
+* 4-Finger latching is so bad I am always triggering 3-finger drag instead. Please use mac/AppleMagicTouchstream as a reference. 
 ###
 0. Test GUI.
 1. I want you to review the mac vs windows implementation using Mac as the gold standard — tell me where we are passing, where we are failing and were we still need work (be specific) in our implementation.

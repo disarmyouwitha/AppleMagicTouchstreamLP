@@ -15,7 +15,6 @@ using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace GlassToKey;
@@ -29,7 +28,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double MxKeyWidthMm = 19.05;
     private const double MxKeyHeightMm = 19.05;
     private double ControlsPaneExpandedWidth = 420.0;
-    private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
@@ -115,7 +113,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private int _selectedKeyRow = -1;
     private int _selectedKeyColumn = -1;
     private string? _selectedCustomButtonId;
-    private bool _controlsPaneVisible = true;
     private int _lastLeftPillCount = -1;
     private int _lastRightPillCount = -1;
     private string _lastAutocorrectUiLastCorrected = string.Empty;
@@ -229,12 +226,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         ColumnAutoSplayButton.Click += OnColumnAutoSplayClicked;
         ColumnEvenSpaceButton.Click += OnColumnEvenSpaceClicked;
-        ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         InspectorResizeThumb.DragDelta += (_,e) =>
         {
-            if (!_controlsPaneVisible) return;
             ControlsPaneExpandedWidth = Math.Clamp(ControlsPaneBorder.ActualWidth-e.HorizontalChange,360,Math.Max(360,ActualWidth-420));
-            ControlsPaneBorder.BeginAnimation(FrameworkElement.WidthProperty,null);
             ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
         };
         KeymapExportButton.Click += OnKeymapExportClicked;
@@ -577,7 +571,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
         ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
-        ToggleControlsButton.Content = "Hide Controls";
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
         UpdateAutocorrectStatusDetails();
@@ -1444,11 +1437,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RebuildLayouts();
         RefreshKeymapEditor();
         ApplySettingsFromUi();
-    }
-
-    private void OnToggleControlsPaneClicked(object sender, RoutedEventArgs e)
-    {
-        SetControlsPaneVisible(!_controlsPaneVisible, animated: true);
     }
 
     private void OnKeymapExportClicked(object sender, RoutedEventArgs e)
@@ -2342,39 +2330,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static ColumnLayoutSettings[] BuildColumnSettingsForPreset(UserSettings settings, TrackpadLayoutPreset preset)
     {
         return RuntimeConfigurationFactory.BuildColumnSettingsForPreset(settings, preset);
-    }
-
-    private void SetControlsPaneVisible(bool visible, bool animated)
-    {
-        _controlsPaneVisible = visible;
-        ToggleControlsButton.Content = visible ? "Hide Settings" : "Show Settings";
-        double targetWidth = visible ? ControlsPaneExpandedWidth : ControlsPaneCollapsedWidth;
-        ControlsPaneBorder.IsHitTestVisible = visible;
-        InspectorResizeThumb.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-
-        if (!animated)
-        {
-            ControlsPaneBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
-            ControlsPaneBorder.BeginAnimation(UIElement.OpacityProperty, null);
-            ControlsPaneBorder.Width = targetWidth;
-            ControlsPaneBorder.Opacity = visible ? 1.0 : 0.0;
-            return;
-        }
-
-        var animation = new DoubleAnimation
-        {
-            To = targetWidth,
-            Duration = TimeSpan.FromMilliseconds(220),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-        };
-        var opacityAnimation = new DoubleAnimation
-        {
-            To = visible ? 1.0 : 0.0,
-            Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-        };
-        ControlsPaneBorder.BeginAnimation(FrameworkElement.WidthProperty, animation, HandoffBehavior.SnapshotAndReplace);
-        ControlsPaneBorder.BeginAnimation(UIElement.OpacityProperty, opacityAnimation, HandoffBehavior.SnapshotAndReplace);
     }
 
     private static List<KeyActionOption> BuildKeyActionOptions()
@@ -3850,7 +3805,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
     {
-        SetControlsPaneVisible(true, animated: false);
         SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = false;
@@ -3864,7 +3818,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandCustomButtonEditorAndFocusGeometry()
     {
-        SetControlsPaneVisible(true, animated: false);
         SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = true;

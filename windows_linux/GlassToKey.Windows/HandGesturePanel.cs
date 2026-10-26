@@ -52,12 +52,14 @@ internal sealed class HandGesturePanel : Grid
         controls.Children.Add(_mirror); controls.Children.Add(_search); navigation.Children.Add(controls);
         _search.Tag="Search gestures or actions"; _search.SetResourceReference(StyleProperty,"WatermarkTextBoxStyle");
         System.Windows.Automation.AutomationProperties.SetName(_search,"Search gestures or actions");
+        ScrollViewer.SetVerticalScrollBarVisibility(_navigation,ScrollBarVisibility.Hidden);
+        ScrollViewer.SetHorizontalScrollBarVisibility(_navigation,ScrollBarVisibility.Disabled);
         Grid.SetRow(_navigation,1); navigation.Children.Add(_navigation);
         Grid.SetRow(_status,2); _status.Margin=new(0,12,0,0); navigation.Children.Add(_status); Children.Add(navigation);
         AddDivider(1); AddDivider(3);
-        var pageScroll=new ScrollViewer { Content=_pageContent,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(22,12,22,20) };
+        var pageScroll=new ScrollViewer { Content=_pageContent,VerticalScrollBarVisibility=ScrollBarVisibility.Hidden,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(22,12,22,20) };
         Grid.SetColumn(pageScroll,2); Children.Add(pageScroll);
-        var actionScroll=new ScrollViewer { Content=_inspector,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(18,12,18,20),Background=new SolidColorBrush(Color.FromRgb(13,17,21)) };
+        var actionScroll=new ScrollViewer { Content=_inspector,VerticalScrollBarVisibility=ScrollBarVisibility.Hidden,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(18,12,18,20),Background=new SolidColorBrush(Color.FromRgb(13,17,21)) };
         Grid.SetColumn(actionScroll,4); Children.Add(actionScroll);
         _mirror.Checked+=(_,_)=>Rebuild(); _mirror.Unchecked+=(_,_)=>Rebuild();
         _search.TextChanged+=(_,_)=>FilterNavigation();

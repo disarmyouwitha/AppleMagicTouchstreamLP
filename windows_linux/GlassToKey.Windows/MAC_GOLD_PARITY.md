@@ -10,9 +10,12 @@ This is a substantial functional port; the remaining differences below are real.
   remains the default. Device/takeover controls span both workspaces. Gestures hides
   the visualizer and keyboard inspector and presents navigation, assignment cards
   and a separate Action column, with two resizable dividers and independent scroll
-  areas. Cards select the Action inspector, including the movement cross, Hold,
+  areas with hidden scrollbar tracks; wheel and keyboard scrolling remain available.
+  Cards select the Action inspector, including the movement cross, Hold,
   directional actions and coordinated Both assignments. The Shortcut Builder is
   inline in the Action column. Selecting a keyboard key returns to Keyboard.
+  The settings inspector stays visible, with no Hide Controls toggle. Decoder
+  Profiles sits above Mouse Takeover.
 - Gesture Left and Right select independent settings. Mirror Edit writes the same
   edit to both independent settings. Both edits a separate coordinated namespace.
   Mirror Edit never changes coordinated assignments.
@@ -122,7 +125,7 @@ Optional off-screen rendering parses a plain XAML Window, never MainWindow's
 live constructor, and opens no devices or input hooks.
 
 The normal Release folder can be locked by a running app. The
-updated build is `bin/MacWorkspace/GlassToKey.Windows.exe`. Exit the old tray instance
+updated build is `bin/MacWorkspaceUpdate/GlassToKey.Windows.exe`. Exit the old tray instance
 before starting it. No live takeover or hardware input tests were run by the agent.
 
 Hardware sequence:

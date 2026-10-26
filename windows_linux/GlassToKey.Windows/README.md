@@ -10,7 +10,7 @@ By default, GlassToKey opens the config window on launch. To start tray-only (ta
 
 ### Configuration layout
 
-The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing test and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. Selecting a key or custom button returns to Keyboard. **Hide Settings** expands the keyboard trackpad area. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
+The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing test and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. Selecting a key or custom button returns to Keyboard. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
 
 ### Mouse Takeover
 
