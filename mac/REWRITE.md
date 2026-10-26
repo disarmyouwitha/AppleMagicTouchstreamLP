@@ -1,10 +1,13 @@
 # NEXT:
 =======
-0. After initiating Emoji shortcut in Gesture my tapping is messed up like modifiers are still held?
-1. I can't get Voice to trigger unless the Config window is open (unacceptable)
-> export new keymaps (default & MY)
+* Please run a full release build for me / github
+0. When we Restart via the Taskbar menu option what is preserved / not shut down?
+* Can we kill the entire app and restart when we restart via the menu option?
+* I would like to keep the "warm up" phase when you "close the config" when it does it's soft reboot.
 ===
-0. For our Directional gestures there should be a behavior dropdown (repeat every ms, repeat with motion)
+0. Autocorrect isnt starting properly? Well.. it works in this app, but not like. VS Code or a youtube search... Just Accessibility apps? Is that a hard limitation? (I thought we had a fallback where we would backspace and type when accessibility was not available?)
+1. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
+===
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
@@ -14,8 +17,7 @@
 
 `AppleMagicTouchstream`:
 ===
-0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
-1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
+1. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 2. Implement actions: Missing Apple actions:
 > Smart-zoom 
 2. Implement actions: Missing TouchStream actions:

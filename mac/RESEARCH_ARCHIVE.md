@@ -11,7 +11,7 @@ For current behavior use [gesture rules](AppleMagicTouchstream/GESTURE_ENGINE.md
 [native takeover](AppleMagicTouchstream/TRACKPAD_TAKEOVER.md), and the
 [implementation plan](FINGERWORKS_IMPLEMENTATION_PLAN.md). Original firmware
 semantics are consolidated in [FINDINGS.md](FINDINGS.md). The full decoded Apple
-report layout is preserved in [APPLE_CONTACT_HID_LAYOUT.md](AppleMagicTouchstream/APPLE_CONTACT_HID_LAYOUT.md).
+report layout is preserved in [APPLE_CONTACT_HID_LAYOUT.md](../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/APPLE_CONTACT_HID_LAYOUT.md).
 Native FLTR is the production path; the archived custom-driver and notification
 experiments are historical evidence, not dependencies or a proposed return to them.
 

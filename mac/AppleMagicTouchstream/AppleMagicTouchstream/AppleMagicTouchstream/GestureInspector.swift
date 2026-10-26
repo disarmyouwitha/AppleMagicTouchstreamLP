@@ -1445,7 +1445,6 @@ struct GestureActionChooser:View {
         var seen:Set<GestureAction> = []
         return KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
             .compactMap { action -> GestureAction? in
-                if action.kind == .voice { return actions.contains(.voice) ? .voice : nil }
                 guard action.kind == .key || action.kind == .appLaunch else { return nil }
                 return .shortcut(.init(label:action.storageLabel))
             }.filter { seen.insert($0).inserted }

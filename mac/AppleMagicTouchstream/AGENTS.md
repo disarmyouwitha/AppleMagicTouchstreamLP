@@ -89,7 +89,8 @@ spellchecking off the input/output queues, require verified focus/text before
 replacement, and never fall back to blind backspacing. AX access must run on the
 main actor because self-targeted AX calls enter AppKit directly; spellchecking
 stays on its worker. Replay stays output-free.
-See [TYPING_ASSISTANCE.md](TYPING_ASSISTANCE.md).
+See [RUNTIME.md](RUNTIME.md) for keyboard, assistance, dictation and output contracts.
+Use [TESTING.md](TESTING.md) for replay, capture format and hardware checks.
 
 Voice is restored as an explicit toggle dictation action in Keymap and gesture
 menus. Speech/microphone permission and audio start occur only on invocation.

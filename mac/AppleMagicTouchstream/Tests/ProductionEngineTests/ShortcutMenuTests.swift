@@ -3,11 +3,11 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 @MainActor final class ShortcutMenuTests: XCTestCase {
-    func testEmptyLibraryHasScreenshotVoiceEmojiButNoInjectedModifiers() {
+    func testMenusHideVoiceAndKeepDictationWithoutInjectedModifiers() {
         let actions = KeyActionCatalog.shortcutMenuActions(savedLabels: [])
-        XCTAssertEqual(actions.map(\.pickerText), ["Screenshot", "Voice", "Emoji"])
+        XCTAssertEqual(actions.map(\.pickerText), ["Screenshot", "Dictation", "Emoji"])
         let gestures = GestureActionChooser.shortcutActions(GestureTrigger.twoFingerTap.allowedActions, savedLabels: [])
-        XCTAssertEqual(gestures.map(\.title), ["Screenshot", "Voice", "Emoji"])
+        XCTAssertEqual(gestures.map(\.title), ["Screenshot", "Dictation", "Emoji"])
         for modifier in ["Shift", "Ctrl", "Option", "Cmd", "Hyper"] {
             let saved = GestureActionChooser.shortcutActions(GestureTrigger.twoFingerTap.allowedActions, savedLabels: [modifier])
             XCTAssertEqual(saved.filter { $0.shortcutAssignment?.label == modifier }.count, 1)
@@ -15,10 +15,34 @@ import XCTest
         }
     }
 
+    func testDictationIsANamedBalancedKeyboardShortcutAndRoundTrips() throws {
+        let action = try XCTUnwrap(KeyActionCatalog.action(for:"Dictation"))
+        XCTAssertEqual(action.kind,.key)
+        XCTAssertEqual(action.pickerText,"Dictation")
+        XCTAssertEqual(action.keyCode,UInt16(kVK_ANSI_D))
+        XCTAssertEqual(action.flags,CGEventFlags.maskSecondaryFn.rawValue)
+        XCTAssertEqual(KeyActionCatalog.shortcutMenuActions(savedLabels:[action.storageLabel,"DICTATION"]).filter { $0.pickerText == "Dictation" }.count,1)
+        let edges = try XCTUnwrap(KeyboardStrokeOutput.events(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags),restoringFlags:[]))
+        XCTAssertEqual(edges.down.flags,.maskSecondaryFn)
+        XCTAssertEqual(edges.up.flags,[])
+        // Old named entries keep their literal command; the user reassigns them.
+        let old = NamedShortcutStorage.label(name:"Dictation",command:"Option+Cmd+D")
+        XCTAssertEqual(KeyActionCatalog.action(for:old)?.flags,CGEventFlags([.maskAlternate,.maskCommand]).rawValue)
+        XCTAssertEqual(GestureShortcutAssignment(label:old).action?.flags,CGEventFlags([.maskAlternate,.maskCommand]).rawValue)
+        var profile = AppKeymapProfile.defaultProfile()
+        var settings = HandGestureSettings()
+        settings.setAction(.shortcut(.init(label:action.storageLabel)),for:.thumbTwoTap,in:.left)
+        profile.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings,settings)
+        let saved = try XCTUnwrap(ShortcutActionLibraryStorage.encode([action.storageLabel]))
+        XCTAssertEqual(ShortcutActionLibraryStorage.decode(from:saved),[action.storageLabel])
+    }
+
     func testBuiltinsShareShortcutsSectionWithoutDuplicatingSavedEntries() throws {
         let saved = ["Shift+Cmd+4", "VOICE", "Emoji", "Cmd+S"]
         let actions = KeyActionCatalog.shortcutMenuActions(savedLabels: saved)
-        XCTAssertEqual(actions.filter { $0.kind == .voice }.count, 1)
+        XCTAssertEqual(actions.filter { $0.kind == .voice }.count, 0)
         XCTAssertEqual(actions.filter { $0.label == "Emoji" }.count, 1)
         XCTAssertEqual(actions.filter { $0.pickerText == "Screenshot" }.count, 1)
         XCTAssertTrue(actions.contains { $0.label == "Cmd+S" })
@@ -26,7 +50,7 @@ import XCTest
         XCTAssertFalse(KeyActionCatalog.primaryActionGroups.flatMap(\.actions).contains { $0.kind == .voice })
 
         let gestures = GestureActionChooser.shortcutActions(GestureTrigger.twoFingerTap.allowedActions, savedLabels: saved)
-        XCTAssertEqual(gestures.filter { $0 == .voice }.count, 1)
+        XCTAssertEqual(gestures.filter { $0 == .voice }.count, 0)
         XCTAssertEqual(gestures.filter { $0.shortcutAssignment?.label == "Emoji" }.count, 1)
         XCTAssertTrue(gestures.contains { $0.shortcutAssignment?.action?.pickerText == "Screenshot" })
         XCTAssertFalse(GestureActionChooser.groups(GestureAction.allCases).flatMap(\.actions).contains(.voice))

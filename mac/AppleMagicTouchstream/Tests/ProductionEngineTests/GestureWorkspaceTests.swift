@@ -116,6 +116,10 @@ final class GestureWorkspaceTests: XCTestCase {
     }
 
     func testWorkspaceRendersExistingGestureFamiliesWithoutInputClients() throws {
+        // Ordinary runs cover every page/movement mode once, plus a narrow,
+        // mirrored directional editor. The full Cartesian product is a visual
+        // inspection tool, not additional recognition coverage.
+        let fullPreview = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] != nil
         let suite = "GestureWorkspacePreview.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
         defer { defaults.removePersistentDomain(forName:suite) }
@@ -125,7 +129,9 @@ final class GestureWorkspaceTests: XCTestCase {
                 defaults.set(narrow ? WorkspaceColumnSizing.minimumMenu : WorkspaceColumnSizing.defaultGestureColumnWidth,forKey:WorkspaceColumnSizing.gestureNavigationWidthKey)
                 defaults.set(narrow ? WorkspaceColumnSizing.minimumInspector : WorkspaceColumnSizing.defaultGestureColumnWidth,forKey:WorkspaceColumnSizing.gestureInspectorWidthKey)
                 for pane in GesturePane.allCases {
-                    let movement = pane.triggers.first { GestureDirectionalAssignments.triggers.contains($0) }
+                    if !fullPreview && (mirrored || narrow) && !(mirrored && narrow && pane == .twoFingers) { continue }
+                    // Thumb+2 has a separate diagonal-only workspace test.
+                    let movement = pane.triggers.first { GestureDirectionalAssignments.cardinalTriggers.contains($0) }
                     for directional in (movement == nil ? [false] : [false,true]) {
                         var settings = HandGestureSettings()
                         if directional, let movement {
@@ -210,7 +216,7 @@ final class GestureWorkspaceTests: XCTestCase {
                 try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
                     .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-\(trigger.rawValue).png"))
                 if trigger.isContinuous && !trigger.isPinch {
-                    for direction in GestureMovementDirection.allCases {
+                    for direction in GestureDirectionalAssignments.directions(for:trigger) {
                         let directionalStrip = HStack(spacing:16) {
                             ForEach([0.03,0.16,0.40,0.67,0.82,0.96],id:\.self) { phase in
                                 GestureChordIcon(gesture:pane,trigger:trigger,direction:direction,previewPhase:phase)

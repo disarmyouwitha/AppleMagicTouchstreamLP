@@ -3,7 +3,7 @@
 Current behavior for AppleMagicTouchstream. The implementation separates input
 recognition, session ownership, configurable actions and output lifetimes.
 [Firmware findings](../FINDINGS.md) describe the original device; the thresholds
-below are the app's tested policy. [Engine audit](GESTURE_ENGINE_AUDIT.md) records
+below are the app's tested policy. [Engine audit](../../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/GESTURE_ENGINE_AUDIT.md) records
 the architecture review and remaining work.
 
 ## Session contract
@@ -83,7 +83,7 @@ cannot activate the new chord. Stable-pair activation remains 0.35 mm. Existing
 three-finger staggered drag keeps its activation policy; already activated latches
 keep their matched-contact deltas and count transitions unchanged. This uses an
 activation-rule policy in the shared session engine, not a second mouse recognizer.
-See [typing arbitration audit](TYPING_GESTURE_ARBITRATION.md) for the captured
+See [typing arbitration audit](../../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/TYPING_GESTURE_ARBITRATION.md) for the captured
 regression and differences from the recovered TouchStream firmware.
 
 Local output processing gives an already fired Hold its cycle, then evaluates
@@ -435,7 +435,7 @@ Force feedback is fixed waveform 6 / level 0.25, once per pressure-owned cycle,
 with at least 50 ms between same-pad pulses. Typing uses waveform 6 and its separate
 0–2 Haptic Strength slider, step 0.01. Saved strength uses level ×100 encoding.
 Feedback targets the originating pad; replay is recording-only.
-[Native haptic evidence](FORCE_CLICK_HAPTICS.md) describes the parameter bounds.
+[Native haptic evidence](../../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/FORCE_CLICK_HAPTICS.md) describes the parameter bounds.
 
 ## Settings and interface
 

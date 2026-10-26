@@ -171,7 +171,11 @@ final class ThumbDiagonalTests: XCTestCase {
     func testDiagonalWorkspaceAndAnimationRenderWithoutInput() throws {
         let settings = HandGestureSettings()
         XCTAssertEqual(GesturePane.thumbTwo.triggers,[.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight])
-        for direction in GestureMovementDirection.diagonals {
+        // One render exercises the shared layout; pure tests cover all four
+        // directions. Explicit screenshot runs still export every direction.
+        let directions: [GestureMovementDirection] = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] == nil
+            ? [.upLeft] : GestureMovementDirection.diagonals
+        for direction in directions {
             let view = GestureAssignmentWorkspace(settings:settings,initialPane:.thumbTwo,initialDirection:direction,
                 status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Must not assign during render")},
                 setSensitivity:{_,_,_ in XCTFail("Must not edit sensitivity during render")}).frame(width:1320,height:900)

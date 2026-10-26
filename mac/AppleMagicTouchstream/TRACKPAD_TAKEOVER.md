@@ -55,7 +55,7 @@ fails, retains failed-stop ownership for retry, and reports native recovery code
 
 USB and Bluetooth takeover have been hardware-tested on the supported external
 model. Private API compatibility still depends on macOS/native driver behavior.
-The discovery evidence is preserved in [native filter research](Tools/HIDSeizureProbe/NATIVE_FILTER_TEST.md)
+The discovery evidence is preserved in [native filter research](../../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/Tools/HIDSeizureProbe/NATIVE_FILTER_TEST.md)
 and [the research archive](../RESEARCH_ARCHIVE.md). Test keyboard/gesture output,
 two pads, release/restoration, Config/Restart, sleep and replay on each supported
 release target.

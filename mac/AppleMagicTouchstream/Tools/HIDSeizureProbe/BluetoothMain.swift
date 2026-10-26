@@ -123,7 +123,7 @@ private enum BluetoothMain {
         }
         if options.mode == .watchReconnect { try watchReconnect(options); return }
         guard options.mode == .inventory else {
-            throw ProbeError("Bluetooth listening is disabled: the previous channel-enumeration API had connection side effects. No Bluetooth access attempted. See BLUETOOTH_TEST.md.")
+            throw ProbeError("Bluetooth listening is disabled: the previous channel-enumeration API had connection side effects. No Bluetooth access attempted. See README.md for the archived Bluetooth test result.")
         }
         let pads = try registryPads().filter {
             options.address == nil || BluetoothOptions.canonicalAddress($0.serial) == options.address

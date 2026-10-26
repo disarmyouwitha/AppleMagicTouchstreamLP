@@ -56,8 +56,8 @@ final class VoiceDictationSessionTests: XCTestCase {
 
     @MainActor func testVoiceCatalogAndGestureAssignmentsRoundTrip() throws {
         for label in ["Voice", "VOICE"] { XCTAssertEqual(KeyActionCatalog.action(for: label)?.kind, .voice) }
-        XCTAssertTrue(KeyActionCatalog.shortcutMenuActions(savedLabels:[]).contains { $0.kind == .voice })
-        XCTAssertTrue(GestureActionChooser.shortcutActions([.voice],savedLabels:[]).contains(.voice))
+        XCTAssertFalse(KeyActionCatalog.shortcutMenuActions(savedLabels:["VOICE"]).contains { $0.kind == .voice })
+        XCTAssertFalse(GestureActionChooser.shortcutActions([.voice],savedLabels:["Voice"]).contains(.voice))
         var settings = HandGestureSettings()
         settings.setAction(.voice, for: .twoFingerTap, in: .left)
         settings.setAction(.voice, for: .oneFingerForce, in: .right)

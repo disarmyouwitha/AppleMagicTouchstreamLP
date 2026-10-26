@@ -1058,7 +1058,7 @@ struct ContentView: View {
         var actions = Set<KeyAction>()
 
         func add(_ action: KeyAction?) {
-            guard let action, action.kind != .none else { return }
+            guard let action, action.kind != .none, action.kind != .voice else { return }
             guard !excludingActions.contains(action) else { return }
             let existsInBaseGroups = groups.contains { group in
                 group.actions.contains(action)

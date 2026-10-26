@@ -559,8 +559,8 @@ enum NamedShortcutStorage {
     static func resolve(_ label:String) -> KeyAction? {
         guard label.hasPrefix(prefix), let data = String(label.dropFirst(prefix.count)).data(using:.utf8),
               let entry = try? JSONDecoder().decode(Entry.self,from:data),
-              let name = normalizedName(entry.name), !entry.command.hasPrefix(prefix),
-              var action = KeyActionCatalog.action(for:entry.command),
+              let name = normalizedName(entry.name), !entry.command.hasPrefix(prefix) else { return nil }
+        guard var action = KeyActionCatalog.action(for:entry.command),
               action.kind == .key || action.kind == .appLaunch else { return nil }
         action.customName = name
         return action
@@ -2252,6 +2252,7 @@ enum LayoutCustomButtonStorage {
 enum KeyActionCatalog {
     static let altGrLabel = "AltGr"
     static let voiceLabel = "Voice"
+    static let dictationLabel = "Dictation"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let screenshotLabel = "Screenshot"
@@ -2260,8 +2261,9 @@ enum KeyActionCatalog {
     /// Built-in entries share the Shortcuts section with the user's saved list.
     /// They don't mutate that list or duplicate an existing canonical entry.
     static func shortcutMenuActions(savedLabels: [String]) -> [KeyAction] {
-        ShortcutActionLibraryStorage.normalized(savedLabels + [screenshotShortcutLabel, voiceLabel, "Emoji"])
+        ShortcutActionLibraryStorage.normalized(savedLabels + [screenshotShortcutLabel, dictationLabel, "Emoji"])
             .compactMap { action(for: $0) }
+            .filter { $0.kind != .voice }
     }
     static let noneLabel = "None"
     static let leftClickLabel = "Left Click"
@@ -2743,6 +2745,8 @@ enum KeyActionCatalog {
             normalizedLabel = "Emoji"
         case "VOICE":
             normalizedLabel = voiceLabel
+        case "DICTATION":
+            normalizedLabel = dictationLabel
         case "Win", "Meta", "Super", "Cmd", "Command",
              "LWin", "LMeta", "LSuper", "LCmd", "LeftWin", "LeftMeta", "LeftSuper", "LeftCmd",
              "RWin", "RMeta", "RSuper", "RCmd", "RightWin", "RightMeta", "RightSuper", "RightCmd":
@@ -2780,6 +2784,10 @@ enum KeyActionCatalog {
 
         if normalizedLabel == voiceLabel {
             return KeyAction(label: voiceLabel, keyCode: 0, flags: 0, kind: .voice)
+        }
+        if normalizedLabel == dictationLabel {
+            return KeyAction(label:dictationLabel,keyCode:CGKeyCode(kVK_ANSI_D),
+                flags:CGEventFlags.maskSecondaryFn.rawValue,kind:.key)
         }
         if normalizedLabel == leftClickLabel {
             return KeyAction(

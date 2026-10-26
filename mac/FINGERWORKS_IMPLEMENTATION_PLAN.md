@@ -52,7 +52,7 @@ multitouch driver and does not require a custom DriverKit extension or helper.
 Axis fit is about 97.0% width / 95.0% height; aspect-preserving fit is about 95.0%.
 These are physical comparison dimensions, not verified active sensing bounds.
 The app uses the latter scale for normalized contact motion; actual sensor mapping
-is documented separately in [HID layout](AppleMagicTouchstream/APPLE_CONTACT_HID_LAYOUT.md).
+is documented separately in [HID layout](../../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/APPLE_CONTACT_HID_LAYOUT.md).
 Do not derive native coordinate bounds or force units from housing dimensions.
 
 The TouchStream layout has independent traced left/right key regions and stable

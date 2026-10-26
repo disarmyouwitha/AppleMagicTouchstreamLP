@@ -4,7 +4,7 @@
   assignment, chord selection/activation, typing arbitration and output ownership.
 - [Current gesture rules](mac/AppleMagicTouchstream/GESTURE_ENGINE.md): implemented
   behavior, configurable actions, thresholds and lifecycle.
-- [Engine consistency audit](mac/AppleMagicTouchstream/GESTURE_ENGINE_AUDIT.md): shared
+- [Engine consistency audit](../new_code/touchstream-archive/AppleMagicTouchstream-research-2026-10-26/notes/GESTURE_ENGINE_AUDIT.md): shared
   logic, fixes and remaining design work.
 - [Preserved macOS research](mac/RESEARCH_ARCHIVE.md): acceleration equations, capture
   analyses, decoder/parity findings, native transport work and interpreter design.
