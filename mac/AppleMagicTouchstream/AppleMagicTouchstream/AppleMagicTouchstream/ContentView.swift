@@ -2454,6 +2454,7 @@ struct ContentView: View {
     }
 
     private struct ModeTogglesSectionView: View {
+        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
@@ -2462,21 +2463,34 @@ struct ContentView: View {
         @Binding var autoResyncEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                Toggle("Autocorrect", isOn: $autocorrectEnabled)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), alignment: .leading),
+                                     count: compact ? 1 : 2), alignment: .leading, spacing: 8) {
+                modeToggle("Autocorrect", isOn: $autocorrectEnabled)
                     .help("Corrects completed words using macOS spellchecking in supported editable fields.")
-                Toggle("Snap Radius", isOn: Binding(
+                modeToggle("Snap Radius", isOn: Binding(
                     get: { snapRadiusPercentSetting > 0 },
                     set: { snapRadiusPercentSetting = $0 ? 100 : 0 }
                 ))
                     .help("Rescues near-miss typing taps by choosing the nearest key. Does not change gesture activation.")
-                Toggle("Run at Startup", isOn: $runAtStartupEnabled)
-                Toggle("Hold Repeat", isOn: $holdRepeatEnabled)
+                modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
+                modeToggle("Hold Repeat", isOn: $holdRepeatEnabled)
                     .help("Repeats hold-enabled key actions while the touch stays held.")
-                Toggle("Auto-resync", isOn: $autoResyncEnabled)
+                modeToggle("Auto-resync", isOn: $autoResyncEnabled)
                     .help("Polls every 8000 ms to detect disconnected trackpads.")
             }
             .toggleStyle(.switch)
+        }
+
+        private func modeToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+            HStack(spacing: 8) {
+                Text(title)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Toggle(title, isOn: isOn)
+                    .labelsHidden()
+                    .fixedSize()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
