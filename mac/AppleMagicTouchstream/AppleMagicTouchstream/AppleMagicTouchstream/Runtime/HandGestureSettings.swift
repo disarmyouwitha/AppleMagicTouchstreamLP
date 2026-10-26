@@ -593,10 +593,10 @@ enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
         switch self {
         case .fourCorners:return "Outer Corners"
         case .innerCorners:return "Inner Corners"
-        case .topOuterCorners:return "Top-outer"
-        case .topInnerCorners:return "Top-inner"
-        case .bottomOuterCorners:return "Bottom-outer"
-        case .bottomInnerCorners:return "Bottom-inner"
+        case .topOuterCorners:return "↖ ↗ Corners"
+        case .topInnerCorners:return "↗ ↖ Corners"
+        case .bottomOuterCorners:return "↙ ↘ Corners"
+        case .bottomInnerCorners:return "↘ ↙ Corners"
         case .threeFingers:return "3 fingers per hand"
         case .fourFingers:return "4 fingers per hand"
         }
