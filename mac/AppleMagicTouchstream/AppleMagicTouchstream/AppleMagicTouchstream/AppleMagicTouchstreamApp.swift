@@ -206,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
-        if nativeTakeover.hasOwnership { return }
+        if restartTask != nil || nativeTakeover.hasOwnership { return }
         Task { @MainActor in
             if captureInProgress {
                 await stopCaptureFlow()
@@ -577,25 +577,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 
     private func restartAppProcess(reopenConfig: Bool = true) {
-        if nativeTakeover.hasOwnership {
-            configWindow?.close()
-            if reopenConfig { openConfigWindow() }
-            return
-        }
         guard !isTerminatingApp, restartTask == nil else { return }
         restartTask = Task { @MainActor [self] in
+            // Persist Config's edits without scheduling its background relaunch.
+            // Closing Config normally still keeps active takeover warm.
+            configWindow?.close()
             if captureInProgress { await stopCaptureFlow() }
+            guard !isTerminatingApp else { return }
+            guard await nativeTakeover.suspend("restart") else {
+                await nativeTakeover.resume("restart")
+                restartTask = nil
+                openConfigWindow()
+                presentInfo(title:"Restart cancelled",message:"Trackpads could not be released. " + nativeTakeover.status)
+                return
+            }
             guard !isTerminatingApp else { return }
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
             task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument]
-            if !reopenConfig { task.arguments?.append("--background") }
+            task.arguments?.append(reopenConfig ? "--open-config" : "--background")
             do {
                 try task.run()
                 isTerminatingApp = true
                 NSApp.terminate(nil)
             } catch {
+                await nativeTakeover.resume("restart")
                 restartTask = nil
+                if reopenConfig { openConfigWindow() }
+                presentError(title:"Restart failed",error:error)
                 NSLog("AppleMagicTouchstream restart failed: %@", error.localizedDescription)
             }
         }

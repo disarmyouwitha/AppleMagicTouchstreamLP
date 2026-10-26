@@ -17,8 +17,10 @@ live input, takeover, haptics or login registration as part of offline verificat
   rollback, release retry and own-PID checks. No custom DriverKit/helper dependency.
 - The persistent takeover checkbox defaults off. After opt-in reconcile selection
   at startup/wake/replay exit. Emergency Ctrl-Option-R/menu release disables opt-in;
-  sleep/replay/quit preserve it. Config close and active Restart keep the owner
-  process/clients. Serialize transitions and await keyboard cleanup before release.
+  sleep/replay/quit preserve it. Config close keeps the owner process/clients warm;
+  the menu's Restart releases with cleanup and
+  launches a fresh process, preserving saved opt-in for startup. Serialize transitions
+  and await keyboard cleanup before release.
 - Route by native numeric identity, not bridge slots. Deduplicate selection;
   commit UI/keyboard selection only after successful preparation. Refresh suspends
   and reconciles; auto-resync pauses during ownership/transitions.

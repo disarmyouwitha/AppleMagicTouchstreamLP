@@ -27,8 +27,13 @@ retains tracked ownership for retry through the menu/shortcut.
 Refresh temporarily suspends ownership, refreshes ordinary device sessions and
 reconciles the current selection. Auto-resync pauses while filters are owned or a
 transition is running. Controls pause during the transition and during replay.
-Closing/reopening Config and active Restart retain the same owner process and
-native clients. Sleep, replay and Quit release without clearing the saved opt-in;
+Closing/reopening Config retains the same owner process and native clients, keeping
+input warm. The menu's Restart closes Config to persist edits, stops capture,
+awaits native release/output cleanup, then launches a fresh process and terminates
+the old one. It preserves saved opt-in so startup reacquires the selected pads.
+Release failure cancels restart; launch failure resumes the old process's takeover
+and reports the error. Config close during an explicit restart cannot schedule a
+second background relaunch. Sleep, replay and Quit release without clearing the saved opt-in;
 wake and leaving replay reconcile the current selection. Lifecycle suspension
 reasons compose, so leaving replay during sleep cannot reacquire filters. Emergency
 release during suspension prevents later automatic reacquisition.
@@ -72,7 +77,7 @@ release target.
 - `AppleMagicTouchstream/AppleMagicTouchstream/ContentViewModel.swift`: device recovery gate and keyboard
   lifecycle handoff through the existing runtime lifecycle coordinator.
 - `AppleMagicTouchstream/AppleMagicTouchstream/AppleMagicTouchstreamApp.swift`: shortcut/menu, sleep/replay/quit cleanup,
-  and ownership-preserving Config close/Restart.
+  ownership-preserving Config close and full process Restart.
 
 `./build_framework.sh` rebuilds the generated XCFramework from local source.
 `./test.sh` includes fake-device Objective-C start/rollback/release tests and Swift

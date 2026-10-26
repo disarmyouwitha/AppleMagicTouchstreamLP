@@ -1,9 +1,9 @@
 # NEXT:
 =======
-* Please run a full release build for me / github
 0. When we Restart via the Taskbar menu option what is preserved / not shut down?
 * Can we kill the entire app and restart when we restart via the menu option?
 * I would like to keep the "warm up" phase when you "close the config" when it does it's soft reboot.
+1. Please run a full release build for me / github
 ===
 0. Autocorrect isnt starting properly? Well.. it works in this app, but not like. VS Code or a youtube search... Just Accessibility apps? Is that a hard limitation? (I thought we had a fallback where we would backspace and type when accessibility was not available?)
 1. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
