@@ -1,8 +1,5 @@
 # NEXT:
 =======
-* When I release a scroll with velocity from one hand and tap or move the mouse with the other hand it doesn't stop the scroll like it would if I moved the mouse with the same hand that started the scroll and it can make the mouse pointer jumpy.. momentum.atpcap
-> 
-===
 0. Autocorrect isnt starting properly? Well.. it works in this app, but not like. VS Code or a youtube search... Just Accessibility apps? Is that a hard limitation? (I thought we had a fallback where we would backspace and type when accessibility was not available?)
 1. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
 ===
