@@ -37,6 +37,7 @@ the architecture review and remaining work.
 | 4-finger tap | None | Valid tap completes on all-up |
 | 5-finger tap | None | Valid tap completes on all-up |
 | Thumb + 2 fingertips tap | Secondary Click | Spread-thumb geometry; valid tap completes on all-up |
+| Thumb + 2 fingertips diagonal swipes | None | Shared spread-thumb geometry; coherent corner-directed travel of at least 0.75 mm |
 | 2–5-finger Pinch and Spread | Zoom | Recognized thumb plus shape change; all-up completion |
 | 1-finger force click | Primary Click | Any active contact reaches P ≥ 130 |
 | 2–5-finger force click | None | Same pressure crossing, independently configured per count |
@@ -262,6 +263,43 @@ activation location, and clamps each output delta to ±0.25.
 
 ## Movement and directional actions
 
+Thumb+2 additionally exposes diagonal-only movement under `thumbTwoMove`.
+Its assignment grid is `[↖, Tap, ↗] / [Rotate Left, empty, Rotate Right] /
+[↙, Hold, ↘]`. The empty center has no continuous Movement assignment. Tap,
+Hold and existing rotation bindings retain their identities/defaults. Each arrow
+has the same action picker, shortcut builder, loop control and repeat interval as
+ordinary directions, independently per hand with Mirror Edit and Import/Export.
+All four diagonal actions default to None, with no live candidate/timer enabled
+when none is assigned. Existing two-/three-/four-/five-finger cardinals are unchanged.
+
+Activation requires three contacts satisfying the same `ThumbTwoChord` spread
+geometry as Thumb+2 Hold/Tap: one recognized thumb, two recognized fingertips and
+consistent nonzero hand identities. The whole chord must translate: the shared
+coherent-motion tracker requires all three contacts to contribute at least
+0.75 mm along the pending translation. The movement also projects at least
+0.75 mm along one diagonal unit vector, within ±22.5° of that diagonal. Pure
+horizontal/vertical travel and one-finger adjustments do not activate a swipe.
+The full-cohort baseline excludes motion before all three contacts have landed.
+Pinch/Spread and rotation retain their existing shape/angular priority; ordinary
+three-finger row movement rejects a positively recognized thumb.
+
+Once activated, `GestureSessionEngine` supplies the existing until-all-up latch,
+matched-ID delta rebasing, count-change continuation and cancellation. Anatomy is
+not re-required after activation. The shared `GestureDirectionalStepper` projects
+onto diagonal vectors for this trigger, retaining 0.75 mm turn evidence and the
+80 ms turn interval. Other triggers still classify only cardinal directions.
+The host-clock repeater, stale-input handling, per-pad independence, held-output
+cleanup and Both handoff are shared. Directional scroll/pan projects fine travel
+along the selected diagonal before mapping it to the assigned output axis/sign.
+No absolute corner landing region is required: these gestures drag *toward* a
+corner from the chord's starting position.
+
+The diagonal rules are app policy pending hardware validation. Offline tests cover
+both hand orientations, all directions, positive anatomy/spread/hand validation,
+coherent motion, thresholds, shape competition, latch/release, turns/repeat/stale
+input, disabled acquisition, fine scroll projection, settings round-trips and UI
+rendering/animation. No hardware input is opened by those tests.
+
 The 2/3/4/5-finger movement inputs all use the same router, directional stepper,
 repeater, output dispatcher and lifecycle gates. Continuous and directional modes
 are mutually exclusive while retaining both sets of saved assignments.
@@ -409,7 +447,8 @@ stay inert and unknown action labels fail rather than silently losing mappings.
 
 The 2–4-contact shape pages are **Pinch and Spread**. Five contacts use **Pinch,
 Spread, and Rotate**, with Rotate Left/Right below Pinch/Spread. **Thumb+2fingers**
-places Tap/Hold in its first row and Rotate Left/Right beneath them. The existing
+uses the diagonal grid described above, with Tap top-center, Hold bottom-center,
+and Rotate Left/Right on either side of the empty center. The existing
 three-contact rotation binding IDs serve this thumb-plus-two input; unused two-
 and four-contact fields remain readable for compatibility without visible cards.
 Rotation assignments are independent per hand/direction, default None, and support

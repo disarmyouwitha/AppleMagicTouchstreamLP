@@ -61,6 +61,11 @@ live input, takeover, haptics or login registration as part of offline verificat
   selected/owned/armed/AX/live gates; other rotation counts remain inactive.
 - Pinch and Spread activation for counts 2–5 requires a recognized thumb. Once
   activated retain ownership through relabeling/count changes until all-up.
+- Thumb+2 diagonals are direction-only, default None, and share spread-thumb
+  evidence, coherent full-chord travel, session latch, stepper/repeat and cleanup.
+  Keep cardinal direction classification unchanged for other movement inputs.
+  Preserve Tap/Hold/Rotate identities and shape priority; do not add a second
+  direction-specific owner or duplicate output lifecycle.
 - Every new gesture needs explicit activation, continuation, arbitration,
   completion/cancellation, output and verification rules. Preserve hardware-accepted
   acceleration/feel unless changing it is part of the request.

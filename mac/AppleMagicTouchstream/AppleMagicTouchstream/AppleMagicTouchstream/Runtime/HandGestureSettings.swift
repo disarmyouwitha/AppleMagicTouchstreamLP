@@ -9,6 +9,7 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 /// Inputs are recognized independently of the action assigned to them.
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, fourFingerTap, fiveFingerMove, fiveFingerTap, fourCornersTap, thumbTwoTap
+    case thumbTwoMove
     case twoFingerPinch, threeFingerPinch, fourFingerPinch, fiveFingerPinch
     case twoFingerSpread, threeFingerSpread, fourFingerSpread, fiveFingerSpread
     case twoFingerRotateLeft, threeFingerRotateLeft, fourFingerRotateLeft, fiveFingerRotateLeft
@@ -37,7 +38,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
     static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
-    var isContinuous: Bool { isPinch || isRotation || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove || self == .fiveFingerMove }
+    var isContinuous: Bool { self == .thumbTwoMove || isPinch || isRotation || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove || self == .fiveFingerMove }
     var title: String {
         if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch") (thumb required)" }
         if let count = rotationCount {
@@ -46,6 +47,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
         if let count = forceCount { return "\(count)-finger force click" }
         switch self {
+        case .thumbTwoMove: return "Thumb + 2 fingertips diagonal swipe"
         case .twoFingerMove: return "2-finger movement"
         case .twoFingerTap: return "2-finger tap"
         case .threeFingerMove: return "3-finger movement"
@@ -60,7 +62,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
     }
     var allowedActions: [GestureAction] {
-        if self == .fourCornersTap { return [.disabled] }
+        if self == .fourCornersTap || self == .thumbTwoMove { return [.disabled] }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if isRotation { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
@@ -263,15 +265,60 @@ struct ForceClickHapticSettings: Equatable, Codable, Sendable {
 
 enum GestureMovementMode: String, Codable, Sendable { case continuous, directional }
 enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Sendable {
-    case up, down, left, right
+    case up, down, left, right, upLeft, upRight, downLeft, downRight
+    static let cardinals: [Self] = [.up,.down,.left,.right]
+    static let diagonals: [Self] = [.upLeft,.upRight,.downLeft,.downRight]
+    var isDiagonal: Bool { Self.diagonals.contains(self) }
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-    var symbol: String { "arrow." + rawValue }
+    var title: String {
+        switch self {
+        case .upLeft:return "Up-left"; case .upRight:return "Up-right"
+        case .downLeft:return "Down-left"; case .downRight:return "Down-right"
+        default:return rawValue.capitalized
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .upLeft:return "arrow.up.left"; case .upRight:return "arrow.up.right"
+        case .downLeft:return "arrow.down.left"; case .downRight:return "arrow.down.right"
+        default:return "arrow." + rawValue
+        }
+    }
+    var arrow: String {
+        switch self {
+        case .upLeft:return "↖"; case .upRight:return "↗"
+        case .downLeft:return "↙"; case .downRight:return "↘"
+        case .up:return "↑"; case .down:return "↓"; case .left:return "←"; case .right:return "→"
+        }
+    }
+    /// Screen/app coordinates: positive Y is down.
+    var unitVector: CGPoint {
+        let diagonal = 1 / sqrt(2.0)
+        switch self {
+        case .up:return .init(x:0,y:-1); case .down:return .init(x:0,y:1)
+        case .left:return .init(x:-1,y:0); case .right:return .init(x:1,y:0)
+        case .upLeft:return .init(x:-diagonal,y:-diagonal); case .upRight:return .init(x:diagonal,y:-diagonal)
+        case .downLeft:return .init(x:-diagonal,y:diagonal); case .downRight:return .init(x:diagonal,y:diagonal)
+        }
+    }
+    static func diagonal(for delta: CGPoint) -> Self? {
+        let x = Double(delta.x), y = Double(delta.y)
+        guard x.isFinite, y.isFinite, abs(x) > 0, abs(y) > 0,
+              min(abs(x),abs(y)) >= max(abs(x),abs(y)) * (sqrt(2.0)-1) else { return nil }
+        return y < 0 ? (x < 0 ? .upLeft : .upRight) : (x < 0 ? .downLeft : .downRight)
+    }
+    func projection(_ delta: CGPoint) -> Double {
+        Double(delta.x * unitVector.x + delta.y * unitVector.y)
+    }
 }
 
 /// Per-input directional assignments; live recognition shares the same logic for two through five fingers.
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
-    static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove]
+    static let cardinalTriggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove]
+    static let triggers = cardinalTriggers + [.thumbTwoMove]
+    static func directions(for trigger:GestureTrigger) -> [GestureMovementDirection] {
+        trigger == .thumbTwoMove ? GestureMovementDirection.diagonals : GestureMovementDirection.cardinals
+    }
     static let liveTriggers = triggers
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions + GestureAction.directionalScrollActions
     var mode: GestureMovementMode = .continuous
@@ -387,14 +434,20 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         }
     }
     func movement(_ trigger:GestureTrigger) -> GestureDirectionalAssignments {
-        directionalMovement?[trigger.rawValue] ?? GestureDirectionalAssignments()
+        var config = directionalMovement?[trigger.rawValue] ?? GestureDirectionalAssignments()
+        if trigger == .thumbTwoMove { config.mode = .directional }
+        let unsupported = trigger == .thumbTwoMove ? GestureMovementDirection.cardinals : GestureMovementDirection.diagonals
+        for direction in unsupported where config.actions[direction.rawValue] != nil {
+            config.actions[direction.rawValue] = nil
+        }
+        return config
     }
     mutating func editMovement(_ trigger:GestureTrigger,mode:GestureMovementMode,
                                direction:GestureMovementDirection? = nil,action:GestureAction? = nil) {
         guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         var editor = movement(trigger)
         if let direction, let action {
-            guard GestureDirectionalAssignments.allowedActions.acceptsGestureAction(action) else { return }
+            guard GestureDirectionalAssignments.directions(for:trigger).contains(direction), GestureDirectionalAssignments.allowedActions.acceptsGestureAction(action) else { return }
             editor.actions[direction.rawValue] = action
         }
         editor.mode = mode
@@ -428,12 +481,12 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var liveDirectionalBindings:[GestureTrigger:GestureDirectionalAssignments] {
         Dictionary(uniqueKeysWithValues:GestureDirectionalAssignments.liveTriggers.compactMap { trigger in
             let config = movement(trigger)
-            return config.mode == .directional ? (trigger,config) : nil
+            return config.mode == .directional && (trigger != .thumbTwoMove || config.hasAssignments) ? (trigger,config) : nil
         })
     }
     var outputSettings: Self {
         var result = self
-        for trigger in GestureDirectionalAssignments.triggers where movement(trigger).mode == .directional {
+        for trigger in GestureDirectionalAssignments.triggers where movement(trigger).mode == .directional && result.bindings[trigger] != .disabled {
             result.bindings[trigger] = .disabled
         }
         return result
@@ -738,6 +791,6 @@ extension Array where Element == GestureAction {
 }
 extension GestureTrigger {
     func accepts(_ value:GestureAction) -> Bool {
-        self == .fourCornersTap ? value == .disabled : allowedActions.acceptsGestureAction(value)
+        (self == .fourCornersTap || self == .thumbTwoMove) ? value == .disabled : allowedActions.acceptsGestureAction(value)
     }
 }

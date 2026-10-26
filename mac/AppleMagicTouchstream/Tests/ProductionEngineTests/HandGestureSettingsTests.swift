@@ -6,7 +6,7 @@ final class HandGestureSettingsTests: XCTestCase {
     func testDefaultsAreMirroredAndSeedCopiesExistingConfiguration() {
         var defaults = HandGestureSettings()
         XCTAssertEqual(defaults.left,defaults.right)
-        for feature in GestureFeature.allCases where feature != .fourCornersTap { XCTAssertEqual(defaults.enabled(feature,in:.both),feature.defaultAction != .disabled) }
+        for feature in GestureFeature.allCases where feature != .fourCornersTap && feature != .thumbTwoMove { XCTAssertEqual(defaults.enabled(feature,in:.both),feature.defaultAction != .disabled) }
         XCTAssertEqual(defaults.left.pointerSensitivity,1); XCTAssertEqual(defaults.right.scrollSensitivity,1)
         var seed = PerHandGestureSettings()
         seed[.mouse] = false; seed[GestureSensitivity.pointer] = 0.75
@@ -17,14 +17,14 @@ final class HandGestureSettingsTests: XCTestCase {
         XCTAssertTrue(seed.tap) // value copies, no shared mutable hand configuration
     }
     func testEveryFeatureCanDivergeAndBothExplicitlyAppliesWithoutTouchingOtherFeatures() {
-        for feature in GestureFeature.allCases where feature != .fourCornersTap {
+        for feature in GestureFeature.allCases where feature != .fourCornersTap && feature != .thumbTwoMove {
             var settings = HandGestureSettings()
             for trigger in GestureTrigger.allCases { settings.set(trigger,enabled:true,in:.both) }
             settings.set(feature,enabled:false,in:.left)
             XCTAssertEqual(settings.enabled(feature,in:.left),false)
             XCTAssertEqual(settings.enabled(feature,in:.right),true)
             XCTAssertNil(settings.enabled(feature,in:.both))
-            for other in GestureFeature.allCases where other != feature && other != .fourCornersTap { XCTAssertEqual(settings.enabled(other,in:.both),true) }
+            for other in GestureFeature.allCases where other != feature && other != .fourCornersTap && other != .thumbTwoMove { XCTAssertEqual(settings.enabled(other,in:.both),true) }
             settings.set(feature,enabled:false,in:.both)
             XCTAssertEqual(settings.enabled(feature,in:.both),false)
             settings.set(feature,enabled:true,in:.right)
@@ -65,7 +65,7 @@ final class HandGestureSettingsTests: XCTestCase {
     }
     func testEligibilityCannotLeakToUnselectedOrUnownedDevices() {
         let settings = HandGestureSettings(), pads = GestureSelectedPads(left:11,right:22)
-        for feature in GestureFeature.allCases where feature != .fourCornersTap {
+        for feature in GestureFeature.allCases where feature != .fourCornersTap && feature != .thumbTwoMove {
             XCTAssertEqual(settings.outputDevices(feature,pads:pads,eligible:[22,33]),feature.defaultAction != .disabled ? [22] : [])
             XCTAssertTrue(settings.outputDevices(feature,pads:pads,eligible:[]).isEmpty)
             XCTAssertTrue(settings.outputDevices(feature,pads:pads,eligible:[33]).isEmpty)

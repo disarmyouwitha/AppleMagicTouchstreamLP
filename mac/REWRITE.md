@@ -8,7 +8,8 @@
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 > (Setting Default keymap back to default was a good example)
 ===
-* `Thumb + two fingers`: ↖ ↗ ↙ ↘	
+* Add new Gesture `Thumb + two fingers`: ↖ ↗ ↙ ↘
+- Swipe in a Diagonal direction:	
 - I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
 [↖, tap, ↗]
 [rotate left, blank?, rotate right]

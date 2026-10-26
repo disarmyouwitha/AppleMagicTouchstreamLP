@@ -87,10 +87,7 @@ struct DirectionalScrollEngine {
         self.direction == direction && self.action == action
     }
     static func travel(_ delta:CGPoint,direction:GestureMovementDirection) -> Double {
-        switch direction {
-        case .up:return max(0,-Double(delta.y)); case .down:return max(0,Double(delta.y))
-        case .left:return max(0,-Double(delta.x)); case .right:return max(0,Double(delta.x))
-        }
+        max(0,direction.projection(delta))
     }
     mutating func process(time:Double,millimetres:CGPoint,direction:GestureMovementDirection,
                           action:GestureAction,sensitivity:Double) -> CGPoint? {
@@ -285,6 +282,7 @@ struct TrackpadGestureRouter {
             GestureActivationRule(gesture:.threeFingerSpread,activationCount:3,minimumMovementMM:0),
             GestureActivationRule(gesture:.fourFingerSpread,activationCount:4,minimumMovementMM:0),
             GestureActivationRule(gesture:.fiveFingerSpread,activationCount:5,minimumMovementMM:0),
+            GestureActivationRule(gesture:.thumbTwoMove,activationCount:3,minimumMovementMM:GestureDirectionalStepper.activationMM,requiresFullChordMotion:true),
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.fiveFingerMove,activationCount:5,minimumMovementMM:0.2),
@@ -329,7 +327,7 @@ struct TrackpadGestureRouter {
                 && $0.posX.isFinite && $0.posY.isFinite
         }
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
-            requiresCoherentTranslation:stationaryFourFingerHold && activeCount == 4,
+            requiresCoherentTranslation:(stationaryFourFingerHold && activeCount == 4) || (enabled(.thumbTwoMove) && activeCount == 3),
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
                 let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
@@ -340,6 +338,12 @@ struct TrackpadGestureRouter {
                 if rotationWins { return false }
                 if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
+                if trigger == .thumbTwoMove {
+                    guard let direction = GestureMovementDirection.diagonal(for:context.pendingMovementMM) else { return false }
+                    return ThumbTwoChord.matches(contacts)
+                        && direction.projection(context.pendingMovementMM) >= GestureDirectionalStepper.activationMM
+                        && (context.coherentMovementMM ?? 0) >= GestureDirectionalStepper.activationMM
+                }
                 if trigger == .fourFingerMove && stationaryFourFingerHold {
                     return (context.coherentMovementMM ?? 0) >= 0.2
                 }

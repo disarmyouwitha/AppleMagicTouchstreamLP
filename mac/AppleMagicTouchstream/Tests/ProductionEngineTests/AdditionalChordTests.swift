@@ -254,7 +254,10 @@ final class SearchableGestureActionTests:XCTestCase {
     func testSearchFiltersSupportedActionsAndMixedChoicesDoNotMutateSettings() {
         for actions in [GestureDirectionalAssignments.allowedActions,GestureTrigger.fourFingerTap.allowedActions,TwoHandGestureSettings.allowedActions,PerHandGestureSettings.holdActions(for:6)] {
             let groups = GestureActionChooser.groups(actions)
-            XCTAssertEqual(Set(groups.flatMap(\.actions)),Set(actions))
+            let shortcutChoices = GestureActionChooser.shortcutActions(actions,savedLabels:[])
+            XCTAssertEqual(Set(groups.flatMap(\.actions) + shortcutChoices).intersection(Set(actions)),Set(actions))
+            XCTAssertFalse(groups.flatMap(\.actions).contains(.voice))
+            XCTAssertEqual(shortcutChoices.contains(.voice),actions.contains(.voice))
             let results = SearchableActionGroup.filtered(groups,query:"  PaN  ",label:{$0.title}).flatMap(\.actions)
             XCTAssertTrue(results.allSatisfy { $0.title.localizedCaseInsensitiveContains("pan") })
             XCTAssertTrue(SearchableActionGroup.filtered(groups,query:"not-a-real-action",label:{$0.title}).isEmpty)

@@ -37,7 +37,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
         case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners until the configured threshold."
-        case .thumbTwo: return "Choose independent tap, hold and rotation actions for a spread thumb and two fingertips."
+        case .thumbTwo: return "Choose diagonal swipes, tap, hold and rotation actions for a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
@@ -52,7 +52,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
         case .fourCorners:return [.fourCornersTap]
         case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
-        case .thumbTwo: return [.thumbTwoTap,.threeFingerRotateLeft,.threeFingerRotateRight]
+        case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight]
         }
     }
     var isPinchSection: Bool {
@@ -299,10 +299,18 @@ struct GestureChordIcon: View {
             : reversed ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
         let opacity = direction != nil ? 1-ramp(stage,0.78,0.90) : reversed ? 1-ramp(stage,0.84,0.96) : 1
         let count = gesture.activeFingers.count
-        let offsets = contactOffsets(count:count)
+        let offsets = contactOffsets(count:count,includesThumb:gesture == .thumbTwo)
         let halfWidth = offsets.map { abs($0.x) }.max() ?? 0
         func point(_ index:Int, _ progress:Double) -> CGPoint {
             let offset = offsets[index]
+            if let direction, direction.isDiagonal {
+                let unit = direction.unitVector
+                let extentY = offsets.map { abs($0.y) }.max() ?? 0
+                let travel = max(0,min((pad.width/2-halfWidth-8)/abs(unit.x),
+                                     (pad.height/2-extentY-8)/abs(unit.y)))
+                let amount = CGFloat(2*progress-1)*travel
+                return CGPoint(x:pad.midX+offset.x+unit.x*amount,y:pad.midY+offset.y+unit.y*amount)
+            }
             let distance = CGFloat(reversed ? 1-progress : progress)
             return horizontal
                 ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset.x,y:pad.midY+offset.y)
@@ -421,6 +429,7 @@ extension GestureTrigger {
         if isPinch { return isSpread ? "Spread" : "Pinch" }
         if forceCount != nil { return "Force click" }
         switch self {
+        case .thumbTwoMove:return "Diagonal swipe"
         case .twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove: return "Move in any direction"
         default: return "Tap"
         }
@@ -447,6 +456,7 @@ extension GestureTrigger {
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
         case .fourCornersTap: return "One contact in each outer 25% corner of this pad. Hold uses its configured threshold; movement allowance is 2 mm. Lift all fingers to rearm."
+        case .thumbTwoMove:return "A recognized thumb plus two spread fingertips move together toward a diagonal corner. Latches until all-up."
         case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 500 ms."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
         case .twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap: return "Tap window: 500 ms. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
@@ -535,13 +545,14 @@ struct GestureAssignmentWorkspace: View {
         _editingHand = State(initialValue:initialHand)
         _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandChord.phases.contains(initialTwoHandPhase) ? initialTwoHandPhase : .hold)
         _pane = State(initialValue:initialPane)
-        let first = initialPane.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? initialPane.triggers[0]
+        let first = initialPane == .thumbTwo ? (initialDirection == nil ? GestureTrigger.thumbTwoTap : .thumbTwoMove)
+            : initialPane.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? initialPane.triggers[0]
         _selectedDirection = State(initialValue:initialDirection ?? Self.defaultDirection(for:first,settings:settings,scope:initialHand))
         _selected = State(initialValue:first)
     }
 
     static func defaultDirection(for trigger:GestureTrigger,settings:HandGestureSettings,scope:GestureHandScope) -> GestureMovementDirection? {
-        GestureDirectionalAssignments.triggers.contains(trigger) && settings.movementMode(trigger,in:scope) == .directional ? .up : nil
+        GestureDirectionalAssignments.triggers.contains(trigger) && settings.movementMode(trigger,in:scope) == .directional ? GestureDirectionalAssignments.directions(for:trigger).first : nil
     }
     static func holdEditable(pane:GesturePane,settings:HandGestureSettings,scope:GestureHandScope) -> Bool {
         !pane.isPinchSection && settings.holdAvailable(count:pane.holdKey,in:scope)
@@ -678,7 +689,7 @@ struct GestureAssignmentWorkspace: View {
         Button {
             selectedHold = item == .fourCorners
             pane = item
-            let first = item.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? item.triggers[0]
+            let first = item == .thumbTwo ? GestureTrigger.thumbTwoTap : item.triggers.first(where:{$0.isContinuous && !$0.isRotation}) ?? item.triggers[0]
             selected = first
             selectedDirection = Self.defaultDirection(for:first,settings:settings,scope:editingScope)
         } label: {
@@ -804,7 +815,9 @@ struct GestureAssignmentWorkspace: View {
                 HStack(spacing:12) { assignmentHeading }
                 VStack(alignment:.leading,spacing:6) { assignmentHeading }
             }
-            if pane.isPinchSection {
+            if pane == .thumbTwo {
+                thumbDiagonalGrid
+            } else if pane.isPinchSection {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers) { assignmentCard($0) }
                 }
@@ -822,11 +835,28 @@ struct GestureAssignmentWorkspace: View {
     @ViewBuilder private var assignmentHeading:some View {
         Text(pane.isPinchSection ? "SHAPE ASSIGNMENTS" : "ASSIGNMENTS")
             .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
-        if !pane.isPinchSection && pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
+        if pane == .thumbTwo {
+            Text("Swipe toward a corner, or choose Tap, Hold or Rotate.")
+                .font(.caption).foregroundStyle(.secondary)
+        } else if !pane.isPinchSection && pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
             Text("Use continuous movement or separate directional actions.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
+    private var thumbDiagonalGrid: some View {
+        LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
+            movementCard(.thumbTwoMove,direction:.upLeft)
+            assignmentCard(.thumbTwoTap,compact:true)
+            movementCard(.thumbTwoMove,direction:.upRight)
+            assignmentCard(.threeFingerRotateLeft,compact:true)
+            Color.clear.frame(minHeight:106).accessibilityHidden(true)
+            assignmentCard(.threeFingerRotateRight,compact:true)
+            movementCard(.thumbTwoMove,direction:.downLeft)
+            holdCard
+            movementCard(.thumbTwoMove,direction:.downRight)
+        }
+    }
+
     private func movementCross(_ trigger:GestureTrigger) -> some View {
         let mode = settings.movementMode(trigger,in:editingScope)
         return VStack(alignment:.leading,spacing:10) {
@@ -858,7 +888,7 @@ struct GestureAssignmentWorkspace: View {
         let active = mode == targetMode
         let isSelected = !selectedHold && selected == trigger && selectedDirection == direction
         let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
-        let title = direction.map { "Move " + $0.title } ?? "Movement"
+        let title = direction.map { $0.isDiagonal ? "Swipe" : "Move " + $0.title } ?? "Movement"
         let followsMotion = assigned?.isDirectionalScroll == true
         let repeatLabel = direction.flatMap { settings.directionalRepeatInterval($0,for:trigger,in:editingScope) }
             .map { $0 > 0 ? "Repeat every \(Int($0)) ms" : "Once per direction" } ?? "Mixed repeat"
@@ -881,7 +911,7 @@ struct GestureAssignmentWorkspace: View {
             .contentShape(RoundedRectangle(cornerRadius:10))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(title), \(assigned?.title ?? "Mixed"), \(active ? "active mode" : "inactive mode")")
+        .accessibilityLabel("\(direction.map { ($0.isDiagonal ? "Swipe " : "Move ") + $0.title } ?? title), \(assigned?.title ?? "Mixed"), \(active ? "active mode" : "inactive mode")")
         .accessibilityHint("Select to edit and switch movement mode.")
     }
 
@@ -1018,7 +1048,7 @@ struct GestureAssignmentWorkspace: View {
             VStack(alignment:.leading,spacing:20) {
                 VStack(alignment:.leading,spacing:8) {
                     Text("SELECTED ASSIGNMENT").font(.caption2).fontWeight(.medium).foregroundStyle(.secondary)
-                    Text(selectedHold ? "Hold" : selectedDirection.map { "Move " + $0.title } ?? selected.assignmentTitle).font(.title3).bold()
+                    Text(selectedHold ? "Hold" : selectedDirection.map { ($0.isDiagonal ? "Swipe " : "Move ") + $0.title } ?? selected.assignmentTitle).font(.title3).bold()
                     Text("\(pane.group) · \(scopeText)").font(.caption).foregroundStyle(.secondary)
                 }
                 if selectedHold {
@@ -1109,15 +1139,19 @@ struct GestureAssignmentWorkspace: View {
             Divider()
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
-                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : selected == .fourFingerMove ? "four fingertips" : "five fingers") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
+                Text(selected == .thumbTwoMove
+                     ? "Move a spread thumb and two fingertips together at least 0.75 mm toward the selected diagonal corner. Cardinal motion does not activate a swipe. Deliberate diagonal turns choose a new direction; the chord stays latched until all-up."
+                     : "Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : selected == .fourFingerMove ? "four fingertips" : "five fingers") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             } else {
                 Text("Directional output is not implemented yet.").font(.callout).fontWeight(.medium)
                 Text("This assignment and its repeat choice are saved. Live direction recognition supports two through five fingers. Continuous movement is inactive in directional mode.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            if selected != .thumbTwoMove {
+                Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
         }
     }
 

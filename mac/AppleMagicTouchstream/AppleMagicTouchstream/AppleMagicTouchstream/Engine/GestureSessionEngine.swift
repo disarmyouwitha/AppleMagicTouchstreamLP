@@ -257,17 +257,15 @@ struct GestureDirectionalStepper {
     private var sessions: [UInt64:Session] = Dictionary(minimumCapacity:2)
     mutating func reset() { sessions.removeAll(keepingCapacity:true) }
     mutating func reset(device:UInt64) { sessions[device] = nil }
-    private func dominant(_ delta:CGPoint) -> GestureMovementDirection? {
+    private func dominant(_ delta:CGPoint,diagonal:Bool) -> GestureMovementDirection? {
+        if diagonal { return GestureMovementDirection.diagonal(for:delta) }
         let x = Double(delta.x), y = Double(delta.y)
         if abs(x) > 0 && abs(x) >= abs(y)*1.25 { return x > 0 ? .right : .left }
         if abs(y) > 0 && abs(y) >= abs(x)*1.25 { return y > 0 ? .down : .up }
         return nil
     }
     private func projection(_ delta:CGPoint,onto direction:GestureMovementDirection) -> Double {
-        switch direction {
-        case .up: return -Double(delta.y); case .down: return Double(delta.y)
-        case .left: return -Double(delta.x); case .right: return Double(delta.x)
-        }
+        direction.projection(delta)
     }
     mutating func process(device:UInt64,time:Double,update:GestureSessionUpdate<GestureTrigger>,
                           assignments:GestureDirectionalAssignments) -> GestureMovementDirection? {
@@ -291,12 +289,12 @@ struct GestureDirectionalStepper {
         guard delta != .zero else { return nil }
         guard let current = session.direction else {
             session.initial.x += delta.x; session.initial.y += delta.y
-            guard let direction = dominant(session.initial),
+            guard let direction = dominant(session.initial,diagonal:trigger == .thumbTwoMove),
                   projection(session.initial,onto:direction) >= Self.activationMM else { return nil }
             session.direction = direction; session.initial = .zero; session.lastOutput = time
             return direction
         }
-        if let candidate = dominant(delta), candidate != current {
+        if let candidate = dominant(delta,diagonal:trigger == .thumbTwoMove), candidate != current {
             if candidate != session.candidate { session.candidate = candidate; session.candidateMM = 0 }
             session.candidateMM += projection(delta,onto:candidate)
             guard session.candidateMM >= Self.activationMM,

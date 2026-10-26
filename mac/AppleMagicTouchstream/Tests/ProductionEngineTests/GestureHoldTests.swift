@@ -432,7 +432,7 @@ extension GestureHoldTests {
         var settings = HandGestureSettings()
         let stroke = GestureAction.shortcut(.init(label:"Cmd+S"))
         let held = GestureAction.shortcut(.init(label:"Shift",holdUntilRelease:true))
-        for trigger in GestureTrigger.allCases where trigger != .fourCornersTap {
+        for trigger in GestureTrigger.allCases where trigger != .fourCornersTap && trigger != .thumbTwoMove {
             XCTAssertTrue(settings.setAction(stroke,for:trigger,in:.both),trigger.rawValue)
             XCTAssertEqual(settings.action(trigger,in:.both),stroke)
             XCTAssertFalse(settings.setAction(held,for:trigger,in:.left),trigger.rawValue)

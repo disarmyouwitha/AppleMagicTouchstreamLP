@@ -197,7 +197,7 @@ final class DirectionalMovementTests: XCTestCase {
         XCTAssertNil(stepper.trigger(device:1))
     }
     func testEveryFingerCountUsesTheSameDirectionTurnAndRepeatPolicy() {
-        for trigger in GestureDirectionalAssignments.liveTriggers {
+        for trigger in GestureDirectionalAssignments.cardinalTriggers {
             var stepper = GestureDirectionalStepper(), repeater = GestureDirectionalRepeater()
             let config = config()
             XCTAssertEqual(stepper.process(device:1,time:1,update:update(.init(x:0,y:-1),.began,gesture:trigger),assignments:config),.up)
@@ -310,11 +310,12 @@ extension DirectionalMovementTests {
     }
     func testDirectionalScrollProjectsAnySourceAxisToEitherSemanticOutputDirection() throws {
         for natural in [true,false] {
-            for direction in GestureMovementDirection.allCases {
+            for direction in GestureMovementDirection.cardinals {
                 let travel:CGPoint
                 switch direction {
                 case .up:travel = .init(x:0,y:-0.01); case .down:travel = .init(x:0,y:0.01)
                 case .left:travel = .init(x:-0.01,y:0); case .right:travel = .init(x:0.01,y:0)
+                default: XCTFail("Expected cardinal test direction"); continue
                 }
                 for action in [GestureAction.scrollUp,.scrollDown] {
                     var engine = DirectionalScrollEngine(profile:try directionalScrollProfile(natural:natural))
@@ -365,7 +366,7 @@ extension DirectionalMovementTests {
     }
     func testDirectionalScrollBindingsRoundTripIndependentlyOfSidewaysActions() throws {
         var settings = HandGestureSettings()
-        for trigger in GestureDirectionalAssignments.liveTriggers {
+        for trigger in GestureDirectionalAssignments.cardinalTriggers {
             settings.editMovement(trigger,mode:.directional,direction:.up,action:.scrollUp,in:.left)
             settings.editMovement(trigger,mode:.directional,direction:.down,action:.scrollDown,in:.left)
             settings.editMovement(trigger,mode:.directional,direction:.left,action:.brightnessDownSmall,in:.left)
@@ -455,11 +456,12 @@ extension DirectionalMovementTests {
     func testPanMapsEveryInputDirectionToIndependentHorizontalOutputAndUsesHorizontalProfile() throws {
         for natural in [true,false] {
             let profile = try directionalScrollProfile(natural:natural)
-            for direction in GestureMovementDirection.allCases {
+            for direction in GestureMovementDirection.cardinals {
                 let delta:CGPoint
                 switch direction {
                 case .up:delta = .init(x:0,y:-0.01); case .down:delta = .init(x:0,y:0.01)
                 case .left:delta = .init(x:-0.01,y:0); case .right:delta = .init(x:0.01,y:0)
+                default: XCTFail("Expected cardinal test direction"); continue
                 }
                 for action in [GestureAction.panLeft,.panRight] {
                     var engine = DirectionalScrollEngine(profile:profile)
@@ -483,7 +485,7 @@ extension DirectionalMovementTests {
     }
     func testPanAssignmentsSharePersistenceAndIgnoreRepeatWithoutChangingOtherDirections() throws {
         var settings = HandGestureSettings()
-        for trigger in GestureDirectionalAssignments.liveTriggers {
+        for trigger in GestureDirectionalAssignments.cardinalTriggers {
             settings.editMovement(trigger,mode:.directional,direction:.up,action:.panRight,in:.both)
             settings.editMovement(trigger,mode:.directional,direction:.down,action:.panLeft,in:.both)
             settings.editMovement(trigger,mode:.directional,direction:.left,action:.scrollDown,in:.both)
