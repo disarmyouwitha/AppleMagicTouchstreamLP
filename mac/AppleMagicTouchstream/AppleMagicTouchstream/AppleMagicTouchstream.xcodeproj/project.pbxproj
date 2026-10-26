@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000901; };
 		AC7100000000000000000802 /* GestureKeyboardArbitration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000801; };
 		AC7100000000000000000702 /* TrackpadGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000701; };
 		AC7100000000000000000602 /* GestureInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000601; };
@@ -42,6 +43,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AC7100000000000000000901 /* AutocorrectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocorrectEngine.swift; sourceTree = "<group>"; };
 		AC7100000000000000000801 /* GestureKeyboardArbitration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Engine/GestureKeyboardArbitration.swift"; sourceTree = "<group>"; };
 		AC7100000000000000000701 /* TrackpadGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Runtime/TrackpadGestureController.swift"; sourceTree = "<group>"; };
 		AC7100000000000000000601 /* GestureInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GestureInspector.swift"; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 				77292A972B931D60001CA3F6 /* ContentViewModel.swift */,
 				AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */,
 				E0B1C2D3E4F5678901234567 /* KeyEventDispatcher.swift */,
+                AC7100000000000000000901 /* AutocorrectEngine.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppleMagicTouchstreamDefaultsKeys.swift */,
 				31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */,
 			);
@@ -271,6 +274,7 @@
 				77292A882B931953001CA3F6 /* AppleMagicTouchstreamApp.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F4 /* AppleMagicTouchstreamController.swift in Sources */,
 				E0B1C2D3E4F5678901234568 /* KeyEventDispatcher.swift in Sources */,
+                AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */,
 				5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */,
 				D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */,
 				3C193E5CB3384DBB97B4BD76 /* LegacyMobileLayout.swift in Sources */,

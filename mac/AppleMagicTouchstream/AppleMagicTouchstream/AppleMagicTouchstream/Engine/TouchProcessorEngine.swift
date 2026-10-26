@@ -569,6 +569,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var touchStates = TouchTable<TouchState>()
     private var disqualifiedTouches = TouchTable<Bool>()
     private var releaseHandledTouches = TouchTable<Bool>()
+    // Final lift removes the live intent entry before tap dispatch. Retain its
+    // timing for this frame so near-miss taps use the same eligibility checks.
+    private var releasedIntentTouches = TouchTable<IntentTouchInfo>()
     private var leftShiftTouchCount = 0
     private var controlTouchCount = 0
     private var leftOptionTouchCount = 0
@@ -1581,15 +1584,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
-                    if attemptSnapOnRelease(
-                        touchKey: touchKey,
-                        point: point,
-                        bindings: bindings,
-                        pressure: peakPressure
-                    ) {
-                        clearPeakPressure(for: touchKey)
-                        continue
-                    }
                     if shouldAttemptSnap() {
                         disqualifyTouch(touchKey, reason: .offKeyNoSnap)
                         #if DEBUG
@@ -1674,15 +1668,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
-                    if attemptSnapOnRelease(
-                        touchKey: touchKey,
-                        point: point,
-                        bindings: bindings,
-                        pressure: peakPressure
-                    ) {
-                        clearPeakPressure(for: touchKey)
-                        continue
-                    }
                     if shouldAttemptSnap() {
                         disqualifyTouch(touchKey, reason: .offKeyNoSnap)
                         #if DEBUG
@@ -1730,6 +1715,17 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
         }
 
+        // Off-key landings have no KeyBinding/touchStates entry. A missing
+        // terminal record still completes their ordinary tap/snap lifecycle.
+        releasedIntentTouches.forEach { touchKey, _ in
+            if Self.touchKeyDeviceIndex(touchKey) == deviceIndex,
+               frameTouchKeys.value(for:touchKey) == nil,
+               releaseHandledTouches.value(for:touchKey) == nil,
+               !touchRemovalBuffer.contains(touchKey) {
+                touchRemovalBuffer.append(touchKey)
+            }
+        }
+
         for touchKey in touchRemovalBuffer {
             releaseMissingTouch(
                 touchKey: touchKey,
@@ -1745,6 +1741,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         now: TimeInterval
     ) {
         let point = framePointCache.value(for: touchKey)
+            ?? releasedIntentTouches.value(for: touchKey)?.lastPoint
             ?? touchInitialContactPoint.value(for: touchKey)
             ?? activeTouch(for: touchKey)?.startPoint
             ?? pendingTouch(for: touchKey)?.startPoint
@@ -2254,13 +2251,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     @inline(__always)
     private func shouldAttemptSnap() -> Bool {
-        guard isSnapRadiusEnabled else { return false }
-        switch intentState.mode {
-        case .typingCommitted:
-            return true
-        case .mouseActive, .idle:
-            return false
-        }
+        isSnapRadiusEnabled && isTypingEnabled && isTapDispatchAllowedForCurrentIntent()
     }
 
     @inline(__always)
@@ -2377,8 +2368,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 touchKey: touchKey,
                 pressure: pressure
             )
-            // Prevent duplicate snap dispatch on subsequent release states.
-            disqualifiedTouches.set(touchKey, true)
+            // This is a completed tap, not a cancelled owner. Reuse the normal
+            // release marker so later lift states cannot duplicate output and
+            // a fresh contact reusing this native ID remains eligible.
+            releaseHandledTouches.set(touchKey, true)
             #if DEBUG
             OSAtomicIncrement64Barrier(&Self.snapAcceptedCount)
             #endif
@@ -2453,6 +2446,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         rightBindings: BindingIndex
     ) -> Bool where Touches.Element == OMSRawTouch {
         framePointCache.removeAll(keepingCapacity: true)
+        releasedIntentTouches.removeAll(keepingCapacity: true)
         guard trackpadSize.width > 0,
               trackpadSize.height > 0 else {
             intentState = IntentState()
@@ -2519,7 +2513,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         state.touches.forEach { key, _ in
             if Self.touchKeyDeviceIndex(key) == incomingDevice && !present.contains(key) { removed.append(key) }
         }
-        for key in removed { state.touches.remove(key) }
+        for key in removed {
+            if let info = state.touches.remove(key) { releasedIntentTouches.set(key, info) }
+        }
         if state.touches.isEmpty { state.mode = .idle }
         else { state.mode = .typingCommitted(untilAllUp: true) }
         intentState = state
@@ -2764,6 +2760,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         fallbackStartTime: TimeInterval? = nil,
         fallbackMaxDistanceSquared: CGFloat = 0
     ) -> Bool {
+        let touchInfo = touchInfo ?? releasedIntentTouches.value(for: touchKey)
         guard isTapDispatchAllowedForCurrentIntent() else {
             recordFrameDecision(
                 touchKey,
@@ -3405,6 +3402,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         keyboardChordDevices.removeAll(keepingCapacity: true)
         disqualifiedTouches.removeAll()
         releaseHandledTouches.removeAll()
+        releasedIntentTouches.removeAll()
 
         layerToggleTouchStarts.removeAll()
         momentaryLayerTouches.removeAll()

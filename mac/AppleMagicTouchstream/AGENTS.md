@@ -76,6 +76,14 @@ and remain recording-only in replay. Other unsupported legacy action kinds stay
 inert through primary/hold/custom-button paths.
 Preserve existing serialized keys/enums, old capture parsing and preference migration.
 
+Autocorrect and Snap Radius are live Keyboard Mode Toggles, retaining their saved
+profile keys. Snap uses shared tap eligibility/timing and cached per-key radii;
+gesture reservation cannot become snapped typing. Autocorrect observes posted live
+keys only, with bounded worker publication and generation cancellation. Keep AX and
+spellchecking off the input/output queues, require verified focus/text before
+replacement, and never fall back to blind backspacing. Replay stays output-free.
+See [TYPING_ASSISTANCE.md](TYPING_ASSISTANCE.md).
+
 Import/Export Settings include independent per-hand and Both gestures, direction
 modes/actions/repeat and gains under the Mac host extension. Missing fields preserve
 preferences. Takeover opt-in stays local. Known retired labels remain decode-only;

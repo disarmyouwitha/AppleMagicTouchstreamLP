@@ -684,7 +684,10 @@ struct ContentView: View {
                 viewModel.updateTapClickCadenceMs(newValue)
             }
             .onChange(of: snapRadiusPercentSetting) { newValue in
-                viewModel.updateSnapRadiusPercent(0)
+                viewModel.updateSnapRadiusPercent(newValue)
+            }
+            .onChange(of: autocorrectEnabled) { newValue in
+                AutocorrectEngine.shared.setEnabled(newValue)
             }
 
             .onChange(of: holdRepeatEnabled) { newValue in
@@ -2451,7 +2454,7 @@ struct ContentView: View {
     }
 
     private struct ModeTogglesSectionView: View {
-        @Binding var autocorrectEnabled: Bool // Historical profile field, not a live control.
+        @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
         @Binding var holdRepeatEnabled: Bool
@@ -2460,6 +2463,13 @@ struct ContentView: View {
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
+                Toggle("Autocorrect", isOn: $autocorrectEnabled)
+                    .help("Corrects completed words using macOS spellchecking in supported editable fields.")
+                Toggle("Snap Radius", isOn: Binding(
+                    get: { snapRadiusPercentSetting > 0 },
+                    set: { snapRadiusPercentSetting = $0 ? 100 : 0 }
+                ))
+                    .help("Rescues near-miss typing taps by choosing the nearest key. Does not change gesture activation.")
                 Toggle("Run at Startup", isOn: $runAtStartupEnabled)
                 Toggle("Hold Repeat", isOn: $holdRepeatEnabled)
                     .help("Repeats hold-enabled key actions while the touch stays held.")
@@ -3363,7 +3373,8 @@ struct ContentView: View {
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMmSetting)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSecSetting)
         viewModel.updateAllowMouseTakeover(true)
-        viewModel.updateSnapRadiusPercent(0)
+        viewModel.updateSnapRadiusPercent(snapRadiusPercentSetting)
+        AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)

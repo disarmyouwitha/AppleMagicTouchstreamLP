@@ -563,7 +563,11 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
-        viewModel.updateSnapRadiusPercent(0)
+        viewModel.updateSnapRadiusPercent(GlassToKeySettings.persistedDouble(
+            forKey: GlassToKeyDefaultsKeys.snapRadiusPercent, defaults: defaults,
+            fallback: GlassToKeySettings.snapRadiusPercent))
+        AutocorrectEngine.shared.setEnabled(defaults.object(
+            forKey: GlassToKeyDefaultsKeys.autocorrectEnabled) as? Bool ?? GlassToKeySettings.autocorrectEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
 

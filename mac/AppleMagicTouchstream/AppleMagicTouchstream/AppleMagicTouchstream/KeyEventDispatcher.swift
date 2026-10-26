@@ -289,10 +289,12 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 emojiUp.flags = Self.emojiTriggerFlags
                 emojiDown.post(tap: .cghidEventTap)
                 emojiUp.post(tap: .cghidEventTap)
+                AutocorrectEngine.shared.invalidate()
                 return
             }
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
+            AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: true, altAscii: altAscii)
         }
     }
 
@@ -336,6 +338,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             }
             configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
             event.post(tap: .cghidEventTap)
+            AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii)
         }
     }
 
@@ -375,6 +378,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func postLeftClickImmediate(clickCount: Int) {
+        AutocorrectEngine.shared.invalidate()
         autoreleasepool {
             guard let source = ensureEventSource() else {
                 return
@@ -413,6 +417,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func postRightClickImmediate() {
+        AutocorrectEngine.shared.invalidate()
         autoreleasepool {
             guard let source = ensureEventSource() else {
                 return
@@ -448,6 +453,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func postMiddleClickImmediate() {
+        AutocorrectEngine.shared.invalidate()
         autoreleasepool {
             guard let source = ensureEventSource() else {
                 return
@@ -480,6 +486,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func postTextImmediate(_ text: String) {
+        AutocorrectEngine.shared.invalidate()
         guard !text.isEmpty else { return }
         autoreleasepool {
             guard let source = ensureEventSource() else {
@@ -521,6 +528,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey) {
+        AutocorrectEngine.shared.invalidate()
         autoreleasepool {
             postSystemEvent(key, keyDown: true)
             Thread.sleep(forTimeInterval: Self.mediaTapDwellSeconds)
@@ -952,6 +960,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func clearQueue() {
+        if keyDispatcher != nil { AutocorrectEngine.shared.invalidate() }
         let cancelledCommands = stateLock.withLockUnchecked { state in
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
@@ -1047,6 +1056,7 @@ final class DispatchService: @unchecked Sendable {
                 token: token
             )
         case let .appLaunch(actionLabel):
+            AutocorrectEngine.shared.invalidate()
             appLaunchDispatcher.open(actionLabel)
         case let .leftClick(clickCount):
             keyDispatcher?.postLeftClickImmediate(clickCount: clickCount)
