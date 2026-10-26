@@ -6,7 +6,7 @@ Screenshot, Voice and Emoji are built-in menu entries; they do not modify or
 duplicate saved library entries. Modifiers appear in Shortcuts only when saved
 by the user. Voice retains its original action identity and behavior.
 Invoke it once to start listening, then again to finish and insert the
-transcript into the original focused text field. A Hold assignment starts the
+transcript into the original destination app. A Hold assignment starts the
 toggle after its recognition threshold; lifting does not stop dictation. Mode
 Toggles shows status and a Cancel Voice button while active. Defaults do not change.
 
@@ -27,9 +27,15 @@ locale with en_US fallback. On-device recognition is preferred when supported;
 Apple's speech service may process audio remotely otherwise. See Apple's
 [Speech authorization guidance](https://developer.apple.com/documentation/speech/asking-permission-to-use-speech-recognition).
 
-The transcript is inserted as Unicode keyboard text only if the same non-secure
-AX element remains focused. Changed focus discards the transcript, and secure
-input is rejected. The recovered clipboard fallback is not restored, avoiding
+Voice captures the foreground process independently of Config and does not use
+autocorrect's mandatory focused-text-element gate. Its dedicated app AX query has
+a bounded 200 ms timeout on the main actor, outside the input/output queues.
+When the destination exposes a focused AX element or window, those identities
+must still match at insertion. Otherwise the foreground process is the available
+focus boundary: Voice can dictate in apps without AX text support, but cannot
+detect a change between fields that the app does not expose. Changing apps,
+changing an exposed field/window, losing a previously exposed target, or secure
+input discards the transcript. The recovered clipboard fallback is not restored, avoiding
 clipboard replacement and delayed paste restoration. Text insertion uses the
 existing Unicode dispatcher, with no ASCII normalization or character loss.
 Self-editor Accessibility queries run on the main actor. No transcript is logged.
@@ -49,7 +55,8 @@ the speech manager, request permission or emit text.
 
 Offline tests cover main-thread editor access, Voice key primary/hold dispatch,
 settings/capture round-trips, transcript chunk assembly, completion exactly once,
-permission cancellation and stale result rejection. Microphone quality and target
+permission cancellation, stale result rejection, and destination policy with and
+without an AX field/window. Microphone quality and target
 application text insertion require hardware testing: assign Voice, focus a test
 document, trigger, speak, trigger again. Verify Cancel Voice, focus-change discard,
 takeover release and a fresh session after cancellation.

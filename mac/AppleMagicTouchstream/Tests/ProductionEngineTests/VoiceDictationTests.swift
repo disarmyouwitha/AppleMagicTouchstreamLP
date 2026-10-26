@@ -5,6 +5,16 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class VoiceDictationSessionTests: XCTestCase {
+    func testBackgroundDictationDoesNotRequireAnAccessibilityTextElement() {
+        XCTAssertTrue(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:false,fieldMatches:nil,windowMatches:nil))
+        XCTAssertTrue(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:false,fieldMatches:nil,windowMatches:true))
+        XCTAssertTrue(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:false,fieldMatches:true,windowMatches:true))
+        XCTAssertFalse(VoiceDestinationPolicy.permits(originalPID:42,currentPID:43,secure:false,fieldMatches:nil,windowMatches:nil))
+        XCTAssertFalse(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:true,fieldMatches:nil,windowMatches:nil))
+        XCTAssertFalse(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:false,fieldMatches:false,windowMatches:true))
+        XCTAssertFalse(VoiceDestinationPolicy.permits(originalPID:42,currentPID:42,secure:false,fieldMatches:nil,windowMatches:false))
+        XCTAssertFalse(VoiceDestinationPolicy.permits(originalPID:0,currentPID:0,secure:false,fieldMatches:nil,windowMatches:nil))
+    }
     func testToggleSessionCollectsChunksAndCommitsExactlyOnce() {
         var state = VoiceDictationSession()
         let token = state.begin()

@@ -67,6 +67,52 @@ struct VoiceDictationSession {
     }
 }
 
+/// Dictation posts Unicode keystrokes, so an AX text implementation is optional.
+/// Preserve exact field/window identity when exposed; otherwise retain the app.
+struct VoiceDestinationPolicy {
+    static func permits(originalPID:pid_t,currentPID:pid_t,secure:Bool,
+                        fieldMatches:Bool?,windowMatches:Bool?) -> Bool {
+        originalPID > 0 && originalPID == currentPID && !secure
+            && fieldMatches != false && windowMatches != false
+    }
+}
+
+@MainActor private struct VoiceDictationDestination {
+    let pid:pid_t
+    let field:AXUIElement?
+    let window:AXUIElement?
+
+    static func capture() -> Self? {
+        guard !IsSecureEventInputEnabled(), AXIsProcessTrusted(),
+              let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier, pid > 0 else { return nil }
+        let app = AXUIElementCreateApplication(pid)
+        // Voice is an explicit, infrequent action on the main actor, independent
+        // of the input queue and autocorrect's shorter per-keystroke timeout.
+        _ = AXUIElementSetMessagingTimeout(app,0.2)
+        func element(_ name:String) -> AXUIElement? {
+            var value:CFTypeRef?
+            guard AXUIElementCopyAttributeValue(app,name as CFString,&value) == .success,
+                  let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+            let element = value as! AXUIElement
+            _ = AXUIElementSetMessagingTimeout(element,0.2)
+            return element
+        }
+        let field = element(kAXFocusedUIElementAttribute)
+        if let field {
+            var subrole:CFTypeRef?
+            _ = AXUIElementCopyAttributeValue(field,kAXSubroleAttribute as CFString,&subrole)
+            guard subrole as? String != kAXSecureTextFieldSubrole else { return nil }
+        }
+        return Self(pid:pid,field:field,window:element(kAXFocusedWindowAttribute))
+    }
+
+    func matches(_ current:Self) -> Bool {
+        VoiceDestinationPolicy.permits(originalPID:pid,currentPID:current.pid,secure:IsSecureEventInputEnabled(),
+            fieldMatches:field.map { original in current.field.map { CFEqual(original,$0) } ?? false },
+            windowMatches:window.map { original in current.window.map { CFEqual(original,$0) } ?? false })
+    }
+}
+
 /// Restores GlassToKey's Voice action: trigger once to listen, again to insert.
 /// No microphone, permission request or recognizer is created until user action.
 @MainActor final class VoiceDictationManager: ObservableObject {
@@ -79,7 +125,7 @@ struct VoiceDictationSession {
     private var task: SFSpeechRecognitionTask?
     private var engine: AVAudioEngine?
     private var tapInstalled = false
-    private var destination: AXUIElement?
+    private var destination: VoiceDictationDestination?
     private var restartAttempts = 0
 
     func toggle() {
@@ -114,8 +160,8 @@ struct VoiceDictationSession {
         } else { microphone = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized }
         guard token == session.generation, session.phase == .authorizing else { return }
         guard microphone else { fail("Voice: enable Microphone in Privacy & Security"); return }
-        guard !IsSecureEventInputEnabled(), let focused = VerifiedAutocorrectReplacement.focusedElement() else {
-            fail("Voice: focus an editable text field first"); return
+        guard let focused = VoiceDictationDestination.capture() else {
+            fail("Voice: focus a non-secure destination app first"); return
         }
         destination = focused
         recognizer = [Locale.current, Locale(identifier: "en_US")].compactMap { SFSpeechRecognizer(locale: $0) }.first { $0.isAvailable }
@@ -188,7 +234,7 @@ struct VoiceDictationSession {
         teardown(); isActive = false
         defer { destination = nil }
         guard !text.isEmpty else { status = "Voice: no speech detected"; return }
-        guard let destination, let focused = VerifiedAutocorrectReplacement.focusedElement(), CFEqual(focused, destination) else {
+        guard let destination, let focused = VoiceDictationDestination.capture(), destination.matches(focused) else {
             status = "Voice: focus changed; transcript discarded"; return
         }
         AutocorrectEngine.shared.invalidate()

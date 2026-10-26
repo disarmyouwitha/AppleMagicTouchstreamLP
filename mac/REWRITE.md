@@ -1,5 +1,7 @@
 # NEXT:
 =======
+0. After initiating Emoji shortcut in Gesture my tapping is messed up like modifiers are still held?
+1. I can't get Voice to trigger unless the Config window is open (unacceptable)
 > export new keymaps (default & MY)
 ===
 0. For our Directional gestures there should be a behavior dropdown (repeat every ms, repeat with motion)
@@ -8,13 +10,6 @@
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 > (Setting Default keymap back to default was a good example)
 ===
-* Add new Gesture `Thumb + two fingers`: ↖ ↗ ↙ ↘
-- Swipe in a Diagonal direction:	
-- I am thinking we can re-use the "up,down,left,right" grid from "tap and move" here.. I am thinking:
-[↖, tap, ↗]
-[rotate left, blank?, rotate right]
-[↙, hold, ↘]
-^ We will need to implement "dragging toward corner" logic for this chord, instead of up,down,left,right like the others.
 
 
 `AppleMagicTouchstream`:

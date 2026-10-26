@@ -360,6 +360,11 @@ Apply assigns the input and adds to the shared library. The gesture
 Action sheet retains its built-in groups and includes a Shortcuts group. Rendering
 or editing a draft never posts input.
 
+Emoji's Globe shortcut translates to Control–Command–Space through the same
+balanced keystroke factory as other shortcuts. Its key-up restores pre-shortcut
+flags, including independently held modifiers, so later taps do not inherit the
+borrowed Control/Command state.
+
 Manage Shortcuts opens the same searchable library editor from the Gesture Action
 picker and the Keyboard builder beside Primary/Hold/Shortcuts. Edit prefills the
 shared builder; Apply replaces that library entry and merges duplicates. Delete

@@ -26,9 +26,11 @@ enum KeyboardStrokeOutput {
     struct Events { let down:CGEvent; let up:CGEvent }
     static func events(code:CGKeyCode,flags:CGEventFlags,restoringFlags:CGEventFlags,
                        source:CGEventSource? = nil) -> Events? {
-        guard let down = CGEvent(keyboardEventSource:source,virtualKey:code,keyDown:true),
-              let up = CGEvent(keyboardEventSource:source,virtualKey:code,keyDown:false) else { return nil }
-        down.flags = flags
+        let emoji = code == CGKeyCode(kVK_Function)
+        let key = emoji ? CGKeyCode(kVK_Space) : code
+        guard let down = CGEvent(keyboardEventSource:source,virtualKey:key,keyDown:true),
+              let up = CGEvent(keyboardEventSource:source,virtualKey:key,keyDown:false) else { return nil }
+        down.flags = emoji ? [.maskCommand,.maskControl] : flags
         up.flags = restoringFlags
         return Events(down:down,up:up)
     }
@@ -229,8 +231,6 @@ private protocol KeyDispatching: Sendable {
 private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let globeKeyCode = CGKeyCode(kVK_Function)
     private static let globeModifierFlag = CGEventFlags.maskSecondaryFn
-    private static let emojiTriggerCode = CGKeyCode(kVK_Space)
-    private static let emojiTriggerFlags: CGEventFlags = [.maskCommand, .maskControl]
     private static let mediaKeyDownState = Int32(0xA)
     private static let mediaKeyUpState = Int32(0xB)
     private static let mediaKeySubtype: Int16 = 8
@@ -272,28 +272,9 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             guard let events = KeyboardStrokeOutput.events(code:code,flags:flags,
                     restoringFlags:restoringFlags,source:source) else { return }
             let keyDown = events.down, keyUp = events.up
-            if code == Self.globeKeyCode {
-                guard let emojiDown = CGEvent(
-                    keyboardEventSource: source,
-                    virtualKey: Self.emojiTriggerCode,
-                    keyDown: true
-                ),
-                let emojiUp = CGEvent(
-                    keyboardEventSource: source,
-                    virtualKey: Self.emojiTriggerCode,
-                    keyDown: false
-                ) else {
-                    return
-                }
-                emojiDown.flags = Self.emojiTriggerFlags
-                emojiUp.flags = Self.emojiTriggerFlags
-                emojiDown.post(tap: .cghidEventTap)
-                emojiUp.post(tap: .cghidEventTap)
-                AutocorrectEngine.shared.invalidate()
-                return
-            }
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
+            if code == Self.globeKeyCode { AutocorrectEngine.shared.invalidate(); return }
             AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: true, altAscii: altAscii)
         }
     }

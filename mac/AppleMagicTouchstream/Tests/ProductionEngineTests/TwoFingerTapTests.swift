@@ -1,4 +1,5 @@
 import CoreGraphics
+import Carbon
 import OpenMultitouchSupport
 import XCTest
 @testable import GlassToKeyRuntime
@@ -10,6 +11,23 @@ final class TwoFingerTapTests: XCTestCase {
     }
     private var pair: [OMSRawTouch] { [touch(1),touch(2,0.6)] }
     private var empty: [OMSRawTouch] { [] }
+    func testEmojiRestoresModifiersBeforeFollowingTapClick() throws {
+        for before:CGEventFlags in [[],.maskShift,.maskCommand,[.maskControl,.maskAlternate]] {
+            let stroke = try XCTUnwrap(KeyboardStrokeOutput.events(code:CGKeyCode(kVK_Function),
+                flags:[],restoringFlags:before))
+            XCTAssertEqual(stroke.down.type,.keyDown)
+            XCTAssertEqual(stroke.up.type,.keyUp)
+            XCTAssertEqual(stroke.down.getIntegerValueField(.keyboardEventKeycode),Int64(kVK_Space))
+            XCTAssertEqual(stroke.up.getIntegerValueField(.keyboardEventKeycode),Int64(kVK_Space))
+            XCTAssertEqual(stroke.down.flags,[.maskCommand,.maskControl])
+            XCTAssertEqual(stroke.up.flags,before)
+            var clicks = PrimaryTapClickOutput()
+            let click = try XCTUnwrap(clicks.events(location:.init(x:100,y:100),time:1,
+                doubleClickInterval:0.5,flags:stroke.up.flags))
+            XCTAssertEqual(click.down.flags,before)
+            XCTAssertEqual(click.up.flags,before)
+        }
+    }
     func testCommandSRestoresModifiersBeforeFollowingTapClick() throws {
         // The user capture has one Cmd+S keyStroke followed by accepted taps.
         // Test the production event factory without posting to macOS.
