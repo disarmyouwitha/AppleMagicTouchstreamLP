@@ -945,7 +945,7 @@ final class DispatchService: @unchecked Sendable {
         dispatchQueue.async { [self] in
             guard isCurrent() else { completion(.skipped("Newer AMT input arrived.")); return }
             guard !IsSecureEventInputEnabled() else { completion(.skipped("Secure Event Input is enabled.")); return }
-            guard AXIsProcessTrusted() else { completion(.skipped("Accessibility permission is required.")); return }
+            guard AXIsProcessTrusted() else { completion(.failed("Accessibility permission is required.")); return }
             guard NSRunningApplication(processIdentifier: pid)?.isActive == true else {
                 completion(.skipped("The focused app changed.")); return
             }
@@ -954,7 +954,7 @@ final class DispatchService: @unchecked Sendable {
                     .intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskSecondaryFn]).isEmpty else {
                 completion(.skipped("A modifier is held.")); return
             }
-            guard let events = plan.events() else { completion(.skipped("Keyboard events could not be created.")); return }
+            guard let events = plan.events() else { completion(.failed("Keyboard events could not be created.")); return }
             completion(AutocorrectKeyboardOutput.send(events, isCurrent: isCurrent,
                 begin: { AutocorrectEngine.shared.invalidate() },
                 post: { event in

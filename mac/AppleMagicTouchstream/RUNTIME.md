@@ -119,23 +119,27 @@ correction removes that focus observer. Fallback cannot verify unexposed text,
 caret or password state; detected secure fields/Secure Event Input are excluded.
 Physical input can still race OS delivery. No new restricted entitlement is needed.
 
-Keyboard → Mode Toggles shows session-only autocorrect diagnostics: current status,
-specific skip/error reason, and the last original word → replacement with output
-method (AX-verified keyboard, keyboard fallback with reason, or Accessibility).
+Keyboard → Mode Toggles shows the last original word → replacement beneath the
+Autocorrect switch, with actionable validation/output errors when present. Routine
+statuses (waiting, no suggestion, sent, ordinary input/focus cancellation) and the
+output method remain in session diagnostics but are hidden in the compact readout.
 “Replacement sent” confirms dispatch, not the receiver's resulting DOM/editor
 state. Last replacement survives a later skipped attempt. No word history is
 persisted, exported or written to logs; text-free debug logs use Autocorrect.
 
 ## Voice and Apple Dictation
 
-Voice is hidden from keyboard and gesture assignment menus, including saved
-library entries. Its implementation and existing assignments remain intact; this
-is a menu-only change, with no migration or settings rewrite.
+Voice is a built-in option in the keyboard Shortcuts menu and the Shortcuts section
+of compatible discrete gesture assignments, alongside Dictation, Screenshot and
+Emoji. Saved Voice aliases deduplicate with the built-in entry. Continuous movement
+assignments do not offer Voice. Menu presentation never rewrites saved assignments
+or seeds the user's shortcut library.
 
 Voice is the app-managed `AVAudioEngine`/`SFSpeechRecognizer` toggle: invoke once
 to listen, again to finish and insert Unicode text. A gesture Hold starts it at
-the threshold; lifting does not stop dictation. Mode Toggles shows status and
-Cancel Voice. No audio, permission request or recognizer starts at app launch,
+the threshold; lifting does not stop dictation. Mode Toggles has no Voice status
+or Cancel Voice row; invoke the assigned Voice action again to finish. Internal
+status and lifecycle cancellation remain available. No audio, permission request or recognizer starts at app launch,
 settings editing, offline tests or replay.
 
 On first invocation, request Speech Recognition and Microphone access asynchronously.

@@ -255,9 +255,9 @@ final class SearchableGestureActionTests:XCTestCase {
         for actions in [GestureDirectionalAssignments.allowedActions,GestureTrigger.fourFingerTap.allowedActions,TwoHandGestureSettings.allowedActions,PerHandGestureSettings.holdActions(for:6)] {
             let groups = GestureActionChooser.groups(actions)
             let shortcutChoices = GestureActionChooser.shortcutActions(actions,savedLabels:[])
-            XCTAssertEqual(Set(groups.flatMap(\.actions) + shortcutChoices).intersection(Set(actions)),Set(actions.filter { $0 != .voice }))
+            XCTAssertEqual(Set(groups.flatMap(\.actions) + shortcutChoices).intersection(Set(actions)),Set(actions))
             XCTAssertFalse(groups.flatMap(\.actions).contains(.voice))
-            XCTAssertFalse(shortcutChoices.contains(.voice))
+            XCTAssertEqual(shortcutChoices.contains(.voice), actions.contains(.voice))
             let results = SearchableActionGroup.filtered(groups,query:"  PaN  ",label:{$0.title}).flatMap(\.actions)
             XCTAssertTrue(results.allSatisfy { $0.title.localizedCaseInsensitiveContains("pan") })
             XCTAssertTrue(SearchableActionGroup.filtered(groups,query:"not-a-real-action",label:{$0.title}).isEmpty)

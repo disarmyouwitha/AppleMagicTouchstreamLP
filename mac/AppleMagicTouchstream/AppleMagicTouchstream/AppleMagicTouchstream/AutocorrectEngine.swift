@@ -17,10 +17,12 @@ enum AutocorrectTextAccess {
     @Published private(set) var activity = "Waiting for a completed word."
     @Published private(set) var lastReplacement: String?
     @Published private(set) var lastMethod: String?
+    @Published private(set) var issue: String?
 
-    func report(_ message: String) { activity = message }
+    func report(_ message: String) { activity = message; issue = nil }
+    func reportIssue(_ message: String) { activity = message; issue = message }
     func sent(word: String, correction: String, method: String) {
-        activity = "Replacement sent."
+        activity = "Replacement sent."; issue = nil
         lastReplacement = "“\(word)” → “\(correction)”"
         lastMethod = method
     }
@@ -300,6 +302,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                         case .posted:
                             AutocorrectStatus.shared.sent(word: candidate.word, correction: correction, method: method)
                         case let .skipped(reason): AutocorrectStatus.shared.report("Skipped: " + reason)
+                        case let .failed(reason): AutocorrectStatus.shared.reportIssue(reason)
                         }
                     }
                 })
@@ -307,7 +310,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             AutocorrectStatus.shared.sent(word: candidate.word, correction: correction, method: "Accessibility")
         case let .rejected(reason):
             Self.log.debug("Correction validation failed")
-            AutocorrectStatus.shared.report("Skipped: " + reason)
+            AutocorrectStatus.shared.reportIssue("Skipped: " + reason)
         case .notReady:
             // AX may lag event delivery; a persistent mismatch must never authorize
             // backspacing. Report it rather than silently dropping the candidate.
@@ -316,7 +319,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                     self?.apply(candidate, correction: correction, target: target, generation: generation, attempt: attempt + 1)
                 }
             } else {
-                AutocorrectStatus.shared.report("Skipped: AX text does not match “\(candidate.word)” plus its delimiter at the caret.")
+                AutocorrectStatus.shared.reportIssue("Skipped: AX text does not match “\(candidate.word)” plus its delimiter at the caret.")
             }
         }
     }
@@ -479,7 +482,7 @@ struct AutocorrectKeyboardReplacement: Equatable, Sendable {
 /// An indivisible batch on DispatchService's queue. A stale candidate posts nothing;
 /// once begun, finish every balanced edge even if later AMT input is queued.
 enum AutocorrectKeyboardOutput {
-    enum Outcome: Equatable, Sendable { case posted, skipped(String) }
+    enum Outcome: Equatable, Sendable { case posted, skipped(String), failed(String) }
     static let strokeInterval: TimeInterval = 0.002
 
     static func send(_ events: [CGEvent], isCurrent: () -> Bool, begin: () -> Void,

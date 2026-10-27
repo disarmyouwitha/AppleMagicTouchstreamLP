@@ -2261,9 +2261,8 @@ enum KeyActionCatalog {
     /// Built-in entries share the Shortcuts section with the user's saved list.
     /// They don't mutate that list or duplicate an existing canonical entry.
     static func shortcutMenuActions(savedLabels: [String]) -> [KeyAction] {
-        ShortcutActionLibraryStorage.normalized(savedLabels + [screenshotShortcutLabel, dictationLabel, "Emoji"])
+        ShortcutActionLibraryStorage.normalized(savedLabels + [screenshotShortcutLabel, dictationLabel, voiceLabel, "Emoji"])
             .compactMap { action(for: $0) }
-            .filter { $0.kind != .voice }
     }
     static let noneLabel = "None"
     static let leftClickLabel = "Left Click"

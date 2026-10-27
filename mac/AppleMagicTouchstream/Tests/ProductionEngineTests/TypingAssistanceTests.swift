@@ -193,11 +193,21 @@ final class AutocorrectSessionTests: XCTestCase {
         let status = AutocorrectStatus()
         status.sent(word: "teh", correction: "the", method: "Keyboard · AX verified")
         XCTAssertEqual(status.activity, "Replacement sent.")
+        XCTAssertNil(status.issue)
         XCTAssertEqual(status.lastReplacement, "“teh” → “the”")
         status.report("Skipped: A modifier is held.")
         XCTAssertEqual(status.lastReplacement, "“teh” → “the”")
         XCTAssertEqual(status.lastMethod, "Keyboard · AX verified")
         XCTAssertEqual(status.activity, "Skipped: A modifier is held.")
+        XCTAssertNil(status.issue) // Routine skips stay out of the compact readout.
+        status.reportIssue("Accessibility permission is required.")
+        XCTAssertEqual(status.issue, "Accessibility permission is required.")
+        XCTAssertEqual(status.lastReplacement, "“teh” → “the”")
+        status.report("No spelling correction suggested.")
+        XCTAssertNil(status.issue)
+        status.reportIssue("Keyboard events could not be created.")
+        status.sent(word: "teh", correction: "the", method: "Keyboard fallback")
+        XCTAssertNil(status.issue)
     }
 
     func testPendingCorrectionInvalidatesOnLaterKeysDisableResetAndOverflow() throws {

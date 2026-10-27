@@ -1,6 +1,6 @@
 # NEXT:
 =======
-0. Autocorrect isnt starting properly? Well.. it works in this app, but not like. VS Code or a youtube search... Just Accessibility apps? Is that a hard limitation? (I thought we had a fallback where we would backspace and type when accessibility was not available?)
+0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
 ===
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
@@ -8,12 +8,12 @@
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 > (Setting Default keymap back to default was a good example)
 ===
+* * Start working on TouchStream gesture defaults template!!
 
 
 `AppleMagicTouchstream`:
 ===
-1. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
-2. Implement actions: Missing Apple actions:
+1. Implement actions: Missing Apple actions:
 > Smart-zoom 
 2. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
