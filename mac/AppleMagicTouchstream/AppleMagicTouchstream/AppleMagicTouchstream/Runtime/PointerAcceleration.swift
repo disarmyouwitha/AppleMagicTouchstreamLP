@@ -185,9 +185,14 @@ struct TwoFingerPointerMotionEngine {
         let scale = sensitivity.isFinite ? min(2,max(0.25,sensitivity)) : 1
         let scales = sensitivities.mapValues { $0.isFinite ? min(2,max(0.25,$0)) : 1 }
         guard self.response != response || self.sensitivity != scale || self.profiles != profiles || self.sensitivities != scales else { return }
+        let globalChange = self.response != response || self.sensitivity != scale
+        for id in Set(self.profiles.keys).union(profiles.keys) {
+            if globalChange || self.profiles[id] != profiles[id] || self.sensitivities[id] != scales[id] {
+                tracker.reset(device:id)
+                accelerators[id] = profiles[id].map { ApplePointerAccelerator(profile:$0) }
+            }
+        }
         self.response = response; self.sensitivity = scale; self.profiles = profiles; self.sensitivities = scales
-        accelerators = profiles.mapValues { ApplePointerAccelerator(profile:$0) }
-        reset()
     }
     mutating func reset() {
         tracker.reset()

@@ -577,7 +577,7 @@ struct ContentView: View {
                 applySavedSettings()
                 refreshActionGroupCaches()
                 viewModel.gestures.refreshPermission()
-                viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+                viewModel.startTrackpadConnectionRecovery()
 
             }
             .onDisappear {
@@ -713,9 +713,6 @@ struct ContentView: View {
                 normalizeStoredShortcutActions()
                 refreshActionGroupCaches()
             }
-            .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
-                viewModel.setAutoResyncEnabled(newValue)
-            }
             .onReceive(viewModel.$replayTimelineState) { state in
                 if let state, !replayScrubInProgress {
                     replayScrubValue = max(state.currentTimeSeconds, 0)
@@ -840,11 +837,13 @@ struct ContentView: View {
             availableDevices: viewModel.availableDevices,
             leftDevice: viewModel.leftDevice,
             rightDevice: viewModel.rightDevice,
+            requestedLeftID: viewModel.requestedTrackpadSelectionIDs.left,
+            requestedRightID: viewModel.requestedTrackpadSelectionIDs.right,
             onSelectLeft: { device in
-                changeTrackpadSelection(left: device, right: viewModel.rightDevice)
+                changeTrackpadSelection(left: device, right: viewModel.rightDevice, editedSide: .left)
             },
             onSelectRight: { device in
-                changeTrackpadSelection(left: viewModel.leftDevice, right: device)
+                changeTrackpadSelection(left: viewModel.leftDevice, right: device, editedSide: .right)
             },
             onRefresh: {
                 Task { @MainActor in
@@ -863,13 +862,13 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func changeTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
+    private func changeTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?, editedSide: TrackpadSide) {
         guard !nativeTakeover.isReleasing, viewModel.replayTimelineState == nil else { return }
         Task { @MainActor in
             await nativeTakeover.updateSelection(deviceIDs: [left, right].compactMap { $0?.deviceIDNumeric }) {
-                viewModel.commitTrackpadSelection(left: left, right: right)
-                storedLeftDeviceID = left?.deviceID ?? ""
-                storedRightDeviceID = right?.deviceID ?? ""
+                viewModel.commitTrackpadSelection(left: left, right: right, editedSide: editedSide)
+                storedLeftDeviceID = viewModel.requestedTrackpadSelectionIDs.left
+                storedRightDeviceID = viewModel.requestedTrackpadSelectionIDs.right
             }
         }
     }
@@ -976,7 +975,6 @@ struct ContentView: View {
             bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
             bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
             gestureRepeatCadenceData: $storedGestureRepeatCadenceData,
-            autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled,
             onAddCustomButton: { side in
                 addCustomButton(side: side)
@@ -1303,7 +1301,6 @@ struct ContentView: View {
         @Binding var bottomLeftForceClickGestureAction: String
         @Binding var bottomRightForceClickGestureAction: String
         @Binding var gestureRepeatCadenceData: Data
-        @Binding var autoResyncEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
@@ -1436,7 +1433,6 @@ struct ContentView: View {
                             keyboardModeEnabled: $keyboardModeEnabled,
                             holdRepeatEnabled: $holdRepeatEnabled,
                             runAtStartupEnabled: $runAtStartupEnabled,
-                            autoResyncEnabled: $autoResyncEnabled,
                             systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled
                         )
                     } label: {
@@ -1580,6 +1576,8 @@ struct ContentView: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
+        let requestedLeftID: String
+        let requestedRightID: String
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
@@ -1602,7 +1600,7 @@ struct ContentView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                if availableDevices.isEmpty {
+                if availableDevices.isEmpty && requestedLeftID.isEmpty && requestedRightID.isEmpty {
                     HStack {
                         Text("No trackpads detected.").foregroundStyle(.secondary)
                         refreshButton
@@ -1615,16 +1613,20 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Picker("", selection: Binding(
-                                get: { leftDevice },
-                                set: { device in
-                                    onSelectLeft(device)
+                                get: { leftDevice?.deviceID ?? requestedLeftID },
+                                set: { id in
+                                    onSelectLeft(availableDevices.first { $0.deviceID == id })
                                 }
                             )) {
                                 Text("None")
-                                    .tag(nil as OMSDeviceInfo?)
+                                    .tag("")
+                                if leftDevice == nil && !requestedLeftID.isEmpty {
+                                    Text("Disconnected — waiting to reconnect")
+                                        .tag(requestedLeftID)
+                                }
                                 ForEach(availableDevices, id: \.self) { device in
                                     Text(device.selectionLabel)
-                                        .tag(device as OMSDeviceInfo?)
+                                        .tag(device.deviceID)
                                 }
                             }
                             .labelsHidden()
@@ -1639,16 +1641,20 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Picker("", selection: Binding(
-                                get: { rightDevice },
-                                set: { device in
-                                    onSelectRight(device)
+                                get: { rightDevice?.deviceID ?? requestedRightID },
+                                set: { id in
+                                    onSelectRight(availableDevices.first { $0.deviceID == id })
                                 }
                             )) {
                                 Text("None")
-                                    .tag(nil as OMSDeviceInfo?)
+                                    .tag("")
+                                if rightDevice == nil && !requestedRightID.isEmpty {
+                                    Text("Disconnected — waiting to reconnect")
+                                        .tag(requestedRightID)
+                                }
                                 ForEach(availableDevices, id: \.self) { device in
                                     Text(device.selectionLabel)
-                                        .tag(device as OMSDeviceInfo?)
+                                        .tag(device.deviceID)
                                 }
                             }
                             .labelsHidden()
@@ -2460,7 +2466,6 @@ struct ContentView: View {
         @Binding var keyboardModeEnabled: Bool
         @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
-        @Binding var autoResyncEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
             (compact
@@ -2474,8 +2479,6 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     snapRadiusToggle
                     holdRepeatToggle
-                    modeToggle("Auto-resync", isOn: $autoResyncEnabled)
-                        .help("Polls every 8000 ms to detect disconnected trackpads.")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -3774,7 +3777,7 @@ struct ContentView: View {
         storedKeyMappingsData = encodedLayoutKeyMappingsData(from: profile)
         storedKeyGeometryData = encodedLayoutKeyGeometryData(from: profile)
         applySavedSettings()
-        viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+        viewModel.startTrackpadConnectionRecovery()
         if let activeLayer = profile.activeLayer {
             viewModel.setPersistentLayer(activeLayer)
         }
@@ -3807,8 +3810,8 @@ struct ContentView: View {
     }
 
     private func saveSettings() {
-        storedLeftDeviceID = viewModel.leftDevice?.deviceID ?? ""
-        storedRightDeviceID = viewModel.rightDevice?.deviceID ?? ""
+        storedLeftDeviceID = viewModel.requestedTrackpadSelectionIDs.left
+        storedRightDeviceID = viewModel.requestedTrackpadSelectionIDs.right
         storedLayoutPreset = layoutOption.rawValue
         saveCurrentKeySpacing()
         saveCurrentColumnSettings()

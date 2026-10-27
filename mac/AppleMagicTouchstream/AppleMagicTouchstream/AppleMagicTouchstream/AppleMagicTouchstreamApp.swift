@@ -124,6 +124,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         InterpretedTrackpadPointer.shared.configureOpenConfiguration { [weak self] in
             Task { @MainActor [weak self] in self?.openConfigWindow() }
         }
+        controller.viewModel.trackpadConnectionRecoveryAllowed = { [weak self] in
+            guard let self else { return false }
+            return self.nativeTakeover.connectionRecoveryAllowed && !self.isTerminatingApp
+                && self.restartTask == nil && self.controller.viewModel.replayTimelineState == nil
+        }
+        controller.viewModel.recoverTrackpadConnections = { [weak self] _, left, right in
+            guard let self, self.nativeTakeover.connectionRecoveryAllowed,
+                  !self.isTerminatingApp else { return false }
+            let ids = [left, right].compactMap { $0?.deviceIDNumeric }
+            let removed = Set([self.controller.viewModel.leftDevice, self.controller.viewModel.rightDevice]
+                .compactMap { $0?.deviceIDNumeric }).subtracting(ids)
+            for id in removed { InterpretedTrackpadPointer.shared.cancelDisconnectedDevice(id) }
+            if self.nativeTakeover.enabled || self.nativeTakeover.hasOwnership {
+                return await self.nativeTakeover.recoverSelection(deviceIDs: ids)
+            }
+            return OMSManager.shared.reconcileOrdinaryDevices([left, right].compactMap { $0 })
+        }
         controller.start()
         reconcileTakeoverSelection()
         configureStatusItem()

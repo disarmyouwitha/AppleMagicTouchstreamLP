@@ -23,7 +23,10 @@ live input, takeover, haptics or login registration as part of offline verificat
   and await keyboard cleanup before release.
 - Route by native numeric identity, not bridge slots. Deduplicate selection;
   commit UI/keyboard selection only after successful preparation. Refresh suspends
-  and reconciles; auto-resync pauses during ownership/transitions.
+  and reconciles. Automatic connection discovery is non-disruptive, including
+  during FLTR ownership. Recovery pauses for lifecycle/manual transitions and
+  replay. Match exact connection IDs or verified physical identity across BT/USB;
+  never substitute devices by product name or “single remaining pad.”
 - Recognition, candidate reservation, activated session and output ownership are
   distinct. Shared continuous latches and directional logic serve all supported
   counts. Preserve first-activated ownership through all-up, identity rebasing,

@@ -20,7 +20,10 @@ final class TrackpadGestureController: ObservableObject {
         let next = GestureSelectedPads(left: left?.deviceIDNumeric, right: right?.deviceIDNumeric)
         let infos = [left, right].compactMap { $0 }
         guard next != pads || infos != devices else { return }
-        InterpretedTrackpadPointer.shared.resetBaseline()
+        for removed in Set([pads.left, pads.right].compactMap { $0 })
+            .subtracting(Set([next.left, next.right].compactMap { $0 })) {
+            InterpretedTrackpadPointer.shared.resetBaseline(device: removed)
+        }
         pads = next; devices = infos
         reloadProfiles()
         configure()

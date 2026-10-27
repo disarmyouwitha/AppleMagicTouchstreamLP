@@ -565,6 +565,34 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     }
 }
 
+/// Transport IDs are connection-scoped; a physical key may match BT and USB.
+struct TrackpadRecoveryIdentity: Codable, Equatable, Sendable {
+    var connection: String
+    var physical: String?
+    var aliases: [String]? = nil
+
+    func acceptsSavedConnection(_ value: String) -> Bool { connection == value || aliases?.contains(value) == true }
+
+    static func choose(_ desired: Self?, from available: [Self], excluding: Set<String> = [],
+                       usb: Set<String> = []) -> String? {
+        guard let desired else { return nil }
+        let candidates = available.filter { !excluding.contains($0.connection) }
+        if let physical = desired.physical {
+            let matches = candidates.filter { $0.physical == physical }
+            let wired = matches.filter { usb.contains($0.connection) }
+            if wired.count == 1 { return wired[0].connection }
+            if matches.count == 1 { return matches[0].connection }
+            if matches.count > 1 { return nil } // Ambiguous identity: never guess.
+        }
+        return candidates.first { candidate in
+            guard candidate.connection == desired.connection else { return false }
+            if let old = desired.physical, let new = candidate.physical,
+               old.hasPrefix("bt:"), new.hasPrefix("bt:"), old != new { return false }
+            return true
+        }?.connection
+    }
+}
+
 @MainActor
 final class RuntimeDeviceSessionService {
     struct State {
@@ -573,252 +601,150 @@ final class RuntimeDeviceSessionService {
         var rightDevice: OMSDeviceInfo?
         var hasDisconnectedTrackpads = false
     }
-
-    private static let connectedResyncIntervalNanoseconds = UInt64(10.0 * 1_000_000_000)
-    private static let disconnectedResyncIntervalNanoseconds = UInt64(1.0 * 1_000_000_000)
-
+    var recoveryAllowed: (() -> Bool)?
+    var recoverSelection: (([OMSDeviceInfo], OMSDeviceInfo?, OMSDeviceInfo?) async -> Bool)?
     private let manager: OMSManager
     private let runtimeEngine: RuntimeCoreBoundary
     private let onStateChanged: @MainActor (State) -> Void
     private var state = State()
+    private var desiredLeft: TrackpadRecoveryIdentity?
+    private var desiredRight: TrackpadRecoveryIdentity?
+    private var recoveryTask: Task<Void, Never>?
+    private var revision = 0
 
-    private var requestedLeftDeviceID: String?
-    private var requestedRightDeviceID: String?
-    private var requestedLeftDeviceName: String?
-    private var requestedRightDeviceName: String?
-    private var requestedLeftIsBuiltIn: Bool?
-    private var requestedRightIsBuiltIn: Bool?
-    private var autoResyncTask: Task<Void, Never>?
-    private var autoResyncEnabled = false
-
-    init(
-        manager: OMSManager = .shared,
-        runtimeEngine: RuntimeCoreBoundary,
-        onStateChanged: @escaping @MainActor (State) -> Void = { _ in }
-    ) {
-        self.manager = manager
-        self.runtimeEngine = runtimeEngine
-        self.onStateChanged = onStateChanged
+    init(manager: OMSManager = .shared, runtimeEngine: RuntimeCoreBoundary,
+         onStateChanged: @escaping @MainActor (State) -> Void = { _ in }) {
+        self.manager = manager; self.runtimeEngine = runtimeEngine; self.onStateChanged = onStateChanged
+    }
+    deinit { recoveryTask?.cancel() }
+    var snapshot: State { state }
+    var requestedSelectionIDs: (left: String, right: String) {
+        (desiredLeft?.connection ?? "", desiredRight?.connection ?? "")
     }
 
-    deinit {
-        autoResyncTask?.cancel()
+    private func identity(_ device: OMSDeviceInfo?) -> TrackpadRecoveryIdentity? {
+        device.map { .init(connection: $0.deviceID, physical: $0.physicalIdentity) }
     }
-
-    var snapshot: State {
-        state
+    private func remember(_ device: OMSDeviceInfo?, side: String) -> TrackpadRecoveryIdentity? {
+        let key = "AppleMagicTouchstream.recoveryIdentity." + side
+        let legacy = side == "left" ? GlassToKeyDefaultsKeys.leftDeviceID : GlassToKeyDefaultsKeys.rightDeviceID
+        if let device {
+            var value = identity(device)!
+            if let data = UserDefaults.standard.data(forKey: key),
+               let previous = try? JSONDecoder().decode(TrackpadRecoveryIdentity.self, from: data),
+               let physical = value.physical, physical == previous.physical {
+                value.aliases = Array(Set((previous.aliases ?? []) + [previous.connection, device.deviceID])).sorted()
+            }
+            UserDefaults.standard.set(try? JSONEncoder().encode(value), forKey: key)
+            return value
+        }
+        // A disconnected saved selection must survive startup. Explicit None is
+        // represented by an empty saved connection ID and clears the identity.
+        let saved = UserDefaults.standard.string(forKey: legacy) ?? ""
+        if !saved.isEmpty, let data = UserDefaults.standard.data(forKey: key),
+           let value = try? JSONDecoder().decode(TrackpadRecoveryIdentity.self, from: data),
+           value.acceptsSavedConnection(saved) { return value }
+        if !saved.isEmpty { return .init(connection: saved, physical: nil) }
+        UserDefaults.standard.removeObject(forKey: key)
+        return nil
     }
-
     func loadDevices(preserveSelection: Bool = false) {
-        let previousLeftDeviceID = preserveSelection ? requestedLeftDeviceID : nil
-        let previousRightDeviceID = preserveSelection ? requestedRightDeviceID : nil
-        let previousLeftDeviceName = preserveSelection ? requestedLeftDeviceName : nil
-        let previousRightDeviceName = preserveSelection ? requestedRightDeviceName : nil
-        let previousLeftIsBuiltIn = preserveSelection ? requestedLeftIsBuiltIn : nil
-        let previousRightIsBuiltIn = preserveSelection ? requestedRightIsBuiltIn : nil
-        state.availableDevices = manager.availableDevices
-
-        func matchByID(_ id: String?) -> OMSDeviceInfo? {
-            guard let id else { return nil }
-            return state.availableDevices.first { $0.deviceID == id }
-        }
-
-        func matchByName(
-            _ name: String?,
-            isBuiltIn: Bool?,
-            excluding excludedIDs: Set<String>
-        ) -> OMSDeviceInfo? {
-            guard let name, !name.isEmpty else { return nil }
-            let candidates = state.availableDevices.filter { candidate in
-                guard !excludedIDs.contains(candidate.deviceID) else { return false }
-                guard candidate.deviceName == name else { return false }
-                if let isBuiltIn {
-                    return candidate.isBuiltIn == isBuiltIn
-                }
-                return true
-            }
-            return candidates.count == 1 ? candidates[0] : nil
-        }
-
-        func matchSingleRemaining(excluding excludedIDs: Set<String>) -> OMSDeviceInfo? {
-            let candidates = state.availableDevices.filter { !excludedIDs.contains($0.deviceID) }
-            return candidates.count == 1 ? candidates[0] : nil
-        }
-
-        var usedIDs = Set<String>()
-        let leftRequested = preserveSelection && previousLeftDeviceID != nil
-        let rightRequested = preserveSelection && previousRightDeviceID != nil
-
-        if leftRequested {
-            state.leftDevice = matchByID(previousLeftDeviceID)
-                ?? matchByName(previousLeftDeviceName, isBuiltIn: previousLeftIsBuiltIn, excluding: usedIDs)
-        } else if !preserveSelection {
-            state.leftDevice = state.availableDevices.first
-        } else {
-            state.leftDevice = nil
-        }
-        if let leftDevice = state.leftDevice {
-            usedIDs.insert(leftDevice.deviceID)
-        }
-
-        let shouldFallbackRight = !preserveSelection || (preserveSelection && previousRightDeviceID != nil)
-        if rightRequested {
-            state.rightDevice = matchByID(previousRightDeviceID)
-                ?? matchByName(previousRightDeviceName, isBuiltIn: previousRightIsBuiltIn, excluding: usedIDs)
-        } else if shouldFallbackRight {
-            state.rightDevice = state.availableDevices.first(where: { candidate in
-                guard let leftID = state.leftDevice?.deviceID else { return true }
-                return candidate.deviceID != leftID
-            })
-        } else {
-            state.rightDevice = nil
-        }
-        if let rightDevice = state.rightDevice {
-            usedIDs.insert(rightDevice.deviceID)
-        }
-
-        if state.leftDevice == nil, leftRequested {
-            state.leftDevice = matchSingleRemaining(excluding: usedIDs)
-            if let leftDevice = state.leftDevice {
-                usedIDs.insert(leftDevice.deviceID)
-            }
-        }
-        if state.rightDevice == nil, rightRequested {
-            state.rightDevice = matchSingleRemaining(excluding: usedIDs)
-            if let rightDevice = state.rightDevice {
-                usedIDs.insert(rightDevice.deviceID)
-            }
-        }
-
+        state.availableDevices = manager.discoverDevices()
         if !preserveSelection {
-            requestedLeftDeviceID = state.leftDevice?.deviceID
-            requestedRightDeviceID = state.rightDevice?.deviceID
-            requestedLeftDeviceName = state.leftDevice?.deviceName
-            requestedRightDeviceName = state.rightDevice?.deviceName
-            requestedLeftIsBuiltIn = state.leftDevice?.isBuiltIn
-            requestedRightIsBuiltIn = state.rightDevice?.isBuiltIn
+            state.leftDevice = state.availableDevices.first
+            state.rightDevice = state.availableDevices.dropFirst().first
+            desiredLeft = identity(state.leftDevice); desiredRight = identity(state.rightDevice)
         } else {
-            if let leftDevice = state.leftDevice {
-                requestedLeftDeviceID = leftDevice.deviceID
-                requestedLeftDeviceName = leftDevice.deviceName
-                requestedLeftIsBuiltIn = leftDevice.isBuiltIn
-            }
-            if let rightDevice = state.rightDevice {
-                requestedRightDeviceID = rightDevice.deviceID
-                requestedRightDeviceName = rightDevice.deviceName
-                requestedRightIsBuiltIn = rightDevice.isBuiltIn
-            }
+            let resolved = resolve(state.availableDevices)
+            state.leftDevice = resolved.0; state.rightDevice = resolved.1
         }
-
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
-        publishState()
+        updateActiveDevices(); publishState()
     }
-
-    func selectDevices(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
-        requestedLeftDeviceID = left?.deviceID
-        requestedLeftDeviceName = left?.deviceName
-        requestedLeftIsBuiltIn = left?.isBuiltIn
-        requestedRightDeviceID = right?.deviceID
-        requestedRightDeviceName = right?.deviceName
-        requestedRightIsBuiltIn = right?.isBuiltIn
-        state.leftDevice = left
-        state.rightDevice = right
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
-        publishState()
+    func selectDevices(left: OMSDeviceInfo?, right: OMSDeviceInfo?, editedSide: TrackpadSide) {
+        if editedSide == .left {
+            if left == nil { UserDefaults.standard.set("", forKey: GlassToKeyDefaultsKeys.leftDeviceID) }
+            desiredLeft = remember(left, side: "left")
+        } else {
+            if right == nil { UserDefaults.standard.set("", forKey: GlassToKeyDefaultsKeys.rightDeviceID) }
+            desiredRight = remember(right, side: "right")
+        }
+        state.leftDevice = left; state.rightDevice = right
+        revision += 1; updateActiveDevices(); publishState()
     }
-
     func selectLeftDevice(_ device: OMSDeviceInfo?) {
-        requestedLeftDeviceID = device?.deviceID
-        requestedLeftDeviceName = device?.deviceName
-        requestedLeftIsBuiltIn = device?.isBuiltIn
-        state.leftDevice = device
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
-        publishState()
+        desiredLeft = remember(device, side: "left"); state.leftDevice = device
+        revision += 1; updateActiveDevices(); publishState()
     }
-
     func selectRightDevice(_ device: OMSDeviceInfo?) {
-        requestedRightDeviceID = device?.deviceID
-        requestedRightDeviceName = device?.deviceName
-        requestedRightIsBuiltIn = device?.isBuiltIn
-        state.rightDevice = device
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
-        publishState()
+        desiredRight = remember(device, side: "right"); state.rightDevice = device
+        revision += 1; updateActiveDevices(); publishState()
     }
-
-    func setAutoResyncEnabled(_ enabled: Bool) {
-        guard autoResyncEnabled != enabled else { return }
-        autoResyncEnabled = enabled
-        autoResyncTask?.cancel()
-        autoResyncTask = nil
-        if enabled {
-            loadDevices(preserveSelection: true)
-            autoResyncTask = Task { [weak self] in
+    func startConnectionRecovery() {
+        guard recoveryTask == nil else { return }
+        recoveryTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
                 guard let self else { return }
-                await self.autoResyncLoop()
+                await self.checkConnections()
             }
         }
     }
-
+    private func resolve(_ devices: [OMSDeviceInfo]) -> (OMSDeviceInfo?, OMSDeviceInfo?) {
+        let identities = devices.compactMap(identity)
+        let usb = Set(devices.filter { $0.transport == "USB" }.map(\.deviceID))
+        let leftID = TrackpadRecoveryIdentity.choose(desiredLeft, from: identities, usb: usb)
+        let rightID = TrackpadRecoveryIdentity.choose(desiredRight, from: identities,
+            excluding: Set([leftID].compactMap { $0 }), usb: usb)
+        return (devices.first { $0.deviceID == leftID }, devices.first { $0.deviceID == rightID })
+    }
+    private func checkConnections() async {
+        guard recoveryAllowed?() == true else { return }
+        let devices = manager.discoverDevices()
+        let next = resolve(devices)
+        let changed = next.0 != state.leftDevice || next.1 != state.rightDevice
+        if changed {
+            guard let recoverSelection else { return }
+            let version = revision
+            // Remove only vanished connection routes before touching native clients.
+            // New routes are published only after acquisition succeeds.
+            let retainedLeft = state.leftDevice?.deviceID == next.0?.deviceID ? state.leftDevice : nil
+            let retainedRight = state.rightDevice?.deviceID == next.1?.deviceID ? state.rightDevice : nil
+            await runtimeEngine.updateActiveDevices(
+                leftIndex: retainedLeft.flatMap { manager.deviceIndex(for: $0.deviceID) },
+                rightIndex: retainedRight.flatMap { manager.deviceIndex(for: $0.deviceID) },
+                leftDeviceID: retainedLeft?.deviceID, rightDeviceID: retainedRight?.deviceID)
+            guard version == revision, recoveryAllowed?() == true else { return }
+            guard await recoverSelection(devices, next.0, next.1), version == revision else {
+                updateRouting(); return
+            }
+            state.availableDevices = devices; state.leftDevice = next.0; state.rightDevice = next.1
+            if let left = next.0 { desiredLeft = remember(left, side: "left") }
+            if let right = next.1 { desiredRight = remember(right, side: "right") }
+            updateRouting(); publishState()
+        } else if devices != state.availableDevices {
+            // Inventory changes do not rebuild callbacks or reset input.
+            state.availableDevices = devices; publishState()
+        }
+    }
     private func publishState() {
+        state.hasDisconnectedTrackpads = (desiredLeft != nil && state.leftDevice == nil)
+            || (desiredRight != nil && state.rightDevice == nil)
         onStateChanged(state)
     }
-
-    private func updateDisconnectedTrackpadState() {
-        let availableIDs = Set(state.availableDevices.map(\.deviceID))
-        var hasMissing = false
-        if let leftID = requestedLeftDeviceID,
-           !leftID.isEmpty,
-           !availableIDs.contains(leftID) {
-            hasMissing = true
-        }
-        if let rightID = requestedRightDeviceID,
-           !rightID.isEmpty,
-           !availableIDs.contains(rightID) {
-            hasMissing = true
-        }
-        state.hasDisconnectedTrackpads = hasMissing
-    }
-
-    private func autoResyncLoop() async {
-        while autoResyncEnabled {
-            let interval = state.hasDisconnectedTrackpads
-                ? Self.disconnectedResyncIntervalNanoseconds
-                : Self.connectedResyncIntervalNanoseconds
-            do {
-                try await Task.sleep(nanoseconds: interval)
-            } catch {
-                break
-            }
-            guard autoResyncEnabled else { break }
-            loadDevices(preserveSelection: true)
-        }
-    }
-
     private func updateActiveDevices() {
         let devices = [state.leftDevice, state.rightDevice].compactMap { $0 }
-        if !devices.isEmpty, manager.setActiveDevices(devices) {
-            let runtimeEngine = runtimeEngine
-            Task {
-                await runtimeEngine.reset(stopVoiceDictation: false)
-            }
+        // Native selected FLTR sessions are already committed by the coordinator.
+        if manager.nativeTakeoverStatus["active"] as? Bool != true {
+            _ = manager.reconcileOrdinaryDevices(devices)
         }
-
-        let leftIndex = state.leftDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
-        let rightIndex = state.rightDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
-        let leftDeviceID = state.leftDevice?.deviceID
-        let rightDeviceID = state.rightDevice?.deviceID
+        updateRouting()
+    }
+    private func updateRouting() {
+        let left = state.leftDevice, right = state.rightDevice
+        let leftIndex = left.flatMap { manager.deviceIndex(for: $0.deviceID) }
+        let rightIndex = right.flatMap { manager.deviceIndex(for: $0.deviceID) }
         let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateActiveDevices(
-                leftIndex: leftIndex,
-                rightIndex: rightIndex,
-                leftDeviceID: leftDeviceID,
-                rightDeviceID: rightDeviceID
-            )
-        }
+        Task { await runtimeEngine.updateActiveDevices(leftIndex: leftIndex, rightIndex: rightIndex,
+            leftDeviceID: left?.deviceID, rightDeviceID: right?.deviceID) }
     }
 }

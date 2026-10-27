@@ -1080,7 +1080,7 @@ final class ContentViewModel: ObservableObject {
 
     func setNativeTakeoverOwnership(_ owned: Bool) {
         nativeTakeoverOwnsTrackpads = owned
-        deviceSessionService.setAutoResyncEnabled(!owned && UserDefaults.standard.bool(forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads))
+
     }
 
     func prepareNativeTakeoverRelease() async {
@@ -1110,8 +1110,8 @@ final class ContentViewModel: ObservableObject {
     }
 
     /// Called only after the takeover coordinator has prepared the native set.
-    func commitTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
-        deviceSessionService.selectDevices(left: left, right: right)
+    func commitTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?, editedSide: TrackpadSide) {
+        deviceSessionService.selectDevices(left: left, right: right, editedSide: editedSide)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
@@ -1127,9 +1127,18 @@ final class ContentViewModel: ObservableObject {
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
-    func setAutoResyncEnabled(_ enabled: Bool) {
-        deviceSessionService.setAutoResyncEnabled(enabled && !nativeTakeoverOwnsTrackpads)
+    var requestedTrackpadSelectionIDs: (left: String, right: String) {
+        deviceSessionService.requestedSelectionIDs
     }
+    var trackpadConnectionRecoveryAllowed: (() -> Bool)? {
+        get { deviceSessionService.recoveryAllowed }
+        set { deviceSessionService.recoveryAllowed = newValue }
+    }
+    var recoverTrackpadConnections: (([OMSDeviceInfo], OMSDeviceInfo?, OMSDeviceInfo?) async -> Bool)? {
+        get { deviceSessionService.recoverSelection }
+        set { deviceSessionService.recoverSelection = newValue }
+    }
+    func startTrackpadConnectionRecovery() { deviceSessionService.startConnectionRecovery() }
 
     func configureLayouts(
         leftLayout: Layout,

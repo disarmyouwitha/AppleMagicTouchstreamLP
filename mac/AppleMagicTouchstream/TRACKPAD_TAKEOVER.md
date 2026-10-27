@@ -17,7 +17,7 @@ IDs, validate additions, retain unchanged filter sessions, acquire additions bef
 releasing removals and roll back failed changes. The UI/keyboard selection commits
 only after success. Selecting None releases that side; selecting None on both
 releases all filters without clearing the saved opt-in. Failed transitions keep
-the old selection and report recovery failures. There is no retry timer loop.
+the old selection and report recovery failures. Manual selection errors do not start a retry loop.
 
 Unchecking the checkbox, **Release Trackpads** in the menu, or **Ctrl–Option–R**
 releases and persistently disables takeover. Another app may occupy the global
@@ -25,8 +25,29 @@ shortcut; its hint appears only after successful registration. Release failure
 retains tracked ownership for retry through the menu/shortcut.
 
 Refresh temporarily suspends ownership, refreshes ordinary device sessions and
-reconciles the current selection. Auto-resync pauses while filters are owned or a
-transition is running. Controls pause during the transition and during replay.
+reconciles the current selection. Controls pause during transitions and replay.
+
+Connection recovery is automatic; the old Auto-resync checkbox is removed. A
+1000 ms task uses discovery-only enumeration, including under FLTR. It never
+stops callbacks, restarts healthy devices, or resets typing on an unchanged scan.
+A changed selected connection uses the existing serialized native transition,
+retaining live filter clients. Confirmed dead clients can retire without requiring
+ordinary input restoration on hardware that has gone away. Lost-pad typing,
+modifiers, layers, gesture buttons and coordinated ownership are cancelled; the
+other pad's independent session stays alive. Repeated failed connection acquisition
+can retry on a later scan. Sleep/replay/Restart/Quit/manual transitions gate recovery.
+
+Physical identity comes from read-only AppleDeviceManagementHIDEventService
+DeviceAddress/SerialNumber association: a USB serial can map to the pad's Bluetooth
+address, normalized across colon/hyphen case. Prefer one USB connection for that
+same physical pad; switch back to BT when USB disappears. If identity is absent,
+only the exact connection ID can match. Ambiguous matches remain disconnected;
+no product-name or remaining-device fallback. Per-side local identity/transport
+aliases preserve requested selection while absent and across app exits; explicit
+None clears it. These local identities are not part of exported keymaps.
+The retired AutoResyncMissingTrackpads profile field stays readable/exportable for
+compatibility but no longer controls recovery. Hardware tests must confirm BT↔USB
+handoff, reconnect, healthy other-hand output, and emergency release.
 Closing/reopening Config retains the same owner process and native clients, keeping
 input warm. The menu's Restart closes Config to persist edits, stops capture,
 awaits native release/output cleanup, then launches a fresh process and terminates

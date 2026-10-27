@@ -294,7 +294,10 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         rightDeviceID: String?
     ) async {
         await run {
-            if self.leftDeviceID != leftDeviceID || self.rightDeviceID != rightDeviceID || self.leftDeviceIndex != leftIndex || self.rightDeviceIndex != rightIndex { self.keyboardProposals.forEach { $0.reset() } }
+            let retained = Set([leftDeviceID, rightDeviceID].compactMap { $0 }.compactMap(UInt64.init))
+            for proposal in self.keyboardProposals {
+                if let device = proposal.device, !retained.contains(device) { proposal.reset() }
+            }
             self.leftDeviceIndex = leftIndex
             self.rightDeviceIndex = rightIndex
             self.leftDeviceID = leftDeviceID

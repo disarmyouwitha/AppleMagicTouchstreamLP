@@ -4,6 +4,7 @@
 @interface TestManager : OpenMTManagerV2
 @property NSMutableArray<NSString *> *operations;
 @property NSNumber *invalidID;
+@property NSNumber *disconnectedID;
 @property uintptr_t failStart;
 @property uintptr_t failStop;
 @property BOOL wrongOwner;
@@ -16,6 +17,14 @@
 @end
 @implementation TestManager
 - (NSArray *)collectAvailableDevices { return @[]; }
+- (BOOL)isNativeDeviceAlive:(MTDeviceRef)device { return ![@((uintptr_t)device) isEqual:self.disconnectedID]; }
+- (void)retireNativeDeviceID:(NSNumber *)deviceID {
+    NSValue *key = [NSValue valueWithPointer:self.deviceRefsByNumericID[deviceID].pointerValue];
+    free(self.callbackContextsByRef[key].pointerValue);
+    [self.callbackContextsByRef removeObjectForKey:key];
+    [self.deviceRefsByNumericID removeObjectForKey:deviceID];
+    [self.filtering removeObject:deviceID];
+}
 - (NSString *)validatedNativeFilterLabelForDeviceID:(NSNumber *)deviceID {
     return [deviceID isEqual:self.invalidID] ? nil : deviceID.stringValue;
 }
@@ -69,6 +78,24 @@ static TestManager *makeManager(void) {
 }
 #define CHECK(...) do { if (!(__VA_ARGS__)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #__VA_ARGS__); exit(1); } } while (0)
 int main(void) { @autoreleasepool {
+    TestManager *ordinary = makeManager();
+    ordinary.disconnectedID = @2;
+    CHECK(![ordinary prepareNativeTakeoverDeviceID:@2]); // No replacement in fake inventory.
+    CHECK(!ordinary.deviceRefsByNumericID[@2]); // Never reuse a detached ordinary ref.
+    CHECK(ordinary.deviceRefsByNumericID[@1]);
+
+    TestManager *lost = makeManager();
+    CHECK([lost beginNativeTakeoverForDeviceIDs:@[@1, @2]]);
+    lost.disconnectedID = @2; lost.failStop = 2;
+    NSUInteger beforeDiscovery = lost.operations.count;
+    [lost discoverAvailableDevices];
+    CHECK(lost.operations.count == beforeDiscovery); // Discovery never restarts FLTR.
+    CHECK([lost updateNativeTakeoverForDeviceIDs:@[@1]]);
+    CHECK([lost.filterDeviceIDs isEqualToSet:[NSSet setWithObject:@1]]);
+    CHECK(!lost.deviceRefsByNumericID[@2]);
+    CHECK(![[lost.operations subarrayWithRange:NSMakeRange(beforeDiscovery,lost.operations.count-beforeDiscovery)] containsObject:@"stop:1"]);
+    [lost endNativeTakeover];
+
     TestManager *m = makeManager();
     CHECK(![m beginNativeTakeoverForDeviceIDs:@[]]);
     CHECK(m.operations.count == 0);

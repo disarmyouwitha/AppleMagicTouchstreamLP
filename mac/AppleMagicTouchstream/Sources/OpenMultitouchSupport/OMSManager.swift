@@ -6,6 +6,7 @@
 
 @preconcurrency import OpenMultitouchSupportXCF
 import Foundation
+import IOKit
 import os
 
 public struct OMSDeviceInfo: Sendable, Hashable {
@@ -16,6 +17,21 @@ public struct OMSDeviceInfo: Sendable, Hashable {
     public let registryEntryID: UInt64
     public let serialNumber: String
     public let transport: String
+    public let physicalIdentity: String?
+
+    // Discovery creates fresh ObjC descriptor objects. Compare connection values,
+    // never the descriptor pointer, or every scan looks like a reconnect.
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.deviceID == rhs.deviceID && lhs.registryEntryID == rhs.registryEntryID
+            && lhs.transport == rhs.transport && lhs.serialNumber == rhs.serialNumber
+            && lhs.physicalIdentity == rhs.physicalIdentity && lhs.isBuiltIn == rhs.isBuiltIn
+            && lhs.deviceName == rhs.deviceName
+    }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(deviceID); hasher.combine(registryEntryID); hasher.combine(transport)
+        hasher.combine(serialNumber); hasher.combine(physicalIdentity)
+        hasher.combine(isBuiltIn); hasher.combine(deviceName)
+    }
 
     public var selectionLabel: String {
         let identity = [transport, serialNumber].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -32,6 +48,36 @@ public struct OMSDeviceInfo: Sendable, Hashable {
         self.registryEntryID = deviceInfo.registryEntryID
         self.serialNumber = deviceInfo.serialNumber
         self.transport = deviceInfo.transport
+        self.physicalIdentity = OMSPhysicalIdentity.resolve(serial: deviceInfo.serialNumber)
+    }
+}
+
+/// Read-only device-management properties associate a USB serial with the pad's
+/// Bluetooth address. Never infer a physical match from product name or timing.
+public enum OMSPhysicalIdentity {
+    public static func address(_ value: String) -> String? {
+        let hex = value.uppercased().replacingOccurrences(of: ":", with: "").replacingOccurrences(of: "-", with: "")
+        guard hex.count == 12, hex.utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) }) else { return nil }
+        return "bt:" + hex
+    }
+    static func resolve(serial: String) -> String? {
+        if let address = address(serial) { return address }
+        guard !serial.isEmpty else { return nil }
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault,
+            IOServiceMatching("AppleDeviceManagementHIDEventService"), &iterator) == KERN_SUCCESS else { return "serial:" + serial }
+        defer { IOObjectRelease(iterator) }
+        var matches = Set<String>()
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            func property(_ key: String) -> String? {
+                IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String
+            }
+            if property("SerialNumber") == serial, let value = property("DeviceAddress"), let key = address(value) {
+                matches.insert(key)
+            }
+        }
+        return matches.count == 1 ? matches.first : "serial:" + serial
     }
 }
 
@@ -178,6 +224,15 @@ public final class OMSManager: Sendable {
         let manager = captureManagerIfAvailable()
         manager?.refreshAvailableDevices()
         return manager?.availableDevices().map { OMSDeviceInfo($0) } ?? []
+    }
+
+    /// Non-disruptive discovery, including while selected devices are in FLTR.
+    public func discoverDevices() -> [OMSDeviceInfo] {
+        captureManagerIfAvailable()?.discoverAvailableDevices().map { OMSDeviceInfo($0) } ?? []
+    }
+
+    @discardableResult public func reconcileOrdinaryDevices(_ devices: [OMSDeviceInfo]) -> Bool {
+        captureManagerIfAvailable()?.reconcileOrdinaryDevices(devices.compactMap(\.deviceInfo)) ?? false
     }
 
     public var activeDevices: [OMSDeviceInfo] {

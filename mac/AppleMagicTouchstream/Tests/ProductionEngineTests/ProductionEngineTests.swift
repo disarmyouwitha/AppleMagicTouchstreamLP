@@ -97,6 +97,30 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testDisconnectCancelsOnlyLostPadsLayerWithoutFiringItsPendingTap() {
+        let run = session(labels:["MO(1)","F"])
+        XCTAssertEqual(frame(run,1,[contact(state:.making)],side:0)?.activeLayer,1)
+        run.engine.updateActiveDevices(leftIndex:nil,rightIndex:1,leftDeviceID:nil,rightDeviceID:"43")
+        XCTAssertEqual(frame(run,1.02,[],side:1)?.activeLayer,0)
+        XCTAssertTrue(keys(run).isEmpty)
+        run.engine.updateActiveDevices(leftIndex:0,rightIndex:1,leftDeviceID:"44",rightDeviceID:"43")
+        XCTAssertEqual(frame(run,1.04,[contact(state:.making)],side:0)?.activeLayer,1)
+        XCTAssertEqual(frame(run,1.06,[],side:0)?.activeLayer,0)
+    }
+
+    func testOtherPadDisconnectPreservesHeldLayerAndPendingTyping() throws {
+        let run = session(labels:["MO(1)","F"])
+        let key = GridKeyPosition(side:.left,row:0,column:1).storageKey
+        run.engine.updateKeyMappings([1:[key:KeyMapping(primary:try XCTUnwrap(KeyActionCatalog.action(for:"F")),hold:nil)]])
+        XCTAssertEqual(frame(run,1,[contact(state:.making)],side:0)?.activeLayer,1)
+        frame(run,1.01,[contact(),contact(2,key:1,state:.making)],side:0)
+        run.engine.updateActiveDevices(leftIndex:0,rightIndex:nil,leftDeviceID:"42",rightDeviceID:nil)
+        XCTAssertEqual(frame(run,1.02,[contact(),contact(2,key:1,state:.touching)],side:0)?.activeLayer,1)
+        frame(run,1.04,[contact(),contact(2,key:1,state:.breaking)],side:0)
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"])
+        XCTAssertEqual(frame(run,1.06,[],side:0)?.activeLayer,0)
+    }
+
     func testHeldLayerOwnsSamePadArrowChordUntilAllUp() throws {
         for side in [0,1] {
             let run = session(labels:["MO(1)","F"])

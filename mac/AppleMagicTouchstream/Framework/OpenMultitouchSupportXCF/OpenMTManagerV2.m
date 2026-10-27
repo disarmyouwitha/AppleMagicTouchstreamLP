@@ -128,7 +128,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
             CFIndex count = CFArrayGetCount(deviceList);
             for (CFIndex i = 0; i < count; i++) {
                 MTDeviceRef deviceRef = (MTDeviceRef)CFArrayGetValueAtIndex(deviceList, i);
-                if (!deviceRef) {
+                if (!deviceRef || ![self isNativeDeviceAlive:deviceRef]) {
                     continue;
                 }
                 OpenMTDeviceInfo *deviceInfo = [[OpenMTDeviceInfo alloc] initWithDeviceRef:deviceRef];
@@ -142,13 +142,13 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
     if (devices.count == 0 && MTDeviceIsAvailable()) {
         MTDeviceRef defaultDevice = MTDeviceCreateDefault();
-        if (defaultDevice) {
+        if (defaultDevice && [self isNativeDeviceAlive:defaultDevice]) {
             OpenMTDeviceInfo *deviceInfo = [[OpenMTDeviceInfo alloc] initWithDeviceRef:defaultDevice];
             if (deviceInfo) {
                 [devices addObject:deviceInfo];
             }
-            MTDeviceRelease(defaultDevice);
         }
+        if (defaultDevice) MTDeviceRelease(defaultDevice);
     }
 
     return [devices copy];
@@ -169,7 +169,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
                     continue;
                 }
                 uint64_t rawID = 0;
-                if (!MTDeviceGetDeviceID(deviceRef, &rawID) && rawID == numericID) {
+                if (!MTDeviceGetDeviceID(deviceRef, &rawID) && rawID == numericID && [self isNativeDeviceAlive:deviceRef]) {
                     CFRetain(deviceRef);
                     CFRelease(deviceList);
                     return deviceRef;
@@ -182,7 +182,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     MTDeviceRef defaultDevice = MTDeviceCreateDefault();
     if (defaultDevice) {
         uint64_t rawID = 0;
-        if (!MTDeviceGetDeviceID(defaultDevice, &rawID) && rawID == numericID) {
+        if (!MTDeviceGetDeviceID(defaultDevice, &rawID) && rawID == numericID && [self isNativeDeviceAlive:defaultDevice]) {
             return defaultDevice;
         }
         MTDeviceRelease(defaultDevice);
@@ -359,6 +359,60 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
                                         frame:frame
                                      deviceID:deviceID];
     }
+}
+
+- (BOOL)isNativeDeviceAlive:(MTDeviceRef)device {
+    // MTDeviceIsAlive is false for newly enumerated, unopened clients, even
+    // when their hardware is connected. Presence is a registry property, not
+    // the lifecycle state of this particular MT client.
+    if (!device) return NO;
+    io_service_t service = MTDeviceGetService ? MTDeviceGetService(device) : IO_OBJECT_NULL;
+    uint64_t registryID = 0;
+    return service && IORegistryEntryGetRegistryEntryID(service, &registryID) == KERN_SUCCESS
+        && registryID != 0 && IORegistryEntryInPlane(service, kIOServicePlane);
+}
+
+- (void)retireNativeDeviceID:(NSNumber *)deviceID {
+    MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+    if (!device) return;
+    NSValue *key = [NSValue valueWithPointer:device];
+    MTUnregisterContactFrameCallback(device, (MTFrameCallbackFunction)openMTManagerV2ContactFrameCallback);
+    MTDeviceV2CallbackContext *context = self.callbackContextsByRef[key].pointerValue;
+    if (context) { context->manager = nil; free(context); }
+    [self.callbackContextsByRef removeObjectForKey:key];
+    [self.deviceRefsByNumericID removeObjectForKey:deviceID];
+    MTDeviceRelease(device);
+}
+
+- (NSArray<OpenMTDeviceInfo *> *)discoverAvailableDevices {
+    __block NSArray *devices;
+    [self withStateSync:^{
+        devices = [self collectAvailableDevices];
+        self.availableDeviceInfos = devices;
+    }];
+    return devices ?: @[];
+}
+
+- (BOOL)reconcileOrdinaryDevices:(NSArray<OpenMTDeviceInfo *> *)devices {
+    __block BOOL success = NO;
+    [self withStateSync:^{
+        if (self.filterDeviceIDs.count) return;
+        NSSet *desired = [NSSet setWithArray:[devices valueForKey:@"deviceNumericID"]];
+        // Prepare additions before retiring old sessions, leaving retained refs alone.
+        for (OpenMTDeviceInfo *info in devices) {
+            if (![self prepareNativeTakeoverDeviceID:@(info.deviceNumericID)]) return;
+        }
+        for (NSNumber *deviceID in [self.deviceRefsByNumericID.allKeys copy]) {
+            if ([desired containsObject:deviceID]) continue;
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            if ([self isNativeDeviceAlive:device] && [self stopNativeDevice:device]) return;
+            [self retireNativeDeviceID:deviceID];
+        }
+        self.activeDeviceInfos = [devices copy];
+        self.callbacksRunning = self.deviceRefsByNumericID.count > 0;
+        success = YES;
+    }];
+    return success;
 }
 
 - (void)refreshAvailableDevices {
@@ -588,6 +642,10 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
 // Add ordinary callback sessions for new selections without touching retained refs.
 - (BOOL)prepareNativeTakeoverDeviceID:(NSNumber *)deviceID {
     MTDeviceRef existing = self.deviceRefsByNumericID[deviceID].pointerValue;
+    if (existing && ![self isNativeDeviceAlive:existing]) {
+        [self retireNativeDeviceID:deviceID];
+        existing = NULL;
+    }
     if (existing && self.callbackContextsByRef[[NSValue valueWithPointer:existing]]) {
         BOOL active = NO;
         for (OpenMTDeviceInfo *candidate in self.activeDeviceInfos) {
@@ -657,8 +715,9 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
         if (![self.filterDeviceIDs containsObject:deviceID]) continue;
         MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
         MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+        BOOL alive = [self isNativeDeviceAlive:device];
         OSStatus stopped = device ? [self stopNativeDevice:device] : -1;
-        if (stopped) {
+        if (stopped && alive) {
             success = NO;
             [results addObject:[NSString stringWithFormat:@"%@ stop=%d; retry Release Trackpads", deviceID, (int)stopped]];
             continue;
@@ -670,6 +729,11 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
             atomic_store(&context->contactFrames, 0);
         }
         [self.filterDeviceIDs removeObject:deviceID];
+        if (!alive) {
+            [self retireNativeDeviceID:deviceID];
+            [results addObject:[NSString stringWithFormat:@"%@ disconnected; ownership retired", deviceID]];
+            continue;
+        }
         OSStatus recovery = [self startNativeDevice:device mode:0];
         // IOServiceClose can return before the old user client disappears from
         // IORegistry. Start ordinary mode first (MTDeviceStart waits for service
@@ -691,6 +755,14 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
     __block BOOL success = NO;
     [self withStateSync:^{
         NSSet<NSNumber *> *desired = [NSSet setWithArray:deviceIDs];
+        // A transport can reconnect with an unchanged MT ID but a new service.
+        // Retire only confirmed dead references before preparing replacements.
+        for (NSNumber *deviceID in [self.filterDeviceIDs copy]) {
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            if (![self isNativeDeviceAlive:device]) {
+                if (![self releaseNativeFilterIDs:[NSSet setWithObject:deviceID]]) return;
+            }
+        }
         NSSet<NSNumber *> *previous = [self.filterDeviceIDs copy] ?: NSSet.new;
         NSMutableSet *retained = [previous mutableCopy]; [retained intersectSet:desired];
         NSMutableSet *removed = [previous mutableCopy]; [removed minusSet:desired];

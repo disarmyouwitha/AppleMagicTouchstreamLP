@@ -257,8 +257,34 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.recoverableKeyboardDevices != recoverableKeyboardDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
-            state.reset()
-            state.keyboardArbitration.reset()
+            // Reconfiguration is per-device: adding/removing a connection does
+            // not reset unchanged gesture owners, drag state or scroll momentum.
+            let ids = Set(state.bindings.keys).union(bindings.keys)
+                .union(state.recoverableKeyboardDevices).union(recoverableKeyboardDevices)
+            var changedDevices = Set<UInt64>()
+            let globallyChanged = state.appleShortcuts != appleShortcuts
+                || state.doubleClickInterval != doubleClickInterval || state.scrollSensitivity != sensitivity
+            for id in ids {
+                let changed = globallyChanged || state.bindings[id] != bindings[id]
+                    || state.holdBindings[id] != holdBindings[id] || state.holdThresholds[id] != holdThresholds[id]
+                    || state.directionals[id] != directionalBindings[id] || state.zoomSensitivities[id] != zoomSensitivities[id]
+                    || state.scrollProfiles[id] != profiles[id] || state.scrollSensitivities[id] != sensitivities[id]
+                    || state.recoverableKeyboardDevices.contains(id) != recoverableKeyboardDevices.contains(id)
+                    || state.pinchDevices.contains(id) != pinchDevices.contains(id)
+                    || state.twoFingerMoveDevices.contains(id) != twoFingerMoveDevices.contains(id)
+                    || state.threeFingerMoveDevices.contains(id) != threeFingerMoveDevices.contains(id)
+                    || state.fourFingerMoveDevices.contains(id) != fourFingerMoveDevices.contains(id)
+                    || state.fiveFingerMoveDevices.contains(id) != fiveFingerMoveDevices.contains(id)
+                    || state.twoFingerTapDevices.contains(id) != twoFingerTapDevices.contains(id)
+                    || state.threeFingerTapDevices.contains(id) != threeFingerTapDevices.contains(id)
+                    || state.fourFingerTapDevices.contains(id) != fourFingerTapDevices.contains(id)
+                    || state.fiveFingerTapDevices.contains(id) != fiveFingerTapDevices.contains(id)
+                    || state.thumbTwoTapDevices.contains(id) != thumbTwoTapDevices.contains(id)
+                if changed {
+                    changedDevices.insert(id)
+                    state.reset(device: id); state.keyboardArbitration.reset(device: id)
+                }
+            }
             state.bindings = bindings
             state.recoverableKeyboardDevices = recoverableKeyboardDevices
             state.keyboardRecoveryNeedsDragObserver = Set(bindings.filter { $0.value.uses(.primaryDrag) }.keys)
@@ -268,7 +294,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.appleShortcuts = appleShortcuts
             state.pinchDevices = pinchDevices
             state.zoomSensitivities = zoomSensitivities
-            state.zoomOutputs = bindings.mapValues { _ in MagnifyGestureOutput() }
+            state.zoomOutputs = Dictionary(uniqueKeysWithValues: bindings.keys.map { ($0, state.zoomOutputs[$0] ?? MagnifyGestureOutput()) })
             state.threeFingerMoveDevices = threeFingerMoveDevices
             state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
             state.thumbTwoTapDevices = thumbTwoTapDevices
@@ -278,10 +304,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.fiveFingerMoveDevices = fiveFingerMoveDevices
             state.twoFingerTapDevices = twoFingerTapDevices; state.doubleClickInterval = doubleClickInterval
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity; state.scrollSensitivities = sensitivities
-            state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
-            state.directionalScrollEngines = profiles.mapValues { DirectionalScrollEngine(profile:$0) }
-            state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
-            state.momentum = profiles.mapValues { _ in ScrollMomentum() }
+            state.scrollEngines = Dictionary(uniqueKeysWithValues: profiles.map { ($0.key, changedDevices.contains($0.key) ? FourFingerScrollEngine(profile:$0.value) : (state.scrollEngines[$0.key] ?? FourFingerScrollEngine(profile:$0.value))) })
+            state.directionalScrollEngines = Dictionary(uniqueKeysWithValues: profiles.map { ($0.key, changedDevices.contains($0.key) ? DirectionalScrollEngine(profile:$0.value) : (state.directionalScrollEngines[$0.key] ?? DirectionalScrollEngine(profile:$0.value))) })
+            state.scrollOutputs = Dictionary(uniqueKeysWithValues: profiles.keys.map { ($0, state.scrollOutputs[$0] ?? PreciseScrollOutput()) })
+            state.momentum = Dictionary(uniqueKeysWithValues: profiles.keys.map { ($0, state.momentum[$0] ?? ScrollMomentum()) })
             if !state.needsDragObserver {
                 state.buttonObserver?.stop(); state.buttonObserver = nil; state.buttonObserverHealthy = false
             }
@@ -405,6 +431,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         $0.momentumTimer?.cancel(); $0.momentumTimer = nil
         $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
     } }
+    func cancelDisconnectedDevice(_ device: UInt64) {
+        lock.withLock { state in
+            state.reset(device:device)
+            state.keyboardArbitration.reset(device:device)
+            state.keyboardClaimed.remove(device)
+            if state.twoHandPads.left == device || state.twoHandPads.right == device {
+                state.releaseShortcut(.coordinated); state.twoHandEngine.reset()
+            }
+        }
+    }
     func resetBaseline() { lock.withLock { $0.reset() } }
     func resetBaseline(device: UInt64) { lock.withLock { $0.reset(device: device) } }
     func configureOpenConfiguration(_ handler:@escaping @Sendable () -> Void) {
@@ -413,7 +449,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     func configureTwoHand(pads:GestureSelectedPads,settings:TwoHandGestureSettings,eligible:Bool,trusted:Bool) {
         lock.withLock { state in
             if pads != state.twoHandPads || settings != state.twoHandSettings || eligible != state.twoHandEligible || trusted != state.twoHandTrusted {
-                state.reset()
+                state.releaseShortcut(.coordinated)
+                state.twoHandEngine.reset()
             }
             state.twoHandPads = pads; state.twoHandSettings = settings
             state.twoHandEligible = eligible; state.twoHandTrusted = trusted
@@ -448,9 +485,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     func configureCorners(settings:[UInt64:TwoHandGestureSettings],eligible:Set<UInt64>) {
         lock.withLock { state in
             guard state.cornerSettings != settings || state.cornerEligible != eligible else { return }
-            state.reset()
+            for id in Set(state.cornerSettings.keys).union(settings.keys) {
+                if state.cornerSettings[id] != settings[id] || state.cornerEligible.contains(id) != eligible.contains(id) {
+                    state.releaseShortcut(.corners(id)); state.cornerEngines[id]?.reset()
+                }
+            }
             state.cornerSettings = settings; state.cornerEligible = eligible
-            state.cornerEngines = settings.mapValues { _ in SinglePadCornersEngine() }
+            state.cornerEngines = Dictionary(uniqueKeysWithValues: settings.keys.map { ($0, state.cornerEngines[$0] ?? SinglePadCornersEngine()) })
         }
     }
     func reserveCorners(_ frame:OMSRawTouchFrame,keyboardChord:Bool) -> Bool {

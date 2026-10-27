@@ -65,6 +65,17 @@ final class NativeTrackpadTakeover: ObservableObject {
         }
     }
 
+    /// Connection recovery keeps retained output owners armed. Only the removed
+    /// pad's routing/output is cleaned by the device session before this call.
+    func recoverSelection(deviceIDs: [UInt64]) async -> Bool {
+        await waitForOperation()
+        let next = Set(deviceIDs)
+        return await transition(to: enabled && suspensions.isEmpty ? next : [], connectionRecovery: true) {
+            self.selection = next
+        }
+    }
+    var connectionRecoveryAllowed: Bool { suspensions.isEmpty && operation == nil && !isReleasing }
+
     /// Emergency release is a persistent opt-out; lifecycle suspension is not.
     func release() async { await setEnabled(false) }
 
@@ -89,16 +100,20 @@ final class NativeTrackpadTakeover: ObservableObject {
         while let operation { _ = await operation.value }
     }
 
-    private func transition(to target: Set<UInt64>, commit: @escaping @MainActor () -> Void = {}) async -> Bool {
+    private func transition(to target: Set<UInt64>, connectionRecovery: Bool = false, commit: @escaping @MainActor () -> Void = {}) async -> Bool {
         // Main-actor methods can interleave while keyboard cleanup awaits. Share
         // the current operation, then serialize the next request behind it.
         while let operation { _ = await operation.value }
-        if ownedDeviceIDs == target && (target.isEmpty || isActive) { commit(); return true }
+        if ownedDeviceIDs == target && (target.isEmpty || (isActive && !connectionRecovery)) { commit(); return true }
+        let previousOwned = ownedDeviceIDs
+        let previouslyArmed = outputArmed
         isReleasing = true
-        outputArmed = false
-        onOwnershipChanged?(true) // Pause auto-resync during acquisition as well.
+        if !connectionRecovery {
+            outputArmed = false
+            onOwnershipChanged?(true)
+        }
         let task = Task { @MainActor [self] in
-            await beforeRelease?()
+            if !connectionRecovery { await beforeRelease?() }
             let succeeded: Bool
             if target.isEmpty {
                 backend.end()
@@ -107,9 +122,11 @@ final class NativeTrackpadTakeover: ObservableObject {
                 succeeded = backend.update(deviceIDs: target.sorted())
             }
             updateStatus()
-            outputArmed = succeeded && ownedDeviceIDs == target && !target.isEmpty
+            outputArmed = succeeded ? (ownedDeviceIDs == target && !target.isEmpty)
+                : (connectionRecovery && previouslyArmed && isActive && !ownedDeviceIDs.isEmpty
+                    && ownedDeviceIDs.isSubset(of:previousOwned))
             if succeeded && ownedDeviceIDs == target { commit() }
-            await afterRelease?()
+            if !connectionRecovery { await afterRelease?() }
             isReleasing = false
             operation = nil
             onOwnershipChanged?(hasOwnership)

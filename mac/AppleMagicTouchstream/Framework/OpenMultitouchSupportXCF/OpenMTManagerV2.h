@@ -20,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSArray<OpenMTDeviceInfo *> *)availableDevices;
 - (NSArray<OpenMTDeviceInfo *> *)activeDevices;
 - (void)refreshAvailableDevices;
+// Discovery never stops callbacks or changes ownership.
+- (NSArray<OpenMTDeviceInfo *> *)discoverAvailableDevices;
+- (BOOL)reconcileOrdinaryDevices:(NSArray<OpenMTDeviceInfo *> *)devices;
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos;
 
 - (OpenMTListener *)addRawListenerWithCallback:(OpenMTRawFrameCallback)callback;

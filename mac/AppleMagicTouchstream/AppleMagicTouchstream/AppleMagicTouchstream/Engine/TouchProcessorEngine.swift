@@ -683,10 +683,42 @@ final class TouchProcessorEngine: @unchecked Sendable {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) {
+        let next = Set([leftIndex, rightIndex].compactMap { $0 })
+        for removed in Set([leftDeviceIndex, rightDeviceIndex].compactMap { $0 }).subtracting(next) {
+            cancelDevice(removed)
+        }
         leftDeviceIndex = leftIndex
         rightDeviceIndex = rightIndex
         self.leftDeviceID = leftDeviceID
         self.rightDeviceID = rightDeviceID
+    }
+
+    /// Disconnect cancellation must never replay a pending tap or release keys
+    /// owned by the other hand. Reuse the normal disqualification cleanup.
+    private func cancelDevice(_ deviceIndex: Int) {
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        touchStates.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer {
+            disqualifyTouch(key, reason: .gestureReserved)
+            disqualifiedTouches.remove(key); releaseHandledTouches.remove(key)
+            touchInitialContactPoint.remove(key); clearPeakPressure(for:key)
+        }
+        momentaryLayerTouches.removeDevice(deviceIndex)
+        keyboardChordDevices.remove(deviceIndex)
+        gestureKeyboardDevices.remove(deviceIndex)
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        layerToggleTouchStarts.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer { layerToggleTouchStarts.remove(key) }
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        intentState.touches.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer { intentState.touches.remove(key) }
+        updateActiveLayer()
     }
 
     func updateLayouts(

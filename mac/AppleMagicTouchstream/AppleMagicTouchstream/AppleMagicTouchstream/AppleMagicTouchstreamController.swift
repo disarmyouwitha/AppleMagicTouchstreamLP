@@ -398,10 +398,7 @@ final class GlassToKeyController: ObservableObject {
         if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.rightDeviceID) != nil {
             viewModel.selectRightDevice(deviceForID(rightDeviceID))
         }
-        let autoResyncEnabled = UserDefaults.standard.bool(
-            forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads
-        )
-        viewModel.setAutoResyncEnabled(autoResyncEnabled)
+        viewModel.startTrackpadConnectionRecovery()
     }
 
     private func deviceForID(_ deviceID: String) -> OMSDeviceInfo? {
