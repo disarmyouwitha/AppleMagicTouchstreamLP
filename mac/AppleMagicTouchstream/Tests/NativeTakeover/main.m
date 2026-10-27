@@ -77,7 +77,9 @@ static TestManager *makeManager(void) {
     return m;
 }
 #define CHECK(...) do { if (!(__VA_ARGS__)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #__VA_ARGS__); exit(1); } } while (0)
+extern void runHapticCacheTests(void);
 int main(void) { @autoreleasepool {
+    runHapticCacheTests();
     TestManager *ordinary = makeManager();
     ordinary.disconnectedID = @2;
     CHECK(![ordinary prepareNativeTakeoverDeviceID:@2]); // No replacement in fake inventory.

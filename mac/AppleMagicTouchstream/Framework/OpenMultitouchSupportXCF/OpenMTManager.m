@@ -727,50 +727,40 @@ static NSString *OMSRegistryIdentityString(io_registry_entry_t service, CFString
     return selectedDeviceID;
 }
 
-- (CFTypeRef)cachedActuatorForDeviceID:(UInt64)deviceID {
-    if (deviceID == 0) {
-        return NULL;
-    }
-    NSNumber *key = @(deviceID);
-    os_unfair_lock_lock(&_actuatorLock);
-    NSValue *cachedValue = self.actuatorCache[key];
-    if (cachedValue) {
-        CFTypeRef actuatorRef = (CFTypeRef)cachedValue.pointerValue;
-        os_unfair_lock_unlock(&_actuatorLock);
-        return actuatorRef;
-    }
-    os_unfair_lock_unlock(&_actuatorLock);
+// These three adapters keep cache lifecycle testable without native actuation.
+- (CFTypeRef)createAndOpenActuatorForDeviceID:(UInt64)deviceID {
+    CFTypeRef actuator = MTActuatorCreateFromDeviceID(deviceID);
+    if (!actuator) return NULL;
+    if (MTActuatorOpen(actuator) != kIOReturnSuccess) { CFRelease(actuator); return NULL; }
+    return actuator;
+}
+- (void)closeCachedActuator:(CFTypeRef)actuator {
+    MTActuatorClose(actuator);
+    CFRelease(actuator);
+}
+- (IOReturn)actuateCachedActuator:(CFTypeRef)actuator waveform:(SInt32)waveform
+                        unknown1:(UInt32)unknown1 level:(Float32)level unknown3:(Float32)unknown3 {
+    return MTActuatorActuate(actuator, waveform, unknown1, level, unknown3);
+}
 
-    CFTypeRef actuatorRef = MTActuatorCreateFromDeviceID(deviceID);
-    if (!actuatorRef) {
-        return NULL;
-    }
-    IOReturn openResult = MTActuatorOpen(actuatorRef);
-    if (openResult != kIOReturnSuccess) {
-        CFRelease(actuatorRef);
-        return NULL;
-    }
+- (void)invalidateHapticDeviceID:(NSString *)deviceID {
+    UInt64 parsed = strtoull(deviceID.UTF8String, NULL, 0);
+    if (!parsed) return;
     os_unfair_lock_lock(&_actuatorLock);
-    self.actuatorCache[key] = [NSValue valueWithPointer:actuatorRef];
+    NSNumber *key = @(parsed);
+    CFTypeRef actuator = self.actuatorCache[key].pointerValue;
+    [self.actuatorCache removeObjectForKey:key];
+    if (actuator) [self closeCachedActuator:actuator];
     os_unfair_lock_unlock(&_actuatorLock);
-    return actuatorRef;
 }
 
 - (void)clearActuatorCache {
-    NSDictionary<NSNumber *, NSValue *> *snapshot = nil;
     os_unfair_lock_lock(&_actuatorLock);
-    if (self.actuatorCache.count > 0) {
-        snapshot = [self.actuatorCache copy];
-        [self.actuatorCache removeAllObjects];
+    for (NSValue *value in self.actuatorCache.allValues) {
+        if (value.pointerValue) [self closeCachedActuator:value.pointerValue];
     }
+    [self.actuatorCache removeAllObjects];
     os_unfair_lock_unlock(&_actuatorLock);
-    for (NSValue *value in snapshot.allValues) {
-        CFTypeRef actuatorRef = (CFTypeRef)value.pointerValue;
-        if (actuatorRef) {
-            MTActuatorClose(actuatorRef);
-            CFRelease(actuatorRef);
-        }
-    }
 }
 // actuation IDs range from 1-6 going weakest to strongest
 // unknown 2 controls the sharpness. Test: activation id 1 with unknown2=10
@@ -796,11 +786,25 @@ static NSString *OMSRegistryIdentityString(io_registry_entry_t service, CFString
     if (multitouchDeviceID == 0) {
         return NO;
     }
-    CFTypeRef actuatorRef = [self cachedActuatorForDeviceID:multitouchDeviceID];
+    // Actuation and cache invalidation share the lock: a connection refresh
+    // cannot close a borrowed actuator while a typing/force pulse is in flight.
+    os_unfair_lock_lock(&_actuatorLock);
+    NSNumber *key = @(multitouchDeviceID);
+    CFTypeRef actuatorRef = self.actuatorCache[key].pointerValue;
     if (!actuatorRef) {
-        return NO;
+        actuatorRef = [self createAndOpenActuatorForDeviceID:multitouchDeviceID];
+        if (actuatorRef) self.actuatorCache[key] = [NSValue valueWithPointer:actuatorRef];
     }
-    IOReturn result = MTActuatorActuate(actuatorRef, actuationID, unknown1, unknown2, unknown3);
+    IOReturn result = actuatorRef
+        ? [self actuateCachedActuator:actuatorRef waveform:actuationID unknown1:unknown1 level:unknown2 unknown3:unknown3]
+        : kIOReturnNotOpen;
+    // Do not retry a failed pulse (it could duplicate a delivered haptic).
+    // The next requested pulse gets a new client instead of reusing a stale one.
+    if (result != kIOReturnSuccess && actuatorRef) {
+        [self.actuatorCache removeObjectForKey:key];
+        [self closeCachedActuator:actuatorRef];
+    }
+    os_unfair_lock_unlock(&_actuatorLock);
     return result == kIOReturnSuccess;
 }
 // Utility Tools C Language

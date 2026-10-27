@@ -1,6 +1,5 @@
 # NEXT:
 =======
-0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
 ===
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?

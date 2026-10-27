@@ -49,6 +49,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isHapticEnabled;
 - (BOOL)setHapticEnabled:(BOOL)enabled;
 
+// Retire only this connection's cached actuator; never changes contact capture.
+- (void)invalidateHapticDeviceID:(NSString *)deviceID;
+
 // Advanced haptic feedback methods
 - (BOOL)triggerRawHaptic:(SInt32)actuationID unknown1:(UInt32)unknown1 unknown2:(Float32)unknown2 unknown3:(Float32)unknown3;
 - (BOOL)triggerRawHaptic:(SInt32)actuationID unknown1:(UInt32)unknown1 unknown2:(Float32)unknown2 unknown3:(Float32)unknown3 deviceID:(NSString * _Nullable)deviceID;

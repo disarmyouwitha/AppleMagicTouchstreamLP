@@ -45,6 +45,10 @@ only the exact connection ID can match. Ambiguous matches remain disconnected;
 no product-name or remaining-device fallback. Per-side local identity/transport
 aliases preserve requested selection while absent and across app exits; explicit
 None clears it. These local identities are not part of exported keymaps.
+On changed connection descriptors, invalidate only that pad's cached haptic actuator
+(old/new IDs, including same-ID reconnect). Healthy pads retain their actuator.
+Cache invalidation and actuation share a lock; failed pulses evict the actuator
+for the next request without retrying the pulse or changing waveform/level.
 The retired AutoResyncMissingTrackpads profile field stays readable/exportable for
 compatibility but no longer controls recovery. Hardware tests must confirm BT↔USB
 handoff, reconnect, healthy other-hand output, and emergency release.

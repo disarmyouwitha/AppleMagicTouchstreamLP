@@ -133,6 +133,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard let self, self.nativeTakeover.connectionRecoveryAllowed,
                   !self.isTerminatingApp else { return false }
             let ids = [left, right].compactMap { $0?.deviceIDNumeric }
+            let previous = [self.controller.viewModel.leftDevice, self.controller.viewModel.rightDevice]
+            let next = [left, right]
+            var changedHapticConnections = Set<UInt64>()
+            for (old, new) in zip(previous, next) where old != new {
+                if let old { changedHapticConnections.insert(old.deviceIDNumeric) }
+                if let new { changedHapticConnections.insert(new.deviceIDNumeric) }
+            }
+            OMSManager.shared.invalidateHapticConnections(changedHapticConnections)
             let removed = Set([self.controller.viewModel.leftDevice, self.controller.viewModel.rightDevice]
                 .compactMap { $0?.deviceIDNumeric }).subtracting(ids)
             for id in removed { InterpretedTrackpadPointer.shared.cancelDisconnectedDevice(id) }

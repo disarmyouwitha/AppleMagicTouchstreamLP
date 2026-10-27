@@ -235,6 +235,11 @@ public final class OMSManager: Sendable {
         captureManagerIfAvailable()?.reconcileOrdinaryDevices(devices.compactMap(\.deviceInfo)) ?? false
     }
 
+    public func invalidateHapticConnections(_ deviceIDs: Set<UInt64>) {
+        guard let manager = protectedHapticManager.withLockUnchecked(\.self) else { return }
+        for id in deviceIDs { manager.invalidateHapticDeviceID(String(id)) }
+    }
+
     public var activeDevices: [OMSDeviceInfo] {
         guard let manager = captureManagerIfAvailable() else { return [] }
         return manager.activeDevices().map { OMSDeviceInfo($0) }
