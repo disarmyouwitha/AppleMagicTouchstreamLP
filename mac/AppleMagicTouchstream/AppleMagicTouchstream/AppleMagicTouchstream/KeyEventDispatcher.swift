@@ -938,21 +938,29 @@ final class DispatchService: @unchecked Sendable {
 
     /// Uses the existing live keyboard dispatch queue: deletion and insertion are
     /// one output batch, never interleaved with later app-generated keys.
-    func performAutocorrectReplacement(_ plan: AutocorrectFallbackPlan, pid: pid_t,
-                                       isCurrent: @escaping @Sendable () -> Bool) {
-        guard keyDispatcher != nil else { return } // Recording/replay never posts.
+    func performAutocorrectReplacement(_ plan: AutocorrectKeyboardReplacement, pid: pid_t,
+                                       isCurrent: @escaping @Sendable () -> Bool,
+                                       completion: @escaping @Sendable (AutocorrectKeyboardOutput.Outcome) -> Void) {
+        guard keyDispatcher != nil else { completion(.skipped("Replay does not post keyboard output.")); return }
         dispatchQueue.async { [self] in
-            guard isCurrent(), !IsSecureEventInputEnabled(), AXIsProcessTrusted(),
-                  NSRunningApplication(processIdentifier: pid)?.isActive == true,
-                  shortcutKeys.withLock({ $0.flags.isEmpty }),
+            guard isCurrent() else { completion(.skipped("Newer AMT input arrived.")); return }
+            guard !IsSecureEventInputEnabled() else { completion(.skipped("Secure Event Input is enabled.")); return }
+            guard AXIsProcessTrusted() else { completion(.skipped("Accessibility permission is required.")); return }
+            guard NSRunningApplication(processIdentifier: pid)?.isActive == true else {
+                completion(.skipped("The focused app changed.")); return
+            }
+            guard shortcutKeys.withLock({ $0.flags.isEmpty }),
                   CGEventSource.flagsState(.combinedSessionState)
-                    .intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskSecondaryFn]).isEmpty,
-                  let events = plan.events(), isCurrent() else { return }
-            // Consume the candidate once. Our events bypass semantic publication;
-            // they cannot recursively correct themselves. Finish the balanced batch
-            // even if external input arrives after posting has begun.
-            AutocorrectEngine.shared.invalidate()
-            for event in events { event.post(tap: .cghidEventTap) }
+                    .intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskSecondaryFn]).isEmpty else {
+                completion(.skipped("A modifier is held.")); return
+            }
+            guard let events = plan.events() else { completion(.skipped("Keyboard events could not be created.")); return }
+            completion(AutocorrectKeyboardOutput.send(events, isCurrent: isCurrent,
+                begin: { AutocorrectEngine.shared.invalidate() },
+                post: { event in
+                    event.timestamp = DispatchTime.now().uptimeNanoseconds
+                    event.post(tap: .cghidEventTap)
+                }, pause: { Thread.sleep(forTimeInterval: $0) }))
         }
     }
 

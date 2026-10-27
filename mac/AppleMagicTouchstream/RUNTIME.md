@@ -76,7 +76,7 @@ Only posted live keys feed correction. Raw contacts, pending typing proposals,
 cancelled output and replay do not. ASCII words are limited to 64 bytes with a
 1,024-byte context. Exclude unambiguous two-letter words, all-caps and identifiers
 with digits/underscores. Navigation, unknown keys and non-text shortcuts invalidate
-the word. Physical key-to-ASCII conversion retains its US-keyboard limitation.
+the word. Keycode-to-ASCII conversion retains its US-keyboard limitation.
 
 A bounded 2,048-event buffer publishes to a utility worker; overflow cancels context.
 `NSSpellChecker` supplies corrections/language detection and may use snap's alternate
@@ -86,38 +86,45 @@ invalidate pending edits through generation checks.
 
 All Accessibility reads/writes run asynchronously on the main actor, outside the
 recognition/output queues. Self-targeted AX can enter AppKit directly, so worker
-AX calls are invalid. Spellchecking stays on its worker. A correction requires the
-original focused non-secure AX element, an empty selection, and the complete
-original word plus delimiter immediately before the caret. Recheck focus, caret
-and generation before range replacement; adjust by the UTF-16 length difference.
-Never replace the entire document. Failure after a selection attempt restores the
-caret where possible and never falls back. Text mismatch, nonempty selection,
-changed focus or generation also reject replacement.
+AX calls are invalid. Spellchecking stays on its worker. For readable AX text,
+require the original focused non-secure element, an empty
+selection, and the complete original word plus delimiter immediately before the
+caret. A mismatch retries at most three times at 15 ms for event-delivery lag,
+then reports a skip. It never authorizes an unverified keyboard fallback.
 
-The delimiter may not yet have reached the destination app after CGEvent posting:
-retry at most three times at 15 ms, with the same generation checks. External app
-focus/caret changes are not transactional.
+Ordinary corrections use one keyboard replacement path, even when AX validation
+succeeds: delete the tracked word and printable delimiter, then type the correction
+and delimiter. AX is used for verification, without changing selection/value.
+When AX caret/text support is unavailable before any edit, use the same output
+path as a fallback, retaining foreground PID and any exposed focused element from
+the first letter. No app-specific adapters or browser changes.
 
-When AX text/range/setter support is unavailable before any edit, use a shared
-backspace/retype fallback. Track the original foreground PID and any exposed
-focused element from the first letter; recheck on correction. Replace only the
-tracked ASCII word (2–64 bytes) plus a printable delimiter. Return/Tab never fall
-back because they may submit or move focus. Prebuild balanced Delete and Unicode
-key edges, then post the batch on the existing live dispatch queue, checking the
-candidate generation, active app, secure input, Accessibility permission and held
-modifiers again before posting. Skip with held modifiers. No replay output, word
-republication, clipboard use, new spelling rules or app-specific adapters.
+Words are bounded ASCII (2–64 bytes). Return/Tab cannot use the fallback because
+they may submit or move focus. Those delimiters retain verified AX range editing;
+check the resulting text before reporting success, and never fall back after an
+AX selection/edit attempt. Never replace the entire document.
+
+Prebuild balanced Delete and mapped keyboard edges and post on the existing live
+dispatch queue. Recheck candidate generation, active app, secure input, Accessibility
+permission and held modifiers before posting. Skip with held modifiers. Retyping
+uses the same ASCII/keycode mapper as normal AMT typing, including
+shifted letters/punctuation, rather than placeholder Unicode keycodes. Each
+stroke has a 2 ms gap before the next stroke; no gap splits a down/up pair. The
+batch finishes once begun and later AMT keys wait behind it. No replay output,
+semantic republication, clipboard use or changed spelling rules.
 
 Only AMT-dispatched input feeds word tracking and cancellation. No physical
-keyboard/mouse event monitors are installed. App activation changes invalidate
-context; disabling autocorrect removes that focus observer. Text-free debug
-messages use the Autocorrect logging category.
+keyboard/mouse event monitors. App activation invalidates context; disabling
+correction removes that focus observer. Fallback cannot verify unexposed text,
+caret or password state; detected secure fields/Secure Event Input are excluded.
+Physical input can still race OS delivery. No new restricted entitlement is needed.
 
-Fallback cannot verify unexposed text/caret/password state; detected secure fields
-and Secure Event Input are excluded. It cannot roll back once deletion has begun,
-so the balanced batch finishes rather than leaving a partial replacement. Physical
-input can still race OS event delivery. Existing Accessibility permission is
-required; no new restricted entitlement is needed.
+Keyboard → Mode Toggles shows session-only autocorrect diagnostics: current status,
+specific skip/error reason, and the last original word → replacement with output
+method (AX-verified keyboard, keyboard fallback with reason, or Accessibility).
+“Replacement sent” confirms dispatch, not the receiver's resulting DOM/editor
+state. Last replacement survives a later skipped attempt. No word history is
+persisted, exported or written to logs; text-free debug logs use Autocorrect.
 
 ## Voice and Apple Dictation
 

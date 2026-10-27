@@ -87,9 +87,9 @@ Autocorrect and Snap Radius are live Keyboard Mode Toggles, retaining their save
 profile keys. Snap uses shared tap eligibility/timing and cached per-key radii;
 gesture reservation cannot become snapped typing. Autocorrect observes posted live
 keys only, with bounded worker publication and generation cancellation. Keep AX and
-spellchecking off the input/output queues. Prefer verified AX replacement; when
-AX text support is unavailable, allow the bounded keyboard fallback authorized by
-the user. Never fall back after text/focus mismatch or a selection/edit attempt.
+spellchecking off the input/output queues. Verify AX text when available; ordinary
+corrections use the shared keyboard delete/retype output path. When AX text support
+is unavailable, use that same bounded keyboard fallback authorized by the user. Never fall back after text/focus mismatch or a selection/edit attempt.
 Cancel pending edits on AMT input/focus changes and serialize fallback output.
 Do not monitor physical keyboard/mouse input for autocorrect. AX access must run on the
 main actor because self-targeted AX calls enter AppKit directly; spellchecking

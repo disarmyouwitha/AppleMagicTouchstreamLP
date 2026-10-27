@@ -2454,6 +2454,7 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var voice = VoiceDictationManager.shared
+        @ObservedObject private var autocorrect = AutocorrectStatus.shared
         @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
@@ -2479,6 +2480,19 @@ struct ContentView: View {
                     .help("Polls every 8000 ms to detect disconnected trackpads.")
             }
             .toggleStyle(.switch)
+            if autocorrectEnabled {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Autocorrect: " + autocorrect.activity)
+                    if let replacement = autocorrect.lastReplacement {
+                        Text("Last replacement: " + replacement)
+                        if let method = autocorrect.lastMethod { Text("Method: " + method) }
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             if voice.isActive || voice.status != "Voice: ready" {
                 HStack {
                     Text(voice.status).font(.caption).foregroundStyle(.secondary)

@@ -93,7 +93,7 @@ final class AutocorrectSessionTests: XCTestCase {
 
     func testFallbackReplacesWholeWordAndPreservesDelimiter() throws {
         for boundary: UInt8 in [32, 44, 46] {
-            let plan = try XCTUnwrap(AutocorrectFallbackPlan(word: "teh", boundary: boundary, correction: "the"))
+            let plan = try XCTUnwrap(AutocorrectKeyboardReplacement(word: "teh", boundary: boundary, correction: "the"))
             XCTAssertEqual(plan.deleteCount, 4)
             XCTAssertEqual(plan.text, "the" + String(UnicodeScalar(boundary)))
             let events = try XCTUnwrap(plan.events())
@@ -107,28 +107,97 @@ final class AutocorrectSessionTests: XCTestCase {
             for event in events.prefix(8) {
                 XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode), Int64(kVK_Delete))
             }
-            var text = ""
-            for event in events.dropFirst(8) where event.type == .keyDown {
-                var count = 0
-                var units = [UniChar](repeating: 0, count: 16)
-                event.keyboardGetUnicodeString(maxStringLength: units.count, actualStringLength: &count, unicodeString: &units)
-                text += String(decoding: units.prefix(count), as: UTF16.self)
-            }
-            XCTAssertEqual(text, plan.text)
+            let strokes = try XCTUnwrap(KeySemanticMapper.keyStrokes(for: plan.text))
+            let typedDowns = events.dropFirst(8).filter { $0.type == .keyDown }
+            XCTAssertEqual(typedDowns.map { $0.getIntegerValueField(.keyboardEventKeycode) },
+                           strokes.map { Int64($0.code) })
+            XCTAssertEqual(typedDowns.map(\.flags), strokes.map(\.flags))
         }
     }
 
     func testFallbackNeverErasesSubmittingOrFocusChangingDelimiters() {
         for boundary: UInt8 in [9, 10, 13, 0, 127] {
-            XCTAssertNil(AutocorrectFallbackPlan(word: "teh", boundary: boundary, correction: "the"))
+            XCTAssertNil(AutocorrectKeyboardReplacement(word: "teh", boundary: boundary, correction: "the"))
         }
         for word in ["", "a", String(repeating: "x", count: 65), "café"] {
-            XCTAssertNil(AutocorrectFallbackPlan(word: word, boundary: 32, correction: "the"))
+            XCTAssertNil(AutocorrectKeyboardReplacement(word: word, boundary: 32, correction: "the"))
         }
         for correction in ["", "hello\nworld", String(repeating: "x", count: 129)] {
-            XCTAssertNil(AutocorrectFallbackPlan(word: "teh", boundary: 32, correction: correction))
+            XCTAssertNil(AutocorrectKeyboardReplacement(word: "teh", boundary: 32, correction: correction))
         }
-        XCTAssertNotNil(AutocorrectFallbackPlan(word: "cafe", boundary: 32, correction: "café"))
+        XCTAssertNil(AutocorrectKeyboardReplacement(word: "cafe", boundary: 32, correction: "café"))
+    }
+
+    func testRetypingPreservesShiftedLettersAndPunctuationUsingNormalKeycodes() throws {
+        let plan = try XCTUnwrap(AutocorrectKeyboardReplacement(word: "Teh", boundary: 33, correction: "The"))
+        let events = try XCTUnwrap(plan.events())
+        let strokes = events.dropFirst(8).filter { $0.type == .keyDown }
+        XCTAssertEqual(strokes.map { $0.getIntegerValueField(.keyboardEventKeycode) },
+                       [kVK_ANSI_T, kVK_ANSI_H, kVK_ANSI_E, kVK_ANSI_1].map(Int64.init))
+        XCTAssertEqual(strokes.map(\.flags), [.maskShift, [], [], .maskShift])
+        XCTAssertTrue(events.filter { $0.type == .keyUp }.allSatisfy { $0.flags.isEmpty })
+    }
+
+    func testKeyboardReplacementRejectsStaleWorkBeforeAnyDeletion() throws {
+        let events = try XCTUnwrap(AutocorrectKeyboardReplacement(word: "teh", boundary: 32, correction: "the")?.events())
+        var input = AutocorrectInputBuffer()
+        input.setEnabled(true); input.enqueue(event(kVK_Space))
+        let generation = input.generation
+        input.enqueue(event(kVK_ANSI_A))
+        var began = false, posted = 0, pauses = 0
+        let outcome = AutocorrectKeyboardOutput.send(events,
+            isCurrent: { input.isCurrent(generation) }, begin: { began = true },
+            post: { _ in posted += 1 }, pause: { _ in pauses += 1 })
+        XCTAssertEqual(outcome, .skipped("Newer AMT input arrived."))
+        XCTAssertFalse(began); XCTAssertEqual(posted, 0); XCTAssertEqual(pauses, 0)
+    }
+
+    func testKeyboardReplacementFinishesBalancedBatchAndPacesOnlyBetweenStrokes() throws {
+        let events = try XCTUnwrap(AutocorrectKeyboardReplacement(word: "teh", boundary: 32, correction: "the")?.events())
+        var input = AutocorrectInputBuffer()
+        input.setEnabled(true); input.enqueue(event(kVK_Space))
+        let generation = input.generation
+        var posted: [CGEvent] = [], pauses: [TimeInterval] = []
+        let outcome = AutocorrectKeyboardOutput.send(events,
+            isCurrent: { input.isCurrent(generation) }, begin: { input.clear() },
+            post: { value in
+                posted.append(value)
+                // New AMT input after deletion has begun cannot leave a half edit
+                // or an unmatched key down. Later output waits behind this batch.
+                input.enqueue(self.event(kVK_ANSI_A))
+            }, pause: { duration in
+                XCTAssertEqual(posted.count % 2, 0)
+                pauses.append(duration)
+            })
+        XCTAssertEqual(outcome, .posted)
+        XCTAssertEqual(posted.map(ObjectIdentifier.init), events.map(ObjectIdentifier.init))
+        XCTAssertEqual(pauses, Array(repeating: 0.002, count: events.count / 2 - 1))
+    }
+
+    func testReplayRejectsKeyboardCorrectionWithoutCheckingOrPostingNativeOutput() throws {
+        let service = DispatchService(recordingWith: ReplayTouchEngineScheduler(startTime: 1)) { _ in
+            XCTFail("A correction must not emit replay commands or native input")
+        }
+        let completed = expectation(description: "Replay correction rejected")
+        let plan = try XCTUnwrap(AutocorrectKeyboardReplacement(word: "teh", boundary: 32, correction: "the"))
+        service.performAutocorrectReplacement(plan, pid: 0,
+            isCurrent: { XCTFail("Replay must return before native output checks"); return true },
+            completion: { result in
+                XCTAssertEqual(result, .skipped("Replay does not post keyboard output."))
+                completed.fulfill()
+            })
+        wait(for: [completed], timeout: 1)
+    }
+
+    @MainActor func testConfigDiagnosticsRetainLastReplacementWhenNextAttemptIsSkipped() {
+        let status = AutocorrectStatus()
+        status.sent(word: "teh", correction: "the", method: "Keyboard · AX verified")
+        XCTAssertEqual(status.activity, "Replacement sent.")
+        XCTAssertEqual(status.lastReplacement, "“teh” → “the”")
+        status.report("Skipped: A modifier is held.")
+        XCTAssertEqual(status.lastReplacement, "“teh” → “the”")
+        XCTAssertEqual(status.lastMethod, "Keyboard · AX verified")
+        XCTAssertEqual(status.activity, "Skipped: A modifier is held.")
     }
 
     func testPendingCorrectionInvalidatesOnLaterKeysDisableResetAndOverflow() throws {

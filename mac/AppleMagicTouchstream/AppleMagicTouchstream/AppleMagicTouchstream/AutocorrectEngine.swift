@@ -1,12 +1,28 @@
 import AppKit
 import ApplicationServices
 import Carbon
+import Combine
 import Dispatch
 import os
 
 enum AutocorrectTextAccess {
     static func enqueue(_ action: @escaping @MainActor @Sendable () -> Void) {
         DispatchQueue.main.async(execute: action)
+    }
+}
+
+/// Session-only diagnostics: never persisted, exported or logged with typed text.
+@MainActor final class AutocorrectStatus: ObservableObject {
+    static let shared = AutocorrectStatus()
+    @Published private(set) var activity = "Waiting for a completed word."
+    @Published private(set) var lastReplacement: String?
+    @Published private(set) var lastMethod: String?
+
+    func report(_ message: String) { activity = message }
+    func sent(word: String, correction: String, method: String) {
+        activity = "Replacement sent."
+        lastReplacement = "“\(word)” → “\(correction)”"
+        lastMethod = method
     }
 }
 
@@ -230,11 +246,18 @@ final class AutocorrectEngine: @unchecked Sendable {
                         self.target = Self.captureTarget()
                     }
                 }
-                if let candidate = session.consume(entry.event),
-                   isCurrent(entry.generation), let correction = correction(for: candidate),
-                   isCurrent(entry.generation) {
+                if let candidate = session.consume(entry.event), isCurrent(entry.generation) {
+                    let correction = correction(for: candidate)
                     AutocorrectTextAccess.enqueue {
-                        guard let target = self.target else { return }
+                        guard self.isCurrent(entry.generation) else {
+                            AutocorrectStatus.shared.report("Skipped: newer AMT input arrived."); return
+                        }
+                        guard let target = self.target else {
+                            AutocorrectStatus.shared.report("Skipped: no eligible focused field (permission or secure input)."); return
+                        }
+                        guard let correction else {
+                            AutocorrectStatus.shared.report("No spelling correction suggested."); return
+                        }
                         self.apply(candidate, correction: correction, target: target, generation: entry.generation)
                     }
                 }
@@ -247,26 +270,53 @@ final class AutocorrectEngine: @unchecked Sendable {
 
     @MainActor private func apply(_ candidate: AutocorrectSession.Candidate, correction: String, target: Target,
                        generation: UInt64, attempt: Int = 0) {
-        guard isCurrent(generation), Self.matches(target) else { return }
+        guard isCurrent(generation) else {
+            AutocorrectStatus.shared.report("Skipped: newer AMT input arrived."); return
+        }
+        guard Self.matches(target) else {
+            AutocorrectStatus.shared.report("Skipped: focused app or field changed."); return
+        }
+        let plan = AutocorrectKeyboardReplacement(word: candidate.word, boundary: candidate.boundary,
+                                                  correction: correction)
         let result = target.element.map {
             VerifiedAutocorrectReplacement.replace(candidate, with: correction, in: $0,
-                isCurrent: { self.isCurrent(generation) })
-        } ?? .unavailable
-        if result == .unavailable,
-           let plan = AutocorrectFallbackPlan(word: candidate.word, boundary: candidate.boundary,
-                                            correction: correction) {
-            Self.log.debug("AX text unavailable; scheduling keyboard replacement")
-            DispatchService.shared.performAutocorrectReplacement(plan, pid: target.pid) { [weak self] in
-                self?.isCurrent(generation) == true
+                validateOnly: plan != nil, isCurrent: { self.isCurrent(generation) })
+        } ?? .unavailable("AX focused field unavailable.")
+        switch result {
+        case .verified, .unavailable:
+            guard let plan else {
+                AutocorrectStatus.shared.report("Skipped: keyboard fallback cannot erase Return or Tab."); return
             }
-        } else if result == .rejected {
-            Self.log.debug("Correction cancelled: focus, text, selection or edit validation failed")
-        }
-        // CGEvent posting precedes delivery to the destination app. Give the
-        // delimiter a bounded opportunity to arrive, without delaying typing.
-        if result == .notReady && attempt < 3 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(15)) { [weak self] in
-                self?.apply(candidate, correction: correction, target: target, generation: generation, attempt: attempt + 1)
+            let method: String
+            if case let .unavailable(reason) = result { method = "Keyboard fallback · " + reason }
+            else { method = "Keyboard · AX verified" }
+            Self.log.debug("Scheduling keyboard replacement")
+            AutocorrectStatus.shared.report("Sending replacement via \(method).")
+            DispatchService.shared.performAutocorrectReplacement(plan, pid: target.pid,
+                isCurrent: { [weak self] in self?.isCurrent(generation) == true },
+                completion: { outcome in
+                    AutocorrectTextAccess.enqueue {
+                        switch outcome {
+                        case .posted:
+                            AutocorrectStatus.shared.sent(word: candidate.word, correction: correction, method: method)
+                        case let .skipped(reason): AutocorrectStatus.shared.report("Skipped: " + reason)
+                        }
+                    }
+                })
+        case .applied:
+            AutocorrectStatus.shared.sent(word: candidate.word, correction: correction, method: "Accessibility")
+        case let .rejected(reason):
+            Self.log.debug("Correction validation failed")
+            AutocorrectStatus.shared.report("Skipped: " + reason)
+        case .notReady:
+            // AX may lag event delivery; a persistent mismatch must never authorize
+            // backspacing. Report it rather than silently dropping the candidate.
+            if attempt < 3 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(15)) { [weak self] in
+                    self?.apply(candidate, correction: correction, target: target, generation: generation, attempt: attempt + 1)
+                }
+            } else {
+                AutocorrectStatus.shared.report("Skipped: AX text does not match “\(candidate.word)” plus its delimiter at the caret.")
             }
         }
     }
@@ -288,7 +338,7 @@ final class AutocorrectEngine: @unchecked Sendable {
 /// Never delete text speculatively: require the original field, an empty selection,
 /// an exact complete word+delimiter immediately before the caret, and current output.
 @MainActor enum VerifiedAutocorrectReplacement {
-    enum Result { case applied, notReady, unavailable, rejected }
+    enum Result { case verified, applied, notReady, unavailable(String), rejected(String) }
     static func focusedElement() -> AXUIElement? {
         guard !IsSecureEventInputEnabled(), AXIsProcessTrusted() else { return nil }
         let system = AXUIElementCreateSystemWide()
@@ -321,14 +371,14 @@ final class AutocorrectEngine: @unchecked Sendable {
     }
 
     static func replace(_ candidate: AutocorrectSession.Candidate, with replacement: String,
-                        in element: AXUIElement, isCurrent: () -> Bool) -> Result {
-        guard isCurrent(), !isSecure(element), let focused = focusedElement(), CFEqual(focused, element) else { return .rejected }
-        guard let caret = selectedRange(element) else { return .unavailable }
-        guard caret.length == 0, caret.location >= 0 else { return .rejected }
+                        in element: AXUIElement, validateOnly: Bool = false, isCurrent: () -> Bool) -> Result {
+        guard isCurrent(), !isSecure(element), let focused = focusedElement(), CFEqual(focused, element) else { return .rejected("Focus changed, secure input, or newer AMT input.") }
+        guard let caret = selectedRange(element) else { return .unavailable("AX caret unavailable.") }
+        guard caret.length == 0, caret.location >= 0 else { return .rejected("Text is selected or the caret is invalid.") }
         // Query only the nearby prefix, rather than copying a whole document.
         let length = min(caret.location, 128)
         var preceding = CFRange(location: caret.location - length, length: length)
-        guard let parameter = AXValueCreate(.cfRange, &preceding) else { return .rejected }
+        guard let parameter = AXValueCreate(.cfRange, &preceding) else { return .rejected("AX range could not be created.") }
         var result: CFTypeRef?
         let status = AXUIElementCopyParameterizedAttributeValue(element,
             kAXStringForRangeParameterizedAttribute as CFString, parameter, &result)
@@ -337,30 +387,43 @@ final class AutocorrectEngine: @unchecked Sendable {
         else if let text = attribute(element, kAXValueAttribute) as? String,
                 (text as NSString).length >= caret.location {
             prefix = (text as NSString).substring(with: NSRange(location: preceding.location, length: length))
-        } else { return .unavailable }
+        } else { return .unavailable("AX text unavailable.") }
         guard var range = replacementRange(prefix: prefix, caret: length, word: candidate.word, boundary: candidate.boundary) else { return .notReady }
         guard isCurrent(), let currentCaret = selectedRange(element),
               currentCaret.location == caret.location, currentCaret.length == 0,
-              let currentFocus = focusedElement(), CFEqual(currentFocus, element) else { return .rejected }
+              let currentFocus = focusedElement(), CFEqual(currentFocus, element) else { return .rejected("Caret, focus or AMT input changed during validation.") }
+        // Ordinary corrections use keystrokes after validation, without changing
+        // AX selection/value. This lets editors receive their normal input events.
+        if validateOnly { return .verified }
+        // Retain verified AX editing for Return/Tab boundaries, which cannot be
+        // safely deleted and replayed in unsupported fields.
         // Discover unsupported setters before touching the selection. Any failure
         // after a selection attempt stays rejected, never a keyboard fallback.
         var writableRange = DarwinBoolean(false), writableText = DarwinBoolean(false)
         guard AXUIElementIsAttributeSettable(element, kAXSelectedTextRangeAttribute as CFString, &writableRange) == .success,
               AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &writableText) == .success,
-              writableRange.boolValue, writableText.boolValue else { return .unavailable }
+              writableRange.boolValue, writableText.boolValue else { return .unavailable("AX text setters unavailable.") }
         range.location += preceding.location
-        guard setRange(range, element: element) else { return .rejected }
+        guard setRange(range, element: element) else { return .rejected("AX could not select the word; no keyboard fallback attempted.") }
         // A selection failure or output race must not trigger backspace/retype.
         guard isCurrent(), let selected = selectedRange(element),
               selected.location == range.location, selected.length == range.length,
               attribute(element, kAXSelectedTextAttribute) as? String == candidate.word,
               let editFocus = focusedElement(), CFEqual(editFocus, element), isCurrent() else {
-            _ = setRange(caret, element: element); return .rejected
+            _ = setRange(caret, element: element); return .rejected("AX selection validation failed; no keyboard fallback attempted.")
         }
         let changed = AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, replacement as CFString) == .success
         let finalCaret = changed ? CFRange(location: caret.location + replacement.utf16.count - candidate.word.utf16.count, length: 0) : caret
         _ = setRange(finalCaret, element: element)
-        return changed ? .applied : .rejected
+        guard changed else { return .rejected("AX text replacement failed; no keyboard fallback attempted.") }
+        guard let final = selectedRange(element), final.location == finalCaret.location, final.length == 0,
+              let text = attribute(element, kAXValueAttribute) as? String,
+              (text as NSString).length >= final.location,
+              replacementRange(prefix: (text as NSString).substring(to: final.location), caret: final.location,
+                               word: replacement, boundary: candidate.boundary) != nil else {
+            return .rejected("AX reported success but the replacement could not be verified.")
+        }
+        return .applied
     }
 
     private static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -383,14 +446,14 @@ final class AutocorrectEngine: @unchecked Sendable {
 
 /// The fallback only rewrites a bounded ASCII word plus a non-submitting delimiter.
 /// Return/Tab may already have submitted a form or moved focus, so never erase them.
-struct AutocorrectFallbackPlan: Equatable, Sendable {
+struct AutocorrectKeyboardReplacement: Equatable, Sendable {
     let deleteCount: Int
     let text: String
 
     init?(word: String, boundary: UInt8, correction: String) {
         guard (2...64).contains(word.utf8.count), word.utf8.allSatisfy({ $0 < 128 }),
               (32...126).contains(boundary), !correction.isEmpty,
-              correction.utf16.count <= 128,
+              correction.utf16.count <= 128, KeySemanticMapper.canTypeASCII(correction),
               !correction.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return nil }
         deleteCount = word.utf8.count + 1
         text = correction + String(UnicodeScalar(boundary))
@@ -403,17 +466,30 @@ struct AutocorrectFallbackPlan: Equatable, Sendable {
             guard let pair = KeyboardStrokeOutput.events(code: CGKeyCode(kVK_Delete), flags: [], restoringFlags: []) else { return nil }
             events.append(contentsOf: [pair.down, pair.up])
         }
-        for character in text {
-            guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else { return nil }
-            let units = Array(String(character).utf16)
-            units.withUnsafeBufferPointer { buffer in
-                down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
-                up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
-            }
-            down.flags = []; up.flags = []
-            events.append(contentsOf: [down, up])
+        guard let strokes = KeySemanticMapper.keyStrokes(for: text) else { return nil }
+        for stroke in strokes {
+            guard let pair = KeyboardStrokeOutput.events(code: stroke.code, flags: stroke.flags,
+                                                         restoringFlags: []) else { return nil }
+            events.append(contentsOf: [pair.down, pair.up])
         }
         return events
+    }
+}
+
+/// An indivisible batch on DispatchService's queue. A stale candidate posts nothing;
+/// once begun, finish every balanced edge even if later AMT input is queued.
+enum AutocorrectKeyboardOutput {
+    enum Outcome: Equatable, Sendable { case posted, skipped(String) }
+    static let strokeInterval: TimeInterval = 0.002
+
+    static func send(_ events: [CGEvent], isCurrent: () -> Bool, begin: () -> Void,
+                     post: (CGEvent) -> Void, pause: (TimeInterval) -> Void) -> Outcome {
+        guard isCurrent() else { return .skipped("Newer AMT input arrived.") }
+        begin()
+        for index in stride(from: 0, to: events.count, by: 2) {
+            post(events[index]); post(events[index + 1])
+            if index + 2 < events.count { pause(strokeInterval) }
+        }
+        return .posted
     }
 }
