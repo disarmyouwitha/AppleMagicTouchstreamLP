@@ -90,14 +90,34 @@ AX calls are invalid. Spellchecking stays on its worker. A correction requires t
 original focused non-secure AX element, an empty selection, and the complete
 original word plus delimiter immediately before the caret. Recheck focus, caret
 and generation before range replacement; adjust by the UTF-16 length difference.
-Never replace the entire document or fall back to blind backspacing/retyping.
-AX failure leaves text intact; failure after selection attempts caret restoration.
+Never replace the entire document. Failure after a selection attempt restores the
+caret where possible and never falls back. Text mismatch, nonempty selection,
+changed focus or generation also reject replacement.
 
 The delimiter may not yet have reached the destination app after CGEvent posting:
 retry at most three times at 15 ms, with the same generation checks. External app
-focus/caret changes are not transactional. Fields without suitable AX text support
-are skipped. Existing Accessibility permission is required; no new restricted
-entitlement is needed.
+focus/caret changes are not transactional.
+
+When AX text/range/setter support is unavailable before any edit, use a shared
+backspace/retype fallback. Track the original foreground PID and any exposed
+focused element from the first letter; recheck on correction. Replace only the
+tracked ASCII word (2–64 bytes) plus a printable delimiter. Return/Tab never fall
+back because they may submit or move focus. Prebuild balanced Delete and Unicode
+key edges, then post the batch on the existing live dispatch queue, checking the
+candidate generation, active app, secure input, Accessibility permission and held
+modifiers again before posting. Skip with held modifiers. No replay output, word
+republication, clipboard use, new spelling rules or app-specific adapters.
+
+Only AMT-dispatched input feeds word tracking and cancellation. No physical
+keyboard/mouse event monitors are installed. App activation changes invalidate
+context; disabling autocorrect removes that focus observer. Text-free debug
+messages use the Autocorrect logging category.
+
+Fallback cannot verify unexposed text/caret/password state; detected secure fields
+and Secure Event Input are excluded. It cannot roll back once deletion has begun,
+so the balanced batch finishes rather than leaving a partial replacement. Physical
+input can still race OS event delivery. Existing Accessibility permission is
+required; no new restricted entitlement is needed.
 
 ## Voice and Apple Dictation
 

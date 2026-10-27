@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon
 import CoreGraphics
 import Foundation
@@ -933,6 +934,26 @@ final class DispatchService: @unchecked Sendable {
 
     func postHaptic(strength: Double, deviceID: String?, sourceSequence: UInt64? = nil) {
         enqueue(.haptic(strength: strength, deviceID: deviceID), sourceSequence: sourceSequence)
+    }
+
+    /// Uses the existing live keyboard dispatch queue: deletion and insertion are
+    /// one output batch, never interleaved with later app-generated keys.
+    func performAutocorrectReplacement(_ plan: AutocorrectFallbackPlan, pid: pid_t,
+                                       isCurrent: @escaping @Sendable () -> Bool) {
+        guard keyDispatcher != nil else { return } // Recording/replay never posts.
+        dispatchQueue.async { [self] in
+            guard isCurrent(), !IsSecureEventInputEnabled(), AXIsProcessTrusted(),
+                  NSRunningApplication(processIdentifier: pid)?.isActive == true,
+                  shortcutKeys.withLock({ $0.flags.isEmpty }),
+                  CGEventSource.flagsState(.combinedSessionState)
+                    .intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskSecondaryFn]).isEmpty,
+                  let events = plan.events(), isCurrent() else { return }
+            // Consume the candidate once. Our events bypass semantic publication;
+            // they cannot recursively correct themselves. Finish the balanced batch
+            // even if external input arrives after posting has begun.
+            AutocorrectEngine.shared.invalidate()
+            for event in events { event.post(tap: .cghidEventTap) }
+        }
     }
 
     func snapshotMetrics() -> Metrics {

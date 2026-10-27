@@ -91,6 +91,46 @@ final class AutocorrectSessionTests: XCTestCase {
         XCTAssertNil(range("teh ", caret: 3))
     }
 
+    func testFallbackReplacesWholeWordAndPreservesDelimiter() throws {
+        for boundary: UInt8 in [32, 44, 46] {
+            let plan = try XCTUnwrap(AutocorrectFallbackPlan(word: "teh", boundary: boundary, correction: "the"))
+            XCTAssertEqual(plan.deleteCount, 4)
+            XCTAssertEqual(plan.text, "the" + String(UnicodeScalar(boundary)))
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.count, 16)
+            for index in stride(from: 0, to: events.count, by: 2) {
+                XCTAssertEqual(events[index].type, .keyDown)
+                XCTAssertEqual(events[index + 1].type, .keyUp)
+                XCTAssertTrue(events[index].flags.isEmpty)
+                XCTAssertTrue(events[index + 1].flags.isEmpty)
+            }
+            for event in events.prefix(8) {
+                XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode), Int64(kVK_Delete))
+            }
+            var text = ""
+            for event in events.dropFirst(8) where event.type == .keyDown {
+                var count = 0
+                var units = [UniChar](repeating: 0, count: 16)
+                event.keyboardGetUnicodeString(maxStringLength: units.count, actualStringLength: &count, unicodeString: &units)
+                text += String(decoding: units.prefix(count), as: UTF16.self)
+            }
+            XCTAssertEqual(text, plan.text)
+        }
+    }
+
+    func testFallbackNeverErasesSubmittingOrFocusChangingDelimiters() {
+        for boundary: UInt8 in [9, 10, 13, 0, 127] {
+            XCTAssertNil(AutocorrectFallbackPlan(word: "teh", boundary: boundary, correction: "the"))
+        }
+        for word in ["", "a", String(repeating: "x", count: 65), "café"] {
+            XCTAssertNil(AutocorrectFallbackPlan(word: word, boundary: 32, correction: "the"))
+        }
+        for correction in ["", "hello\nworld", String(repeating: "x", count: 129)] {
+            XCTAssertNil(AutocorrectFallbackPlan(word: "teh", boundary: 32, correction: correction))
+        }
+        XCTAssertNotNil(AutocorrectFallbackPlan(word: "cafe", boundary: 32, correction: "café"))
+    }
+
     func testPendingCorrectionInvalidatesOnLaterKeysDisableResetAndOverflow() throws {
         var input = AutocorrectInputBuffer(capacity: 2)
         input.enqueue(event(kVK_ANSI_T))

@@ -138,7 +138,12 @@ final class AutocorrectEngine: @unchecked Sendable {
     private let queue = DispatchQueue(label: "ink.ranna.applemagictouchstream.autocorrect", qos: .utility)
     private let wake: DispatchSourceUserDataAdd
     private var session = AutocorrectSession()
-    private struct Target: @unchecked Sendable { let element: AXUIElement }
+    private struct Target: @unchecked Sendable {
+        let pid: pid_t
+        let element: AXUIElement?
+    }
+    private static let log = Logger(subsystem: "ink.ranna.applemagictouchstream", category: "Autocorrect")
+    @MainActor private var activationMonitor: NSObjectProtocol?
     @MainActor private var target: Target?
     private var checker: NSSpellChecker?
     private var documentTag: Int?
@@ -152,6 +157,38 @@ final class AutocorrectEngine: @unchecked Sendable {
     func setEnabled(_ enabled: Bool) {
         state.withLock { $0.setEnabled(enabled) }
         wake.add(data: 1)
+        AutocorrectTextAccess.enqueue { self.updateFocusObserver(enabled: enabled) }
+    }
+
+    @MainActor private func updateFocusObserver(enabled: Bool) {
+        if !enabled {
+            if let activationMonitor { NSWorkspace.shared.notificationCenter.removeObserver(activationMonitor) }
+            activationMonitor = nil
+            return
+        }
+        guard activationMonitor == nil else { return }
+        // Track focus only. Do not listen to physical keyboard/mouse input.
+        activationMonitor = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.invalidate() }
+    }
+
+    @MainActor private static func captureTarget() -> Target? {
+        guard AXIsProcessTrusted(), !IsSecureEventInputEnabled(),
+              let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              pid != 0 else { return nil }
+        let element = VerifiedAutocorrectReplacement.focusedElement()
+        guard !VerifiedAutocorrectReplacement.isSecure(element) else { return nil }
+        return Target(pid: pid, element: element)
+    }
+
+    @MainActor private static func matches(_ target: Target) -> Bool {
+        guard let current = captureTarget(), current.pid == target.pid else { return false }
+        switch (target.element, current.element) {
+        case let (a?, b?): return CFEqual(a, b)
+        case (nil, nil): return true
+        default: return false
+        }
     }
 
     func invalidate() {
@@ -190,7 +227,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             autoreleasepool {
                 if entry.event.kind == .text && session.isStartingWord {
                     AutocorrectTextAccess.enqueue {
-                        self.target = VerifiedAutocorrectReplacement.focusedElement().map { Target(element: $0) }
+                        self.target = Self.captureTarget()
                     }
                 }
                 if let candidate = session.consume(entry.event),
@@ -210,9 +247,21 @@ final class AutocorrectEngine: @unchecked Sendable {
 
     @MainActor private func apply(_ candidate: AutocorrectSession.Candidate, correction: String, target: Target,
                        generation: UInt64, attempt: Int = 0) {
-        guard isCurrent(generation) else { return }
-        let result = VerifiedAutocorrectReplacement.replace(candidate, with: correction, in: target.element,
-            isCurrent: { self.isCurrent(generation) })
+        guard isCurrent(generation), Self.matches(target) else { return }
+        let result = target.element.map {
+            VerifiedAutocorrectReplacement.replace(candidate, with: correction, in: $0,
+                isCurrent: { self.isCurrent(generation) })
+        } ?? .unavailable
+        if result == .unavailable,
+           let plan = AutocorrectFallbackPlan(word: candidate.word, boundary: candidate.boundary,
+                                            correction: correction) {
+            Self.log.debug("AX text unavailable; scheduling keyboard replacement")
+            DispatchService.shared.performAutocorrectReplacement(plan, pid: target.pid) { [weak self] in
+                self?.isCurrent(generation) == true
+            }
+        } else if result == .rejected {
+            Self.log.debug("Correction cancelled: focus, text, selection or edit validation failed")
+        }
         // CGEvent posting precedes delivery to the destination app. Give the
         // delimiter a bounded opportunity to arrive, without delaying typing.
         if result == .notReady && attempt < 3 {
@@ -239,7 +288,7 @@ final class AutocorrectEngine: @unchecked Sendable {
 /// Never delete text speculatively: require the original field, an empty selection,
 /// an exact complete word+delimiter immediately before the caret, and current output.
 @MainActor enum VerifiedAutocorrectReplacement {
-    enum Result { case applied, notReady, rejected }
+    enum Result { case applied, notReady, unavailable, rejected }
     static func focusedElement() -> AXUIElement? {
         guard !IsSecureEventInputEnabled(), AXIsProcessTrusted() else { return nil }
         let system = AXUIElementCreateSystemWide()
@@ -248,8 +297,12 @@ final class AutocorrectEngine: @unchecked Sendable {
               CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         let element = value as! AXUIElement
         _ = AXUIElementSetMessagingTimeout(element, 0.05)
-        guard attribute(element, kAXSubroleAttribute) as? String != kAXSecureTextFieldSubrole else { return nil }
         return element
+    }
+
+    static func isSecure(_ element: AXUIElement?) -> Bool {
+        guard let element else { return false }
+        return attribute(element, kAXSubroleAttribute) as? String == kAXSecureTextFieldSubrole
     }
 
     /// Pure range validation used by the AX adapter and offline tests.
@@ -269,8 +322,9 @@ final class AutocorrectEngine: @unchecked Sendable {
 
     static func replace(_ candidate: AutocorrectSession.Candidate, with replacement: String,
                         in element: AXUIElement, isCurrent: () -> Bool) -> Result {
-        guard isCurrent(), let focused = focusedElement(), CFEqual(focused, element),
-              let caret = selectedRange(element), caret.length == 0, caret.location >= 0 else { return .rejected }
+        guard isCurrent(), !isSecure(element), let focused = focusedElement(), CFEqual(focused, element) else { return .rejected }
+        guard let caret = selectedRange(element) else { return .unavailable }
+        guard caret.length == 0, caret.location >= 0 else { return .rejected }
         // Query only the nearby prefix, rather than copying a whole document.
         let length = min(caret.location, 128)
         var preceding = CFRange(location: caret.location - length, length: length)
@@ -283,11 +337,17 @@ final class AutocorrectEngine: @unchecked Sendable {
         else if let text = attribute(element, kAXValueAttribute) as? String,
                 (text as NSString).length >= caret.location {
             prefix = (text as NSString).substring(with: NSRange(location: preceding.location, length: length))
-        } else { return .rejected }
+        } else { return .unavailable }
         guard var range = replacementRange(prefix: prefix, caret: length, word: candidate.word, boundary: candidate.boundary) else { return .notReady }
         guard isCurrent(), let currentCaret = selectedRange(element),
               currentCaret.location == caret.location, currentCaret.length == 0,
               let currentFocus = focusedElement(), CFEqual(currentFocus, element) else { return .rejected }
+        // Discover unsupported setters before touching the selection. Any failure
+        // after a selection attempt stays rejected, never a keyboard fallback.
+        var writableRange = DarwinBoolean(false), writableText = DarwinBoolean(false)
+        guard AXUIElementIsAttributeSettable(element, kAXSelectedTextRangeAttribute as CFString, &writableRange) == .success,
+              AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &writableText) == .success,
+              writableRange.boolValue, writableText.boolValue else { return .unavailable }
         range.location += preceding.location
         guard setRange(range, element: element) else { return .rejected }
         // A selection failure or output race must not trigger backspace/retype.
@@ -318,5 +378,42 @@ final class AutocorrectEngine: @unchecked Sendable {
         var range = range
         guard let value = AXValueCreate(.cfRange, &range) else { return false }
         return AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success
+    }
+}
+
+/// The fallback only rewrites a bounded ASCII word plus a non-submitting delimiter.
+/// Return/Tab may already have submitted a form or moved focus, so never erase them.
+struct AutocorrectFallbackPlan: Equatable, Sendable {
+    let deleteCount: Int
+    let text: String
+
+    init?(word: String, boundary: UInt8, correction: String) {
+        guard (2...64).contains(word.utf8.count), word.utf8.allSatisfy({ $0 < 128 }),
+              (32...126).contains(boundary), !correction.isEmpty,
+              correction.utf16.count <= 128,
+              !correction.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return nil }
+        deleteCount = word.utf8.count + 1
+        text = correction + String(UnicodeScalar(boundary))
+    }
+
+    /// Construct every balanced edge before any deletion can occur. No OS output.
+    func events() -> [CGEvent]? {
+        var events: [CGEvent] = []
+        for _ in 0..<deleteCount {
+            guard let pair = KeyboardStrokeOutput.events(code: CGKeyCode(kVK_Delete), flags: [], restoringFlags: []) else { return nil }
+            events.append(contentsOf: [pair.down, pair.up])
+        }
+        for character in text {
+            guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else { return nil }
+            let units = Array(String(character).utf16)
+            units.withUnsafeBufferPointer { buffer in
+                down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
+                up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
+            }
+            down.flags = []; up.flags = []
+            events.append(contentsOf: [down, up])
+        }
+        return events
     }
 }
