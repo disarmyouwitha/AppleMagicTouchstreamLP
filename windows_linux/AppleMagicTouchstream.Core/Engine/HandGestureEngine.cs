@@ -29,12 +29,12 @@ internal interface IHandGestureRuntime : IDisposable
 
 public sealed class HandGestureEngine
 {
-    private const double DragScrollSettleSeconds = .12;
+    private const double ChordLandingSeconds = .08;
     private sealed class Pad
     {
         public readonly HandGestureContact[] Previous = new HandGestureContact[InputFrame.MaxContacts];
         public int PreviousCount, PendingCount;
-        public double PreviousTime, TravelX, TravelY, LastReceipt, ThreeChordSince;
+        public double PreviousTime, TravelX, TravelY, LastReceipt, AcquisitionSince;
         public bool Reserved, Blocked, SawFour, ForceBlocked, ForceClaimed, CycleClaimed, KeyboardOwned;
         public HandGestureEvidence Evidence;
         public HandGestureTrigger? Owner;
@@ -82,7 +82,7 @@ public sealed class HandGestureEngine
     {
         p.CycleClaimed=true;
         p.Owner = null; p.PreviousCount = 0; p.TravelX = p.TravelY = 0;
-        p.PendingCount = 0; p.Blocked = true; p.ThreeChordSince = double.NaN; p.SawFour = false;
+        p.PendingCount = 0; p.Blocked = true; p.SawFour = false;
         CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset();
         p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
         p.CornerPending = false;
@@ -118,10 +118,10 @@ public sealed class HandGestureEngine
         }
     }
     public HandGestureEvidence Evidence(TrackpadSide side) => _pads[(int)side].Evidence with { Epoch=_epoch };
-    public bool Process(TrackpadSide side, ReadOnlySpan<HandGestureContact> contacts, double time, double hostTime, bool eligible, bool? reserveEligible = null,bool keyboardPriority=false)
+    public bool Process(TrackpadSide side, ReadOnlySpan<HandGestureContact> contacts, double time, double hostTime, bool eligible, bool? reserveEligible = null,bool keyboardPriority=false, bool fourthContactPending=false)
     {
         var p=_pads[(int)side]; bool claimed=p.CycleClaimed;
-        bool reserved=ProcessCore(side,contacts,time,hostTime,eligible,reserveEligible,keyboardPriority);
+        bool reserved=ProcessCore(side,contacts,time,hostTime,eligible,reserveEligible,keyboardPriority,fourthContactPending);
         bool tapPending=(_settings[(int)side].Get(HandGestureTrigger.TwoFingerTap)!=HandGestureAction.None && p.Two.CanComplete)
             || ((_settings[(int)side].Get(HandGestureTrigger.ThreeFingerTap)!=HandGestureAction.None || _settings[(int)side].Get(HandGestureTrigger.ThumbTwoTap)!=HandGestureAction.None) && p.Three.CanComplete)
             || (_settings[(int)side].Get(HandGestureTrigger.FourFingerTap)!=HandGestureAction.None && p.Four.CanComplete)
@@ -131,7 +131,7 @@ public sealed class HandGestureEngine
         if (contacts.Length==0) p.CycleClaimed=false;
         return reserved;
     }
-    private bool ProcessCore(TrackpadSide side, ReadOnlySpan<HandGestureContact> contacts, double time, double hostTime, bool eligible, bool? reserveEligible,bool keyboardPriority)
+    private bool ProcessCore(TrackpadSide side, ReadOnlySpan<HandGestureContact> contacts, double time, double hostTime, bool eligible, bool? reserveEligible,bool keyboardPriority, bool fourthContactPending)
     {
         int index = (int)side;
         var p = _pads[index]; var settings = _settings[index];
@@ -185,6 +185,7 @@ public sealed class HandGestureEngine
         // Starting takeover/settings mid-contact waits for a clean lift.
         if (p.Blocked && count > 0) return reserved;
         bool continued = p.PreviousCount > 0 && time > p.PreviousTime && time - p.PreviousTime < .15;
+        if (count > 0 && p.PreviousCount == 0) p.AcquisitionSince = time;
         bool normalEnd = count == 0 && continued;
         double dx = 0, dy = 0; int shared = 0;
         for (int a = 0; a < count; a++) for (int b = 0; b < p.PreviousCount; b++)
@@ -223,7 +224,7 @@ public sealed class HandGestureEngine
             if (four && enabled(HandGestureTrigger.FourFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FourFingerTap),nameof(HandGestureTrigger.FourFingerTap));
             if (five && enabled(HandGestureTrigger.FiveFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FiveFingerTap),nameof(HandGestureTrigger.FiveFingerTap));
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
-            p.ThreeChordSince = double.NaN; p.SawFour = false;
+            p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset();
             p.HoldCount = 0; p.HoldBlocked = p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
             p.CornerPending = false;
@@ -238,9 +239,32 @@ public sealed class HandGestureEngine
             CancelTaps(p); p.ForceClaimed = true;
             Emit(settings,settings.Get(forceTrigger!.Value),forceTrigger.Value.ToString()); _output.ForceFeedback(side);
         }
+        // Corner acquisition is independent of a smaller, moving cohort's Hold.
+        // Mac anchors the complete corner chord, not the fingers' earlier landing.
+        bool cornerCandidate = count == 4 && CoordinatedHandGestureEngine.CornerMask(contacts) == 15
+            && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None;
+        if (!p.Owner.HasValue && !p.ForceClaimed && !p.HoldClaimed && !p.CornerPending && cornerCandidate)
+        {
+            p.CornerPending = true; p.HoldBlocked = false; p.HoldCount = 4; p.HoldSince = time;
+            contacts.CopyTo(p.HoldOrigin); CancelTaps(p); p.Shape.Reset(); p.Momentum.Cancel();
+        }
+        if (p.CornerPending)
+        {
+            if ((!p.HoldClaimed && count != 4) || (p.HoldClaimed && p.PreviousCount < 4 && count > p.PreviousCount))
+                p.HoldBlocked = true;
+            foreach (var contact in contacts)
+            {
+                int origin = 0; while (origin < 4 && p.HoldOrigin[origin].Id != contact.Id) origin++;
+                if (origin == 4 || Distance(contact,p.HoldOrigin[origin]) > 2) p.HoldBlocked = true;
+            }
+            if (p.HoldBlocked) _output.HeldAssignment(index,null);
+            else if (!p.HoldClaimed && time-p.HoldSince >= settings.CornerMilliseconds(HandCornerChord.OuterCorners)/1000)
+            { p.HoldClaimed = true; Emit(settings,settings.CornerAction(HandCornerChord.OuterCorners),"CornerHold",index); }
+            contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
+            return reserved;
+        }
         // Holds share the same all-up ownership and cleanup path as motion/force.
         // A changed cohort restarts an unresolved hold; an activated owner never changes.
-        if (p.CornerPending && (count!=4 || shared!=4)) p.HoldBlocked=true;
         if (!p.Owner.HasValue && !p.ForceClaimed && !p.HoldClaimed && !p.HoldBlocked && count is >= 2 and <= 5)
         {
             if (p.HoldCount != count || shared != count)
@@ -250,15 +274,8 @@ public sealed class HandGestureEngine
                 int origin = 0; while (origin < p.HoldCount && p.HoldOrigin[origin].Id != contacts[i].Id) origin++;
                 if (origin == p.HoldCount || Distance(contacts[i], p.HoldOrigin[origin]) > 2) p.HoldBlocked = true;
             }
-            bool cornerCandidate = count == 4 && CoordinatedHandGestureEngine.CornerMask(contacts) == 15
-                && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None;
-            p.CornerPending |= cornerCandidate;
-            if (!p.HoldBlocked && !cornerCandidate && settings.Hold(count) != HandGestureAction.None && time-p.HoldSince >= settings.HoldMilliseconds(count)/1000)
+            if (!p.HoldBlocked && settings.Hold(count) != HandGestureAction.None && time-p.HoldSince >= settings.HoldMilliseconds(count)/1000)
             { p.HoldClaimed = true; CancelTaps(p); p.Shape.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
-            if (!p.HoldBlocked && !p.HoldClaimed && count == 4 && CoordinatedHandGestureEngine.CornerMask(contacts) == 15
-                && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None
-                && time-p.HoldSince >= settings.CornerMilliseconds(HandCornerChord.OuterCorners)/1000)
-            { p.HoldClaimed = true; CancelTaps(p); p.Shape.Reset(); Emit(settings,settings.CornerAction(HandCornerChord.OuterCorners),"CornerHold",index); }
         }
         if (p.ForceClaimed || p.HoldClaimed || p.CornerPending)
         {
@@ -276,17 +293,9 @@ public sealed class HandGestureEngine
         bool pinchOwned = p.Owner.HasValue && PerHandGestureSettings.IsPinch(p.Owner.Value);
         var shape = p.Shape.Process(contacts,time,pinchOwned);
         bool pinchBegan = false;
-        bool dragScrollConflict = settings.ThreeFingerMove == HandGestureAction.PrimaryDrag
-            && settings.FourFingerMove == HandGestureAction.Scroll;
         if (!p.Owner.HasValue)
         {
             p.SawFour |= count >= 4;
-            // Require an uninterrupted three-finger chord before any button-down.
-            // Count/identity changes restart the window; tap recognizers keep their
-            // own timing and continue to observe every report below.
-            if (count != 3) p.ThreeChordSince = double.NaN;
-            else if (!continued || p.PreviousCount != 3 || shared != 3 || double.IsNaN(p.ThreeChordSince))
-                p.ThreeChordSince = time;
         }
         if (continued && !p.Owner.HasValue)
         {
@@ -300,11 +309,17 @@ public sealed class HandGestureEngine
             bool formingTapChord = tapStillPossible && (p.PreviousCount != count || shared != count);
             bool formingScrollChord = count == 4 && enabled(HandGestureTrigger.FourFingerMove)
                 && (p.PreviousCount != 4 || shared != 4);
-            bool waitingForScroll = count == 3 && dragScrollConflict
-                && (p.SawFour || time - p.ThreeChordSince < DragScrollSettleSeconds);
-            if (formingTapChord || formingScrollChord || waitingForScroll) p.TravelX = p.TravelY = 0;
+            // Match Mac's bounded, evidenced fourth-finger acquisition. A hover
+            // cannot defer a deliberate drag indefinitely, and an existing owner
+            // never changes when another finger joins or lifts.
+            bool waitingForScroll = count == 3 && enabled(HandGestureTrigger.FourFingerMove)
+                && (p.SawFour || fourthContactPending && time-p.AcquisitionSince <= ChordLandingSeconds);
+            if (formingTapChord || formingScrollChord || count == 3 && p.SawFour) p.TravelX = p.TravelY = 0;
             else { p.TravelX += dx; p.TravelY += dy; }
             HandGestureTrigger? trigger = PerHandGestureSettings.Movement(count);
+            bool tapOwnsSlop = count == 2 && enabled(HandGestureTrigger.TwoFingerTap) && p.Two.CanComplete;
+            bool settlingFourHold = count == 4 && !p.HoldBlocked && settings.Hold(4) != HandGestureAction.None
+                && settings.Directional(HandGestureTrigger.FourFingerMove) == null;
             double threshold = count == 4 ? .2 : .35;
             double translation = Math.Sqrt(p.TravelX*p.TravelX+p.TravelY*p.TravelY);
             var direction = PerHandGestureSettings.Pinch(count,(shape?.Change ?? 0) > 0);
@@ -318,7 +333,9 @@ public sealed class HandGestureEngine
                 if (PerHandGestureSettings.IsDiscrete(action)) Emit(settings,action,direction.Value.ToString());
             }
             else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= (settings.Directional(trigger.Value) != null ? 3 : threshold)
-                && !waitingForScroll && (count != 3 || settings.Directional(trigger.Value) != null || AcceptsRow(contacts)))
+                && !waitingForScroll && !tapOwnsSlop
+                && (!settlingFourHold || CoherentTravel(contacts,p.HoldOrigin.AsSpan(0,4),p.TravelX,p.TravelY) >= .2)
+                && (count != 3 || settings.Directional(trigger.Value) != null || AcceptsRow(contacts)))
             {
                 p.Owner = trigger;
                 dx = p.TravelX; dy = p.TravelY;
@@ -393,9 +410,28 @@ public sealed class HandGestureEngine
     }
     private static double Distance(HandGestureContact a, HandGestureContact b) => Math.Sqrt((a.X-b.X)*(a.X-b.X)+(a.Y-b.Y)*(a.Y-b.Y));
 
+    // Mac's shared motion evidence: at least three quarters of the chord must
+    // contribute translation. One settling finger cannot steal a pending Hold.
+    private static double CoherentTravel(ReadOnlySpan<HandGestureContact> contacts, ReadOnlySpan<HandGestureContact> origin,double dx,double dy)
+    {
+        double length = Math.Sqrt(dx*dx+dy*dy);
+        if (length == 0 || contacts.Length != origin.Length) return 0;
+        Span<double> projections = stackalloc double[InputFrame.MaxContacts];
+        for (int i=0;i<contacts.Length;i++)
+        {
+            int j=0; while (j<origin.Length && origin[j].Id!=contacts[i].Id) j++;
+            if (j==origin.Length) return 0;
+            double value=((contacts[i].X-origin[j].X)*dx+(contacts[i].Y-origin[j].Y)*dy)/length;
+            int slot=i; while (slot>0 && projections[slot-1]>value) { projections[slot]=projections[slot-1]; slot--; }
+            projections[slot]=value;
+        }
+        int required=(contacts.Length*3+3)/4;
+        return Math.Max(0,projections[contacts.Length-required]);
+    }
+
     private sealed class CountTap(int required)
     {
-        public bool CanComplete => !_blocked && _paired.HasValue;
+        public bool CanComplete => !_blocked && _paired.HasValue && (!_lifting.HasValue || _lifting.Value-_paired.Value >= .02);
         private readonly HandGestureContact[] _fingers = new HandGestureContact[5];
         private int _known;
         private double _started, _last;

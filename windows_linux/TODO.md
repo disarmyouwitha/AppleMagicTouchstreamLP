@@ -1,8 +1,10 @@
 # Notes:
 =======
-0. Tap recognition is pretty bad can we clean it up? Here is an atpcap @2F_taps_moving_mouse.atpcap
-1. 4-corners gesture doesn't work?
+0. Tap recognition is a little spotty can we clean it up? Here is an atpcap @2F_taps_moving_mouse.atpcap
+1. 4-corners gesture doesn't work? 4_corners.atpcap
 2. 4-Finger latching is so bad I am always triggering 3-finger drag instead. Please use mac/AppleMagicTouchstream as a reference.
+> Check^
+---
 3. Can you take a look at the latest mac/applemagictouchstream changes? I think we want to add directional behaviour options (every x ms OR repeat with motion) were there other changes I didn't catch?
 4. Pointer sensitivity sliders should  be more sensitive (allow more "clicks" in the middle between 0,1,2)
 ===

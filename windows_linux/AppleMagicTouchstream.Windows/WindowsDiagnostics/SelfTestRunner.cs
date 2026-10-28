@@ -2482,7 +2482,7 @@ internal static class SelfTestRunner
             return false;
         }
 
-        if (settings.ForceMin != 0 || settings.ForceCap != 125)
+        if (settings.ForceMin != 0 || settings.ForceCap != 255)
         {
             failure = "bundled default settings should load bundled force thresholds";
             return false;

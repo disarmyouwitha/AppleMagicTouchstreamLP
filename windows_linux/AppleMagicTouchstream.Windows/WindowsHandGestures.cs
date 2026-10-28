@@ -61,19 +61,34 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             _output.ResetRemainders();
         }
     }
+    internal static int ReadContacts(in InputFrame frame, ushort maxX, ushort maxY, Span<HandGestureContact> contacts, out bool fourthContactPending)
+    {
+        int count = 0;
+        bool pendingContact = false;
+        for (int i = 0; i < frame.GetClampedContactCount(); i++)
+        {
+            var c = frame.GetContact(i);
+            if (!c.TipSwitch)
+            {
+                // PTP has no Mac anatomical labels or native hover phase.
+                // An in-range confident non-tip slot is the available landing
+                // evidence; it never counts as a touching finger or movement.
+                pendingContact |= c.Confidence && maxX > 0 && maxY > 0 && c.X <= maxX && c.Y <= maxY;
+                continue;
+            }
+            contacts[count++] = new(c.Id, maxX == 0 ? double.NaN : c.X * 160.0 / maxX,
+                maxY == 0 ? double.NaN : c.Y * 114.9 / maxY, Pressure:c.Pressure8, HasPressure:c.HasForceData);
+        }
+        fourthContactPending = count == 3 && pendingContact;
+        return count;
+    }
     public bool Process(TrackpadSide side, in InputFrame frame, ushort maxX, ushort maxY, long timestamp)
     {
         lock (_sync)
         {
             if (_disposed) return false;
             Span<HandGestureContact> contacts = stackalloc HandGestureContact[InputFrame.MaxContacts];
-            int count = 0;
-            for (int i = 0; i < frame.GetClampedContactCount(); i++)
-            {
-                var c = frame.GetContact(i); if (!c.TipSwitch) continue;
-                contacts[count++] = new(c.Id, maxX == 0 ? double.NaN : c.X * 160.0 / maxX,
-                    maxY == 0 ? double.NaN : c.Y * 114.9 / maxY, Pressure:c.Pressure8, HasPressure:c.HasForceData);
-            }
+            int count = ReadContacts(in frame,maxX,maxY,contacts,out bool fourthContactPending);
             try
             {
                 _output.ObserveFrame();
@@ -83,7 +98,8 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
                 bool eligible = takeover && !_output.ForeignButtonDown;
                 if (Stopwatch.GetTimestamp()-timestamp > Stopwatch.Frequency*.15) eligible = false;
                 bool reserved = _engine.Process(side, contacts[..count], timestamp/(double)Stopwatch.Frequency,
-                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: takeover, keyboardPriority:_keyboardPriority[(int)side]);
+                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: takeover, keyboardPriority:_keyboardPriority[(int)side],
+                    fourthContactPending:fourthContactPending);
                 _frames++; if (reserved) { _reserved++; _pointerActivity(); }
                 return reserved;
             }
