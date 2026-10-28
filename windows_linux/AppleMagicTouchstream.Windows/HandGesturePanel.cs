@@ -16,6 +16,7 @@ internal sealed class HandGesturePanel : Grid
     private readonly CheckBox _mirror=new() { Content="Mirror Edit",Margin=new(0,8,0,12) };
     private readonly TextBox _search=new() { Margin=new(0,0,0,12),MinHeight=28,ToolTip="Search gestures or assigned actions" };
     private readonly TextBlock _status=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary };
+    private readonly TextBlock _deviceHint=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary,Margin=new(0,8,0,0) };
     private readonly RadioButton[] _scopes=new RadioButton[3];
     private readonly Dictionary<string,Slot> _slots=new();
     private readonly List<Page> _pages=new();
@@ -56,7 +57,7 @@ internal sealed class HandGesturePanel : Grid
             button.SetResourceReference(StyleProperty,"GestureScopeButtonStyle"); button.Checked+=(_,_)=>SetScope(scope);
             _scopes[(int)scope]=button; scopes.Children.Add(button);
         }
-        controls.Children.Add(_mirror); controls.Children.Add(_search); navigation.Children.Add(controls);
+        controls.Children.Add(_deviceHint); controls.Children.Add(_mirror); controls.Children.Add(_search); navigation.Children.Add(controls);
         _search.Tag="Search gestures or actions"; _search.SetResourceReference(StyleProperty,"WatermarkTextBoxStyle");
         System.Windows.Automation.AutomationProperties.SetName(_search,"Search gestures or actions");
         ScrollViewer.SetVerticalScrollBarVisibility(_navigation,ScrollBarVisibility.Hidden);
@@ -80,6 +81,13 @@ internal sealed class HandGesturePanel : Grid
         System.Windows.Automation.AutomationProperties.SetName(divider,column==1 ? "Gesture navigation width" : "Action inspector width"); Grid.SetColumn(divider,column); Children.Add(divider);
     }
     public void SetStatus(string text) { if(_status.Text!=text) _status.Text=text; }
+    internal void SetDeviceSelection(string? leftPath,string? rightPath,bool selectActiveScope=false)
+    {
+        bool left=!string.IsNullOrWhiteSpace(leftPath),right=!string.IsNullOrWhiteSpace(rightPath);
+        _deviceHint.Text=left && right ? "Trackpads selected: Left and Right" : right ? "Selected trackpad: Right" : left ? "Selected trackpad: Left" : "No trackpad selected";
+        if(selectActiveScope && left!=right && _scope!=HandGestureScope.Both)
+            EditingScope=right ? HandGestureScope.Right : HandGestureScope.Left;
+    }
     public void Refresh(UserSettings settings) { _settings=settings; Rebuild(); }
     private void SetScope(HandGestureScope value)
     {

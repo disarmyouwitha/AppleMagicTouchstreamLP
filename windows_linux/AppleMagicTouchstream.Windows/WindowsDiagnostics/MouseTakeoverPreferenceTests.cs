@@ -30,6 +30,14 @@ internal static class MouseTakeoverPreferenceTests
                 preference.SetEnabled(true);
             }
             Check(new MouseTakeoverPreference(path).Enabled,"Normal shutdown erased the opt-in");
+            using(var locked=File.Open(path,FileMode.Open,FileAccess.Read,FileShare.None))
+            {
+                preference.SetEnabled(false);
+                Check(preference.LastSaveError!=null,"Takeover preference save error was hidden");
+            }
+            Check(new MouseTakeoverPreference(path).Enabled,"Failed save destroyed the previous takeover preference");
+            preference.SetEnabled(false);
+            Check(preference.LastSaveError==null && !new MouseTakeoverPreference(path).Enabled,"Failed preference write could not be retried");
             File.WriteAllText(path,"invalid preference");
             Check(!new MouseTakeoverPreference(path).Enabled,"Malformed opt-in must default off");
         }

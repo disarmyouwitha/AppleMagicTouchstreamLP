@@ -14,6 +14,7 @@ internal sealed class MouseTakeoverController : IDisposable
     private readonly GlobalMouseInputHook _hook;
     private readonly Func<bool> _hasSelectedDevice;
     private readonly MouseTakeoverPreference _preference;
+    private readonly MouseTakeoverStartupRestore _startupRestore=new();
     private readonly object _sync = new();
     private readonly DispatcherTimer _heartbeat = new(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
     private System.Threading.Timer? _watchdog;
@@ -32,6 +33,7 @@ internal sealed class MouseTakeoverController : IDisposable
     }
 
     public bool Enabled { get { lock (_sync) return _enabled && _hook.IsMouseTakeoverActive; } }
+    public bool Selected { get { lock(_sync) return _enabled || _startupRestore.Pending; } }
     public bool Available { get { lock (_sync) return _available && !_disposed; } }
     public string Status
     {
@@ -40,11 +42,13 @@ internal sealed class MouseTakeoverController : IDisposable
             lock (_sync)
             {
                 if (_enabled && _hook.IsMouseTakeoverActive)
-                    return _testDeadline == 0 ? "On · all physical mice blocked" : $"On · {Math.Max(0, Math.Ceiling((_testDeadline - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency))}s test";
-                return _status;
+                    return (_testDeadline == 0 ? "On · all physical mice blocked" : $"On · {Math.Max(0, Math.Ceiling((_testDeadline - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency))}s test")+SaveWarning;
+                return (_startupRestore.Pending ? "Remembered · "+_status : _status)+SaveWarning;
             }
         }
     }
+
+    private string SaveWarning => _preference.LastSaveError is {} error ? " · could not save preference: "+error : string.Empty;
 
     public void Start()
     {
@@ -63,7 +67,8 @@ internal sealed class MouseTakeoverController : IDisposable
             SystemEvents.SessionSwitch += OnSessionSwitch;
             _heartbeat.Start();
             _watchdog = new System.Threading.Timer(CheckEmergencyRelease, null, 100, 100);
-            if(_preference.Enabled) SetEnabled(true);
+            _startupRestore.Begin(_preference.Enabled);
+            if(_startupRestore.Pending) SetEnabled(true);
         }
         catch (Exception ex)
         {
@@ -92,6 +97,7 @@ internal sealed class MouseTakeoverController : IDisposable
                 _pendingRelease = null; _nextDeviceCheck = now;
                 _hook.GatePhysicalMouseFor(TimeSpan.FromSeconds(2));
                 _enabled = true;
+                _startupRestore.Cancel();
                 if(!thirtySecondTest) _preference.SetEnabled(true);
             }
             NotifyChanged();
@@ -105,7 +111,7 @@ internal sealed class MouseTakeoverController : IDisposable
         {
             _hook.ReleaseMouseTakeover();
             _enabled = false; _testDeadline = 0; _pendingRelease = null; _status = reason;
-            if(forgetPreference) _preference.SetEnabled(false);
+            if(forgetPreference) { _startupRestore.Cancel(); _preference.SetEnabled(false); }
         }
         NotifyChanged();
     }
@@ -121,7 +127,7 @@ internal sealed class MouseTakeoverController : IDisposable
         {
             if (!_enabled) return;
             _hook.ReleaseMouseTakeover(); _pendingRelease = reason;
-            if(forgetPreference) _preference.SetEnabled(false);
+            if(forgetPreference) { _startupRestore.Cancel(); _preference.SetEnabled(false); }
         }
     }
 
@@ -129,17 +135,19 @@ internal sealed class MouseTakeoverController : IDisposable
     {
         try
         {
-            bool checkDevice;
+            bool checkDevice,restoreStartup;
             lock (_sync)
             {
-                if (!_enabled) return;
+                restoreStartup=!_enabled;
+                if(restoreStartup && !_startupRestore.Due(Stopwatch.GetTimestamp())) return;
                 if (_pendingRelease != null) { Release(_pendingRelease); return; }
                 long now = Stopwatch.GetTimestamp();
-                if (!_hook.IsMouseTakeoverActive) { Release("Off · input watchdog released"); return; }
+                if (!restoreStartup && !_hook.IsMouseTakeoverActive) { Release("Off · input watchdog released"); return; }
                 if (_testDeadline != 0 && now >= _testDeadline) { Release("Off · 30sec test complete"); return; }
                 checkDevice = now >= _nextDeviceCheck;
                 if (checkDevice) _nextDeviceCheck = now + 2 * Stopwatch.Frequency;
             }
+            if(restoreStartup) { SetEnabled(true); return; }
             // Device enumeration is kept out of the mouse hook and input hot path.
             if (checkDevice && !_hasSelectedDevice()) { Release("Off · selected trackpad disconnected"); return; }
             lock (_sync)
@@ -168,16 +176,17 @@ internal sealed class MouseTakeoverController : IDisposable
 
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Suspend) RequestRelease("Off · sleep");
+        if (e.Mode == PowerModes.Suspend) { lock(_sync) _startupRestore.Cancel(); RequestRelease("Off · sleep"); }
     }
-    private void OnSessionSwitch(object sender, SessionSwitchEventArgs e) => RequestRelease("Off · session changed");
+    private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+    { lock(_sync) _startupRestore.Cancel(); RequestRelease("Off · session changed"); }
 
     public void Dispose()
     {
         lock (_sync)
         {
             if (_disposed) return;
-            Release("Off · shutdown"); _disposed = true; _available = false;
+            _startupRestore.Cancel(); Release("Off · shutdown"); _disposed = true; _available = false;
         }
         _heartbeat.Stop(); _watchdog?.Dispose();
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;

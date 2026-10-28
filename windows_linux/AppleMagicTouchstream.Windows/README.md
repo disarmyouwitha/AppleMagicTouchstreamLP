@@ -107,3 +107,18 @@ folder to AppleMagicTouchstream without overwriting existing data. The old
 single-instance identity is retained to prevent two input runtimes running together.
 An existing Windows startup registration is updated to the renamed executable on
 normal live launch; startup is never newly enabled by migration or offline checks.
+### Gesture settings and restart/import behavior
+
+Gesture editing opens on the selected trackpad's side when only one side is bound;
+its label identifies that side. Left/Right settings stay independent, Mirror Edit
+updates both, and Both is a separate coordinated namespace. Disabled Pinch/Spread,
+natural scrolling, gains, shortcuts, held modes, timing and directional assignments
+are saved in settings.json and included in full settings exports. Legacy keymap-only
+imports preserve existing gesture settings; malformed settings bundles report an
+error instead of silently importing only their keymaps. Settings writes replace the
+file atomically, and write errors are displayed in Config.
+
+Saved disconnected trackpads stay selected. On a fresh live startup, remembered
+Mouse Takeover waits/retries for that trackpad instead of abandoning restoration
+before Bluetooth connects. Explicit release cancels this startup wait. Mouse
+Takeover opt-in remains local and is intentionally excluded from portable exports.

@@ -1,9 +1,13 @@
 # Notes:
 =======
-1. My 3-finger tap is set to Secondary Click but lately it just does Double click? 
-2. Export doesn't seem to save all of my gestures and settings when I import. Gesture settings don't appear saved between restarting the app.  
+0. Export doesn't seem to save all of my gestures and settings when I import. Gesture settings don't appear saved between restarting the app.
+?. (Verify. seems good now? may have been misconfigure) My 3-finger tap is set to Secondary Click but lately it just does Double click? 
 ===
 * * * Pinch and Spread animations are crazy wrong (OHH BECAUSE NO THUMB RECOGNITION!)
+* * * Need to see if we are sent finger recognition on Windows/Linux, otherwise we need to pull it out of the firmware and implement it.
+* * More Reverse is required to get a better Trackpad Takeover.. Mouse takeover is lame. =x
+===
+
 * * 4-Finger latching is so bad I am always triggering 3-finger drag instead. Please use mac/AppleMagicTouchstream as a reference.
 ###
 1. I want you to review the mac vs windows implementation using Mac as the gold standard — tell me where we are passing, where we are failing and were we still need work (be specific) in our implementation.
@@ -14,6 +18,3 @@
 1. ?Can I disable all windows gesture options in `Touchpad` during "Mouse Takeover" and re-enable them after? 
 2. Make sure when a gesture is set to None (Like a 2-finger tap) that the logic doesnt affect a 2finger Move (please verify)
 ===
-* * * Test on mac: In the Mac version when I separate my fingers or lift fingers (after latching 2-finger move) it does some kind of math to balance the remaining fingers, are we doing that here?
-> Finger rotate test on mac after move latch! *** I think this makes fine selection crap on windows
-* * * Need to see if we are sent finger recognition on Windows/Linux, otherwise we need to pull it out of the firmware and implement it.
