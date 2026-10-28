@@ -55,7 +55,10 @@ trackpad surface. Centers, sizes and rotations follow the printed borders, not
 physical sensor calibration. Thumb regions use rotated
 rectangular bounds around oval artwork. Saved per-key overrides still apply.
 Column tuning stays disabled for this fixed independent geometry.
-Layout and Layer selectors stay beside their labels at narrow sidebar widths.
+The keyboard sidebar retains its original 50/50 form layout at its standard width.
+Layout and Layer selectors fill the right half of their rows beside their labels,
+including at narrow sidebar widths. Shortcut Builder aligns its Key and App fields
+and the Apply/Browse buttons in shared columns.
 Import Settings and Export Settings share one row with equal-width buttons.
 
 Letters, numbers, modifiers, navigation and function keys use the action catalog.

@@ -273,6 +273,7 @@ extension GestureWorkspaceTests {
             let view = ShortcutActionBuilder(action:action,allowsHold:true,holdUntilRelease:name == "shift") { _,_ in
                 XCTFail("Rendering must not apply an action")
             }.padding(20).frame(width:381,height:340,alignment:.topLeading)
+                .background(Color(nsColor:.windowBackgroundColor))
             let host = NSHostingView(rootView:view)
             host.frame = NSRect(x:0,y:0,width:381,height:340)
             let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)

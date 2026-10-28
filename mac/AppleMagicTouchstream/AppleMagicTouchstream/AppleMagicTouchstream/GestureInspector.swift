@@ -1540,6 +1540,7 @@ struct ShortcutActionBuilder:View {
                         Text("Key")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(width:26,alignment:.leading)
                         Picker("Shortcut Key", selection: shortcutKeyBinding) {
                             Text("None").tag("")
                             ForEach(KeyActionCatalog.shortcutKeyLabels, id: \.self) { label in
@@ -1548,9 +1549,13 @@ struct ShortcutActionBuilder:View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .labelsHidden()
+                        .modifier(FlexibleMenuPickerSizing())
+                        .frame(maxWidth:.infinity,alignment:.leading)
                         .disabled(!canEditActionBuilder)
-                        Button("Apply") {
+                        Button {
                             if let builtAction { apply(builtAction, allowsHold && held && builtAction.kind == .key) }
+                        } label: {
+                            Text("Apply").frame(maxWidth:.infinity)
                         }
                         .buttonStyle(.bordered)
                         .frame(width: shortcutBuilderActionButtonWidth)
@@ -1561,11 +1566,14 @@ struct ShortcutActionBuilder:View {
                         Text("App")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(width:26,alignment:.leading)
                         TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
                             .textFieldStyle(.roundedBorder)
                             .disabled(!canEditActionBuilder)
-                        Button("Browse") {
+                        Button {
                             browseForAppTarget()
+                        } label: {
+                            Text("Browse").frame(maxWidth:.infinity)
                         }
                         .buttonStyle(.bordered)
                         .frame(width: shortcutBuilderActionButtonWidth)

@@ -23,6 +23,17 @@ private extension EnvironmentValues {
     }
 }
 
+struct FlexibleMenuPickerSizing: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            // Tahoe fits menu controls to their labels unless sizing is explicit.
+            content.buttonSizing(.flexible)
+        } else {
+            content
+        }
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     @State private var inspectorTab = "Keyboard"
@@ -756,7 +767,7 @@ struct ContentView: View {
                             maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:0),
                             trailingColumn:true,label:"Keyboard settings width")
                         rightSidebarView
-                            .environment(\.compactAssignmentMenu, width - 32 < WorkspaceColumnSizing.compactMenuBreakpoint)
+                            .environment(\.compactAssignmentMenu, width < WorkspaceColumnSizing.compactMenuBreakpoint)
                             .padding(16).frame(width:width)
                     }
                 }
@@ -1335,6 +1346,7 @@ struct ContentView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .labelsHidden()
+                        .modifier(FlexibleMenuPickerSizing())
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(12)
@@ -1572,17 +1584,6 @@ struct ContentView: View {
         }
     }
 
-    private struct TrackpadPickerSizing: ViewModifier {
-        func body(content: Content) -> some View {
-            if #available(macOS 26.0, *) {
-                // Tahoe fits menu controls to their labels unless sizing is explicit.
-                content.buttonSizing(.flexible)
-            } else {
-                content
-            }
-        }
-    }
-
     private struct DevicesSectionView: View {
 
 
@@ -1645,7 +1646,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .modifier(TrackpadPickerSizing())
+                            .modifier(FlexibleMenuPickerSizing())
                             .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1674,7 +1675,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .modifier(TrackpadPickerSizing())
+                            .modifier(FlexibleMenuPickerSizing())
                             .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2226,6 +2227,7 @@ struct ContentView: View {
                     }
                     .pickerStyle(MenuPickerStyle())
                     .labelsHidden()
+                    .modifier(FlexibleMenuPickerSizing())
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 EqualSplitFormRow {
