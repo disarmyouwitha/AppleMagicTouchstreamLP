@@ -39,7 +39,9 @@ Control/Command flags on subsequent clicks or typing.
 
 ## TouchStream layout
 
-TouchStream uses independent traced left/right regions, resolved by
+TouchStream uses independent traced left/right regions. Delete and Enter corner
+regions are 10% smaller around their traced centers for clearance from Backspace
+and Space. The layout is resolved by
 `ContentView.makeTouchStreamKeyLayout` for the editor, startup and production
 replay. The bundled `Resources/LHS_TOUCHSTREAM_layout.png` and
 `Resources/RHS_TOUCHSTREAM_layout.png` are shown automatically on their respective
