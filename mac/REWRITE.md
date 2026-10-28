@@ -1,9 +1,7 @@
 # NEXT:
 =======
 0. For the touchstream layout can you make the delete and enter corner buttons just a little smaller so they don't intersect with space/backspace
-1. consolidate GitHub attribution 
-2. If force click is turned off for that gesture it shouldn't fire the haptic.
-3. Let's renamed GLASSTOKEY_DEFAULT_KEYMAP.json to DEFAULT_KEYMAP.json and all associated code. 
+1. Let's renamed GLASSTOKEY_DEFAULT_KEYMAP.json to DEFAULT_KEYMAP.json and all associated code. 
 4. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
 ===
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
