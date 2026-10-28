@@ -756,7 +756,7 @@ struct ContentView: View {
                             maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:0),
                             trailingColumn:true,label:"Keyboard settings width")
                         rightSidebarView
-                            .environment(\.compactAssignmentMenu, width < WorkspaceColumnSizing.compactMenuBreakpoint)
+                            .environment(\.compactAssignmentMenu, width - 32 < WorkspaceColumnSizing.compactMenuBreakpoint)
                             .padding(16).frame(width:width)
                     }
                 }
@@ -1523,8 +1523,10 @@ struct ContentView: View {
             let hasVerticalOverflow = documentHeight > viewportHeight + 1
 
             scrollView.hasVerticalScroller = true
-            scrollView.scrollerStyle = .legacy
-            scrollView.autohidesScrollers = false
+            // Overlay scrolling preserves SwiftUI’s proposed content width. A legacy
+            // scroller inserted here narrows the clip view after layout and cuts off cards.
+            scrollView.scrollerStyle = .overlay
+            scrollView.autohidesScrollers = true
             scrollView.verticalScroller?.isHidden = !hasVerticalOverflow
             scrollView.drawsBackground = false
         }
