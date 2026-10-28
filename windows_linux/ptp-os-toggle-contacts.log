@@ -1,0 +1,1314 @@
+PTP_STATUS initial present=True enabled=True active=True externalMouse=False
+WATCHDOG started before global toggle
+START utc=2026-10-22T16:27:14.0950642Z gate=False osToggle=True devices=2
+DEVICE tag=0:23B5C8AF path=\\?\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col01#9&b192f03&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE tag=1:4390FD57 path=\\?\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col02#8&1efeaad8&2&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+PTP_STATUS second=0.06 enabled=True active=True externalMouse=False
+CURSOR second=0.06 x=-528 y=545 osEnabled=True
+RAW ticks=1652517248793 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652517542702 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652517638381 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652517977371 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652518023034 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652518213730 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652518314800 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652518437437 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652518441538 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652518485828 msg=0x020A x=-528 y=545 data=0xFFF30000 flags=0x00000000 winTime=165251812 extra=0x0 gate=False
+MOUSE ticks=1652518524996 msg=0x020A x=-528 y=545 data=0xFFDD0000 flags=0x00000000 winTime=165251812 extra=0x0 gate=False
+RAW ticks=1652518650667 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652518654174 msg=0x020A x=-528 y=545 data=0xFFC70000 flags=0x00000000 winTime=165251843 extra=0x0 gate=False
+RAW ticks=1652518892480 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652518897876 msg=0x020A x=-528 y=545 data=0xFFDC0000 flags=0x00000000 winTime=165251859 extra=0x0 gate=False
+RAW ticks=1652519215810 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652519222833 msg=0x020A x=-528 y=545 data=0xFFBE0000 flags=0x00000000 winTime=165251890 extra=0x0 gate=False
+RAW ticks=1652519339587 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652519343556 msg=0x020A x=-528 y=545 data=0xFFDD0000 flags=0x00000000 winTime=165251906 extra=0x0 gate=False
+RAW ticks=1652519790713 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652519797200 msg=0x020A x=-528 y=545 data=0xFFC20000 flags=0x00000000 winTime=165251937 extra=0x0 gate=False
+RAW ticks=1652519888099 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652519893385 msg=0x020A x=-528 y=545 data=0xFFE60000 flags=0x00000000 winTime=165251953 extra=0x0 gate=False
+RAW ticks=1652520117938 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520121893 msg=0x020A x=-528 y=545 data=0xFFCB0000 flags=0x00000000 winTime=165251968 extra=0x0 gate=False
+RAW ticks=1652520129409 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520137074 msg=0x020A x=-528 y=545 data=0xFFE10000 flags=0x00000000 winTime=165251968 extra=0x0 gate=False
+RAW ticks=1652520239090 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520242536 msg=0x020A x=-528 y=545 data=0xFFC20000 flags=0x00000000 winTime=165252000 extra=0x0 gate=False
+RAW ticks=1652520339140 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520344986 msg=0x020A x=-528 y=545 data=0xFFE60000 flags=0x00000000 winTime=165252000 extra=0x0 gate=False
+RAW ticks=1652520466665 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520471951 msg=0x020A x=-528 y=545 data=0xFFC20000 flags=0x00000000 winTime=165252015 extra=0x0 gate=False
+RAW ticks=1652520565722 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520569398 msg=0x020A x=-528 y=545 data=0xFFD80000 flags=0x00000000 winTime=165252031 extra=0x0 gate=False
+RAW ticks=1652520691101 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520697208 msg=0x020A x=-528 y=545 data=0xFFB10000 flags=0x00000000 winTime=165252046 extra=0x0 gate=False
+RAW ticks=1652520788633 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652520794559 msg=0x020A x=-528 y=545 data=0xFFCF0000 flags=0x00000000 winTime=165252046 extra=0x0 gate=False
+RAW ticks=1652521013453 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652521019488 msg=0x020A x=-528 y=545 data=0xFF8E0000 flags=0x00000000 winTime=165252078 extra=0x0 gate=False
+RAW ticks=1652521127466 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652521132211 msg=0x020A x=-528 y=545 data=0xFFEE0000 flags=0x00000000 winTime=165252078 extra=0x0 gate=False
+RAW ticks=1652521354700 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652522851807 msg=0x020A x=-528 y=545 data=0xFFE60000 flags=0x00000000 winTime=165252250 extra=0x0 gate=False
+MOUSE ticks=1652522929367 msg=0x020A x=-528 y=545 data=0xFFF30000 flags=0x00000000 winTime=165252265 extra=0x0 gate=False
+MOUSE ticks=1652523018376 msg=0x020A x=-528 y=545 data=0xFFF70000 flags=0x00000000 winTime=165252281 extra=0x0 gate=False
+MOUSE ticks=1652523181654 msg=0x020A x=-528 y=545 data=0xFFF20000 flags=0x00000000 winTime=165252296 extra=0x0 gate=False
+MOUSE ticks=1652523347726 msg=0x020A x=-528 y=545 data=0xFFFC0000 flags=0x00000000 winTime=165252312 extra=0x0 gate=False
+RAW ticks=1652524055155 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652524276021 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652524288527 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652524841351 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652524856883 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652524977592 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652525177221 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652525291247 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652525304379 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652525316609 msg=0x020A x=-528 y=545 data=0x001E0000 flags=0x00000000 winTime=165252500 extra=0x0 gate=False
+RAW ticks=1652525416877 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652525423876 msg=0x020A x=-528 y=545 data=0x00770000 flags=0x00000000 winTime=165252515 extra=0x0 gate=False
+RAW ticks=1652525516165 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652525519781 msg=0x020A x=-528 y=545 data=0x00470000 flags=0x00000000 winTime=165252515 extra=0x0 gate=False
+RAW ticks=1652525740683 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652525744238 msg=0x020A x=-528 y=545 data=0x00A80000 flags=0x00000000 winTime=165252546 extra=0x0 gate=False
+RAW ticks=1652525851548 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652525856157 msg=0x020A x=-528 y=545 data=0x00390000 flags=0x00000000 winTime=165252562 extra=0x0 gate=False
+RAW ticks=1652526080897 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526087683 msg=0x020A x=-528 y=545 data=0x009A0000 flags=0x00000000 winTime=165252578 extra=0x0 gate=False
+RAW ticks=1652526188789 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526193482 msg=0x020A x=-528 y=545 data=0x003E0000 flags=0x00000000 winTime=165252593 extra=0x0 gate=False
+RAW ticks=1652526419947 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526494987 msg=0x020A x=-528 y=545 data=0x00800000 flags=0x00000000 winTime=165252609 extra=0x0 gate=False
+RAW ticks=1652526527475 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526532808 msg=0x020A x=-528 y=545 data=0x00280000 flags=0x00000000 winTime=165252625 extra=0x0 gate=False
+RAW ticks=1652526750436 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526754930 msg=0x020A x=-528 y=545 data=0x00650000 flags=0x00000000 winTime=165252640 extra=0x0 gate=False
+RAW ticks=1652526864781 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652526870507 msg=0x020A x=-528 y=545 data=0x00350000 flags=0x00000000 winTime=165252656 extra=0x0 gate=False
+RAW ticks=1652527090704 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652527098572 msg=0x020A x=-528 y=545 data=0x00580000 flags=0x00000000 winTime=165252671 extra=0x0 gate=False
+MOUSE ticks=1652527225575 msg=0x020A x=-528 y=545 data=0x00390000 flags=0x00000000 winTime=165252687 extra=0x0 gate=False
+RAW ticks=1652527227243 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652527427906 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652527432680 msg=0x020A x=-528 y=545 data=0x005D0000 flags=0x00000000 winTime=165252718 extra=0x0 gate=False
+RAW ticks=1652527539670 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652527548048 msg=0x020A x=-528 y=545 data=0x00230000 flags=0x00000000 winTime=165252718 extra=0x0 gate=False
+RAW ticks=1652527775239 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652527876979 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652528143941 msg=0x020A x=-528 y=545 data=0x003A0000 flags=0x00000000 winTime=165252781 extra=0x0 gate=False
+MOUSE ticks=1652528303327 msg=0x020A x=-528 y=545 data=0x001A0000 flags=0x00000000 winTime=165252796 extra=0x0 gate=False
+MOUSE ticks=1652528465995 msg=0x020A x=-528 y=545 data=0x00120000 flags=0x00000000 winTime=165252812 extra=0x0 gate=False
+MOUSE ticks=1652528515970 msg=0x020A x=-528 y=545 data=0x00040000 flags=0x00000000 winTime=165252828 extra=0x0 gate=False
+MOUSE ticks=1652528779425 msg=0x020A x=-528 y=545 data=0x00090000 flags=0x00000000 winTime=165252843 extra=0x0 gate=False
+MOUSE ticks=1652528932431 msg=0x020A x=-528 y=545 data=0x00040000 flags=0x00000000 winTime=165252859 extra=0x0 gate=False
+RAW ticks=1652533389205 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652533406240 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652533628826 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652533728289 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652533968003 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652534066408 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652534179147 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534185158 msg=0x020A x=-528 y=545 data=0x00160000 flags=0x00000000 winTime=165253390 extra=0x0 gate=False
+RAW ticks=1652534308290 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534315571 msg=0x020A x=-528 y=545 data=0x002C0000 flags=0x00000000 winTime=165253390 extra=0x0 gate=False
+RAW ticks=1652534641961 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534649178 msg=0x020A x=-528 y=545 data=0x00460000 flags=0x00000000 winTime=165253437 extra=0x0 gate=False
+RAW ticks=1652534741256 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534746902 msg=0x020A x=-528 y=545 data=0x002C0000 flags=0x00000000 winTime=165253437 extra=0x0 gate=False
+RAW ticks=1652534964778 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534969662 msg=0x020A x=-528 y=545 data=0x005D0000 flags=0x00000000 winTime=165253468 extra=0x0 gate=False
+RAW ticks=1652534976223 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652534993945 msg=0x020A x=-528 y=545 data=0x002C0000 flags=0x00000000 winTime=165253468 extra=0x0 gate=False
+RAW ticks=1652535091074 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652535095588 msg=0x020A x=-528 y=545 data=0x00540000 flags=0x00000000 winTime=165253484 extra=0x0 gate=False
+RAW ticks=1652535188204 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652535192816 msg=0x020A x=-528 y=545 data=0x00300000 flags=0x00000000 winTime=165253484 extra=0x0 gate=False
+RAW ticks=1652535652837 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652535659332 msg=0x020A x=-528 y=545 data=0x00580000 flags=0x00000000 winTime=165253531 extra=0x0 gate=False
+RAW ticks=1652535752562 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652535758529 msg=0x020A x=-528 y=545 data=0x00280000 flags=0x00000000 winTime=165253546 extra=0x0 gate=False
+MOUSE ticks=1652535916698 msg=0x020A x=-528 y=545 data=0x00540000 flags=0x00000000 winTime=165253562 extra=0x0 gate=False
+RAW ticks=1652535920178 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652535920371 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652535923868 msg=0x020A x=-528 y=545 data=0x00300000 flags=0x00000000 winTime=165253562 extra=0x0 gate=False
+RAW ticks=1652536095155 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652536105855 msg=0x020A x=-528 y=545 data=0x004B0000 flags=0x00000000 winTime=165253578 extra=0x0 gate=False
+RAW ticks=1652536203418 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652536427426 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652537888392 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538001449 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538129087 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538350883 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538454398 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538676099 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652538818841 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652539011913 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652539138450 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652539139954 msg=0x0200 x=-569 y=561 data=0x00000000 flags=0x00000000 winTime=165253890 extra=0x0 gate=False
+MOUSE ticks=1652539351754 msg=0x0200 x=-697 y=639 data=0x00000000 flags=0x00000000 winTime=165253906 extra=0x0 gate=False
+RAW ticks=1652539352851 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.34 x=-697 y=639 osEnabled=True
+MOUSE ticks=1652539476330 msg=0x0200 x=-726 y=659 data=0x00000000 flags=0x00000000 winTime=165253921 extra=0x0 gate=False
+RAW ticks=1652539478315 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652539688867 msg=0x0200 x=-814 y=731 data=0x00000000 flags=0x00000000 winTime=165253937 extra=0x0 gate=False
+RAW ticks=1652539691011 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652539926948 msg=0x0200 x=-844 y=759 data=0x00000000 flags=0x00000000 winTime=165253953 extra=0x0 gate=False
+RAW ticks=1652539930668 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.42 x=-844 y=759 osEnabled=True
+MOUSE ticks=1652540376427 msg=0x0200 x=-884 y=809 data=0x00000000 flags=0x00000000 winTime=165254015 extra=0x0 gate=False
+RAW ticks=1652540379707 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652540478063 msg=0x0200 x=-904 y=846 data=0x00000000 flags=0x00000000 winTime=165254015 extra=0x0 gate=False
+RAW ticks=1652540481828 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652540589576 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652540592580 msg=0x0200 x=-904 y=889 data=0x00000000 flags=0x00000000 winTime=165254031 extra=0x0 gate=False
+MOUSE ticks=1652540605332 msg=0x0200 x=-899 y=901 data=0x00000000 flags=0x00000000 winTime=165254031 extra=0x0 gate=False
+RAW ticks=1652540611112 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652540715646 msg=0x0200 x=-852 y=943 data=0x00000000 flags=0x00000000 winTime=165254046 extra=0x0 gate=False
+RAW ticks=1652540717066 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652540816497 msg=0x0200 x=-837 y=949 data=0x00000000 flags=0x00000000 winTime=165254046 extra=0x0 gate=False
+RAW ticks=1652540818741 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.50 x=-837 y=949 osEnabled=True
+RAW ticks=1652541038839 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652541039183 msg=0x0200 x=-778 y=967 data=0x00000000 flags=0x00000000 winTime=165254078 extra=0x0 gate=False
+MOUSE ticks=1652541169267 msg=0x0200 x=-757 y=969 data=0x00000000 flags=0x00000000 winTime=165254093 extra=0x0 gate=False
+RAW ticks=1652541172328 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652541374060 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652541375104 msg=0x0200 x=-672 y=967 data=0x00000000 flags=0x00000000 winTime=165254109 extra=0x0 gate=False
+MOUSE ticks=1652541489983 msg=0x0200 x=-645 y=960 data=0x00000000 flags=0x00000000 winTime=165254125 extra=0x0 gate=False
+RAW ticks=1652541493448 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652541716724 msg=0x0200 x=-573 y=935 data=0x00000000 flags=0x00000000 winTime=165254140 extra=0x0 gate=False
+RAW ticks=1652541720243 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.58 x=-573 y=935 osEnabled=True
+MOUSE ticks=1652541826267 msg=0x0200 x=-544 y=923 data=0x00000000 flags=0x00000000 winTime=165254156 extra=0x0 gate=False
+RAW ticks=1652541827895 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652542162249 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652542163192 msg=0x0200 x=-474 y=882 data=0x00000000 flags=0x00000000 winTime=165254187 extra=0x0 gate=False
+MOUSE ticks=1652542175370 msg=0x0200 x=-426 y=854 data=0x00000000 flags=0x00000000 winTime=165254187 extra=0x0 gate=False
+RAW ticks=1652542178623 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652542388038 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652542389692 msg=0x0200 x=-378 y=802 data=0x00000000 flags=0x00000000 winTime=165254203 extra=0x0 gate=False
+RAW ticks=1652542500512 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652542501471 msg=0x0200 x=-362 y=779 data=0x00000000 flags=0x00000000 winTime=165254218 extra=0x0 gate=False
+CURSOR second=2.66 x=-362 y=779 osEnabled=True
+MOUSE ticks=1652542725558 msg=0x0200 x=-334 y=711 data=0x00000000 flags=0x00000000 winTime=165254250 extra=0x0 gate=False
+RAW ticks=1652542728627 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652542839463 msg=0x0200 x=-330 y=687 data=0x00000000 flags=0x00000000 winTime=165254250 extra=0x0 gate=False
+RAW ticks=1652542840914 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652543063732 msg=0x0200 x=-330 y=631 data=0x00000000 flags=0x00000000 winTime=165254265 extra=0x0 gate=False
+RAW ticks=1652543065255 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.72 x=-330 y=631 osEnabled=True
+MOUSE ticks=1652543236341 msg=0x0200 x=-335 y=609 data=0x00000000 flags=0x00000000 winTime=165254296 extra=0x0 gate=False
+RAW ticks=1652543237698 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652543400250 msg=0x0200 x=-372 y=547 data=0x00000000 flags=0x00000000 winTime=165254312 extra=0x0 gate=False
+RAW ticks=1652543402092 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652543511175 msg=0x0200 x=-382 y=537 data=0x00000000 flags=0x00000000 winTime=165254328 extra=0x0 gate=False
+RAW ticks=1652543514043 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652543740090 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652543742288 msg=0x0200 x=-433 y=498 data=0x00000000 flags=0x00000000 winTime=165254343 extra=0x0 gate=False
+MOUSE ticks=1652543851671 msg=0x0200 x=-450 y=488 data=0x00000000 flags=0x00000000 winTime=165254359 extra=0x0 gate=False
+RAW ticks=1652543852578 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.79 x=-450 y=488 osEnabled=True
+RAW ticks=1652544074249 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652544075547 msg=0x0200 x=-499 y=465 data=0x00000000 flags=0x00000000 winTime=165254375 extra=0x0 gate=False
+MOUSE ticks=1652544204185 msg=0x0200 x=-518 y=458 data=0x00000000 flags=0x00000000 winTime=165254390 extra=0x0 gate=False
+RAW ticks=1652544206616 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652544412895 msg=0x0200 x=-564 y=453 data=0x00000000 flags=0x00000000 winTime=165254406 extra=0x0 gate=False
+RAW ticks=1652544416462 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.85 x=-564 y=453 osEnabled=True
+RAW ticks=1652544525662 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652544526694 msg=0x0200 x=-570 y=453 data=0x00000000 flags=0x00000000 winTime=165254421 extra=0x0 gate=False
+MOUSE ticks=1652544757075 msg=0x0200 x=-613 y=457 data=0x00000000 flags=0x00000000 winTime=165254437 extra=0x0 gate=False
+RAW ticks=1652544762166 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652544862695 msg=0x0200 x=-630 y=461 data=0x00000000 flags=0x00000000 winTime=165254453 extra=0x0 gate=False
+RAW ticks=1652544865630 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652545090066 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652545091941 msg=0x0200 x=-664 y=482 data=0x00000000 flags=0x00000000 winTime=165254484 extra=0x0 gate=False
+CURSOR second=2.91 x=-664 y=482 osEnabled=True
+MOUSE ticks=1652545203374 msg=0x0200 x=-676 y=490 data=0x00000000 flags=0x00000000 winTime=165254484 extra=0x0 gate=False
+RAW ticks=1652545206581 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652545432551 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652545434001 msg=0x0200 x=-689 y=510 data=0x00000000 flags=0x00000000 winTime=165254515 extra=0x0 gate=False
+MOUSE ticks=1652545538202 msg=0x0200 x=-695 y=519 data=0x00000000 flags=0x00000000 winTime=165254531 extra=0x0 gate=False
+RAW ticks=1652545541650 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652545764320 msg=0x0200 x=-699 y=543 data=0x00000000 flags=0x00000000 winTime=165254546 extra=0x0 gate=False
+RAW ticks=1652545766707 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=2.99 x=-699 y=543 osEnabled=True
+MOUSE ticks=1652545895289 msg=0x0200 x=-699 y=554 data=0x00000000 flags=0x00000000 winTime=165254562 extra=0x0 gate=False
+RAW ticks=1652545896552 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652546106356 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652546108530 msg=0x0200 x=-689 y=574 data=0x00000000 flags=0x00000000 winTime=165254578 extra=0x0 gate=False
+MOUSE ticks=1652546229296 msg=0x0200 x=-682 y=581 data=0x00000000 flags=0x00000000 winTime=165254593 extra=0x0 gate=False
+RAW ticks=1652546231340 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652546453488 msg=0x0200 x=-662 y=590 data=0x00000000 flags=0x00000000 winTime=165254609 extra=0x0 gate=False
+RAW ticks=1652546456074 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652546552072 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652546554022 msg=0x0200 x=-653 y=593 data=0x00000000 flags=0x00000000 winTime=165254625 extra=0x0 gate=False
+CURSOR second=3.06 x=-653 y=593 osEnabled=True
+MOUSE ticks=1652546776689 msg=0x0200 x=-632 y=595 data=0x00000000 flags=0x00000000 winTime=165254656 extra=0x0 gate=False
+RAW ticks=1652546778583 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652546890331 msg=0x0200 x=-610 y=592 data=0x00000000 flags=0x00000000 winTime=165254656 extra=0x0 gate=False
+RAW ticks=1652546892491 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652547113024 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652547224958 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+CURSOR second=3.15 x=-610 y=592 osEnabled=True
+RAW ticks=1652548707594 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652548827891 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652549027467 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652549147645 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652549379335 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652549492818 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652549498448 msg=0x020A x=-610 y=592 data=0xFF9B0000 flags=0x00000000 winTime=165254921 extra=0x0 gate=False
+RAW ticks=1652549705129 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652549714844 msg=0x020A x=-610 y=592 data=0xFFBE0000 flags=0x00000000 winTime=165254937 extra=0x0 gate=False
+RAW ticks=1652549815596 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652549819835 msg=0x020A x=-610 y=592 data=0xFFCB0000 flags=0x00000000 winTime=165254953 extra=0x0 gate=False
+RAW ticks=1652550041058 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652550045144 msg=0x020A x=-610 y=592 data=0xFF580000 flags=0x00000000 winTime=165254968 extra=0x0 gate=False
+RAW ticks=1652550152967 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652550160883 msg=0x020A x=-610 y=592 data=0xFF920000 flags=0x00000000 winTime=165254984 extra=0x0 gate=False
+RAW ticks=1652550378801 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652550385648 msg=0x020A x=-610 y=592 data=0xFEF80000 flags=0x00000000 winTime=165255000 extra=0x0 gate=False
+RAW ticks=1652550502837 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652550508742 msg=0x020A x=-610 y=592 data=0xFF5C0000 flags=0x00000000 winTime=165255015 extra=0x0 gate=False
+MOUSE ticks=1652550735150 msg=0x020A x=-610 y=592 data=0xFE8A0000 flags=0x00000000 winTime=165255046 extra=0x0 gate=False
+RAW ticks=1652550736503 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652550825654 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652550830435 msg=0x020A x=-610 y=592 data=0xFF390000 flags=0x00000000 winTime=165255062 extra=0x0 gate=False
+RAW ticks=1652551053327 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652551058604 msg=0x020A x=-610 y=592 data=0xFE7C0000 flags=0x00000000 winTime=165255078 extra=0x0 gate=False
+RAW ticks=1652551165656 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652551169482 msg=0x020A x=-610 y=592 data=0xFF430000 flags=0x00000000 winTime=165255093 extra=0x0 gate=False
+RAW ticks=1652551389311 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652551394608 msg=0x020A x=-610 y=592 data=0xFEA80000 flags=0x00000000 winTime=165255109 extra=0x0 gate=False
+RAW ticks=1652551500327 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652551505543 msg=0x020A x=-610 y=592 data=0xFF840000 flags=0x00000000 winTime=165255125 extra=0x0 gate=False
+RAW ticks=1652551739344 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652551746566 msg=0x020A x=-610 y=592 data=0xFFB10000 flags=0x00000000 winTime=165255140 extra=0x0 gate=False
+RAW ticks=1652551839677 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652553160900 msg=0x020A x=-610 y=592 data=0xFFE10000 flags=0x00000000 winTime=165255281 extra=0x0 gate=False
+MOUSE ticks=1652553346434 msg=0x020A x=-610 y=592 data=0xFFEA0000 flags=0x00000000 winTime=165255312 extra=0x0 gate=False
+MOUSE ticks=1652553510902 msg=0x020A x=-610 y=592 data=0xFFF30000 flags=0x00000000 winTime=165255328 extra=0x0 gate=False
+MOUSE ticks=1652553765479 msg=0x020A x=-610 y=592 data=0xFFF70000 flags=0x00000000 winTime=165255343 extra=0x0 gate=False
+RAW ticks=1652555441073 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652555452583 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652555679722 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652555776746 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652556017391 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652556017511 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652556230433 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652556340120 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652556345960 msg=0x020A x=-610 y=592 data=0xFFC30000 flags=0x00000000 winTime=165255609 extra=0x0 gate=False
+RAW ticks=1652556578544 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652556583476 msg=0x020A x=-610 y=592 data=0xFF0D0000 flags=0x00000000 winTime=165255625 extra=0x0 gate=False
+RAW ticks=1652556677230 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652556681451 msg=0x020A x=-610 y=592 data=0xFF660000 flags=0x00000000 winTime=165255640 extra=0x0 gate=False
+RAW ticks=1652556901162 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652556906609 msg=0x020A x=-610 y=592 data=0xFE590000 flags=0x00000000 winTime=165255656 extra=0x0 gate=False
+RAW ticks=1652557015353 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652557020955 msg=0x020A x=-610 y=592 data=0xFEC20000 flags=0x00000000 winTime=165255671 extra=0x0 gate=False
+RAW ticks=1652557242845 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652557247465 msg=0x020A x=-610 y=592 data=0xFD7C0000 flags=0x00000000 winTime=165255687 extra=0x0 gate=False
+RAW ticks=1652557352678 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652557358837 msg=0x020A x=-610 y=592 data=0xFE8E0000 flags=0x00000000 winTime=165255703 extra=0x0 gate=False
+RAW ticks=1652557575403 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652557581605 msg=0x020A x=-610 y=592 data=0xFD3A0000 flags=0x00000000 winTime=165255734 extra=0x0 gate=False
+RAW ticks=1652557690372 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652557696710 msg=0x020A x=-610 y=592 data=0xFEB50000 flags=0x00000000 winTime=165255734 extra=0x0 gate=False
+MOUSE ticks=1652558048298 msg=0x020A x=-610 y=592 data=0xFEA40000 flags=0x00000000 winTime=165255765 extra=0x0 gate=False
+RAW ticks=1652558049403 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652558152066 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652558458798 msg=0x020A x=-610 y=592 data=0xFD170000 flags=0x00000000 winTime=165255812 extra=0x0 gate=False
+MOUSE ticks=1652558619023 msg=0x020A x=-610 y=592 data=0xFEA80000 flags=0x00000000 winTime=165255828 extra=0x0 gate=False
+MOUSE ticks=1652558793551 msg=0x020A x=-610 y=592 data=0xFEA80000 flags=0x00000000 winTime=165255843 extra=0x0 gate=False
+MOUSE ticks=1652558928326 msg=0x020A x=-610 y=592 data=0xFF280000 flags=0x00000000 winTime=165255859 extra=0x0 gate=False
+MOUSE ticks=1652559081948 msg=0x020A x=-610 y=592 data=0xFF270000 flags=0x00000000 winTime=165255875 extra=0x0 gate=False
+MOUSE ticks=1652559241961 msg=0x020A x=-610 y=592 data=0xFF360000 flags=0x00000000 winTime=165255890 extra=0x0 gate=False
+MOUSE ticks=1652559389288 msg=0x020A x=-610 y=592 data=0xFF5C0000 flags=0x00000000 winTime=165255906 extra=0x0 gate=False
+MOUSE ticks=1652559551881 msg=0x020A x=-610 y=592 data=0xFF6F0000 flags=0x00000000 winTime=165255921 extra=0x0 gate=False
+MOUSE ticks=1652559708557 msg=0x020A x=-610 y=592 data=0xFF960000 flags=0x00000000 winTime=165255937 extra=0x0 gate=False
+MOUSE ticks=1652559871221 msg=0x020A x=-610 y=592 data=0xFFA80000 flags=0x00000000 winTime=165255953 extra=0x0 gate=False
+MOUSE ticks=1652559926297 msg=0x020A x=-610 y=592 data=0xFFE10000 flags=0x00000000 winTime=165255968 extra=0x0 gate=False
+MOUSE ticks=1652560171370 msg=0x020A x=-610 y=592 data=0xFFB10000 flags=0x00000000 winTime=165255984 extra=0x0 gate=False
+MOUSE ticks=1652560331046 msg=0x020A x=-610 y=592 data=0xFFDC0000 flags=0x00000000 winTime=165256000 extra=0x0 gate=False
+MOUSE ticks=1652560486163 msg=0x020A x=-610 y=592 data=0xFFE60000 flags=0x00000000 winTime=165256015 extra=0x0 gate=False
+MOUSE ticks=1652560643883 msg=0x020A x=-610 y=592 data=0xFFF70000 flags=0x00000000 winTime=165256031 extra=0x0 gate=False
+MOUSE ticks=1652560801691 msg=0x020A x=-610 y=592 data=0xFFFC0000 flags=0x00000000 winTime=165256046 extra=0x0 gate=False
+RAW ticks=1652560851013 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561064126 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561174665 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561188498 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561401799 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561413053 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652561639828 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652562187767 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562189110 msg=0x0200 x=-606 y=589 data=0x00000000 flags=0x00000000 winTime=165256187 extra=0x0 gate=False
+MOUSE ticks=1652562425263 msg=0x0200 x=-588 y=578 data=0x00000000 flags=0x00000000 winTime=165256218 extra=0x0 gate=False
+RAW ticks=1652562427659 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562525474 msg=0x0200 x=-574 y=569 data=0x00000000 flags=0x00000000 winTime=165256218 extra=0x0 gate=False
+RAW ticks=1652562527244 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562637347 msg=0x0200 x=-533 y=547 data=0x00000000 flags=0x00000000 winTime=165256234 extra=0x0 gate=False
+RAW ticks=1652562638691 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562650803 msg=0x0200 x=-513 y=539 data=0x00000000 flags=0x00000000 winTime=165256234 extra=0x0 gate=False
+RAW ticks=1652562660722 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562763993 msg=0x0200 x=-460 y=515 data=0x00000000 flags=0x00000000 winTime=165256234 extra=0x0 gate=False
+RAW ticks=1652562765866 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=4.69 x=-460 y=515 osEnabled=True
+MOUSE ticks=1652562897021 msg=0x0200 x=-444 y=509 data=0x00000000 flags=0x00000000 winTime=165256250 extra=0x0 gate=False
+RAW ticks=1652562898311 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652562973596 msg=0x0200 x=-409 y=485 data=0x00000000 flags=0x00000000 winTime=165256265 extra=0x0 gate=False
+RAW ticks=1652562975809 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652563086566 msg=0x0200 x=-402 y=475 data=0x00000000 flags=0x00000000 winTime=165256281 extra=0x0 gate=False
+RAW ticks=1652563088718 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652563311085 msg=0x0200 x=-390 y=425 data=0x00000000 flags=0x00000000 winTime=165256296 extra=0x0 gate=False
+RAW ticks=1652563313410 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652563424783 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652563425516 msg=0x0200 x=-393 y=413 data=0x00000000 flags=0x00000000 winTime=165256312 extra=0x0 gate=False
+CURSOR second=4.76 x=-393 y=413 osEnabled=True
+MOUSE ticks=1652563671563 msg=0x0200 x=-434 y=351 data=0x00000000 flags=0x00000000 winTime=165256343 extra=0x0 gate=False
+RAW ticks=1652563672901 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652563776645 msg=0x0200 x=-456 y=336 data=0x00000000 flags=0x00000000 winTime=165256343 extra=0x0 gate=False
+RAW ticks=1652563778122 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652563995931 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652563996994 msg=0x0200 x=-532 y=304 data=0x00000000 flags=0x00000000 winTime=165256359 extra=0x0 gate=False
+MOUSE ticks=1652564101359 msg=0x0200 x=-568 y=299 data=0x00000000 flags=0x00000000 winTime=165256375 extra=0x0 gate=False
+RAW ticks=1652564102880 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652564340349 msg=0x0200 x=-634 y=301 data=0x00000000 flags=0x00000000 winTime=165256406 extra=0x0 gate=False
+RAW ticks=1652564343340 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=4.84 x=-634 y=301 osEnabled=True
+MOUSE ticks=1652564437759 msg=0x0200 x=-656 y=303 data=0x00000000 flags=0x00000000 winTime=165256406 extra=0x0 gate=False
+RAW ticks=1652564439270 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652564676106 msg=0x0200 x=-692 y=316 data=0x00000000 flags=0x00000000 winTime=165256437 extra=0x0 gate=False
+RAW ticks=1652564678042 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652564774366 msg=0x0200 x=-706 y=322 data=0x00000000 flags=0x00000000 winTime=165256453 extra=0x0 gate=False
+RAW ticks=1652564775958 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=4.90 x=-706 y=322 osEnabled=True
+MOUSE ticks=1652565062931 msg=0x0200 x=-742 y=355 data=0x00000000 flags=0x00000000 winTime=165256468 extra=0x0 gate=False
+RAW ticks=1652565064318 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652565111080 msg=0x0200 x=-750 y=370 data=0x00000000 flags=0x00000000 winTime=165256484 extra=0x0 gate=False
+RAW ticks=1652565112725 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652565563226 msg=0x0200 x=-767 y=417 data=0x00000000 flags=0x00000000 winTime=165256531 extra=0x0 gate=False
+RAW ticks=1652565565012 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652565576322 msg=0x0200 x=-769 y=436 data=0x00000000 flags=0x00000000 winTime=165256531 extra=0x0 gate=False
+RAW ticks=1652565579078 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652565688983 msg=0x0200 x=-775 y=498 data=0x00000000 flags=0x00000000 winTime=165256546 extra=0x0 gate=False
+RAW ticks=1652565690901 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652565792022 msg=0x0200 x=-775 y=519 data=0x00000000 flags=0x00000000 winTime=165256546 extra=0x0 gate=False
+CURSOR second=4.98 x=-775 y=498 osEnabled=True
+RAW ticks=1652565857030 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652566011683 msg=0x0200 x=-770 y=568 data=0x00000000 flags=0x00000000 winTime=165256578 extra=0x0 gate=False
+RAW ticks=1652566013354 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652566123682 msg=0x0200 x=-764 y=585 data=0x00000000 flags=0x00000000 winTime=165256578 extra=0x0 gate=False
+RAW ticks=1652566125576 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652566349314 msg=0x0200 x=-742 y=612 data=0x00000000 flags=0x00000000 winTime=165256609 extra=0x0 gate=False
+RAW ticks=1652566350596 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652566462058 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652566463284 msg=0x0200 x=-732 y=622 data=0x00000000 flags=0x00000000 winTime=165256609 extra=0x0 gate=False
+CURSOR second=5.05 x=-732 y=622 osEnabled=True
+OS_TOGGLE_OFF sent=True
+RAW ticks=1652566686250 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652566799380 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652567149319 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652567248846 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+PTP_STATUS second=5.14 enabled=False active=True externalMouse=False
+RAW ticks=1652567430194 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652567474831 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652567811302 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652567825957 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652569502606 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652569513059 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652569723014 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652569837650 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570060776 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570186956 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570400886 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570511605 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570751239 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652570849627 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652571413336 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652571425876 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652571537540 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652571638458 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652571803220 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652573211449 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652573324983 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652573439496 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652573663158 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652573826545 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574000309 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574113734 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574336010 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574448820 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574674137 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652574790740 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575030831 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575127650 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575348158 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575462534 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575686746 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652575798487 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576025529 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576262144 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576377704 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576476793 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576699368 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652576854624 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577037572 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577173847 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577374815 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577488991 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577713609 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652577824937 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578049278 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578160605 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578512760 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578620889 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578839979 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652578852528 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579065394 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579303511 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579419053 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579514890 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579736676 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652579851985 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580074234 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580187990 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580418665 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580524518 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580862960 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652580875432 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581097322 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581204091 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581529222 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581552778 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581780413 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652581875008 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652582113936 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652582325618 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652582887329 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652583127664 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652583339077 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652583674883 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652584362767 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652584576978 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652584688111 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652584702527 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652584912049 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585038141 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585249881 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585591518 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585700816 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585715817 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652585925818 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586037258 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586263823 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586374546 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586713567 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586789732 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652586937428 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652590000815 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652590328844 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652590663978 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652590778894 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652590889503 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652591573928 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652591664073 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652591800343 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652591802053 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652591903622 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652592113177 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594037877 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594139554 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594363157 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594484572 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594700425 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652594821030 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595037606 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595149911 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595385963 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595487767 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595714942 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652595826454 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652596050482 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+MOUSE ticks=1652596130206 msg=0x0200 x=-676 y=622 data=0x00000000 flags=0x00000001 winTime=165259578 extra=0x47544B50 gate=False
+SYNTHETIC_MOVE sent=1 error=0
+RAW ticks=1652596189495 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+CURSOR second=8.09 x=-676 y=622 osEnabled=False
+RAW ticks=1652598079237 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598095737 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598300186 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598366122 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598527198 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598638554 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598862317 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652598977980 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652599318643 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652599551636 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652599990331 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652600331912 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652600889669 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652601113874 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652601343372 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652601591804 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652601690614 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602028886 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602139373 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602238364 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602351434 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602365827 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652602477611 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605277165 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605402139 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605501575 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605726080 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605862297 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652605953230 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652606061932 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652606297461 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652606408444 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652606628000 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652606850389 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607076815 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607314492 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607426142 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607524582 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607637924 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607753775 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652607990582 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652608090648 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652608424372 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652608439811 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652608667292 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652609008015 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652610577321 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652610675112 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611027868 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611128798 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611238346 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611352879 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611575297 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611688422 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652611917375 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652612026063 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652612275000 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652612360831 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652612588807 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652612703248 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613038853 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613052922 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613265383 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613376236 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613715457 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613725821 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652613943068 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614050151 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614278215 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614390360 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614619218 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614724921 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652614959182 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652615064012 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652615289177 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652615400177 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652615626989 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652615850296 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652616078901 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652616092152 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652616300543 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652616540074 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652616991869 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652617328231 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652617440795 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652617875546 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652618777304 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652618788851 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652618901775 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652619003935 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652619337505 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652619349477 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652619564094 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652619577940 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652620917556 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652620927853 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621154064 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621250795 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621587692 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621602194 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621814103 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652621960737 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652622153274 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652622291340 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652622606599 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652622616950 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652622943544 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652623178982 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652623627368 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652623726942 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652623951674 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652623968376 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652625528607 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652625540224 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652625753300 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652625864239 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626090034 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626205160 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626427007 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626764975 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626876859 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652626888338 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627102640 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627212308 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627438969 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627551314 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627775625 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652627889216 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652628115205 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652628225254 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652628451006 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652630592201 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652630704107 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652630814169 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631038616 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631152880 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631402970 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631493600 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631716092 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652631836323 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632051759 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632162170 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632392158 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632512982 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632725208 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652632966285 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652633077376 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652633175934 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652633402064 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652633512445 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652633737776 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652637225614 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652637341327 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652637460948 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652637675740 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652637803557 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638132712 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638145443 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638253975 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638352915 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638591508 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638689623 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652638934859 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639027703 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639252846 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639477122 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639587619 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639703960 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652639925690 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652640039757 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652640262986 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652640375493 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652640603468 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652640724728 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652641051462 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652641178741 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652643877087 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644202855 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644316772 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644327156 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644553764 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644650595 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644763525 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652644875082 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645100981 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645231264 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645454626 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645549732 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645776601 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652645888753 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652646113519 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652646226838 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652646454209 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652646580447 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652646808731 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652647128317 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652647238205 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652647251399 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652647479229 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652649828597 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652649983296 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650052372 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650275795 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650389736 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650614410 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650629166 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652650839764 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652651064290 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652651225278 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652651288157 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652651514615 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652651626939 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652189351 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652202819 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652316007 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652526122 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652764308 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652863205 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652981022 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652652993316 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652655128898 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652655454468 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652655677169 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652655690791 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652655918977 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656015469 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656128063 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656154640 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656484156 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656690439 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652656961532 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657027126 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657142104 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657157353 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657365038 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657481035 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657756956 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652657814558 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658040481 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658153456 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658376914 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658516641 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658728216 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652658831372 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659076959 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659245160 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659388928 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659504537 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659742544 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652659843161 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660080375 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660289121 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660404561 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660513835 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660874802 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652660969514 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661642085 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661651815 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661767902 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661865260 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661974972 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652661989097 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662100842 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662201745 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662425747 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662552203 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662762051 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652662874270 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663100040 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663218661 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663552341 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663566122 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663778913 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652663888017 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664113620 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664228778 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664465998 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664564955 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664796399 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652664901756 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665126899 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665252948 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665467011 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665576307 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665806428 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652665915834 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652666139279 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+RAW ticks=1652666252619 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=False
+OS_RESTORE sent=True
+PTP_STATUS second=15.12 enabled=True active=True externalMouse=False
+RAW ticks=1652668055438 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668066868 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668280410 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668388282 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668614244 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668739762 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652668952213 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652669066788 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652669069843 msg=0x0200 x=-599 y=566 data=0x00000000 flags=0x00000000 winTime=165266875 extra=0x0 gate=False
+CURSOR second=15.33 x=-599 y=566 osEnabled=True
+MOUSE ticks=1652669296606 msg=0x0200 x=-383 y=406 data=0x00000000 flags=0x00000000 winTime=165266890 extra=0x0 gate=False
+RAW ticks=1652669297614 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652669401544 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652669403652 msg=0x0200 x=-268 y=321 data=0x00000000 flags=0x00000000 winTime=165266906 extra=0x0 gate=False
+RAW ticks=1652669639521 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652669642752 msg=0x0200 x=23 y=122 data=0x00000000 flags=0x00000000 winTime=165266937 extra=0x0 gate=False
+MOUSE ticks=1652669745753 msg=0x0200 x=152 y=36 data=0x00000000 flags=0x00000000 winTime=165266937 extra=0x0 gate=False
+RAW ticks=1652669749125 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=15.38 x=152 y=36 osEnabled=True
+MOUSE ticks=1652669964128 msg=0x0200 x=308 y=-57 data=0x00000000 flags=0x00000000 winTime=165266968 extra=0x0 gate=False
+RAW ticks=1652669966929 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652670078220 msg=0x0200 x=414 y=-58 data=0x00000000 flags=0x00000000 winTime=165266984 extra=0x0 gate=False
+RAW ticks=1652670080438 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652670302114 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652670303285 msg=0x0200 x=558 y=-74 data=0x00000000 flags=0x00000000 winTime=165267000 extra=0x0 gate=False
+CURSOR second=15.44 x=558 y=0 osEnabled=True
+RAW ticks=1652670471701 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652672339482 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652672343101 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652672555119 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652672682779 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652672889339 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673006980 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673226495 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673341590 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673565707 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673679585 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652673902418 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674018964 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674244716 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674351353 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674616938 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674821728 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652674931106 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652675029664 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652675253787 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652675399990 msg=0x0200 x=554 y=4 data=0x00000000 flags=0x00000000 winTime=165267515 extra=0x0 gate=False
+RAW ticks=1652675401374 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652675589644 msg=0x0200 x=539 y=17 data=0x00000000 flags=0x00000000 winTime=165267515 extra=0x0 gate=False
+RAW ticks=1652675595172 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652675702813 msg=0x0200 x=532 y=22 data=0x00000000 flags=0x00000000 winTime=165267531 extra=0x0 gate=False
+RAW ticks=1652675705078 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652675946603 msg=0x0200 x=515 y=35 data=0x00000000 flags=0x00000000 winTime=165267562 extra=0x0 gate=False
+RAW ticks=1652675949338 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652676039779 msg=0x0200 x=503 y=43 data=0x00000000 flags=0x00000000 winTime=165267578 extra=0x0 gate=False
+RAW ticks=1652676041512 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=16.02 x=503 y=43 osEnabled=True
+MOUSE ticks=1652676263144 msg=0x0200 x=483 y=54 data=0x00000000 flags=0x00000000 winTime=165267593 extra=0x0 gate=False
+RAW ticks=1652676265263 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652676378460 msg=0x0200 x=474 y=59 data=0x00000000 flags=0x00000000 winTime=165267609 extra=0x0 gate=False
+RAW ticks=1652676380367 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652676601021 msg=0x0200 x=449 y=73 data=0x00000000 flags=0x00000000 winTime=165267625 extra=0x0 gate=False
+RAW ticks=1652676604190 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652676713851 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652676714552 msg=0x0200 x=437 y=79 data=0x00000000 flags=0x00000000 winTime=165267640 extra=0x0 gate=False
+CURSOR second=16.08 x=437 y=79 osEnabled=True
+RAW ticks=1652676939121 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652676940359 msg=0x0200 x=387 y=112 data=0x00000000 flags=0x00000000 winTime=165267671 extra=0x0 gate=False
+RAW ticks=1652677053211 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652677055103 msg=0x0200 x=375 y=120 data=0x00000000 flags=0x00000000 winTime=165267671 extra=0x0 gate=False
+MOUSE ticks=1652677278704 msg=0x0200 x=321 y=156 data=0x00000000 flags=0x00000000 winTime=165267703 extra=0x0 gate=False
+RAW ticks=1652677281819 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652677387996 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652677388786 msg=0x0200 x=298 y=169 data=0x00000000 flags=0x00000000 winTime=165267703 extra=0x0 gate=False
+CURSOR second=16.16 x=298 y=169 osEnabled=True
+MOUSE ticks=1652677617395 msg=0x0200 x=240 y=206 data=0x00000000 flags=0x00000000 winTime=165267734 extra=0x0 gate=False
+RAW ticks=1652677619239 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652677729384 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652677729739 msg=0x0200 x=218 y=221 data=0x00000000 flags=0x00000000 winTime=165267750 extra=0x0 gate=False
+MOUSE ticks=1652677952756 msg=0x0200 x=163 y=261 data=0x00000000 flags=0x00000000 winTime=165267765 extra=0x0 gate=False
+RAW ticks=1652677955049 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652678067920 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652678068285 msg=0x0200 x=143 y=274 data=0x00000000 flags=0x00000000 winTime=165267781 extra=0x0 gate=False
+MOUSE ticks=1652678293792 msg=0x0200 x=93 y=310 data=0x00000000 flags=0x00000000 winTime=165267796 extra=0x0 gate=False
+RAW ticks=1652678300132 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=16.23 x=93 y=310 osEnabled=True
+MOUSE ticks=1652678403806 msg=0x0200 x=78 y=320 data=0x00000000 flags=0x00000000 winTime=165267812 extra=0x0 gate=False
+RAW ticks=1652678405684 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652678638120 msg=0x0200 x=37 y=345 data=0x00000000 flags=0x00000000 winTime=165267828 extra=0x0 gate=False
+RAW ticks=1652678654135 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652678754789 msg=0x0200 x=22 y=353 data=0x00000000 flags=0x00000000 winTime=165267843 extra=0x0 gate=False
+RAW ticks=1652678813096 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=16.32 x=22 y=353 osEnabled=True
+MOUSE ticks=1652679187639 msg=0x0200 x=-7 y=368 data=0x00000000 flags=0x00000000 winTime=165267875 extra=0x0 gate=False
+RAW ticks=1652679197461 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652679199530 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652679204598 msg=0x0200 x=-24 y=376 data=0x00000000 flags=0x00000000 winTime=165267890 extra=0x0 gate=False
+MOUSE ticks=1652679416320 msg=0x0200 x=-52 y=386 data=0x00000000 flags=0x00000000 winTime=165267906 extra=0x0 gate=False
+RAW ticks=1652679428031 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652679431472 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652679433813 msg=0x0200 x=-63 y=389 data=0x00000000 flags=0x00000000 winTime=165267906 extra=0x0 gate=False
+MOUSE ticks=1652679655687 msg=0x0200 x=-102 y=400 data=0x00000000 flags=0x00000000 winTime=165267937 extra=0x0 gate=False
+RAW ticks=1652679656922 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652679752868 msg=0x0200 x=-116 y=404 data=0x00000000 flags=0x00000000 winTime=165267953 extra=0x0 gate=False
+RAW ticks=1652679755034 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=16.39 x=-116 y=404 osEnabled=True
+MOUSE ticks=1652679979222 msg=0x0200 x=-160 y=417 data=0x00000000 flags=0x00000000 winTime=165267968 extra=0x0 gate=False
+RAW ticks=1652679980827 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652680114960 msg=0x0200 x=-176 y=422 data=0x00000000 flags=0x00000000 winTime=165267984 extra=0x0 gate=False
+RAW ticks=1652680117257 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652680330072 msg=0x0200 x=-216 y=435 data=0x00000000 flags=0x00000000 winTime=165268000 extra=0x0 gate=False
+RAW ticks=1652680333559 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652680429707 msg=0x0200 x=-233 y=441 data=0x00000000 flags=0x00000000 winTime=165268000 extra=0x0 gate=False
+RAW ticks=1652680431538 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+CURSOR second=16.47 x=-233 y=441 osEnabled=True
+RAW ticks=1652680736999 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652680764152 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652683367424 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652683506239 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652683692703 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652683817792 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652683931116 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652684027454 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652684253849 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652684368077 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652684591871 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652684598770 msg=0x020A x=-233 y=441 data=0xFFEF0000 flags=0x00000000 winTime=165268421 extra=0x0 gate=False
+RAW ticks=1652684709454 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652684722216 msg=0x020A x=-233 y=441 data=0xFFBE0000 flags=0x00000000 winTime=165268437 extra=0x0 gate=False
+MOUSE ticks=1652684963275 msg=0x020A x=-233 y=441 data=0xFF890000 flags=0x00000000 winTime=165268468 extra=0x0 gate=False
+RAW ticks=1652684965837 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652685047429 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652685056015 msg=0x020A x=-233 y=441 data=0xFFB90000 flags=0x00000000 winTime=165268484 extra=0x0 gate=False
+RAW ticks=1652685267798 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652685272697 msg=0x020A x=-233 y=441 data=0xFF610000 flags=0x00000000 winTime=165268500 extra=0x0 gate=False
+RAW ticks=1652685381676 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652685386029 msg=0x020A x=-233 y=441 data=0xFFAD0000 flags=0x00000000 winTime=165268500 extra=0x0 gate=False
+RAW ticks=1652685604456 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652685609483 msg=0x020A x=-233 y=441 data=0xFF580000 flags=0x00000000 winTime=165268515 extra=0x0 gate=False
+RAW ticks=1652685717065 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652685722446 msg=0x020A x=-233 y=441 data=0xFFAC0000 flags=0x00000000 winTime=165268546 extra=0x0 gate=False
+RAW ticks=1652686071961 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652686077669 msg=0x020A x=-233 y=441 data=0xFF800000 flags=0x00000000 winTime=165268578 extra=0x0 gate=False
+RAW ticks=1652686175320 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652686179391 msg=0x020A x=-233 y=441 data=0xFFAD0000 flags=0x00000000 winTime=165268593 extra=0x0 gate=False
+RAW ticks=1652686291693 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652686296824 msg=0x020A x=-233 y=441 data=0xFF6A0000 flags=0x00000000 winTime=165268593 extra=0x0 gate=False
+RAW ticks=1652686399524 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652686400620 msg=0x020A x=-233 y=441 data=0xFFA30000 flags=0x00000000 winTime=165268609 extra=0x0 gate=False
+RAW ticks=1652686624225 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652686635471 msg=0x020A x=-233 y=441 data=0xFFB10000 flags=0x00000000 winTime=165268625 extra=0x0 gate=False
+RAW ticks=1652686734405 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652686931779 msg=0x020A x=-233 y=441 data=0xFF840000 flags=0x00000000 winTime=165268656 extra=0x0 gate=False
+MOUSE ticks=1652687088156 msg=0x020A x=-233 y=441 data=0xFFA80000 flags=0x00000000 winTime=165268687 extra=0x0 gate=False
+MOUSE ticks=1652687147456 msg=0x020A x=-233 y=441 data=0xFFF70000 flags=0x00000000 winTime=165268687 extra=0x0 gate=False
+MOUSE ticks=1652687390974 msg=0x020A x=-233 y=441 data=0xFF8D0000 flags=0x00000000 winTime=165268703 extra=0x0 gate=False
+MOUSE ticks=1652687412704 msg=0x020A x=-233 y=441 data=0xFFF80000 flags=0x00000000 winTime=165268718 extra=0x0 gate=False
+MOUSE ticks=1652687698870 msg=0x020A x=-233 y=441 data=0xFFB50000 flags=0x00000000 winTime=165268734 extra=0x0 gate=False
+MOUSE ticks=1652687999313 msg=0x020A x=-233 y=441 data=0xFFD40000 flags=0x00000000 winTime=165268765 extra=0x0 gate=False
+MOUSE ticks=1652688057290 msg=0x020A x=-233 y=441 data=0xFFF70000 flags=0x00000000 winTime=165268781 extra=0x0 gate=False
+MOUSE ticks=1652688319009 msg=0x020A x=-233 y=441 data=0xFFF30000 flags=0x00000000 winTime=165268796 extra=0x0 gate=False
+MOUSE ticks=1652688515659 msg=0x020A x=-233 y=441 data=0xFFFB0000 flags=0x00000000 winTime=165268828 extra=0x0 gate=False
+RAW ticks=1652688993532 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652688994681 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652689206556 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652689318257 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652689321151 msg=0x020A x=-233 y=441 data=0x00CF0000 flags=0x00000000 winTime=165268906 extra=0x0 gate=False
+MOUSE ticks=1652689581128 msg=0x020A x=-233 y=441 data=0x00840000 flags=0x00000000 winTime=165268921 extra=0x0 gate=False
+RAW ticks=1652689583050 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652689668759 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652689676596 msg=0x020A x=-233 y=441 data=0x004F0000 flags=0x00000000 winTime=165268937 extra=0x0 gate=False
+RAW ticks=1652689880156 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652689890208 msg=0x020A x=-233 y=441 data=0x00C20000 flags=0x00000000 winTime=165268953 extra=0x0 gate=False
+RAW ticks=1652689994023 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652689999657 msg=0x020A x=-233 y=441 data=0x008E0000 flags=0x00000000 winTime=165268968 extra=0x0 gate=False
+MOUSE ticks=1652690241756 msg=0x020A x=-233 y=441 data=0x01390000 flags=0x00000000 winTime=165268984 extra=0x0 gate=False
+RAW ticks=1652690243053 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652690347641 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652690360161 msg=0x020A x=-233 y=441 data=0x00770000 flags=0x00000000 winTime=165269000 extra=0x0 gate=False
+RAW ticks=1652690568657 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652690575905 msg=0x020A x=-233 y=441 data=0x011A0000 flags=0x00000000 winTime=165269031 extra=0x0 gate=False
+RAW ticks=1652690667506 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652690672142 msg=0x020A x=-233 y=441 data=0x00460000 flags=0x00000000 winTime=165269046 extra=0x0 gate=False
+RAW ticks=1652690891882 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652690896489 msg=0x020A x=-233 y=441 data=0x00B50000 flags=0x00000000 winTime=165269062 extra=0x0 gate=False
+RAW ticks=1652691007322 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652691011761 msg=0x020A x=-233 y=441 data=0x00310000 flags=0x00000000 winTime=165269078 extra=0x0 gate=False
+RAW ticks=1652691233310 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652691239848 msg=0x020A x=-233 y=441 data=0x007B0000 flags=0x00000000 winTime=165269093 extra=0x0 gate=False
+RAW ticks=1652691345690 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652691349364 msg=0x020A x=-233 y=441 data=0x00240000 flags=0x00000000 winTime=165269109 extra=0x0 gate=False
+RAW ticks=1652691566304 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652693153045 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652693370547 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652693381518 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652693595966 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652693703272 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652693929412 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652693936493 msg=0x020A x=-233 y=441 data=0xFFBE0000 flags=0x00000000 winTime=165269359 extra=0x0 gate=False
+RAW ticks=1652694045206 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652694049390 msg=0x020A x=-233 y=441 data=0xFFEF0000 flags=0x00000000 winTime=165269375 extra=0x0 gate=False
+RAW ticks=1652694267096 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652694272848 msg=0x020A x=-233 y=441 data=0xFFAC0000 flags=0x00000000 winTime=165269390 extra=0x0 gate=False
+RAW ticks=1652694380363 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652694383200 msg=0x020A x=-233 y=441 data=0xFFCB0000 flags=0x00000000 winTime=165269406 extra=0x0 gate=False
+MOUSE ticks=1652694610520 msg=0x020A x=-233 y=441 data=0xFF7C0000 flags=0x00000000 winTime=165269421 extra=0x0 gate=False
+RAW ticks=1652694611611 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652694716318 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652694722510 msg=0x020A x=-233 y=441 data=0xFFB50000 flags=0x00000000 winTime=165269437 extra=0x0 gate=False
+RAW ticks=1652695172066 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695238808 msg=0x020A x=-233 y=441 data=0xFF580000 flags=0x00000000 winTime=165269484 extra=0x0 gate=False
+RAW ticks=1652695240077 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695243695 msg=0x020A x=-233 y=441 data=0xFFA80000 flags=0x00000000 winTime=165269484 extra=0x0 gate=False
+RAW ticks=1652695292723 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695298561 msg=0x020A x=-233 y=441 data=0xFF4B0000 flags=0x00000000 winTime=165269484 extra=0x0 gate=False
+RAW ticks=1652695394653 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695400571 msg=0x020A x=-233 y=441 data=0xFF9F0000 flags=0x00000000 winTime=165269500 extra=0x0 gate=False
+RAW ticks=1652695632268 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695640524 msg=0x020A x=-233 y=441 data=0xFF280000 flags=0x00000000 winTime=165269515 extra=0x0 gate=False
+RAW ticks=1652695728144 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695733722 msg=0x020A x=-233 y=441 data=0xFF920000 flags=0x00000000 winTime=165269546 extra=0x0 gate=False
+RAW ticks=1652695956767 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652695964424 msg=0x020A x=-233 y=441 data=0xFF280000 flags=0x00000000 winTime=165269562 extra=0x0 gate=False
+RAW ticks=1652696067702 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652696071516 msg=0x020A x=-233 y=441 data=0xFF920000 flags=0x00000000 winTime=165269578 extra=0x0 gate=False
+RAW ticks=1652696311473 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652696315814 msg=0x020A x=-233 y=441 data=0xFF4B0000 flags=0x00000000 winTime=165269593 extra=0x0 gate=False
+RAW ticks=1652696407911 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652696413153 msg=0x020A x=-233 y=441 data=0xFFA80000 flags=0x00000000 winTime=165269609 extra=0x0 gate=False
+MOUSE ticks=1652696653771 msg=0x020A x=-233 y=441 data=0xFF6E0000 flags=0x00000000 winTime=165269625 extra=0x0 gate=False
+RAW ticks=1652696655434 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652696741246 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652696967569 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652698926595 msg=0x020A x=-233 y=441 data=0xFFDD0000 flags=0x00000000 winTime=165269859 extra=0x0 gate=False
+MOUSE ticks=1652699085852 msg=0x020A x=-233 y=441 data=0xFFDC0000 flags=0x00000000 winTime=165269875 extra=0x0 gate=False
+MOUSE ticks=1652699346934 msg=0x020A x=-233 y=441 data=0xFFE20000 flags=0x00000000 winTime=165269906 extra=0x0 gate=False
+MOUSE ticks=1652699558308 msg=0x020A x=-233 y=441 data=0xFFF20000 flags=0x00000000 winTime=165269921 extra=0x0 gate=False
+MOUSE ticks=1652699717359 msg=0x020A x=-233 y=441 data=0xFFFC0000 flags=0x00000000 winTime=165269937 extra=0x0 gate=False
+RAW ticks=1652700008907 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700118566 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700259417 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700454676 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700567393 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700814286 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652700904369 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652701018888 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701023442 msg=0x020A x=-233 y=441 data=0xFFC30000 flags=0x00000000 winTime=165270078 extra=0x0 gate=False
+RAW ticks=1652701135903 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701143629 msg=0x020A x=-233 y=441 data=0xFF960000 flags=0x00000000 winTime=165270078 extra=0x0 gate=False
+RAW ticks=1652701369918 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701374697 msg=0x020A x=-233 y=441 data=0xFEFC0000 flags=0x00000000 winTime=165270109 extra=0x0 gate=False
+RAW ticks=1652701577445 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701584535 msg=0x020A x=-233 y=441 data=0xFF470000 flags=0x00000000 winTime=165270125 extra=0x0 gate=False
+RAW ticks=1652701694509 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701701051 msg=0x020A x=-233 y=441 data=0xFDFC0000 flags=0x00000000 winTime=165270140 extra=0x0 gate=False
+RAW ticks=1652701806155 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652701812237 msg=0x020A x=-233 y=441 data=0xFF090000 flags=0x00000000 winTime=165270140 extra=0x0 gate=False
+RAW ticks=1652702030454 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652702044164 msg=0x020A x=-233 y=441 data=0xFE580000 flags=0x00000000 winTime=165270171 extra=0x0 gate=False
+RAW ticks=1652702169255 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652702176858 msg=0x020A x=-233 y=441 data=0xFF120000 flags=0x00000000 winTime=165270187 extra=0x0 gate=False
+RAW ticks=1652702512835 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652702519841 msg=0x020A x=-233 y=441 data=0xFEE20000 flags=0x00000000 winTime=165270218 extra=0x0 gate=False
+RAW ticks=1652702591597 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652702597347 msg=0x020A x=-233 y=441 data=0xFF9F0000 flags=0x00000000 winTime=165270234 extra=0x0 gate=False
+RAW ticks=1652702740592 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652702819576 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652702867522 msg=0x020A x=-233 y=441 data=0xFF0D0000 flags=0x00000000 winTime=165270265 extra=0x0 gate=False
+MOUSE ticks=1652703029261 msg=0x020A x=-233 y=441 data=0xFF160000 flags=0x00000000 winTime=165270281 extra=0x0 gate=False
+MOUSE ticks=1652703184974 msg=0x020A x=-233 y=441 data=0xFF2D0000 flags=0x00000000 winTime=165270296 extra=0x0 gate=False
+MOUSE ticks=1652703348151 msg=0x020A x=-233 y=441 data=0xFF420000 flags=0x00000000 winTime=165270312 extra=0x0 gate=False
+MOUSE ticks=1652703509302 msg=0x020A x=-233 y=441 data=0xFF580000 flags=0x00000000 winTime=165270328 extra=0x0 gate=False
+MOUSE ticks=1652703659999 msg=0x020A x=-233 y=441 data=0xFF780000 flags=0x00000000 winTime=165270343 extra=0x0 gate=False
+MOUSE ticks=1652703842284 msg=0x020A x=-233 y=441 data=0xFF6E0000 flags=0x00000000 winTime=165270359 extra=0x0 gate=False
+MOUSE ticks=1652704077069 msg=0x020A x=-233 y=441 data=0xFF6F0000 flags=0x00000000 winTime=165270375 extra=0x0 gate=False
+MOUSE ticks=1652704127561 msg=0x020A x=-233 y=441 data=0xFFE50000 flags=0x00000000 winTime=165270390 extra=0x0 gate=False
+MOUSE ticks=1652704385921 msg=0x020A x=-233 y=441 data=0xFF850000 flags=0x00000000 winTime=165270406 extra=0x0 gate=False
+MOUSE ticks=1652704549994 msg=0x020A x=-233 y=441 data=0xFFCB0000 flags=0x00000000 winTime=165270421 extra=0x0 gate=False
+MOUSE ticks=1652704705181 msg=0x020A x=-233 y=441 data=0xFFD40000 flags=0x00000000 winTime=165270437 extra=0x0 gate=False
+MOUSE ticks=1652704868555 msg=0x020A x=-233 y=441 data=0xFFE10000 flags=0x00000000 winTime=165270453 extra=0x0 gate=False
+MOUSE ticks=1652705029546 msg=0x020A x=-233 y=441 data=0xFFE50000 flags=0x00000000 winTime=165270468 extra=0x0 gate=False
+MOUSE ticks=1652705181161 msg=0x020A x=-233 y=441 data=0xFFEF0000 flags=0x00000000 winTime=165270484 extra=0x0 gate=False
+MOUSE ticks=1652705340224 msg=0x020A x=-233 y=441 data=0xFFF70000 flags=0x00000000 winTime=165270500 extra=0x0 gate=False
+RAW ticks=1652705432123 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652705517928 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652705586678 msg=0x020A x=-233 y=441 data=0xFFFC0000 flags=0x00000000 winTime=165270531 extra=0x0 gate=False
+RAW ticks=1652705630532 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652705753538 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652705979577 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652706193296 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652706528839 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652706542554 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652706657112 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652706754968 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652706764159 msg=0x020A x=-233 y=441 data=0xFFE60000 flags=0x00000000 winTime=165270640 extra=0x0 gate=False
+RAW ticks=1652706869346 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652706875209 msg=0x020A x=-233 y=441 data=0xFF6A0000 flags=0x00000000 winTime=165270656 extra=0x0 gate=False
+RAW ticks=1652706983736 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652706988490 msg=0x020A x=-233 y=441 data=0xFF960000 flags=0x00000000 winTime=165270671 extra=0x0 gate=False
+MOUSE ticks=1652707228923 msg=0x020A x=-233 y=441 data=0xFEBE0000 flags=0x00000000 winTime=165270687 extra=0x0 gate=False
+RAW ticks=1652707230479 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652707319960 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652707326514 msg=0x020A x=-233 y=441 data=0xFF430000 flags=0x00000000 winTime=165270703 extra=0x0 gate=False
+RAW ticks=1652707542347 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652707547956 msg=0x020A x=-233 y=441 data=0xFDE60000 flags=0x00000000 winTime=165270718 extra=0x0 gate=False
+RAW ticks=1652707669126 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652707680039 msg=0x020A x=-233 y=441 data=0xFEDD0000 flags=0x00000000 winTime=165270734 extra=0x0 gate=False
+MOUSE ticks=1652707895200 msg=0x020A x=-233 y=441 data=0xFD590000 flags=0x00000000 winTime=165270765 extra=0x0 gate=False
+RAW ticks=1652707896405 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652707995453 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652708000422 msg=0x020A x=-233 y=441 data=0xFED40000 flags=0x00000000 winTime=165270765 extra=0x0 gate=False
+RAW ticks=1652708216441 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652710024634 msg=0x020A x=-233 y=441 data=0xFF6E0000 flags=0x00000000 winTime=165270968 extra=0x0 gate=False
+MOUSE ticks=1652710088738 msg=0x020A x=-233 y=441 data=0xFFC70000 flags=0x00000000 winTime=165270984 extra=0x0 gate=False
+MOUSE ticks=1652710329839 msg=0x020A x=-233 y=441 data=0xFF5D0000 flags=0x00000000 winTime=165271000 extra=0x0 gate=False
+RAW ticks=1652710353772 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652710468717 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652710487713 msg=0x020A x=-233 y=441 data=0xFFA80000 flags=0x00000000 winTime=165271015 extra=0x0 gate=False
+RAW ticks=1652710598756 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652710654114 msg=0x020A x=-233 y=441 data=0xFFBD0000 flags=0x00000000 winTime=165271031 extra=0x0 gate=False
+MOUSE ticks=1652710833600 msg=0x020A x=-233 y=441 data=0xFFDD0000 flags=0x00000000 winTime=165271046 extra=0x0 gate=False
+RAW ticks=1652710857597 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652710917552 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652710922419 msg=0x020A x=-233 y=441 data=0x00A30000 flags=0x00000000 winTime=165271062 extra=0x0 gate=False
+RAW ticks=1652711146515 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711153511 msg=0x020A x=-233 y=441 data=0x00580000 flags=0x00000000 winTime=165271093 extra=0x0 gate=False
+RAW ticks=1652711264286 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711273938 msg=0x020A x=-233 y=441 data=0x004F0000 flags=0x00000000 winTime=165271093 extra=0x0 gate=False
+RAW ticks=1652711493723 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711498989 msg=0x020A x=-233 y=441 data=0x010D0000 flags=0x00000000 winTime=165271109 extra=0x0 gate=False
+RAW ticks=1652711719817 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711722679 msg=0x020A x=-233 y=441 data=0x00AC0000 flags=0x00000000 winTime=165271140 extra=0x0 gate=False
+RAW ticks=1652711830376 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711836135 msg=0x020A x=-233 y=441 data=0x019F0000 flags=0x00000000 winTime=165271140 extra=0x0 gate=False
+RAW ticks=1652711928311 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652711936702 msg=0x020A x=-233 y=441 data=0x007B0000 flags=0x00000000 winTime=165271156 extra=0x0 gate=False
+RAW ticks=1652712169617 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652712176212 msg=0x020A x=-233 y=441 data=0x01040000 flags=0x00000000 winTime=165271187 extra=0x0 gate=False
+RAW ticks=1652712268018 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652712272967 msg=0x020A x=-233 y=441 data=0x00800000 flags=0x00000000 winTime=165271203 extra=0x0 gate=False
+RAW ticks=1652712494179 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652712503622 msg=0x020A x=-233 y=441 data=0x003A0000 flags=0x00000000 winTime=165271218 extra=0x0 gate=False
+RAW ticks=1652712626079 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652712831434 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652714887644 msg=0x020A x=-233 y=441 data=0x00160000 flags=0x00000000 winTime=165271453 extra=0x0 gate=False
+MOUSE ticks=1652715041624 msg=0x020A x=-233 y=441 data=0x00110000 flags=0x00000000 winTime=165271468 extra=0x0 gate=False
+MOUSE ticks=1652715222212 msg=0x020A x=-233 y=441 data=0x00090000 flags=0x00000000 winTime=165271484 extra=0x0 gate=False
+MOUSE ticks=1652715358852 msg=0x020A x=-233 y=441 data=0x00040000 flags=0x00000000 winTime=165271500 extra=0x0 gate=False
+MOUSE ticks=1652715512223 msg=0x020A x=-233 y=441 data=0x00050000 flags=0x00000000 winTime=165271515 extra=0x0 gate=False
+RAW ticks=1652718231570 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652718467879 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652718569864 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652718796394 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652718918784 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652718933205 msg=0x020A x=-233 y=441 data=0x01C10000 flags=0x00000000 winTime=165271859 extra=0x0 gate=False
+MOUSE ticks=1652719042623 msg=0x020A x=-233 y=441 data=0x01310000 flags=0x00000000 winTime=165271875 extra=0x0 gate=False
+RAW ticks=1652719043409 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652719146537 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652719156421 msg=0x020A x=-233 y=441 data=0x00E50000 flags=0x00000000 winTime=165271875 extra=0x0 gate=False
+RAW ticks=1652719241478 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652719246629 msg=0x020A x=-233 y=441 data=0x023D0000 flags=0x00000000 winTime=165271890 extra=0x0 gate=False
+RAW ticks=1652719354508 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652719361205 msg=0x020A x=-233 y=441 data=0x01890000 flags=0x00000000 winTime=165271906 extra=0x0 gate=False
+RAW ticks=1652719692677 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652719697647 msg=0x020A x=-233 y=441 data=0x02CE0000 flags=0x00000000 winTime=165271937 extra=0x0 gate=False
+MOUSE ticks=1652719782207 msg=0x020A x=-233 y=441 data=0x01310000 flags=0x00000000 winTime=165271937 extra=0x0 gate=False
+RAW ticks=1652719782976 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652720032184 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652720043124 msg=0x020A x=-233 y=441 data=0x01D30000 flags=0x00000000 winTime=165271968 extra=0x0 gate=False
+RAW ticks=1652720049043 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652720063005 msg=0x020A x=-233 y=441 data=0x00E10000 flags=0x00000000 winTime=165271968 extra=0x0 gate=False
+RAW ticks=1652720253188 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652720381777 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652720520442 msg=0x020A x=-233 y=441 data=0x00910000 flags=0x00000000 winTime=165272031 extra=0x0 gate=False
+MOUSE ticks=1652720841202 msg=0x020A x=-233 y=441 data=0x010D0000 flags=0x00000000 winTime=165272062 extra=0x0 gate=False
+MOUSE ticks=1652721062395 msg=0x020A x=-233 y=441 data=0x006A0000 flags=0x00000000 winTime=165272078 extra=0x0 gate=False
+MOUSE ticks=1652721175300 msg=0x020A x=-233 y=441 data=0x00540000 flags=0x00000000 winTime=165272093 extra=0x0 gate=False
+MOUSE ticks=1652721424529 msg=0x020A x=-233 y=441 data=0x004F0000 flags=0x00000000 winTime=165272109 extra=0x0 gate=False
+MOUSE ticks=1652721582719 msg=0x020A x=-233 y=441 data=0x001F0000 flags=0x00000000 winTime=165272125 extra=0x0 gate=False
+MOUSE ticks=1652721751117 msg=0x020A x=-233 y=441 data=0x00160000 flags=0x00000000 winTime=165272140 extra=0x0 gate=False
+MOUSE ticks=1652721901750 msg=0x020A x=-233 y=441 data=0x00090000 flags=0x00000000 winTime=165272156 extra=0x0 gate=False
+MOUSE ticks=1652722059512 msg=0x020A x=-233 y=441 data=0x00050000 flags=0x00000000 winTime=165272171 extra=0x0 gate=False
+RAW ticks=1652723294838 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652723304152 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652723516317 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652723659258 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652723854195 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652723868704 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652724096042 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652724193141 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652724201744 msg=0x020A x=-233 y=441 data=0xFFF30000 flags=0x00000000 winTime=165272390 extra=0x0 gate=False
+MOUSE ticks=1652724455338 msg=0x020A x=-233 y=441 data=0xFF920000 flags=0x00000000 winTime=165272406 extra=0x0 gate=False
+RAW ticks=1652724457455 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652724527967 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652724532297 msg=0x020A x=-233 y=441 data=0xFF890000 flags=0x00000000 winTime=165272421 extra=0x0 gate=False
+RAW ticks=1652724760931 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652724766296 msg=0x020A x=-233 y=441 data=0xFF050000 flags=0x00000000 winTime=165272437 extra=0x0 gate=False
+RAW ticks=1652724981820 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652724989630 msg=0x020A x=-233 y=441 data=0xFF650000 flags=0x00000000 winTime=165272453 extra=0x0 gate=False
+RAW ticks=1652725093750 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725098178 msg=0x020A x=-233 y=441 data=0xFE890000 flags=0x00000000 winTime=165272484 extra=0x0 gate=False
+RAW ticks=1652725206611 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725212576 msg=0x020A x=-233 y=441 data=0xFF2D0000 flags=0x00000000 winTime=165272500 extra=0x0 gate=False
+RAW ticks=1652725432289 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725447150 msg=0x020A x=-233 y=441 data=0xFE3E0000 flags=0x00000000 winTime=165272515 extra=0x0 gate=False
+RAW ticks=1652725541993 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725547414 msg=0x020A x=-233 y=441 data=0xFEF30000 flags=0x00000000 winTime=165272515 extra=0x0 gate=False
+RAW ticks=1652725766748 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725772274 msg=0x020A x=-233 y=441 data=0xFE0E0000 flags=0x00000000 winTime=165272546 extra=0x0 gate=False
+RAW ticks=1652725877469 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652725882911 msg=0x020A x=-233 y=441 data=0xFF090000 flags=0x00000000 winTime=165272562 extra=0x0 gate=False
+RAW ticks=1652726120740 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652726124946 msg=0x020A x=-233 y=441 data=0xFE540000 flags=0x00000000 winTime=165272578 extra=0x0 gate=False
+RAW ticks=1652726215460 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652726219884 msg=0x020A x=-233 y=441 data=0xFF610000 flags=0x00000000 winTime=165272593 extra=0x0 gate=False
+RAW ticks=1652726443115 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652726451154 msg=0x020A x=-233 y=441 data=0xFF9F0000 flags=0x00000000 winTime=165272609 extra=0x0 gate=False
+RAW ticks=1652726556405 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+MOUSE ticks=1652726734718 msg=0x020A x=-233 y=441 data=0xFEC70000 flags=0x00000000 winTime=165272640 extra=0x0 gate=False
+MOUSE ticks=1652726892050 msg=0x020A x=-233 y=441 data=0xFF050000 flags=0x00000000 winTime=165272656 extra=0x0 gate=False
+MOUSE ticks=1652727052114 msg=0x020A x=-233 y=441 data=0xFF1A0000 flags=0x00000000 winTime=165272671 extra=0x0 gate=False
+MOUSE ticks=1652727215850 msg=0x020A x=-233 y=441 data=0xFF3E0000 flags=0x00000000 winTime=165272687 extra=0x0 gate=False
+MOUSE ticks=1652727270626 msg=0x020A x=-233 y=441 data=0xFFC30000 flags=0x00000000 winTime=165272703 extra=0x0 gate=False
+MOUSE ticks=1652727529380 msg=0x020A x=-233 y=441 data=0xFF000000 flags=0x00000000 winTime=165272718 extra=0x0 gate=False
+MOUSE ticks=1652727685566 msg=0x020A x=-233 y=441 data=0xFF770000 flags=0x00000000 winTime=165272734 extra=0x0 gate=False
+MOUSE ticks=1652727851225 msg=0x020A x=-233 y=441 data=0xFF890000 flags=0x00000000 winTime=165272750 extra=0x0 gate=False
+MOUSE ticks=1652727996055 msg=0x020A x=-233 y=441 data=0xFF9F0000 flags=0x00000000 winTime=165272765 extra=0x0 gate=False
+MOUSE ticks=1652728056773 msg=0x020A x=-233 y=441 data=0xFFDD0000 flags=0x00000000 winTime=165272781 extra=0x0 gate=False
+MOUSE ticks=1652728325996 msg=0x020A x=-233 y=441 data=0xFF840000 flags=0x00000000 winTime=165272796 extra=0x0 gate=False
+MOUSE ticks=1652728471880 msg=0x020A x=-233 y=441 data=0xFFC70000 flags=0x00000000 winTime=165272812 extra=0x0 gate=False
+MOUSE ticks=1652728549046 msg=0x020A x=-233 y=441 data=0xFFEA0000 flags=0x00000000 winTime=165272828 extra=0x0 gate=False
+MOUSE ticks=1652728804626 msg=0x020A x=-233 y=441 data=0xFFC20000 flags=0x00000000 winTime=165272859 extra=0x0 gate=False
+MOUSE ticks=1652729095285 msg=0x020A x=-233 y=441 data=0xFFDD0000 flags=0x00000000 winTime=165272875 extra=0x0 gate=False
+MOUSE ticks=1652729255030 msg=0x020A x=-233 y=441 data=0xFFF30000 flags=0x00000000 winTime=165272890 extra=0x0 gate=False
+MOUSE ticks=1652729437327 msg=0x020A x=-233 y=441 data=0xFFF70000 flags=0x00000000 winTime=165272906 extra=0x0 gate=False
+RAW ticks=1652729481886 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+RAW ticks=1652729495979 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=1 osEnabled=True
+RAW ticks=1652729704788 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652729818540 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652730040645 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652730054392 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652730272445 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652730399458 msg=0x020A x=-233 y=441 data=0xFE810000 flags=0x00000000 winTime=165273015 extra=0x0 gate=False
+RAW ticks=1652730402273 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652730604477 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652730612676 msg=0x020A x=-233 y=441 data=0xFE500000 flags=0x00000000 winTime=165273031 extra=0x0 gate=False
+RAW ticks=1652730718154 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652730723611 msg=0x020A x=-233 y=441 data=0xFF000000 flags=0x00000000 winTime=165273046 extra=0x0 gate=False
+RAW ticks=1652730945615 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652730954334 msg=0x020A x=-233 y=441 data=0xFD780000 flags=0x00000000 winTime=165273062 extra=0x0 gate=False
+RAW ticks=1652731054261 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652731058534 msg=0x020A x=-233 y=441 data=0xFE920000 flags=0x00000000 winTime=165273078 extra=0x0 gate=False
+RAW ticks=1652731278094 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652731285752 msg=0x020A x=-233 y=441 data=0xFCBE0000 flags=0x00000000 winTime=165273093 extra=0x0 gate=False
+RAW ticks=1652731407008 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652731434408 msg=0x020A x=-233 y=441 data=0xFE010000 flags=0x00000000 winTime=165273109 extra=0x0 gate=False
+RAW ticks=1652731616546 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652731622073 msg=0x020A x=-233 y=441 data=0xFC200000 flags=0x00000000 winTime=165273140 extra=0x0 gate=False
+MOUSE ticks=1652731784026 msg=0x020A x=-233 y=441 data=0xFDCB0000 flags=0x00000000 winTime=165273140 extra=0x0 gate=False
+RAW ticks=1652731785530 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652731957162 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652731965855 msg=0x020A x=-233 y=441 data=0xFD0A0000 flags=0x00000000 winTime=165273171 extra=0x0 gate=False
+RAW ticks=1652732068192 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+MOUSE ticks=1652732071502 msg=0x020A x=-233 y=441 data=0xFE920000 flags=0x00000000 winTime=165273171 extra=0x0 gate=False
+RAW ticks=1652732321226 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=2 osEnabled=True
+RAW ticks=1652732405163 tag=1:4390FD57 usage=0000/0000 size=50 id=0x05 contacts=0 osEnabled=True
+MOUSE ticks=1652732532066 msg=0x020A x=-233 y=441 data=0xFD1B0000 flags=0x00000000 winTime=165273218 extra=0x0 gate=False
+MOUSE ticks=1652732693921 msg=0x020A x=-233 y=441 data=0xFDB50000 flags=0x00000000 winTime=165273234 extra=0x0 gate=False
+MOUSE ticks=1652732847562 msg=0x020A x=-233 y=441 data=0xFE240000 flags=0x00000000 winTime=165273250 extra=0x0 gate=False
+MOUSE ticks=1652733006333 msg=0x020A x=-233 y=441 data=0xFE350000 flags=0x00000000 winTime=165273265 extra=0x0 gate=False
+MOUSE ticks=1652733061615 msg=0x020A x=-233 y=441 data=0xFF810000 flags=0x00000000 winTime=165273281 extra=0x0 gate=False
+MOUSE ticks=1652733305397 msg=0x020A x=-233 y=441 data=0xFDCB0000 flags=0x00000000 winTime=165273296 extra=0x0 gate=False
+MOUSE ticks=1652733482064 msg=0x020A x=-233 y=441 data=0xFEB50000 flags=0x00000000 winTime=165273312 extra=0x0 gate=False
+MOUSE ticks=1652733624293 msg=0x020A x=-233 y=441 data=0xFF010000 flags=0x00000000 winTime=165273328 extra=0x0 gate=False
+MOUSE ticks=1652733789955 msg=0x020A x=-233 y=441 data=0xFF1F0000 flags=0x00000000 winTime=165273343 extra=0x0 gate=False
+MOUSE ticks=1652733856773 msg=0x020A x=-233 y=441 data=0xFF8D0000 flags=0x00000000 winTime=165273359 extra=0x0 gate=False
+MOUSE ticks=1652734101685 msg=0x020A x=-233 y=441 data=0xFEEF0000 flags=0x00000000 winTime=165273375 extra=0x0 gate=False
+MOUSE ticks=1652734344744 msg=0x020A x=-233 y=441 data=0xFF300000 flags=0x00000000 winTime=165273406 extra=0x0 gate=False
+MOUSE ticks=1652734551979 msg=0x020A x=-233 y=441 data=0xFF810000 flags=0x00000000 winTime=165273421 extra=0x0 gate=False
+MOUSE ticks=1652734624682 msg=0x020A x=-233 y=441 data=0xFFDC0000 flags=0x00000000 winTime=165273437 extra=0x0 gate=False
+MOUSE ticks=1652734864667 msg=0x020A x=-233 y=441 data=0xFF9B0000 flags=0x00000000 winTime=165273453 extra=0x0 gate=False
+MOUSE ticks=1652735019888 msg=0x020A x=-233 y=441 data=0xFFD80000 flags=0x00000000 winTime=165273468 extra=0x0 gate=False
+MOUSE ticks=1652735178839 msg=0x020A x=-233 y=441 data=0xFFE60000 flags=0x00000000 winTime=165273484 extra=0x0 gate=False
+MOUSE ticks=1652735346780 msg=0x020A x=-233 y=441 data=0xFFF20000 flags=0x00000000 winTime=165273500 extra=0x0 gate=False
+MOUSE ticks=1652735498113 msg=0x020A x=-233 y=441 data=0xFFF80000 flags=0x00000000 winTime=165273515 extra=0x0 gate=False
+OS_DISPOSE_RESTORE sent=True
+RAW_COUNT 1:4390FD57 id=0x05 size=50 osEnabled=True count=449
+RAW_COUNT 1:4390FD57 id=0x05 size=50 osEnabled=False count=408
+ACTIVE_CONTACT_FRAME_COUNT 1:4390FD57 id=0x05 size=50 osEnabled=True count=433
+END utc=2026-10-22T16:27:39.1461575Z

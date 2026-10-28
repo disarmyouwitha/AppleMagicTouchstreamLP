@@ -1,0 +1,24 @@
+Microsoft PnP Utility
+
+Instance ID:                USB\VID_05AC&PID_0324&MI_01\7&49b99ee&2&0001
+Device Description:         Apple USB Precision Touchpad Device (User-mode)
+Class Name:                 HIDClass
+Class GUID:                 {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Manufacturer Name:          Bingxing Wang, Vito Plantamura
+Status:                     Started
+Driver Name:                oem149.inf
+Parent:                     USB\VID_05AC&PID_0324\J84HL701M5B0000509
+Children:                   HID\VID_05AC&PID_0324&MI_01&Col01\8&1dfdbed3&0&0000
+                            HID\VID_05AC&PID_0324&MI_01&Col02\8&1dfdbed3&0&0001
+                            HID\VID_05AC&PID_0324&MI_01&Col03\8&1dfdbed3&0&0002
+Service:                    MsHidUmdf
+Lower Filters:              WUDFRd
+Stack:                      mshidumdf
+                            WUDFRd
+                            usbccgp
+Interfaces:
+    Interface Path:         \\?\USB#VID_05AC&PID_0324&MI_01#7&49b99ee&2&0001#{4a5064e5-7d39-41d1-a0e4-81097edce967}
+    Interface Description:  Unknown
+    Interface Class GUID:   {4a5064e5-7d39-41d1-a0e4-81097edce967}
+    Interface Status:       Enabled
+

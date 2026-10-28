@@ -1,0 +1,13 @@
+{
+  "capturePath": "bluetooth-reconnect.atpcap",
+  "expected": {
+    "captureFingerprint": "0x987F48B92AB8535D",
+    "dispatchFingerprint": "0xCBF29CE484222325",
+    "dispatchEvents": 0,
+    "intentTransitions": 16,
+    "framesSeen": 511,
+    "framesParsed": 510,
+    "framesDispatched": 510,
+    "framesDropped": 0
+  }
+}

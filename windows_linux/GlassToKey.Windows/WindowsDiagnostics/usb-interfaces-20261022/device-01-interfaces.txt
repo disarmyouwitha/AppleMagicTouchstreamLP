@@ -1,0 +1,17 @@
+Microsoft PnP Utility
+
+Instance ID:                HID\VID_05AC&PID_0324&MI_02\8&312ddb11&0&0000
+Device Description:         HID-compliant vendor-defined device
+Class Name:                 HIDClass
+Class GUID:                 {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Manufacturer Name:          (Standard system devices)
+Status:                     Started
+Driver Name:                input.inf
+Parent:                     USB\VID_05AC&PID_0324&MI_02\7&49b99ee&2&0002
+Stack:                      HidUsb
+Interfaces:
+    Interface Path:         \\?\HID#VID_05AC&PID_0324&MI_02#8&312ddb11&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+    Interface Description:  Unknown
+    Interface Class GUID:   {4d1e55b2-f16f-11cf-88cb-001111000030}
+    Interface Status:       Enabled
+

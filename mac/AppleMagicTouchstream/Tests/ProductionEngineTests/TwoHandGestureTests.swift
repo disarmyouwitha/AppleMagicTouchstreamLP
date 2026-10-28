@@ -1,0 +1,279 @@
+import CoreGraphics
+import Foundation
+import OpenMultitouchSupport
+import XCTest
+@testable import GlassToKeyRuntime
+
+final class TwoHandGestureTests:XCTestCase {
+    private func contacts(_ count:Int,dx:Float = 0,idBase:Int32 = 1) -> [OMSRawTouch] {
+        (0..<count).map { i in OMSRawTouch(id:idBase+Int32(i),posX:0.3+Float(i)*0.1+dx,posY:0.5,
+            total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }
+    }
+    private func corners(left:Bool,inner:Bool = false) -> [OMSRawTouch] {
+        (0..<2).map { i in OMSRawTouch(id:Int32(i+1),posX:left != inner ? 0.08 : 0.92,posY:i == 0 ? 0.08 : 0.92,
+            total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }
+    }
+    private func settings(_ chord:TwoHandChord) -> TwoHandGestureSettings {
+        var settings = TwoHandGestureSettings()
+        settings.setAction(.primaryClick,for:.init(chord:chord,phase:.tap))
+        settings.setAction(.missionControl,for:.init(chord:chord,phase:.hold))
+        return settings
+    }
+    func testTapRequiresBothHandsAndRearmsAfterBothLift() {
+        for chord in [TwoHandChord.threeFingers,.fourFingers] {
+            var engine = TwoHandGestureEngine()
+            let settings = settings(chord), c = contacts(chord.count)
+            XCTAssertFalse(engine.process(leftHand:true,now:1,contacts:c,settings:settings).reserved)
+            XCTAssertFalse(engine.ownsCycle)
+            XCTAssertTrue(engine.process(leftHand:false,now:1.03,contacts:c,settings:settings).began)
+            XCTAssertTrue(engine.ownsCycle)
+            XCTAssertNil(engine.process(leftHand:true,now:1.08,contacts:contacts(0),settings:settings).trigger)
+            let ended = engine.process(leftHand:false,now:1.11,contacts:contacts(0),settings:settings)
+            XCTAssertTrue(ended.reserved)
+            XCTAssertEqual(ended.trigger,.init(chord:chord,phase:.tap))
+            XCTAssertFalse(engine.ownsCycle)
+            XCTAssertFalse(engine.process(leftHand:true,now:1.12,contacts:contacts(0),settings:settings).reserved)
+            XCTAssertFalse(engine.process(leftHand:false,now:1.13,contacts:contacts(0),settings:settings).reserved)
+        }
+    }
+    func testHoldFiresOnceAndConsumesTapUntilAllUp() {
+        for chord in [TwoHandChord.threeFingers,.fourFingers] {
+            var engine = TwoHandGestureEngine()
+            let settings = settings(chord), c = contacts(chord.count)
+            _ = engine.process(leftHand:true,now:1,contacts:c,settings:settings)
+            _ = engine.process(leftHand:false,now:1.01,contacts:c,settings:settings)
+            var outputs:[TwoHandTrigger] = []
+            for i in 1...10 {
+                let now = 1.01+Double(i)*0.1
+                if let t = engine.process(leftHand:true,now:now,contacts:c,settings:settings).trigger { outputs.append(t) }
+                if let t = engine.process(leftHand:false,now:now+0.001,contacts:c,settings:settings).trigger { outputs.append(t) }
+                if let t = engine.advance(now:now+0.002,settings:settings) { outputs.append(t) }
+            }
+            XCTAssertEqual(outputs,[.init(chord:chord,phase:.hold)])
+            XCTAssertNil(engine.process(leftHand:true,now:2.03,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertNil(engine.process(leftHand:false,now:2.04,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertFalse(engine.ownsCycle)
+        }
+    }
+    func testOuterCornersDefaultToConfigAfterOneSecondAndAllowStaggeredLanding() {
+        var engine = TwoHandGestureEngine()
+        let settings = TwoHandGestureSettings()
+        XCTAssertEqual(settings.action(.init(chord:.fourCorners,phase:.tap)),.disabled)
+        XCTAssertEqual(settings.action(.init(chord:.fourCorners,phase:.hold)),.openConfig)
+        _ = engine.process(leftHand:true,now:1,contacts:corners(left:true),settings:settings)
+        _ = engine.process(leftHand:true,now:1.4,contacts:corners(left:true),settings:settings)
+        XCTAssertTrue(engine.process(leftHand:false,now:1.41,contacts:corners(left:false),settings:settings).began)
+        var outputs:[TwoHandTrigger] = []
+        for i in 1...11 {
+            let now = 1.41+Double(i)*0.1
+            if let t = engine.process(leftHand:true,now:now,contacts:corners(left:true),settings:settings).trigger { outputs.append(t) }
+            if let t = engine.process(leftHand:false,now:now+0.001,contacts:corners(left:false),settings:settings).trigger { outputs.append(t) }
+        }
+        XCTAssertEqual(outputs,[.init(chord:.fourCorners,phase:.hold)])
+    }
+    func testInnerCornersWrongCountsAndAsynchronousChordsCannotMatch() {
+        for kind in 0..<4 {
+            var engine = TwoHandGestureEngine()
+            let settings = kind == 0 ? TwoHandGestureSettings() : settings(.threeFingers)
+            _ = engine.process(leftHand:true,now:1,contacts:kind == 0 ? corners(left:true,inner:true) : contacts(3),settings:settings)
+            let result = engine.process(leftHand:false,now:kind == 2 ? 1.4 : 1.01,
+                contacts:kind == 0 ? corners(left:false,inner:true) : contacts(kind == 1 ? 4 : kind == 3 ? 0 : 3),settings:settings)
+            XCTAssertNil(result.trigger); XCTAssertFalse(engine.ownsCycle)
+        }
+    }
+    func testMotionOrIdentityReplacementCancelsButKeepsAllUpLatch() {
+        for replacement in [false,true] {
+            var engine = TwoHandGestureEngine()
+            let settings = settings(.threeFingers)
+            _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+            _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings)
+            let update = engine.process(leftHand:true,now:1.02,
+                contacts:contacts(3,dx:replacement ? 0 : 0.03,idBase:replacement ? 10 : 1),settings:settings)
+            XCTAssertTrue(update.reserved); XCTAssertFalse(update.began)
+            XCTAssertNil(engine.advance(now:1.6,settings:settings))
+            XCTAssertNil(engine.process(leftHand:true,now:1.61,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertNil(engine.process(leftHand:false,now:1.62,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertFalse(engine.ownsCycle)
+        }
+    }
+    func testAddedAndLiftedFingersNeverTransferTheOwnedCycle() {
+        var engine = TwoHandGestureEngine()
+        let settings = settings(.threeFingers)
+        _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+        _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings)
+        for (time,count,left) in [(1.02,4,true),(1.03,1,false),(1.04,0,true)] {
+            let decision = engine.process(leftHand:left,now:time,contacts:contacts(count),settings:settings)
+            XCTAssertTrue(decision.reserved); XCTAssertNil(decision.trigger); XCTAssertFalse(decision.began)
+        }
+        XCTAssertTrue(engine.ownsCycle)
+        XCTAssertNil(engine.process(leftHand:false,now:1.05,contacts:contacts(0),settings:settings).trigger)
+        XCTAssertFalse(engine.ownsCycle)
+    }
+    func testFreshnessIsPerHandAndTimerCannotFireAfterLossOfInput() {
+        var engine = TwoHandGestureEngine()
+        let settings = settings(.threeFingers)
+        _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+        _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings)
+        XCTAssertNil(engine.advance(now:1.3,settings:settings))
+        for i in 1...10 {
+            XCTAssertNil(engine.process(leftHand:true,now:1.3+Double(i)*0.05,contacts:contacts(3),settings:settings).trigger)
+            XCTAssertNil(engine.process(leftHand:false,now:1.301+Double(i)*0.05,contacts:contacts(3),settings:settings).trigger)
+        }
+        XCTAssertNil(engine.process(leftHand:true,now:1.9,contacts:contacts(0),settings:settings).trigger)
+        XCTAssertNil(engine.process(leftHand:false,now:1.91,contacts:contacts(0),settings:settings).trigger)
+    }
+    func testDisabledChordsDoNotDelayExistingSingleHandGestures() {
+        var engine = TwoHandGestureEngine()
+        for count in [1,2,3,4,5] {
+            XCTAssertFalse(engine.process(leftHand:true,now:Double(count),contacts:contacts(count),settings:.init()).reserved)
+        }
+        let enabled = settings(.threeFingers)
+        engine.reset()
+        XCTAssertFalse(engine.process(leftHand:true,now:10,contacts:contacts(3),settings:enabled).reserved)
+        XCTAssertFalse(engine.process(leftHand:true,now:10.16,contacts:contacts(3),settings:enabled).reserved)
+    }
+    func testKeyboardPriorityAndResetDiscardPendingAndOwnedSessions() {
+        var engine = TwoHandGestureEngine()
+        let settings = settings(.threeFingers)
+        _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+        _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings)
+        XCTAssertFalse(engine.process(leftHand:true,now:1.02,contacts:contacts(3),settings:settings,blocked:true).reserved)
+        XCTAssertFalse(engine.ownsCycle)
+        XCTAssertNil(engine.advance(now:2,settings:settings))
+        _ = engine.process(leftHand:true,now:3,contacts:contacts(3),settings:settings)
+        engine.reset()
+        XCTAssertFalse(engine.ownsCycle)
+        XCTAssertFalse(engine.process(leftHand:false,now:3.01,contacts:contacts(0),settings:settings).reserved)
+    }
+    func testLongReleaseSkewRejoinAndDuplicateIDsCannotTap() {
+        for kind in 0..<3 {
+            var engine = TwoHandGestureEngine()
+            let settings = settings(.threeFingers)
+            _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+            _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings)
+            _ = engine.process(leftHand:true,now:1.05,contacts:contacts(0),settings:settings)
+            if kind == 1 {
+                _ = engine.process(leftHand:true,now:1.06,contacts:contacts(3),settings:settings)
+                _ = engine.process(leftHand:true,now:1.07,contacts:contacts(0),settings:settings)
+            }
+            if kind == 2 {
+                _ = engine.process(leftHand:false,now:1.06,contacts:[contacts(1)[0],contacts(1)[0]],settings:settings)
+            }
+            XCTAssertNil(engine.process(leftHand:false,now:kind == 0 ? 1.3 : 1.1,contacts:contacts(0),settings:settings).trigger)
+        }
+    }
+    func testOnlyAcquisitionResetsBothPadsAndFinalReleaseConsumesItsOwnFrame() {
+        var engine = TwoHandGestureEngine()
+        let settings = settings(.threeFingers)
+        let first = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+        XCTAssertFalse(first.reserved); XCTAssertFalse(first.began)
+        XCTAssertTrue(engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:settings).began)
+        for i in 1...3 {
+            let decision = engine.process(leftHand:true,now:1.01+Double(i)*0.01,contacts:contacts(3),settings:settings)
+            XCTAssertTrue(decision.reserved); XCTAssertFalse(decision.began)
+        }
+        XCTAssertFalse(engine.process(leftHand:true,now:1.06,contacts:contacts(0),settings:settings).began)
+        let ended = engine.process(leftHand:false,now:1.07,contacts:contacts(0),settings:settings)
+        XCTAssertTrue(ended.reserved); XCTAssertFalse(ended.began)
+        // No second-hand frame can re-block the already released first hand.
+        XCTAssertFalse(engine.ownsCycle)
+        XCTAssertFalse(engine.process(leftHand:true,now:1.08,contacts:contacts(0),settings:settings).reserved)
+    }
+    func testUnjoinedSingleHandTapStillCompletesDuringTheJoinWindow() {
+        var shared = TwoHandGestureEngine(), local = TrackpadGestureRouter(), tap = ThreeFingerTapRecognizer()
+        let settings = settings(.threeFingers)
+        var clicks = 0
+        for (host,native,count) in [(1.0,9000.0,3),(1.04,9000.04,3),(1.08,9000.08,0)] {
+            let c = contacts(count)
+            let decision = shared.process(leftHand:true,now:host,contacts:c,settings:settings)
+            XCTAssertFalse(decision.reserved)
+            let update = local.recognize(device:1,time:native,contacts:c,enabled:{$0 == .threeFingerMove})
+            if tap.recognize(device:1,time:native,contacts:c,gestureActive:update.millimetres != nil,
+                ordinaryEnabled:true,thumbEnabled:false) == .threeFingerTap { clicks += 1 }
+        }
+        XCTAssertEqual(clicks,1)
+        XCTAssertFalse(shared.ownsCycle)
+    }
+    func testGlobalLocalOwnerReadoutPersistsUntilAllUp() {
+        var router = TrackpadGestureRouter()
+        _ = router.recognize(device:1,time:1,contacts:contacts(3),enabled:{$0 == .threeFingerMove})
+        _ = router.recognize(device:1,time:1.01,contacts:contacts(3,dx:0.01),enabled:{$0 == .threeFingerMove})
+        XCTAssertEqual(router.owner(device:1),.threeFingerMove)
+        _ = router.recognize(device:1,time:1.02,contacts:contacts(1,dx:0.01),enabled:{$0 == .threeFingerMove})
+        XCTAssertEqual(router.owner(device:1),.threeFingerMove)
+        _ = router.recognize(device:1,time:1.03,contacts:contacts(0),enabled:{$0 == .threeFingerMove})
+        XCTAssertNil(router.owner(device:1))
+    }
+    func testStaggeredHandsMayTapOrHoldFromTheTimeTheSecondHandJoins() {
+        for keepHolding in [false,true] {
+            var engine = TwoHandGestureEngine()
+            let settings = settings(.threeFingers)
+            _ = engine.process(leftHand:true,now:1,contacts:contacts(3),settings:settings)
+            _ = engine.process(leftHand:true,now:1.3,contacts:contacts(3),settings:settings)
+            XCTAssertTrue(engine.process(leftHand:false,now:1.31,contacts:contacts(3),settings:settings).began)
+            if keepHolding {
+                var outputs:[TwoHandTrigger] = []
+                for i in 1...6 {
+                    let now = 1.31+Double(i)*0.1
+                    if let t = engine.process(leftHand:true,now:now,contacts:contacts(3),settings:settings).trigger { outputs.append(t) }
+                    if let t = engine.process(leftHand:false,now:now+0.001,contacts:contacts(3),settings:settings).trigger { outputs.append(t) }
+                }
+                XCTAssertEqual(outputs,[.init(chord:.threeFingers,phase:.hold)])
+            } else {
+                XCTAssertNil(engine.process(leftHand:true,now:1.4,contacts:contacts(0),settings:settings).trigger)
+                XCTAssertEqual(engine.process(leftHand:false,now:1.41,contacts:contacts(0),settings:settings).trigger,.init(chord:.threeFingers,phase:.tap))
+            }
+        }
+    }
+    func testImmediateSingleHandDragHandsOffWithOneBalancedRelease() throws {
+        for count in [3,4] {
+            let chord:TwoHandChord = count == 3 ? .threeFingers : .fourFingers
+            let settings = settings(chord)
+            var both = TwoHandGestureEngine(), local = TrackpadGestureRouter(), drag = PrimaryDragOutput()
+            let first = contacts(count)
+            XCTAssertFalse(both.process(leftHand:true,now:1,contacts:first,settings:settings).reserved)
+            _ = local.recognize(device:1,time:1,contacts:first,enabled:{$0 == .threeFingerMove || $0 == .fourFingerMove})
+            let moving = contacts(count,dx:0.01)
+            XCTAssertFalse(both.process(leftHand:true,now:1.01,contacts:moving,settings:settings).reserved)
+            let owner = local.recognize(device:1,time:1.01,contacts:moving,enabled:{$0 == .threeFingerMove || $0 == .fourFingerMove})
+            XCTAssertEqual(owner.phase,.began) // 10 ms, no 150 ms join delay.
+            if count == 3 { XCTAssertNotNil(drag.begin(device:1,location:.zero,flags:[])) }
+            // The first hand may already have moved for seconds; rebase at joining.
+            _ = both.process(leftHand:true,now:3,contacts:moving,settings:settings)
+            let acquired = both.process(leftHand:false,now:3.01,contacts:contacts(count),settings:settings)
+            XCTAssertTrue(acquired.began); XCTAssertTrue(acquired.reserved)
+            if count == 3 {
+                XCTAssertEqual(try XCTUnwrap(drag.end(device:1)).type,.leftMouseUp)
+                XCTAssertNil(drag.end(device:1))
+            }
+            local.reset(device:1)
+            XCTAssertNil(local.owner(device:1)); XCTAssertNil(drag.owner)
+            XCTAssertNil(both.process(leftHand:true,now:3.08,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertEqual(both.process(leftHand:false,now:3.09,contacts:contacts(0),settings:settings).trigger,.init(chord:chord,phase:.tap))
+        }
+    }
+    func testEligibilityRequiresTwoDistinctSelectedOwnedArmedPads() {
+        XCTAssertTrue(TwoHandGestureEligibility.enabled(pads:.init(left:1,right:2),owned:[1,2],takeover:true,armed:true))
+        for pads in [GestureSelectedPads(left:1,right:1),.init(left:1,right:nil),.init(left:nil,right:2),.init(left:1,right:3)] {
+            XCTAssertFalse(TwoHandGestureEligibility.enabled(pads:pads,owned:[1,2],takeover:true,armed:true))
+        }
+        XCTAssertFalse(TwoHandGestureEligibility.enabled(pads:.init(left:1,right:2),owned:[1,2],takeover:false,armed:true))
+        XCTAssertFalse(TwoHandGestureEligibility.enabled(pads:.init(left:1,right:2),owned:[1,2],takeover:true,armed:false))
+    }
+    func testMirrorEditDoesNotChangeCoordinatedBindingsAndKeymapRoundTrips() throws {
+        var settings = HandGestureSettings()
+        var both = settings.twoHand
+        both.setAction(.missionControl,for:.init(chord:.threeFingers,phase:.hold))
+        both.setAction(.secondaryClick,for:.init(chord:.fourFingers,phase:.tap))
+        both.setAction(.pointer,for:.init(chord:.threeFingers,phase:.tap)) // unsupported continuous output rejected
+        settings.coordinated = both
+        settings.setAction(.disabled,for:.threeFingerTap,in:.both)
+        XCTAssertEqual(settings.twoHand,both)
+        XCTAssertEqual(both.action(.init(chord:.threeFingers,phase:.tap)),.disabled)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as? [String:Any])
+        legacy.removeValue(forKey:"coordinated")
+        XCTAssertEqual(try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:legacy)).twoHand,.init())
+    }
+}

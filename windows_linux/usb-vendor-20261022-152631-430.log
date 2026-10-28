@@ -1,0 +1,3 @@
+2026-10-22T20:26:32.1545503Z t=0.000 START seconds=2 mode=passive-raw-input no-device-writes=True
+2026-10-22T20:26:32.1553967Z t=0.001 PHASE IDLE
+2026-10-22T20:26:34.1568249Z t=2.003 END devicesWithFrames=0 payloadBytes=0

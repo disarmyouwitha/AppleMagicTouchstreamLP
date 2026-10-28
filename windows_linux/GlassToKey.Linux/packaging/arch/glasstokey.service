@@ -1,0 +1,13 @@
+[Unit]
+Description=GlassToKey Linux runtime
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/GlassToKey.Linux
+ExecStart=/opt/GlassToKey.Linux/GlassToKey.Linux run-engine
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

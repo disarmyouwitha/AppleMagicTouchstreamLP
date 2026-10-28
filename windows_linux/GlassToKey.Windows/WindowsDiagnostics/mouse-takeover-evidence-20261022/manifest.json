@@ -1,0 +1,7 @@
+{
+  "source": "mouse-takeover-test-20261022-162351-171.log",
+  "snapshotCutoff": "first TAKEOVER_OFF; original test window may continue logging",
+  "file": "mouse-takeover-162351-through-release.log",
+  "bytes": 332030,
+  "sha256": "7dec342c4949899cb29b3b85f0b732a775c72e6cba1160febf85d0448539482e"
+}

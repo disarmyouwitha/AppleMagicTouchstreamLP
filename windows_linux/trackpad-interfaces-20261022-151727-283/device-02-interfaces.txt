@@ -1,0 +1,18 @@
+Microsoft PnP Utility
+
+Instance ID:                BTHENUM\{00001200-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324\7&8f143f&0&D0C050CCF590_C00000000
+Device Description:         Device Identification Service
+Class Name:                 Bluetooth
+Class GUID:                 {e0cbf06c-cd8b-4647-bb8a-263b43f0f974}
+Manufacturer Name:          Microsoft
+Status:                     Started
+Driver Name:                bth.inf
+Parent:                     BTH\MS_BTHBRB\6&1aac2cac&0&1
+Stack:                      PSINDvct
+                            BthEnum
+Interfaces:
+    Interface Path:         \\?\BTHENUM#{00001200-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324#7&8f143f&0&D0C050CCF590_C00000000#{00001200-0000-1000-8000-00805f9b34fb}
+    Interface Description:  Unknown
+    Interface Class GUID:   {00001200-0000-1000-8000-00805f9b34fb}
+    Interface Status:       Enabled
+

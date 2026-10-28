@@ -1,0 +1,37 @@
+*** Recognized (0x81) family*** (30 cols X 22 rows)
+BASELINE_START selected=D0:C0:50:D5:69:55 result=0 nativeStatus=0x00000000
+BASELINE 5s — move several fingers on the selected pad and KEEP moving through FILTER and RECOVERY.
+CONTACTS phase=baseline frames=44 withContacts=44 lastContacts=2 firstID=9 firstX=0.549491 firstY=0.617966
+CONTACTS phase=baseline frames=115 withContacts=114 lastContacts=1 firstID=5 firstX=0.437307 firstY=0.46535
+CONTACTS phase=baseline frames=207 withContacts=206 lastContacts=1 firstID=5 firstX=0.489852 firstY=0.386771
+CONTACTS phase=baseline frames=286 withContacts=284 lastContacts=2 firstID=3 firstX=0.341412 firstY=0.490819
+CONTACTS phase=baseline frames=375 withContacts=373 lastContacts=2 firstID=3 firstX=0.278752 firstY=0.446396
+PHASE_SUMMARY phase=baseline frames=375 withContacts=373 maxContacts=2 cursorSpanX=706.349365234375 cursorSpanY=381.77532958984375 cursorReadAvailable=true
+FILTER_PRECHECK existing=0 owned=0
+BASELINE_STOP status=0x00000000
+*** Recognized (0x81) family*** (30 cols X 22 rows)
+FILTER_START mode=0x40000000 result=0 nativeStatus=0x00000000
+FILTER_VERIFY total=1 owned=1
+FILTER 8s — observe native movement/scroll (do not press down to click) and continue moving several fingers.
+CONTACTS phase=filter frames=60 withContacts=59 lastContacts=1 firstID=10 firstX=0.380032 firstY=0.55301
+CONTACTS phase=filter frames=153 withContacts=152 lastContacts=1 firstID=10 firstX=0.325254 firstY=0.478381
+CONTACTS phase=filter frames=242 withContacts=240 lastContacts=0 firstID=10 firstX=0.345484 firstY=0.479763
+CONTACTS phase=filter frames=325 withContacts=322 lastContacts=1 firstID=10 firstX=0.411428 firstY=0.489832
+CONTACTS phase=filter frames=407 withContacts=403 lastContacts=1 firstID=2 firstX=0.664564 firstY=0.548272
+CONTACTS phase=filter frames=495 withContacts=490 lastContacts=1 firstID=4 firstX=0.350738 firstY=0.551431
+CONTACTS phase=filter frames=584 withContacts=577 lastContacts=0 firstID=11 firstX=0.418259 firstY=0.528529
+PHASE_SUMMARY phase=filter frames=609 withContacts=601 maxContacts=2 cursorSpanX=0.0 cursorSpanY=0.0 cursorReadAvailable=true
+FILTER_STOP status=0x00000000
+*** Recognized (0x81) family*** (30 cols X 22 rows)
+RECOVERY_START result=0 nativeStatus=0x00000000
+FILTER_AFTER_CLOSE total=0 owned=0
+RECOVERY 5s — native input should resume; continue moving several fingers.
+CONTACTS phase=recovery frames=0 withContacts=0 lastContacts=0 firstID=-1 firstX=0.0 firstY=0.0
+CONTACTS phase=recovery frames=0 withContacts=0 lastContacts=0 firstID=-1 firstX=0.0 firstY=0.0
+CONTACTS phase=recovery frames=0 withContacts=0 lastContacts=0 firstID=-1 firstX=0.0 firstY=0.0
+CONTACTS phase=recovery frames=0 withContacts=0 lastContacts=0 firstID=-1 firstX=0.0 firstY=0.0
+PHASE_SUMMARY phase=recovery frames=0 withContacts=0 maxContacts=0 cursorSpanX=146.828369140625 cursorSpanY=155.292236328125 cursorReadAvailable=true
+SUMMARY baselineContacts=373 filterContacts=601 recoveryContacts=0
+User observation must establish native suppression and recovery. No successful takeover is assumed.
+FINAL_STOP status=0x00000000
+ERROR: Contact continuity was not established in every phase
