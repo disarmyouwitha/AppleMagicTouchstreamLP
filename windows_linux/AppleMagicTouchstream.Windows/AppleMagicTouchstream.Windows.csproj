@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>AppleMagicTouchstream</AssemblyName>
+    <RootNamespace>AppleMagicTouchstream</RootNamespace>
+    <Product>AppleMagicTouchstream</Product>
+    <Title>AppleMagicTouchstream</Title>
+    <ApplicationIcon>Assets\AppleMagicTouchstreamHand.ico</ApplicationIcon>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\AppleMagicTouchstreamHand.ico" />
+    <EmbeddedResource Include="Assets\AppleMagicTouchstreamTrayHand.ico" />
+    <Resource Include="Assets\TouchStreamReference.gif" />
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AppleMagicTouchstream.Core\AppleMagicTouchstream.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="DEFAULT_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="MY_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

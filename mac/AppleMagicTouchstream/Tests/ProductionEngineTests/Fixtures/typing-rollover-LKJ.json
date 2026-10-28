@@ -1,0 +1,1558 @@
+{
+  "sourceCaptureSHA256": "c1c6071b4e7c7b03b16ce9bbf7673701cd4bb8ba3ea32d9e77b6a0692682d995",
+  "scope": "Unchanged raw contacts from L/K/J overlap; frame clock rebased to 1, route normalized to device 42/index 0. Source recording unchanged.",
+  "frames": [
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.99609375,
+          "id": 11,
+          "majorAxis": 6.68,
+          "minorAxis": 6.42,
+          "posX": 0.6166174,
+          "posY": 0.66041464,
+          "pressure": 14,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.32,
+            "absoluteY": 65.16,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12347,
+            "sourceTimestamp": 1363.615,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.99609375,
+          "id": 11,
+          "majorAxis": 6.68,
+          "minorAxis": 6.42,
+          "posX": 0.6166174,
+          "posY": 0.66041464,
+          "pressure": 14,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.32,
+            "absoluteY": 65.16,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12347,
+            "sourceTimestamp": 1363.615,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13006,
+      "timestamp": 1.0
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.99609375,
+          "id": 11,
+          "majorAxis": 6.68,
+          "minorAxis": 6.42,
+          "posX": 0.61622334,
+          "posY": 0.6617966,
+          "pressure": 18,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": 12.625,
+            "absoluteX": 20.26,
+            "absoluteY": 65.3,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12348,
+            "sourceTimestamp": 1363.626,
+            "velocityX": -0.03530378,
+            "velocityY": 0.12462982
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.99609375,
+          "id": 11,
+          "majorAxis": 6.68,
+          "minorAxis": 6.42,
+          "posX": 0.61622334,
+          "posY": 0.6617966,
+          "pressure": 18,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": 12.625,
+            "absoluteX": 20.26,
+            "absoluteY": 65.3,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12348,
+            "sourceTimestamp": 1363.626,
+            "velocityX": -0.03530378,
+            "velocityY": 0.12462982
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13007,
+      "timestamp": 1.011
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.92578125,
+          "id": 11,
+          "majorAxis": 6.79,
+          "minorAxis": 6.3,
+          "posX": 0.61609197,
+          "posY": 0.6633761,
+          "pressure": 14,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -1.75,
+            "absoluteVelocityY": 14.5,
+            "absoluteX": 20.24,
+            "absoluteY": 65.46,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12349,
+            "sourceTimestamp": 1363.637,
+            "velocityX": -0.011494253,
+            "velocityY": 0.1431392
+          },
+          "total": 0.51953125
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.92578125,
+          "id": 11,
+          "majorAxis": 6.79,
+          "minorAxis": 6.3,
+          "posX": 0.61609197,
+          "posY": 0.6633761,
+          "pressure": 14,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -1.75,
+            "absoluteVelocityY": 14.5,
+            "absoluteX": 20.24,
+            "absoluteY": 65.46,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12349,
+            "sourceTimestamp": 1363.637,
+            "velocityX": -0.011494253,
+            "velocityY": 0.1431392
+          },
+          "total": 0.51953125
+        }
+      ],
+      "sequence": 13008,
+      "timestamp": 1.022
+    },
+    {
+      "contacts": [
+        {
+          "angle": 2.3561945,
+          "density": 0.56640625,
+          "id": 2,
+          "majorAxis": 6.52,
+          "minorAxis": 5.77,
+          "posX": 0.5044335,
+          "posY": 0.6831195,
+          "pressure": 30,
+          "state": "starting",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 3.24,
+            "absoluteY": 67.46,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12350,
+            "sourceTimestamp": 1363.649,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.27734375
+        },
+        {
+          "angle": 0,
+          "density": 0.80859375,
+          "id": 11,
+          "majorAxis": 6.56,
+          "minorAxis": 5.82,
+          "posX": 0.6166174,
+          "posY": 0.66436327,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.32,
+            "absoluteY": 65.56,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12350,
+            "sourceTimestamp": 1363.649,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.3984375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 2.3561945,
+          "density": 0.56640625,
+          "id": 2,
+          "majorAxis": 6.52,
+          "minorAxis": 5.77,
+          "posX": 0.5044335,
+          "posY": 0.6831195,
+          "pressure": 30,
+          "state": "starting",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 3.24,
+            "absoluteY": 67.46,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12350,
+            "sourceTimestamp": 1363.649,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.27734375
+        },
+        {
+          "angle": 0,
+          "density": 0.80859375,
+          "id": 11,
+          "majorAxis": 6.56,
+          "minorAxis": 5.82,
+          "posX": 0.6166174,
+          "posY": 0.66436327,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.32,
+            "absoluteY": 65.56,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12350,
+            "sourceTimestamp": 1363.649,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.3984375
+        }
+      ],
+      "sequence": 13009,
+      "timestamp": 1.034
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.91796875,
+          "id": 2,
+          "majorAxis": 6.77,
+          "minorAxis": 5.96,
+          "posX": 0.49484402,
+          "posY": 0.6831195,
+          "pressure": 34,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.78,
+            "absoluteY": 67.46,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12351,
+            "sourceTimestamp": 1363.66,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.4765625
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0.47265625,
+          "id": 11,
+          "majorAxis": 6.56,
+          "minorAxis": 6.08,
+          "posX": 0.61714286,
+          "posY": 0.6716683,
+          "pressure": 28,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 7.25,
+            "absoluteVelocityY": 67.25,
+            "absoluteX": 20.4,
+            "absoluteY": 66.3,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12351,
+            "sourceTimestamp": 1363.66,
+            "velocityX": 0.04761905,
+            "velocityY": 0.6638697
+          },
+          "total": 0.23828125
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.91796875,
+          "id": 2,
+          "majorAxis": 6.77,
+          "minorAxis": 5.96,
+          "posX": 0.49484402,
+          "posY": 0.6831195,
+          "pressure": 34,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.78,
+            "absoluteY": 67.46,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12351,
+            "sourceTimestamp": 1363.66,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.4765625
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0.47265625,
+          "id": 11,
+          "majorAxis": 6.56,
+          "minorAxis": 6.08,
+          "posX": 0.61714286,
+          "posY": 0.6716683,
+          "pressure": 28,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 7.25,
+            "absoluteVelocityY": 67.25,
+            "absoluteX": 20.4,
+            "absoluteY": 66.3,
+            "fingerID": 2,
+            "handID": 1,
+            "sourceFrame": 12351,
+            "sourceTimestamp": 1363.66,
+            "velocityX": 0.04761905,
+            "velocityY": 0.6638697
+          },
+          "total": 0.23828125
+        }
+      ],
+      "sequence": 13010,
+      "timestamp": 1.045
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.9609375,
+          "id": 2,
+          "majorAxis": 6.85,
+          "minorAxis": 6.1,
+          "posX": 0.4944499,
+          "posY": 0.68114513,
+          "pressure": 50,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": -18.125,
+            "absoluteX": 1.72,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12352,
+            "sourceTimestamp": 1363.671,
+            "velocityX": -0.03530378,
+            "velocityY": -0.178924
+          },
+          "total": 0.51953125
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0,
+          "id": 11,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.61714286,
+          "posY": 0.6716683,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.4,
+            "absoluteY": 66.3,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12352,
+            "sourceTimestamp": 1363.671,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.9609375,
+          "id": 2,
+          "majorAxis": 6.85,
+          "minorAxis": 6.1,
+          "posX": 0.4944499,
+          "posY": 0.68114513,
+          "pressure": 50,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": -18.125,
+            "absoluteX": 1.72,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12352,
+            "sourceTimestamp": 1363.671,
+            "velocityX": -0.03530378,
+            "velocityY": -0.178924
+          },
+          "total": 0.51953125
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0,
+          "id": 11,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.61714286,
+          "posY": 0.6716683,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 20.4,
+            "absoluteY": 66.3,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12352,
+            "sourceTimestamp": 1363.671,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "sequence": 13011,
+      "timestamp": 1.056
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 1,
+          "id": 2,
+          "majorAxis": 6.94,
+          "minorAxis": 6.16,
+          "posX": 0.49366173,
+          "posY": 0.68134254,
+          "pressure": 38,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -10.875,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": 1.6,
+            "absoluteY": 67.28,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12353,
+            "sourceTimestamp": 1363.682,
+            "velocityX": -0.07142857,
+            "velocityY": 0.01727542
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 1,
+          "id": 2,
+          "majorAxis": 6.94,
+          "minorAxis": 6.16,
+          "posX": 0.49366173,
+          "posY": 0.68134254,
+          "pressure": 38,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -10.875,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": 1.6,
+            "absoluteY": 67.28,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12353,
+            "sourceTimestamp": 1363.682,
+            "velocityX": -0.07142857,
+            "velocityY": 0.01727542
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13012,
+      "timestamp": 1.067
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.953125,
+          "id": 2,
+          "majorAxis": 7.06,
+          "minorAxis": 6.26,
+          "posX": 0.4931363,
+          "posY": 0.68134254,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -6.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.52,
+            "absoluteY": 67.28,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12354,
+            "sourceTimestamp": 1363.694,
+            "velocityX": -0.043513957,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.953125,
+          "id": 2,
+          "majorAxis": 7.06,
+          "minorAxis": 6.26,
+          "posX": 0.4931363,
+          "posY": 0.68134254,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -6.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.52,
+            "absoluteY": 67.28,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12354,
+            "sourceTimestamp": 1363.694,
+            "velocityX": -0.043513957,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13013,
+      "timestamp": 1.079
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.93359375,
+          "id": 2,
+          "majorAxis": 7.1,
+          "minorAxis": 6.32,
+          "posX": 0.4927422,
+          "posY": 0.68114513,
+          "pressure": 44,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": -1.75,
+            "absoluteX": 1.46,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12355,
+            "sourceTimestamp": 1363.705,
+            "velocityX": -0.03530378,
+            "velocityY": -0.01727542
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.93359375,
+          "id": 2,
+          "majorAxis": 7.1,
+          "minorAxis": 6.32,
+          "posX": 0.4927422,
+          "posY": 0.68114513,
+          "pressure": 44,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -5.375,
+            "absoluteVelocityY": -1.75,
+            "absoluteX": 1.46,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12355,
+            "sourceTimestamp": 1363.705,
+            "velocityX": -0.03530378,
+            "velocityY": -0.01727542
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13014,
+      "timestamp": 1.09
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.92578125,
+          "id": 2,
+          "majorAxis": 7.1,
+          "minorAxis": 6.36,
+          "posX": 0.49247947,
+          "posY": 0.68114513,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -3.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.42,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12356,
+            "sourceTimestamp": 1363.716,
+            "velocityX": -0.023809524,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.92578125,
+          "id": 2,
+          "majorAxis": 7.1,
+          "minorAxis": 6.36,
+          "posX": 0.49247947,
+          "posY": 0.68114513,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -3.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.42,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12356,
+            "sourceTimestamp": 1363.716,
+            "velocityX": -0.023809524,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13015,
+      "timestamp": 1.101
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.97265625,
+          "id": 2,
+          "majorAxis": 7.16,
+          "minorAxis": 6.38,
+          "posX": 0.4923481,
+          "posY": 0.68114513,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -1.75,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.4,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12357,
+            "sourceTimestamp": 1363.727,
+            "velocityX": -0.011494253,
+            "velocityY": 0
+          },
+          "total": 0.59765625
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.97265625,
+          "id": 2,
+          "majorAxis": 7.16,
+          "minorAxis": 6.38,
+          "posX": 0.4923481,
+          "posY": 0.68114513,
+          "pressure": 48,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -1.75,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.4,
+            "absoluteY": 67.26,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12357,
+            "sourceTimestamp": 1363.727,
+            "velocityX": -0.011494253,
+            "velocityY": 0
+          },
+          "total": 0.59765625
+        }
+      ],
+      "sequence": 13016,
+      "timestamp": 1.112
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0.3926991,
+          "density": 0.87890625,
+          "id": 2,
+          "majorAxis": 7.36,
+          "minorAxis": 6.36,
+          "posX": 0.4920854,
+          "posY": 0.68153995,
+          "pressure": 68,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -3.25,
+            "absoluteVelocityY": 3.25,
+            "absoluteX": 1.36,
+            "absoluteY": 67.3,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12358,
+            "sourceTimestamp": 1363.739,
+            "velocityX": -0.021346468,
+            "velocityY": 0.03208292
+          },
+          "total": 0.55859375
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0.3926991,
+          "density": 0.87890625,
+          "id": 2,
+          "majorAxis": 7.36,
+          "minorAxis": 6.36,
+          "posX": 0.4920854,
+          "posY": 0.68153995,
+          "pressure": 68,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": -3.25,
+            "absoluteVelocityY": 3.25,
+            "absoluteX": 1.36,
+            "absoluteY": 67.3,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12358,
+            "sourceTimestamp": 1363.739,
+            "velocityX": -0.021346468,
+            "velocityY": 0.03208292
+          },
+          "total": 0.55859375
+        }
+      ],
+      "sequence": 13017,
+      "timestamp": 1.124
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0.9921875,
+          "id": 1,
+          "majorAxis": 7.3,
+          "minorAxis": 6.46,
+          "posX": 0.35704434,
+          "posY": 0.6159921,
+          "pressure": 8,
+          "state": "starting",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.2,
+            "absoluteY": 60.66,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12359,
+            "sourceTimestamp": 1363.75,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.63671875
+        },
+        {
+          "angle": 0.3926991,
+          "density": 1.1757812,
+          "id": 2,
+          "majorAxis": 6.89,
+          "minorAxis": 6.36,
+          "posX": 0.4920854,
+          "posY": 0.68430406,
+          "pressure": 60,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.36,
+            "absoluteY": 67.58,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12359,
+            "sourceTimestamp": 1363.75,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.6796875
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0.9921875,
+          "id": 1,
+          "majorAxis": 7.3,
+          "minorAxis": 6.46,
+          "posX": 0.35704434,
+          "posY": 0.6159921,
+          "pressure": 8,
+          "state": "starting",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.2,
+            "absoluteY": 60.66,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12359,
+            "sourceTimestamp": 1363.75,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.63671875
+        },
+        {
+          "angle": 0.3926991,
+          "density": 1.1757812,
+          "id": 2,
+          "majorAxis": 6.89,
+          "minorAxis": 6.36,
+          "posX": 0.4920854,
+          "posY": 0.68430406,
+          "pressure": 60,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.36,
+            "absoluteY": 67.58,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12359,
+            "sourceTimestamp": 1363.75,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.6796875
+        }
+      ],
+      "sequence": 13018,
+      "timestamp": 1.135
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0.94921875,
+          "id": 1,
+          "majorAxis": 7.28,
+          "minorAxis": 6.38,
+          "posX": 0.3567816,
+          "posY": 0.6142152,
+          "pressure": 32,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.24,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12360,
+            "sourceTimestamp": 1363.761,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.59765625
+        },
+        {
+          "angle": 0,
+          "density": 1.0546875,
+          "id": 2,
+          "majorAxis": 6.92,
+          "minorAxis": 6.22,
+          "posX": 0.49221674,
+          "posY": 0.68489635,
+          "pressure": 38,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.75,
+            "absoluteVelocityY": 5.375,
+            "absoluteX": 1.38,
+            "absoluteY": 67.64,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12360,
+            "sourceTimestamp": 1363.761,
+            "velocityX": 0.011494253,
+            "velocityY": 0.05306022
+          },
+          "total": 0.59765625
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0.94921875,
+          "id": 1,
+          "majorAxis": 7.28,
+          "minorAxis": 6.38,
+          "posX": 0.3567816,
+          "posY": 0.6142152,
+          "pressure": 32,
+          "state": "making",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.24,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12360,
+            "sourceTimestamp": 1363.761,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0.59765625
+        },
+        {
+          "angle": 0,
+          "density": 1.0546875,
+          "id": 2,
+          "majorAxis": 6.92,
+          "minorAxis": 6.22,
+          "posX": 0.49221674,
+          "posY": 0.68489635,
+          "pressure": 38,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.75,
+            "absoluteVelocityY": 5.375,
+            "absoluteX": 1.38,
+            "absoluteY": 67.64,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12360,
+            "sourceTimestamp": 1363.761,
+            "velocityX": 0.011494253,
+            "velocityY": 0.05306022
+          },
+          "total": 0.59765625
+        }
+      ],
+      "sequence": 13019,
+      "timestamp": 1.146
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0.98046875,
+          "id": 1,
+          "majorAxis": 7.22,
+          "minorAxis": 6.28,
+          "posX": 0.3571757,
+          "posY": 0.6138203,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 5.375,
+            "absoluteVelocityY": -3.625,
+            "absoluteX": -19.18,
+            "absoluteY": 60.44,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12361,
+            "sourceTimestamp": 1363.772,
+            "velocityX": 0.03530378,
+            "velocityY": -0.0357848
+          },
+          "total": 0.59765625
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0.96484375,
+          "id": 2,
+          "majorAxis": 6.89,
+          "minorAxis": 6.04,
+          "posX": 0.4923481,
+          "posY": 0.68548864,
+          "pressure": 18,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.75,
+            "absoluteVelocityY": 5.375,
+            "absoluteX": 1.4,
+            "absoluteY": 67.7,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12361,
+            "sourceTimestamp": 1363.772,
+            "velocityX": 0.011494253,
+            "velocityY": 0.05306022
+          },
+          "total": 0.51953125
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0.98046875,
+          "id": 1,
+          "majorAxis": 7.22,
+          "minorAxis": 6.28,
+          "posX": 0.3571757,
+          "posY": 0.6138203,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 5.375,
+            "absoluteVelocityY": -3.625,
+            "absoluteX": -19.18,
+            "absoluteY": 60.44,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12361,
+            "sourceTimestamp": 1363.772,
+            "velocityX": 0.03530378,
+            "velocityY": -0.0357848
+          },
+          "total": 0.59765625
+        },
+        {
+          "angle": 1.5707964,
+          "density": 0.96484375,
+          "id": 2,
+          "majorAxis": 6.89,
+          "minorAxis": 6.04,
+          "posX": 0.4923481,
+          "posY": 0.68548864,
+          "pressure": 18,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.75,
+            "absoluteVelocityY": 5.375,
+            "absoluteX": 1.4,
+            "absoluteY": 67.7,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12361,
+            "sourceTimestamp": 1363.772,
+            "velocityX": 0.011494253,
+            "velocityY": 0.05306022
+          },
+          "total": 0.51953125
+        }
+      ],
+      "sequence": 13020,
+      "timestamp": 1.157
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0.94921875,
+          "id": 1,
+          "majorAxis": 7.16,
+          "minorAxis": 6.18,
+          "posX": 0.35730705,
+          "posY": 0.6138203,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.16,
+            "absoluteY": 60.44,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12362,
+            "sourceTimestamp": 1363.784,
+            "velocityX": 0.010673234,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        },
+        {
+          "angle": 0,
+          "density": 0.28125,
+          "id": 2,
+          "majorAxis": 7.06,
+          "minorAxis": 5.79,
+          "posX": 0.49195403,
+          "posY": 0.68923986,
+          "pressure": 8,
+          "state": "breaking",
+          "telemetry": {
+            "absoluteVelocityX": -4.875,
+            "absoluteVelocityY": 31.625,
+            "absoluteX": 1.34,
+            "absoluteY": 68.08,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12362,
+            "sourceTimestamp": 1363.784,
+            "velocityX": -0.032019705,
+            "velocityY": 0.3121915
+          },
+          "total": 0.15625
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0.94921875,
+          "id": 1,
+          "majorAxis": 7.16,
+          "minorAxis": 6.18,
+          "posX": 0.35730705,
+          "posY": 0.6138203,
+          "pressure": 42,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 1.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.16,
+            "absoluteY": 60.44,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12362,
+            "sourceTimestamp": 1363.784,
+            "velocityX": 0.010673234,
+            "velocityY": 0
+          },
+          "total": 0.55859375
+        },
+        {
+          "angle": 0,
+          "density": 0.28125,
+          "id": 2,
+          "majorAxis": 7.06,
+          "minorAxis": 5.79,
+          "posX": 0.49195403,
+          "posY": 0.68923986,
+          "pressure": 8,
+          "state": "breaking",
+          "telemetry": {
+            "absoluteVelocityX": -4.875,
+            "absoluteVelocityY": 31.625,
+            "absoluteX": 1.34,
+            "absoluteY": 68.08,
+            "fingerID": 3,
+            "handID": 1,
+            "sourceFrame": 12362,
+            "sourceTimestamp": 1363.784,
+            "velocityX": -0.032019705,
+            "velocityY": 0.3121915
+          },
+          "total": 0.15625
+        }
+      ],
+      "sequence": 13021,
+      "timestamp": 1.169
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.95703125,
+          "id": 1,
+          "majorAxis": 7.1,
+          "minorAxis": 6.2,
+          "posX": 0.35730705,
+          "posY": 0.6140178,
+          "pressure": 32,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": -19.16,
+            "absoluteY": 60.46,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12363,
+            "sourceTimestamp": 1363.795,
+            "velocityX": 0,
+            "velocityY": 0.01727542
+          },
+          "total": 0.55859375
+        },
+        {
+          "angle": 0,
+          "density": 0,
+          "id": 2,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.49195403,
+          "posY": 0.68923986,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.34,
+            "absoluteY": 68.08,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12363,
+            "sourceTimestamp": 1363.795,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.95703125,
+          "id": 1,
+          "majorAxis": 7.1,
+          "minorAxis": 6.2,
+          "posX": 0.35730705,
+          "posY": 0.6140178,
+          "pressure": 32,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": -19.16,
+            "absoluteY": 60.46,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12363,
+            "sourceTimestamp": 1363.795,
+            "velocityX": 0,
+            "velocityY": 0.01727542
+          },
+          "total": 0.55859375
+        },
+        {
+          "angle": 0,
+          "density": 0,
+          "id": 2,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.49195403,
+          "posY": 0.68923986,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": 1.34,
+            "absoluteY": 68.08,
+            "fingerID": 0,
+            "handID": 1,
+            "sourceFrame": 12363,
+            "sourceTimestamp": 1363.795,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "sequence": 13022,
+      "timestamp": 1.18
+    },
+    {
+      "contacts": [
+        {
+          "angle": 1.5707964,
+          "density": 0.875,
+          "id": 1,
+          "majorAxis": 7.08,
+          "minorAxis": 6.3,
+          "posX": 0.35756978,
+          "posY": 0.6140178,
+          "pressure": 10,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 3.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.12,
+            "absoluteY": 60.46,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12364,
+            "sourceTimestamp": 1363.806,
+            "velocityX": 0.023809524,
+            "velocityY": 0
+          },
+          "total": 0.51953125
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 1.5707964,
+          "density": 0.875,
+          "id": 1,
+          "majorAxis": 7.08,
+          "minorAxis": 6.3,
+          "posX": 0.35756978,
+          "posY": 0.6140178,
+          "pressure": 10,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 3.625,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.12,
+            "absoluteY": 60.46,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12364,
+            "sourceTimestamp": 1363.806,
+            "velocityX": 0.023809524,
+            "velocityY": 0
+          },
+          "total": 0.51953125
+        }
+      ],
+      "sequence": 13023,
+      "timestamp": 1.191
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0.3828125,
+          "id": 1,
+          "majorAxis": 7.3,
+          "minorAxis": 6.3,
+          "posX": 0.35783252,
+          "posY": 0.6142152,
+          "pressure": 0,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 3.625,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": -19.08,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12365,
+            "sourceTimestamp": 1363.817,
+            "velocityX": 0.023809524,
+            "velocityY": 0.01727542
+          },
+          "total": 0.23828125
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0.3828125,
+          "id": 1,
+          "majorAxis": 7.3,
+          "minorAxis": 6.3,
+          "posX": 0.35783252,
+          "posY": 0.6142152,
+          "pressure": 0,
+          "state": "touching",
+          "telemetry": {
+            "absoluteVelocityX": 3.625,
+            "absoluteVelocityY": 1.75,
+            "absoluteX": -19.08,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12365,
+            "sourceTimestamp": 1363.817,
+            "velocityX": 0.023809524,
+            "velocityY": 0.01727542
+          },
+          "total": 0.23828125
+        }
+      ],
+      "sequence": 13024,
+      "timestamp": 1.202
+    },
+    {
+      "contacts": [
+        {
+          "angle": 0,
+          "density": 0,
+          "id": 1,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.35783252,
+          "posY": 0.6142152,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.08,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12366,
+            "sourceTimestamp": 1363.829,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [
+        {
+          "angle": 0,
+          "density": 0,
+          "id": 1,
+          "majorAxis": 0,
+          "minorAxis": 0,
+          "posX": 0.35783252,
+          "posY": 0.6142152,
+          "pressure": 0,
+          "state": "leaving",
+          "telemetry": {
+            "absoluteVelocityX": 0,
+            "absoluteVelocityY": 0,
+            "absoluteX": -19.08,
+            "absoluteY": 60.48,
+            "fingerID": 4,
+            "handID": 1,
+            "sourceFrame": 12366,
+            "sourceTimestamp": 1363.829,
+            "velocityX": 0,
+            "velocityY": 0
+          },
+          "total": 0
+        }
+      ],
+      "sequence": 13025,
+      "timestamp": 1.214
+    },
+    {
+      "contacts": [],
+      "deviceIndex": 0,
+      "deviceNumericID": 42,
+      "rawTouches": [],
+      "sequence": 13026,
+      "timestamp": 1.225
+    }
+  ]
+}

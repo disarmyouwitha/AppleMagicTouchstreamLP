@@ -1,0 +1,83 @@
+# Maintainer: AppleMagicTouchstream
+
+pkgname=applemagictouchstream-linux
+pkgver=0.1.0
+pkgrel=2
+pkgdesc="Apple Magic Trackpad to keyboard runtime for Linux (CLI + tray GUI)"
+arch=('x86_64')
+url="https://github.com/OpenAdaptAI/AppleMagicTouchstreamLP"
+license=('custom')
+depends=('libevdev' 'systemd')
+makedepends=('dotnet-sdk')
+install=applemagictouchstream-linux.install
+options=('!strip')
+source=(
+  "90-applemagictouchstream.rules"
+  "applemagictouchstream.service"
+  "applemagictouchstream.desktop"
+  "applemagictouchstream.sysusers"
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+_repo_root="${startdir}/../../.."
+_cli_publish_dir="${_repo_root}/AppleMagicTouchstream.Linux/bin/Release/net10.0/publish/linux-x64-self-contained"
+_gui_publish_dir="${_repo_root}/AppleMagicTouchstream.Linux/Gui/bin/Release/net10.0/publish/linux-x64-self-contained"
+
+build() {
+  cd "${_repo_root}"
+  dotnet publish AppleMagicTouchstream.Linux/AppleMagicTouchstream.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
+  dotnet publish AppleMagicTouchstream.Linux/Gui/AppleMagicTouchstream.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained
+}
+
+package() {
+  if [[ ! -f "${_cli_publish_dir}/AppleMagicTouchstream.Linux" ]]; then
+    echo "Missing CLI publish output at ${_cli_publish_dir}" >&2
+    return 1
+  fi
+
+  if [[ ! -f "${_gui_publish_dir}/AppleMagicTouchstream.Linux.Gui" ]]; then
+    echo "Missing GUI publish output at ${_gui_publish_dir}" >&2
+    return 1
+  fi
+
+  install -d "${pkgdir}/opt/AppleMagicTouchstream.Linux"
+  install -d "${pkgdir}/opt/AppleMagicTouchstream.Linux.Gui"
+  cp -a "${_cli_publish_dir}/." "${pkgdir}/opt/AppleMagicTouchstream.Linux/"
+  cp -a "${_gui_publish_dir}/." "${pkgdir}/opt/AppleMagicTouchstream.Linux.Gui/"
+
+  install -Dm644 "${srcdir}/90-applemagictouchstream.rules" "${pkgdir}/usr/lib/udev/rules.d/90-applemagictouchstream.rules"
+  install -Dm644 "${srcdir}/applemagictouchstream.service" "${pkgdir}/usr/lib/systemd/user/applemagictouchstream.service"
+  install -Dm644 "${srcdir}/applemagictouchstream.desktop" "${pkgdir}/usr/share/applications/applemagictouchstream.desktop"
+  install -Dm644 "${srcdir}/applemagictouchstream.sysusers" "${pkgdir}/usr/lib/sysusers.d/applemagictouchstream.conf"
+  install -d "${pkgdir}/usr/bin"
+
+  cat > "${pkgdir}/usr/bin/applemagictouchstream" <<'EOF'
+#!/usr/bin/env bash
+exec /opt/AppleMagicTouchstream.Linux/AppleMagicTouchstream.Linux "$@"
+EOF
+  chmod 0755 "${pkgdir}/usr/bin/applemagictouchstream"
+
+  cat > "${pkgdir}/usr/bin/applemagictouchstream-gui" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+
+START_MODE="--background"
+
+if [ "${1:-}" = "--foreground" ]; then
+  shift
+  exec /opt/AppleMagicTouchstream.Linux.Gui/AppleMagicTouchstream.Linux.Gui "$@"
+fi
+
+if [ "${1:-}" = "--show" ]; then
+  START_MODE="--show"
+  shift
+fi
+
+if command -v setsid >/dev/null 2>&1; then
+  setsid /opt/AppleMagicTouchstream.Linux.Gui/AppleMagicTouchstream.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+else
+  /opt/AppleMagicTouchstream.Linux.Gui/AppleMagicTouchstream.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+fi
+EOF
+  chmod 0755 "${pkgdir}/usr/bin/applemagictouchstream-gui"
+}

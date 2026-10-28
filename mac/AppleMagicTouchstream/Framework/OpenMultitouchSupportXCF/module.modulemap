@@ -1,0 +1,9 @@
+// Explicit public entry header avoids competing directory umbrellas in Xcode.
+module OpenMultitouchSupportXCF {
+    header "OpenMultitouchSupportXCF.h"
+    exclude header "OpenMTEventInternal.h"
+    exclude header "OpenMTListenerInternal.h"
+    exclude header "OpenMTManagerInternal.h"
+    exclude header "OpenMTTouchInternal.h"
+    export *
+}

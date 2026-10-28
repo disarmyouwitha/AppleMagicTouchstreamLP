@@ -1,0 +1,892 @@
+{
+  "HostExtensions" : {
+    "mac" : {
+      "AutoResyncMissingTrackpads" : false,
+      "ForceClickThreshold" : 255,
+      "GestureBindings" : {
+        "coordinated" : {
+          "assignments" : {
+            "fourFingers.hold" : "missionControl",
+            "threeFingers.hold" : "appExpose",
+            "threeFingers.tap" : "disabled"
+          },
+          "holdThresholds" : {
+            "fourFingers" : 0.2,
+            "threeFingers" : 0.2
+          }
+        },
+        "left" : {
+          "bindings" : {
+            "fiveFingerMove" : "disabled",
+            "fiveFingerTap" : "disabled",
+            "forceActions" : {
+              "fiveFingerForce" : "disabled",
+              "fourFingerForce" : "disabled",
+              "oneFingerForce" : "disabled",
+              "twoFingerForce" : "disabled"
+            },
+            "fourFingerMove" : "scroll",
+            "pinchActions" : {
+              "fiveFingerPinch" : "disabled",
+              "fourFingerPinch" : "disabled",
+              "threeFingerPinch" : "disabled"
+            },
+            "rotationActions" : {
+              "fiveFingerRotateLeft" : "disabled",
+              "fiveFingerRotateRight" : "disabled",
+              "threeFingerRotateLeft" : "disabled",
+              "threeFingerRotateRight" : "disabled",
+              "twoFingerRotateLeft" : "appExpose",
+              "twoFingerRotateRight" : "missionControl"
+            },
+            "spreadActions" : {
+              "fiveFingerSpread" : "disabled",
+              "fourFingerSpread" : "disabled",
+              "threeFingerSpread" : "disabled",
+              "twoFingerSpread" : "zoom"
+            },
+            "threeFingerMove" : "primaryDrag",
+            "threeFingerTap" : "primaryDoubleClick",
+            "thumbTwoTap" : "secondaryClick",
+            "twoFingerMove" : "pointer",
+            "twoFingerPinch" : "zoom",
+            "twoFingerTap" : "primaryClick"
+          },
+          "directionalMovement" : {
+            "fiveFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous",
+              "repeatEnabledOverrides" : {
+                "down" : true,
+                "left" : true,
+                "right" : true,
+                "up" : true
+              },
+              "repeatIntervalsMS" : {
+                "down" : 50,
+                "left" : 20,
+                "right" : 20,
+                "up" : 50
+              }
+            },
+            "fourFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous"
+            },
+            "threeFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous",
+              "repeatEnabledOverrides" : {
+                "down" : true,
+                "left" : true,
+                "right" : true,
+                "up" : true
+              },
+              "repeatIntervalsMS" : {
+                "down" : 20,
+                "left" : 20,
+                "right" : 20,
+                "up" : 50
+              }
+            },
+            "twoFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous"
+            }
+          },
+          "forceHaptic" : {
+            "level" : 0.15,
+            "waveform" : 6
+          },
+          "holdActions" : {
+            "2" : "disabled",
+            "3" : "disabled",
+            "4" : "shortcut:{\"holdUntilRelease\":true,\"label\":\"Shift\"}",
+            "5" : "disabled",
+            "6" : "disabled"
+          },
+          "holdThresholds" : {
+            "3" : 0.1,
+            "4" : 0.1,
+            "7" : 0.5
+          },
+          "naturalScrolling" : false,
+          "pointerSensitivity" : 1,
+          "scrollSensitivity" : 1
+        },
+        "right" : {
+          "bindings" : {
+            "fiveFingerMove" : "disabled",
+            "forceActions" : {
+              "fiveFingerForce" : "disabled",
+              "fourFingerForce" : "disabled",
+              "oneFingerForce" : "disabled",
+              "twoFingerForce" : "disabled"
+            },
+            "fourFingerMove" : "scroll",
+            "pinchActions" : {
+              "fiveFingerPinch" : "disabled",
+              "fourFingerPinch" : "disabled",
+              "threeFingerPinch" : "disabled"
+            },
+            "rotationActions" : {
+              "fiveFingerRotateLeft" : "disabled",
+              "fiveFingerRotateRight" : "disabled",
+              "threeFingerRotateLeft" : "disabled",
+              "threeFingerRotateRight" : "disabled",
+              "twoFingerRotateLeft" : "appExpose",
+              "twoFingerRotateRight" : "missionControl"
+            },
+            "spreadActions" : {
+              "fiveFingerSpread" : "disabled",
+              "fourFingerSpread" : "disabled",
+              "threeFingerSpread" : "disabled",
+              "twoFingerSpread" : "zoom"
+            },
+            "threeFingerMove" : "primaryDrag",
+            "threeFingerTap" : "primaryDoubleClick",
+            "thumbTwoTap" : "secondaryClick",
+            "twoFingerMove" : "pointer",
+            "twoFingerPinch" : "zoom",
+            "twoFingerTap" : "primaryClick"
+          },
+          "directionalMovement" : {
+            "fiveFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous",
+              "repeatEnabledOverrides" : {
+                "down" : true,
+                "left" : true,
+                "right" : true,
+                "up" : true
+              },
+              "repeatIntervalsMS" : {
+                "down" : 50,
+                "left" : 20,
+                "right" : 20,
+                "up" : 50
+              }
+            },
+            "fourFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous"
+            },
+            "threeFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "left" : "disabled",
+                "right" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous",
+              "repeatEnabledOverrides" : {
+                "right" : false
+              },
+              "repeatIntervalsMS" : {
+                "right" : 20,
+                "up" : 0
+              }
+            },
+            "twoFingerMove" : {
+              "actions" : {
+                "down" : "disabled",
+                "up" : "disabled"
+              },
+              "mode" : "continuous"
+            }
+          },
+          "forceHaptic" : {
+            "level" : 0.15,
+            "waveform" : 6
+          },
+          "holdActions" : {
+            "2" : "disabled",
+            "3" : "disabled",
+            "4" : "shortcut:{\"holdUntilRelease\":true,\"label\":\"Shift\"}",
+            "6" : "disabled"
+          },
+          "holdThresholds" : {
+            "3" : 0.1,
+            "4" : 0.1,
+            "7" : 0.5
+          },
+          "pointerSensitivity" : 1,
+          "scrollSensitivity" : 1
+        }
+      },
+      "HapticStrength" : 26,
+      "LeftDeviceID" : "288230377507812716",
+      "RightDeviceID" : "288230377507875157",
+      "RunAtStartupEnabled" : true,
+      "TapClickCadenceMs" : 230,
+      "ThreeFingerTapGestureAction" : "None",
+      "TwoFingerTapGestureAction" : "None"
+    }
+  },
+  "KeymapJson" : "{\"Layouts\":{\"Blank\":{\"CustomButtons\":{\"2\":[],\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"1\":{},\"2\":{},\"0\":{},\"3\":{}}},\"6x3\":{\"CustomButtons\":{\"1\":[{\"Rect\":{\"Y\":0.6799999999999999,\"Height\":0.32,\"X\":0,\"Width\":0.25},\"Id\":\"90ABB5E6-6A85-4CC2-B527-76CF67AE6740\",\"Layer\":1,\"Side\":1,\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32,\"X\":0.75},\"Id\":\"717E62A7-3B1E-4F89-995F-16F7472D20AE\",\"Layer\":1,\"Side\":0,\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Height\":0.2,\"Width\":0.27,\"X\":0.3,\"Y\":0.67},\"Id\":\"1D28B5F2-13EB-47F1-8338-9A108DCBF993\",\"Layer\":1,\"Side\":1,\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0}],\"3\":[],\"2\":[],\"0\":[{\"Rect\":{\"X\":0,\"Height\":0.32,\"Y\":0.6799999999999999,\"Width\":0.25},\"Id\":\"3B96A0B2-A59E-48E3-99BF-DF6CCCF87570\",\"Layer\":0,\"Side\":1,\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Width\":0.25,\"Y\":0.6799999999999999,\"X\":0.75,\"Height\":0.32},\"Id\":\"2D99F608-4FB9-4D3C-BB70-F09EDF57E0D9\",\"Layer\":0,\"Side\":0,\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Width\":0.25,\"X\":0.5,\"Height\":0.2610966057441253,\"Y\":0.7389033942558747},\"Id\":\"BE89F157-B4D7-464E-907B-761D7649AFC9\",\"Layer\":0,\"Side\":0,\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0}]},\"KeyGeometry\":{},\"Mappings\":{\"1\":{\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"N\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\".\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"+\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"—\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"3\":{\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"2\":{\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"0\":{\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"Ctrl\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"?\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\";\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"Delete\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Tab\"},\"Hold\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"\\\/\"},\"Hold\":{\"Label\":\"\\\\\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0}}}},\"5x3\":{\"CustomButtons\":{\"1\":[{\"Side\":1,\"HoldForceThreshold\":0,\"Id\":\"0F477699-F2CE-496F-9258-73E8B22682C2\",\"Rect\":{\"Y\":0.65,\"Height\":0.2,\"X\":0.29,\"Width\":0.3},\"Primary\":{\"Label\":\"0\"},\"Layer\":1},{\"Side\":0,\"HoldForceThreshold\":0,\"Id\":\"D194033D-67B1-4DE6-8976-CB71CFDA6145\",\"Rect\":{\"Y\":0.6799999999999999,\"X\":0.75,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Back\"},\"Layer\":1},{\"Side\":1,\"HoldForceThreshold\":0,\"Id\":\"765DCB55-C02F-4B76-B4DA-1136EFCE1E15\",\"Rect\":{\"Width\":0.25,\"Y\":0.6799999999999999,\"Height\":0.32,\"X\":0},\"Primary\":{\"Label\":\"Space\"},\"Layer\":1}],\"3\":[],\"0\":[{\"Side\":0,\"HoldForceThreshold\":0,\"Id\":\"4EFADDA9-7FD4-4D92-A191-2029068DFBA3\",\"Rect\":{\"X\":0.75,\"Height\":0.32,\"Width\":0.25,\"Y\":0.6799999999999999},\"Primary\":{\"Label\":\"Back\"},\"Layer\":0},{\"Side\":1,\"HoldForceThreshold\":0,\"Id\":\"670161E5-AB7C-489A-94C9-AE35FEB17C0D\",\"Rect\":{\"Width\":0.25,\"X\":0,\"Height\":0.32,\"Y\":0.6799999999999999},\"Primary\":{\"Label\":\"Space\"},\"Layer\":0},{\"Side\":0,\"HoldForceThreshold\":0,\"Id\":\"11FB3134-D8E2-4312-834B-A72F2413325B\",\"Rect\":{\"Width\":0.25,\"Height\":0.32,\"X\":0.49,\"Y\":0.6799999999999999},\"Primary\":{\"Label\":\"MO(1)\"},\"Layer\":0}]},\"KeyGeometry\":{},\"Mappings\":{\"1\":{\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"-\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"8\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"2\":{\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"3\":{\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"left:2:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+Z\"},\"Primary\":{\"Label\":\"Z\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"},\"Hold\":{\"Label\":\"Cmd+A\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"{\"},\"Primary\":{\"Label\":\"E\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\"\"},\"Primary\":{\"Label\":\"G\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"!\"},\"Primary\":{\"Label\":\"J\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"=\"},\"Primary\":{\"Label\":\"N\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\";\"},\"Primary\":{\"Label\":\"Enter\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"#\"},\"Primary\":{\"Label\":\"K\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\")\"},\"Primary\":{\"Label\":\"F\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"*\"},\"Primary\":{\"Label\":\"I\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"'\"},\"Primary\":{\"Label\":\"T\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"$\"},\"Primary\":{\"Label\":\",\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"@\"},\"Primary\":{\"Label\":\"M\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"^\"},\"Primary\":{\"Label\":\".\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"`\"},\"Primary\":{\"Label\":\"B\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"&\"},\"Primary\":{\"Label\":\"U\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+C\"},\"Primary\":{\"Label\":\"C\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"H\"},\"Hold\":{\"Label\":\"_\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+V\"},\"Primary\":{\"Label\":\"V\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"[\"},\"Primary\":{\"Label\":\"Q\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"(\"},\"Primary\":{\"Label\":\"D\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+X\"},\"Primary\":{\"Label\":\"X\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"},\"Hold\":{\"Label\":\"}\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"-\"},\"Primary\":{\"Label\":\"Y\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"]\"},\"Primary\":{\"Label\":\"W\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+F\"},\"Primary\":{\"Label\":\"O\"}}}}},\"TouchStream\":{\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"3\":{},\"0\":{},\"2\":{},\"1\":{}}},\"6x4\":{\"CustomButtons\":{\"3\":[],\"2\":[],\"0\":[{\"HoldForceThreshold\":0,\"Side\":1,\"Id\":\"0D51D6C8-B960-4EA4-9F46-3C146D421AF0\",\"Layer\":0,\"Primary\":{\"Label\":\"Space\"},\"Rect\":{\"Y\":0.77,\"Width\":0.25,\"Height\":0.23,\"X\":0}},{\"HoldForceThreshold\":0,\"Side\":0,\"Id\":\"50611E14-3F36-41E5-A96F-509756EC3DFB\",\"Layer\":0,\"Primary\":{\"Label\":\"MO(1)\"},\"Rect\":{\"X\":0.49,\"Height\":0.23,\"Width\":0.25,\"Y\":0.77}},{\"HoldForceThreshold\":0,\"Side\":0,\"Id\":\"4F062E7D-8641-464E-94C7-A175D5CE7F03\",\"Layer\":0,\"Primary\":{\"Label\":\"Back\"},\"Rect\":{\"Width\":0.25,\"Height\":0.23,\"Y\":0.77,\"X\":0.75}}],\"1\":[{\"HoldForceThreshold\":0,\"Side\":1,\"Id\":\"6FC0D4AE-3FBF-4AC0-9C07-07353D18E13A\",\"Layer\":1,\"Primary\":{\"Label\":\"0\"},\"Rect\":{\"Y\":0.7,\"Width\":0.25,\"Height\":0.15,\"X\":0.32}}]},\"KeyGeometry\":{},\"Mappings\":{\"3\":{\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"0\":{\"left:1:0\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"Tab\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"Emoji\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"?\"},\"HoldForceThreshold\":0}},\"2\":{\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"1\":{\"right:1:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"+\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\".\"},\"HoldForceThreshold\":0}}}},\"5x4\":{\"CustomButtons\":{\"1\":[{\"Rect\":{\"Width\":0.25,\"Y\":0.68,\"Height\":0.15,\"X\":0.35},\"Side\":1,\"Layer\":1,\"Id\":\"65353E26-2EC1-42EC-8041-ACC75EFE44D3\",\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Y\":0.7,\"Width\":0.25,\"X\":0,\"Height\":0.3},\"Side\":1,\"Layer\":1,\"Id\":\"10A09F88-946E-4A10-AD40-79B7EC2A228C\",\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},{\"Rect\":{\"X\":0.75,\"Y\":0.7,\"Height\":0.3,\"Width\":0.25},\"Side\":0,\"Layer\":1,\"Id\":\"594FB572-61A9-45AE-9357-8E031DC2BAC3\",\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0}],\"0\":[{\"Rect\":{\"Height\":0.23,\"Y\":0.77,\"X\":0,\"Width\":0.25},\"Side\":1,\"Layer\":0,\"Id\":\"0D59C50F-C17A-4DAF-88D2-2A172544CA43\",\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Width\":0.25,\"X\":0.75,\"Height\":0.23,\"Y\":0.77},\"Side\":0,\"Layer\":0,\"Id\":\"1C33998A-087F-4967-9BFA-7799F4A54E05\",\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},{\"Rect\":{\"Height\":0.23,\"X\":0.49,\"Y\":0.77,\"Width\":0.25},\"Side\":0,\"Layer\":0,\"Id\":\"874F7578-5794-44C2-AC15-6070109CEDBB\",\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0}]},\"KeyGeometry\":{},\"Mappings\":{\"3\":{\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"1\":{\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"-\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"8\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"2\":{\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"J\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"M\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"P\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\",\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Y\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"I\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"N\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"G\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"}},\"right:2:4\":{\"Hold\":{\"Label\":\";\"},\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"8\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"L\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"U\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"H\"}}}}},\"mobile-ortho-12x4\":{\"CustomButtons\":{\"3\":[],\"0\":[{\"HoldForceThreshold\":0,\"Id\":\"61F65836-BA49-40E3-A1B3-93AC861CA581\",\"Side\":1,\"Layer\":0,\"Primary\":{\"Label\":\"Space\"},\"Rect\":{\"Y\":0.77,\"Height\":0.23,\"Width\":0.25,\"X\":0.5}},{\"HoldForceThreshold\":0,\"Id\":\"74382F6D-2CC3-402E-806A-4770DAE208AF\",\"Side\":1,\"Layer\":0,\"Primary\":{\"Label\":\"Back\"},\"Rect\":{\"X\":0.25,\"Width\":0.25,\"Y\":0.77,\"Height\":0.23}}],\"1\":[]},\"KeyGeometry\":{},\"Mappings\":{\"1\":{\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}}},\"3\":{\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"'\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"N\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"I\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"M\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"G\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"H\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\",\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"L\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\":\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Ctrl\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Y\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"U\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"P\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Emoji\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"J\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Option\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}}},\"2\":{\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}}}},\"mobile\":{\"CustomButtons\":{},\"KeyGeometry\":{},\"Mappings\":{\"0\":{},\"2\":{},\"3\":{},\"1\":{}}}},\"Version\":2}",
+  "Settings" : {
+    "ActiveLayer" : 0,
+    "AutocorrectEnabled" : false,
+    "BottomEdgeLeftAction" : "Left",
+    "BottomEdgeRightAction" : "Right",
+    "BottomLeftCornerSwipeAction" : "None",
+    "BottomLeftForceClickAction" : "None",
+    "BottomLeftTriangleAction" : "None",
+    "BottomRightCornerSwipeAction" : "None",
+    "BottomRightForceClickAction" : "None",
+    "BottomRightTriangleAction" : "None",
+    "ColumnSettings" : [
+      {
+        "OffsetXPercent" : -9.5,
+        "OffsetYPercent" : -6,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      },
+      {
+        "OffsetXPercent" : -7,
+        "OffsetYPercent" : -7,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      },
+      {
+        "OffsetXPercent" : -3.5999999999999996,
+        "OffsetYPercent" : -10,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      },
+      {
+        "OffsetXPercent" : -0.40000000000000036,
+        "OffsetYPercent" : -7,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      },
+      {
+        "OffsetXPercent" : 2.8,
+        "OffsetYPercent" : 0,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      },
+      {
+        "OffsetXPercent" : 6,
+        "OffsetYPercent" : 0,
+        "RotationDegrees" : 0,
+        "RowSpacingPercent" : 0,
+        "Scale" : 1.15,
+        "ScaleX" : 1.15,
+        "ScaleY" : 1.15
+      }
+    ],
+    "ColumnSettingsByLayout" : {
+      "5x3" : [
+        {
+          "OffsetXPercent" : -10,
+          "OffsetYPercent" : -6,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -6.8,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -3.6,
+          "OffsetYPercent" : -10,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -0.4,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : 2.8,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        }
+      ],
+      "5x4" : [
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -6,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -10,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        }
+      ],
+      "6x3" : [
+        {
+          "OffsetXPercent" : -9.5,
+          "OffsetYPercent" : -6,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -7,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -3.5999999999999996,
+          "OffsetYPercent" : -10,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : -0.40000000000000036,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : 2.8,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        },
+        {
+          "OffsetXPercent" : 6,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1.15,
+          "ScaleX" : 1.15,
+          "ScaleY" : 1.15
+        }
+      ],
+      "6x4" : [
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -6,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -10,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : -7,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        }
+      ],
+      "Blank" : [
+
+      ],
+      "TouchStream" : [
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 1,
+          "ScaleX" : 1,
+          "ScaleY" : 1
+        }
+      ],
+      "mobile" : [
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0,
+          "OffsetYPercent" : 0,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        }
+      ],
+      "mobile-ortho-12x4" : [
+        {
+          "OffsetXPercent" : -3.5,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -2.7272727272727257,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -1.9545454545454541,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -1.1818181818181763,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -0.4090909090909012,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0.3636363636363794,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 1.136363636363637,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 1.9090909090909176,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 2.681818181818198,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 3.4545454545454675,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 4.227272727272741,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 5,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        }
+      ]
+    },
+    "DragCancelMm" : 8,
+    "FiveFingerSwipeDownAction" : "None",
+    "FiveFingerSwipeLeftAction" : "None",
+    "FiveFingerSwipeRightAction" : "None",
+    "FiveFingerSwipeUpAction" : "None",
+    "ForceCap" : 255,
+    "ForceClickThreshold" : 255,
+    "ForceMin" : 0,
+    "FourFingerClickAction" : "None",
+    "FourFingerHoldAction" : "Shift",
+    "FourFingerSwipeDownAction" : "None",
+    "FourFingerSwipeLeftAction" : "None",
+    "FourFingerSwipeRightAction" : "None",
+    "FourFingerSwipeUpAction" : "None",
+    "GestureRepeatCadenceMsById" : {
+      "bottom_edge_left" : 210,
+      "bottom_edge_right" : 210,
+      "left_edge_down" : 80,
+      "left_edge_up" : 80,
+      "right_edge_down" : 50,
+      "right_edge_up" : 50
+    },
+    "HoldDurationMs" : 220,
+    "HoldRepeatEnabled" : false,
+    "InnerCornersAction" : "None",
+    "IntentMoveMm" : 3,
+    "IntentVelocityMmPerSec" : 30,
+    "KeyPaddingPercent" : 10,
+    "KeyPaddingPercentByLayout" : {
+      "5x3" : 10,
+      "5x4" : 0,
+      "6x3" : 10,
+      "6x4" : 0,
+      "Blank" : 10,
+      "TouchStream" : 10,
+      "mobile" : 10,
+      "mobile-ortho-12x4" : 10
+    },
+    "KeyboardModeEnabled" : false,
+    "LayoutPresetName" : "6x3",
+    "LeftEdgeDownAction" : "None",
+    "LeftEdgeUpAction" : "None",
+    "LowerLeftCornerClickAction" : "TO(0)",
+    "LowerRightCornerClickAction" : "None",
+    "OuterCornersAction" : "None",
+    "RightEdgeDownAction" : "None",
+    "RightEdgeUpAction" : "None",
+    "ShortcutActions" : [
+      "Shift+Cmd+4",
+      "APP:{\"Arguments\":\"\",\"FileName\":\"\\\/Users\\\/nap\\\/Documents\\\/AppleMagicTouchstreamLP\\\/mac\\\/AppleMagicTouchstream\\\/touchstreamLP.jpg\"}",
+      "Shift",
+      "Enter"
+    ],
+    "SnapRadiusPercent" : 200,
+    "ThreeFingerClickAction" : "None",
+    "ThreeFingerHoldAction" : "Right Click",
+    "ThreeFingerSwipeDownAction" : "None",
+    "ThreeFingerSwipeLeftAction" : "None",
+    "ThreeFingerSwipeRightAction" : "None",
+    "ThreeFingerSwipeUpAction" : "None",
+    "ThreeFingerTapAction" : "None",
+    "TopEdgeLeftAction" : "None",
+    "TopEdgeRightAction" : "None",
+    "TopLeftCornerSwipeAction" : "None",
+    "TopLeftForceClickAction" : "None",
+    "TopLeftTriangleAction" : "F",
+    "TopRightCornerSwipeAction" : "None",
+    "TopRightForceClickAction" : "None",
+    "TopRightTriangleAction" : "None",
+    "TwoFingerHoldAction" : "Left Click",
+    "UpperLeftCornerClickAction" : "None",
+    "UpperRightCornerClickAction" : "TO(2)"
+  },
+  "Version" : 1
+}

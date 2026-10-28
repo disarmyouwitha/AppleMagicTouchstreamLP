@@ -1,0 +1,13 @@
+{
+  "capturePath": "usb-trackpad.atpcap",
+  "expected": {
+    "captureFingerprint": "0x87CCD836C9552165",
+    "dispatchFingerprint": "0x52F1B7D1D986F671",
+    "dispatchEvents": 15,
+    "intentTransitions": 45,
+    "framesSeen": 1424,
+    "framesParsed": 1423,
+    "framesDispatched": 1423,
+    "framesDropped": 0
+  }
+}

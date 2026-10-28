@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=AppleMagicTouchstream Linux
+Comment=Configure AppleMagicTouchstream Linux trackpad bindings
+Exec=applemagictouchstream-gui --show
+Terminal=false
+Categories=Utility;
