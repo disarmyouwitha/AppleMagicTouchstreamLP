@@ -50,7 +50,7 @@
         "ThumbTwoTap": 0,
         "PointerResponse": 0,
         "ImportedPointerProfile": null,
-        "NaturalScrolling": true,
+        "NaturalScrolling": false,
         "PointerSensitivity": 1,
         "ScrollSensitivity": 1,
         "ZoomSensitivity": 1,

@@ -16,7 +16,7 @@ internal sealed class HandGesturePanel : Grid
     private readonly CheckBox _mirror=new() { Content="Mirror Edit",Margin=new(0,8,0,12) };
     private readonly TextBox _search=new() { Margin=new(0,0,0,12),MinHeight=28,ToolTip="Search gestures or assigned actions" };
     private readonly TextBlock _status=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary };
-    private readonly TextBlock _deviceHint=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary,Margin=new(0,8,0,0) };
+    private readonly TextBlock _deviceHint=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary };
     private readonly RadioButton[] _scopes=new RadioButton[3];
     private readonly Dictionary<string,Slot> _slots=new();
     private readonly List<Page> _pages=new();
@@ -57,13 +57,15 @@ internal sealed class HandGesturePanel : Grid
             button.SetResourceReference(StyleProperty,"GestureScopeButtonStyle"); button.Checked+=(_,_)=>SetScope(scope);
             _scopes[(int)scope]=button; scopes.Children.Add(button);
         }
-        controls.Children.Add(_deviceHint); controls.Children.Add(_mirror); controls.Children.Add(_search); navigation.Children.Add(controls);
+        controls.Children.Add(_mirror); controls.Children.Add(_search); navigation.Children.Add(controls);
         _search.Tag="Search gestures or actions"; _search.SetResourceReference(StyleProperty,"WatermarkTextBoxStyle");
         System.Windows.Automation.AutomationProperties.SetName(_search,"Search gestures or actions");
         ScrollViewer.SetVerticalScrollBarVisibility(_navigation,ScrollBarVisibility.Hidden);
         ScrollViewer.SetHorizontalScrollBarVisibility(_navigation,ScrollBarVisibility.Disabled);
         Grid.SetRow(_navigation,1); navigation.Children.Add(_navigation);
-        Grid.SetRow(_status,2); _status.Margin=new(0,12,0,0); navigation.Children.Add(_status); Children.Add(navigation);
+        var footer=new StackPanel { Margin=new(0,12,0,0) };
+        footer.Children.Add(_deviceHint); _status.Margin=new(0,4,0,0); footer.Children.Add(_status);
+        Grid.SetRow(footer,2); navigation.Children.Add(footer); Children.Add(navigation);
         AddDivider(1); AddDivider(3);
         var pageScroll=new ScrollViewer { Content=_pageContent,VerticalScrollBarVisibility=ScrollBarVisibility.Hidden,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(22,12,22,20) };
         Grid.SetColumn(pageScroll,2); Children.Add(pageScroll);
