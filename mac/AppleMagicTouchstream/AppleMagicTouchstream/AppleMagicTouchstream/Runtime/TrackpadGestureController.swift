@@ -123,8 +123,22 @@ final class TrackpadGestureController: ObservableObject {
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
     }
 
+    func setDirectionalRepeatBehavior(_ behavior:GestureDirectionalRepeatBehavior,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setDirectionalRepeatBehavior(behavior,direction:direction,for:trigger,in:scope)
+        settings.save(to:.standard)
+        configure()
+    }
+
     func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
         InterpretedTrackpadPointer.shared.resetBaseline()
+        // A loop click explicitly opts legacy motion-scrolling into the new repeat control.
+        for hand in [GestureHandScope.left,.right] where scope == .both || scope == hand {
+            let config = hand == .left ? settings.left.movement(trigger) : settings.right.movement(trigger)
+            if config.action(direction).isDirectionalScroll && config.repeatBehaviors?[direction.rawValue] == nil {
+                settings.setDirectionalRepeatBehavior(config.repeatBehavior(direction),direction:direction,for:trigger,in:hand)
+            }
+        }
         settings.setDirectionalRepeat(enabled,direction:direction,for:trigger,in:scope)
         settings.save(to:.standard)
         configure()

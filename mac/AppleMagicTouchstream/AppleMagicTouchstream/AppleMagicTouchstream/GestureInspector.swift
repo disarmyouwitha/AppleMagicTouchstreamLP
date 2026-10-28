@@ -477,6 +477,7 @@ struct GestureInspectorPanel: View {
             setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)},
             setDirectionalRepeatInterval:{controller.setDirectionalRepeatInterval($0,direction:$1,for:$2,scope:$3)},
             setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)},
+            setDirectionalRepeatBehavior:{controller.setDirectionalRepeatBehavior($0,direction:$1,for:$2,scope:$3)},
             setTwoHandAction:{controller.setTwoHandAction($0,for:$1)},
             twoHandStatus:{controller.twoHandStatus($0)},
             setHoldAction:{controller.setHoldAction($0,count:$1,scope:$2)},
@@ -497,6 +498,7 @@ struct GestureAssignmentWorkspace: View {
     let setDirectionalAction: (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalRepeatInterval: (Double,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalRepeat: (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
+    let setDirectionalRepeatBehavior: (GestureDirectionalRepeatBehavior,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setTwoHandAction:(GestureAction,TwoHandTrigger)->Void
     let twoHandStatus:(TwoHandTrigger)->String
     let setHoldAction:(GestureAction,Int,GestureHandScope)->Void
@@ -526,6 +528,7 @@ struct GestureAssignmentWorkspace: View {
          setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setDirectionalRepeatInterval:@escaping (Double,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
+         setDirectionalRepeatBehavior:@escaping (GestureDirectionalRepeatBehavior,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setTwoHandAction:@escaping (GestureAction,TwoHandTrigger)->Void = {_,_ in},
          twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."},
          setHoldAction:@escaping (GestureAction,Int,GestureHandScope)->Void = {_,_,_ in},
@@ -538,6 +541,7 @@ struct GestureAssignmentWorkspace: View {
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
         self.setDirectionalRepeat = setDirectionalRepeat
+        self.setDirectionalRepeatBehavior = setDirectionalRepeatBehavior
         self.setHoldAction = setHoldAction; self.holdStatus = holdStatus
         self.setHoldThreshold = setHoldThreshold; self.setTwoHandHoldThreshold = setTwoHandHoldThreshold
         self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
@@ -889,7 +893,8 @@ struct GestureAssignmentWorkspace: View {
         let isSelected = !selectedHold && selected == trigger && selectedDirection == direction
         let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
         let title = direction.map { $0.isDiagonal ? "Swipe" : "Move " + $0.title } ?? "Movement"
-        let followsMotion = assigned?.isDirectionalScroll == true
+        let followsMotion = direction.flatMap { settings.directionalRepeatBehavior($0,for:trigger,in:editingScope) } == .motion
+            && direction.flatMap { settings.directionalRepeats($0,for:trigger,in:editingScope) } == true
         let repeatLabel = direction.flatMap { settings.directionalRepeatInterval($0,for:trigger,in:editingScope) }
             .map { $0 > 0 ? "Repeat every \(Int($0)) ms" : "Once per direction" } ?? "Mixed repeat"
         return Button {
@@ -1097,17 +1102,22 @@ struct GestureAssignmentWorkspace: View {
         let value = settings.directionalAction(direction,for:selected,in:editingScope)
         let repeatEnabled = settings.directionalRepeats(direction,for:selected,in:editingScope)
         let repeatOff = repeatEnabled == false
+        let behavior = settings.directionalRepeatBehavior(direction,for:selected,in:editingScope)
         return VStack(alignment:.leading,spacing:14) {
             GestureActionChooser(value:value,actions:GestureDirectionalAssignments.allowedActions) { setDirectionalAction($0,direction,selected,editingScope) }
             if value == nil {
                 Text("Left: \(settings.left.movement(selected).action(direction).title) · Right: \(settings.right.movement(selected).action(direction).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            if value?.isDirectionalScroll == true {
-                Text("Follows \(direction.title.lowercased()) finger travel and speed. Output direction comes from this action; reversing the assignments reverses scrolling or panning. Pausing stops output; release can coast with momentum.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                sensitivity("Scroll sensitivity",kind:.scroll)
-            } else {
+            Picker("Behavior",selection:Binding<GestureDirectionalRepeatBehavior?>(
+                get:{settings.directionalRepeatBehavior(direction,for:selected,in:editingScope)},
+                set:{ if let behavior = $0 { setDirectionalRepeatBehavior(behavior,direction,selected,editingScope) } })) {
+                if behavior == nil { Text("Mixed").tag(Optional<GestureDirectionalRepeatBehavior>.none) }
+                ForEach(GestureDirectionalRepeatBehavior.allCases,id:\.self) { choice in
+                    Text(choice.title).tag(Optional(choice))
+                }
+            }
+            .pickerStyle(.menu)
             HStack(spacing:6) {
                 Button {
                     setDirectionalRepeat(repeatEnabled != true,direction,selected,editingScope)
@@ -1119,22 +1129,33 @@ struct GestureAssignmentWorkspace: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(repeatOff ? Color.secondary : Color.accentColor)
-                .accessibilityLabel("Repeat while held")
+                .accessibilityLabel("Repeat")
                 .accessibilityValue(repeatEnabled.map { $0 ? "On" : "Off" } ?? "Mixed")
                 .help(repeatOff ? "Enable repeat" : "Disable repeat")
-                GestureRepeatIntervalField(value:settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope),
-                    enabled:!repeatOff) { setDirectionalRepeatInterval($0,direction,selected,editingScope) }
-                    .id("\(selected.rawValue).\(direction.rawValue).\(editingScope.rawValue)")
-                Text("ms while held").font(.callout)
+                if behavior == .timed {
+                    GestureRepeatIntervalField(value:settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope),
+                        enabled:!repeatOff) { setDirectionalRepeatInterval($0,direction,selected,editingScope) }
+                        .id("\(selected.rawValue).\(direction.rawValue).\(editingScope.rawValue)")
+                    Text("ms while held").font(.callout)
+                } else {
+                    Text("Repeat with motion").font(.callout)
+                }
                 if repeatOff { Text("Off").font(.caption).fontWeight(.medium) }
             }
             .foregroundStyle(repeatOff ? Color.secondary : Color.primary)
-            .help("Click the loop to toggle repeat. Enabled intervals range from 20 to 5000 ms. Press Return to apply the interval.")
-            Text("20–5000 ms · Click loop to toggle repeat").font(.caption).foregroundStyle(.secondary)
-            if settings.directionalRepeatInterval(direction,for:selected,in:editingScope) == nil {
-                Text("Mixed intervals. Editing applies to both pads.").font(.caption).foregroundStyle(.secondary)
+            if behavior == .timed {
+                Text("20–5000 ms · Repeats while held, even when still. Press Return to apply the interval.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                if settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope) == nil {
+                    Text("Mixed intervals. Editing applies to both pads.").font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                Text(value?.isDirectionalScroll == true
+                     ? "Follows finger travel and speed. Pausing stops output; release can coast with momentum."
+                     : "Repeats after each 0.75 mm of travel in this direction, up to once every 80 ms. Pausing stops repeats.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            }
+            if value?.isDirectionalScroll == true { sensitivity("Scroll sensitivity",kind:.scroll) }
             shortcutBuilder(value) { setDirectionalAction($0,direction,selected,editingScope) }
             Divider()
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {

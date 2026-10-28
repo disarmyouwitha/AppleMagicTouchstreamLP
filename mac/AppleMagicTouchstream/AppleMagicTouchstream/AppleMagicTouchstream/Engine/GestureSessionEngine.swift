@@ -251,6 +251,7 @@ struct GestureDirectionalStepper {
         var direction: GestureMovementDirection?
         var candidate: GestureMovementDirection?
         var candidateMM = 0.0
+        var motionMM = 0.0
         var lastTime: Double?
         var lastOutput = -Double.infinity
     }
@@ -295,6 +296,7 @@ struct GestureDirectionalStepper {
             return direction
         }
         if let candidate = dominant(delta,diagonal:trigger == .thumbTwoMove), candidate != current {
+            session.motionMM = 0
             if candidate != session.candidate { session.candidate = candidate; session.candidateMM = 0 }
             session.candidateMM += projection(delta,onto:candidate)
             guard session.candidateMM >= Self.activationMM,
@@ -304,7 +306,17 @@ struct GestureDirectionalStepper {
             return candidate
         }
         session.candidate = nil; session.candidateMM = 0
-        return nil
+        guard assignments.repeatBehavior(current) == .motion, assignments.repeats(current),
+              !assignments.action(current).isDirectionalScroll,
+              dominant(delta,diagonal:trigger == .thumbTwoMove) == current else {
+            session.motionMM = 0
+            return nil
+        }
+        session.motionMM += max(0,projection(delta,onto:current))
+        guard session.motionMM >= Self.activationMM,
+              time-session.lastOutput >= Self.minimumOutputInterval else { return nil }
+        session.motionMM = 0; session.lastOutput = time
+        return current
     }
     func direction(device:UInt64) -> GestureMovementDirection? { sessions[device]?.direction }
     func trigger(device:UInt64) -> GestureTrigger? { sessions[device]?.trigger }

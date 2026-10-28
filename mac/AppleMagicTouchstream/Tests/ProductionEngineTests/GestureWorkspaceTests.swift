@@ -41,6 +41,34 @@ final class GestureWorkspaceTests: XCTestCase {
             XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:pane,settings:settings,scope:.left))
         }
     }
+    func testDirectionalBehaviorModesRenderWithoutInput() throws {
+        for behavior in GestureDirectionalRepeatBehavior.allCases {
+            for action in [GestureAction.volumeUpSmall,.scrollUp] {
+                var settings = HandGestureSettings()
+                settings.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:action,in:.left)
+                settings.setDirectionalRepeatBehavior(behavior,direction:.up,for:.threeFingerMove,in:.left)
+                let view = GestureAssignmentWorkspace(settings:settings,initialPane:.threeFingers,initialDirection:.up,
+                    status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected assignment")},
+                    setSensitivity:{_,_,_ in XCTFail("Unexpected sensitivity edit")},
+                    setDirectionalRepeatBehavior:{_,_,_,_ in XCTFail("Rendering must not change behavior")})
+                    .frame(width:1320,height:800)
+                let host = NSHostingView(rootView:view)
+                host.frame = NSRect(x:0,y:0,width:1320,height:800)
+                let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+                window.contentView = host; host.layoutSubtreeIfNeeded()
+                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+                host.cacheDisplay(in:host.bounds,to:bitmap)
+                if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+                    let url = URL(fileURLWithPath:directory,isDirectory:true)
+                    try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+                    try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
+                        .write(to:url.appendingPathComponent("behavior-\(behavior.rawValue)-\(action.isDirectionalScroll ? "scroll" : "discrete").png"))
+                }
+                window.contentView = nil
+            }
+        }
+    }
+
     func testHoldCardAndRightInspectorRenderWithoutInput() throws {
         var settings = HandGestureSettings()
         settings.setHoldAction(.shortcut(.init(label:"Shift",holdUntilRelease:true)),count:2,in:.left)

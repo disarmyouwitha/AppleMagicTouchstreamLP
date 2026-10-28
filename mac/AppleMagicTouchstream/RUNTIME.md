@@ -55,6 +55,8 @@ trackpad surface. Centers, sizes and rotations follow the printed borders, not
 physical sensor calibration. Thumb regions use rotated
 rectangular bounds around oval artwork. Saved per-key overrides still apply.
 Column tuning stays disabled for this fixed independent geometry.
+Layout and Layer selectors stay beside their labels at narrow sidebar widths.
+Import Settings and Export Settings share one row with equal-width buttons.
 
 Letters, numbers, modifiers, navigation and function keys use the action catalog.
 Unsupported hand-logo/PC-only legends remain editable inactive placeholders until

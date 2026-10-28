@@ -1325,7 +1325,7 @@ struct ContentView: View {
         var body: some View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
-                    EqualSplitFormRow {
+                    EqualSplitFormRow(alwaysHorizontal: true) {
                         Text("Layout")
                     } field: {
                         Picker("", selection: layoutSelection) {
@@ -1445,7 +1445,7 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.05))
                     )
-                    (compact ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
+                    HStack(spacing: 8) {
                         Button(action: onImportKeymap) {
                             Text("Import Settings").frame(maxWidth: .infinity)
                         }
@@ -2216,7 +2216,7 @@ struct ContentView: View {
             let holdGroups = actionGroups(for: selectedHoldAction, hold: true)
 
             VStack(alignment: .leading, spacing: 10) {
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Layer")
                 } field: {
                     Picker("", selection: layerSelection) {
@@ -4196,8 +4196,10 @@ struct ContentView: View {
         let label: Label
         let field: Field
         let spacing: CGFloat
+        let alwaysHorizontal: Bool
 
         init(
+            alwaysHorizontal: Bool = false,
             spacing: CGFloat = 12,
             @ViewBuilder label: () -> Label,
             @ViewBuilder field: () -> Field
@@ -4205,10 +4207,11 @@ struct ContentView: View {
             self.label = label()
             self.field = field()
             self.spacing = spacing
+            self.alwaysHorizontal = alwaysHorizontal
         }
 
         var body: some View {
-            (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .center, spacing: spacing))) {
+            (compact && !alwaysHorizontal ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .center, spacing: spacing))) {
                 label
                     .frame(maxWidth: .infinity, alignment: .leading)
                 field

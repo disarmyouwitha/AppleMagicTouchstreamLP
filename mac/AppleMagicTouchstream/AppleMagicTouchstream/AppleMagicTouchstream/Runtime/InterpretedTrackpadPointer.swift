@@ -134,8 +134,19 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard shortcutOwners.remove(owner) != nil else { return }
             DispatchService.shared.releaseGestureShortcut(owner)
         }
-        mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double,owner:GestureShortcutOwner? = nil) {
+        mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double,direction:GestureMovementDirection? = nil,owner:GestureShortcutOwner? = nil) {
             guard action != .disabled, !primaryClickConflicts(action) else { return }
+            if action.isDirectionalScroll {
+                guard let direction, scrollProfiles[device] != nil else { return }
+                if directionalScrollEngines[device]?.matches(direction:direction,action:action) != true {
+                    finishScroll(device:device,cancelled:true)
+                }
+                // A timer step uses the same acceleration/profile/output path as 0.75 mm of travel.
+                guard let delta = directionalScrollEngines[device]?.step(time:time,
+                    direction:direction,action:action,sensitivity:scrollSensitivities[device] ?? scrollSensitivity) else { return }
+                scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
+                return
+            }
             if action == .voice { DispatchService.shared.postVoiceToggle(); return }
             if let shortcut = action.shortcutAssignment {
                 let owner = owner ?? .pad(device)
@@ -391,7 +402,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if let direction = state.directionalRepeater.tick(device:device,now:now),
                    let trigger = state.directionalStepper.trigger(device:device),
                    let assignments = state.directionals[device]?[trigger] {
-                    state.postDirectional(assignments.action(direction),device:device,time:now)
+                    state.postDirectional(assignments.action(direction),device:device,time:now,direction:direction)
                 }
             }
             for device in state.devices where state.momentum[device]?.isCoasting == true {
@@ -700,9 +711,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     return nil
                 }
                 let heldAction = heldDirection.map { assignments.action($0) } ?? .disabled
+                let motionScroll = heldDirection.map {
+                    heldAction.isDirectionalScroll && assignments.repeatBehavior($0) == .motion && assignments.repeats($0)
+                } ?? false
+                let timedScroll = heldAction.isDirectionalScroll && !motionScroll
                 if GestureOutputLifecycle.normalLift(phase:update.phase,allUp:allUp) {
                     state.releaseScroll(device:device,time:time,hostTime:hostTime)
-                } else if let heldDirection, heldAction.isDirectionalScroll,
+                } else if let heldDirection, motionScroll,
                           update.phase == .began || update.phase == .changed {
                     if state.directionalScrollEngines[device]?.matches(direction:heldDirection,action:heldAction) != true {
                         state.finishScroll(device:device,cancelled:true)
@@ -715,9 +730,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                         state.momentum[device]?.observe(points:delta,contactTime:time)
                         state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
                     } else { state.finishScroll(device:device,cancelled:true) }
-                } else { state.finishScroll(device:device,cancelled:true) }
-                if let direction, !assignments.action(direction).isDirectionalScroll {
-                    state.postDirectional(assignments.action(direction),device:device,time:hostTime)
+                } else if !timedScroll || (update.phase != .began && update.phase != .changed) {
+                    state.finishScroll(device:device,cancelled:true)
+                }
+                if let direction, !motionScroll {
+                    state.postDirectional(assignments.action(direction),device:device,time:hostTime,direction:direction)
                 }
                 state.directionalRepeater.refresh(device:device,direction:heldDirection,
                     intervalMS:heldDirection.map { assignments.repeatIntervalMS($0) } ?? 0,now:hostTime)
