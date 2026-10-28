@@ -2230,7 +2230,7 @@ struct ContentView: View {
                     .modifier(FlexibleMenuPickerSizing())
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Primary Action")
                 } field: {
                     actionChooserButton(
@@ -2239,7 +2239,7 @@ struct ContentView: View {
                         actionGroups: primaryGroups
                     )
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Hold Action")
                 } field: {
                     actionChooserButton(
@@ -2248,7 +2248,7 @@ struct ContentView: View {
                         actionGroups: holdGroups
                     )
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Force Instead of Hold")
                 } field: {
                     TextField(
@@ -2261,7 +2261,7 @@ struct ContentView: View {
                     .disabled(!hasEditableSelection)
                     .help("0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached.")
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Key Rotation (0-360 deg)")
                 } field: {
                     TextField("", value: keyRotationBinding, formatter: ContentView.rotationDegreesFormatter)
@@ -2477,7 +2477,6 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var autocorrect = AutocorrectStatus.shared
-        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
@@ -2485,19 +2484,16 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            (compact
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: 8))) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
                     modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                    autocorrectControls
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 8) {
                     snapRadiusToggle
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    autocorrectControls
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     holdRepeatToggle
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .toggleStyle(.switch)
 
@@ -2541,7 +2537,6 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Text(title)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
                 Toggle(title, isOn: isOn)
                     .labelsHidden()
                     .fixedSize()

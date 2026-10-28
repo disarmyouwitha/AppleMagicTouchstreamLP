@@ -401,7 +401,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device); continue }
                 if let direction = state.directionalRepeater.tick(device:device,now:now),
                    let trigger = state.directionalStepper.trigger(device:device),
-                   let assignments = state.directionals[device]?[trigger] {
+                   let assignments = state.directionals[device]?[trigger],
+                   assignments.repeatBehavior(direction) == .timed, assignments.repeats(direction) {
                     state.postDirectional(assignments.action(direction),device:device,time:now,direction:direction)
                 }
             }

@@ -55,7 +55,10 @@ trackpad surface. Centers, sizes and rotations follow the printed borders, not
 physical sensor calibration. Thumb regions use rotated
 rectangular bounds around oval artwork. Saved per-key overrides still apply.
 Column tuning stays disabled for this fixed independent geometry.
-The keyboard sidebar retains its original 50/50 form layout at its standard width.
+Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
+narrow sidebar widths. Mode Toggles uses two fixed rows: Run at Startup / Snap
+Radius, then Autocorrect / Hold Repeat. Switches sit beside their labels, with
+Autocorrect status below its own control.
 Layout and Layer selectors fill the right half of their rows beside their labels,
 including at narrow sidebar widths. Shortcut Builder aligns its Key and App fields
 and the Apply/Browse buttons in shared columns.

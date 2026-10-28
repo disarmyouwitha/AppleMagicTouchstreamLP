@@ -1118,6 +1118,8 @@ struct GestureAssignmentWorkspace: View {
                 }
             }
             .pickerStyle(.menu)
+            .modifier(FlexibleMenuPickerSizing())
+            .frame(maxWidth:.infinity,alignment:.leading)
             HStack(spacing:6) {
                 Button {
                     setDirectionalRepeat(repeatEnabled != true,direction,selected,editingScope)
