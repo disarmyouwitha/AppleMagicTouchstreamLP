@@ -1791,7 +1791,7 @@ struct ContentView: View {
                 if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
                     if let index = activeColumnIndex,
                        let settings = activeColumnSettings {
-                        EqualSplitFormRow {
+                        EqualSplitFormRow(alwaysHorizontal: true) {
                             Text("Edit Column")
                         } field: {
                             Picker("", selection: editColumnBinding) {
@@ -1801,6 +1801,7 @@ struct ContentView: View {
                             }
                             .pickerStyle(MenuPickerStyle())
                             .labelsHidden()
+                            .modifier(FlexibleMenuPickerSizing())
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         VStack(alignment: .leading, spacing: 14) {
@@ -1817,7 +1818,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Scale X (%)",
@@ -1833,7 +1835,8 @@ struct ContentView: View {
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Scale Y (%)",
@@ -1849,7 +1852,8 @@ struct ContentView: View {
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column X (%)",
@@ -1866,7 +1870,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Y (%)",
@@ -1883,7 +1888,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Rotation (0-360 deg)",
@@ -1900,7 +1906,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                         }
                         HStack(spacing: 8) {
@@ -2537,6 +2544,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Text(title)
                     .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
                 Toggle(title, isOn: isOn)
                     .labelsHidden()
                     .fixedSize()
@@ -4112,6 +4120,7 @@ struct ContentView: View {
         let buttonStep: Double
         let showSlider: Bool
         let fillFieldWidth: Bool
+        let alwaysHorizontal: Bool
         @Binding var value: Double
 
             init(
@@ -4122,7 +4131,8 @@ struct ContentView: View {
                 sliderStep: Double,
                 buttonStep: Double? = nil,
                 showSlider: Bool? = nil,
-                fillFieldWidth: Bool = false
+                fillFieldWidth: Bool = false,
+                alwaysHorizontal: Bool = false
             ) {
                 self.title = title
                 self._value = value
@@ -4132,10 +4142,11 @@ struct ContentView: View {
                 self.buttonStep = buttonStep ?? sliderStep
                 self.showSlider = showSlider ?? true
                 self.fillFieldWidth = fillFieldWidth
+                self.alwaysHorizontal = alwaysHorizontal
             }
 
         var body: some View {
-            EqualSplitFormRow {
+            EqualSplitFormRow(alwaysHorizontal: alwaysHorizontal) {
                 Text(title)
                     .font(.callout)
                     .fontWeight(.semibold)

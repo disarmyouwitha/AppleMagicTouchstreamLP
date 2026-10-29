@@ -123,10 +123,26 @@ ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle
 Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
 secondary/system actions remain independent.
 
-A valid second hand may acquire a coordinated Both chord immediately, releasing
-independent outputs and rebasing both hands at acquisition. Single-hand gestures
-start without a join delay. Both owns both pads until both lift; pending keyboard
-layer/modifier ownership blocks acquisition.
+Both chords share a one-second stagger window between the two hands’ initial
+contact landings. Fresh frames cannot extend that window while a hand stays down.
+A valid second hand inside the window may acquire Both immediately, releasing
+independent outputs and rebasing both hands. After the window, each hand keeps its
+independent gesture; pointer motion and drag owners share the cursor/button through
+the existing output path. Single-hand gestures start without a join delay. Both
+owns both pads until both lift; pending keyboard layer/modifier ownership blocks
+acquisition. This landing limit applies equally to count and corner chords; corner
+pair expansion after acquisition retains its existing identity/settling rules.
+
+`bad_latch.atpcap` (SHA-256
+`7b6cb0eb5c124403138e3fa3c9fa3e63806640537527788acb127451edaa9c0b`)
+contains second-hand 3-contact landings about 2.9–5.1 seconds after the first hand.
+The first complete overlapping drag episode is preserved without changing either
+clock, raw contacts or telemetry in
+`Tests/ProductionEngineTests/Fixtures/both-late-join.json`. Offline replay
+with explicit 3+3 Tap/Hold bindings and two-finger pointer/three-finger drag verifies
+no Both reservation, both pads moving the shared drag, and one balanced button
+lifetime. The capture’s legacy configuration omits current per-hand/Both settings;
+these are explicit regression assignments, not inferred captured settings.
 
 ## Motion, geometry and timing
 
@@ -149,6 +165,7 @@ finger labels have separate roles.
 | Generic Hold duration | 500 ms after complete chord landing |
 | Timer-driven freshness | 200 ms, using host receipt time |
 | Force freshness | Up to 200 ms between native samples |
+| Both initial landing stagger (all chords) | At most 1 second |
 | Both Tap maximum / overlap / lift skew | 500 ms / 20 ms / 150 ms |
 | Both and corner settling | 2 app mm |
 | Corner regions | Outer 25% of each axis, shared by single-pad and Both corners |

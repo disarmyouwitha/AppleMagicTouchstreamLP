@@ -77,6 +77,56 @@ final class IndependentHandGestureTests:XCTestCase {
         XCTAssertEqual(stepper.process(device:2,time:1.04,update:update,assignments:config),.right)
         XCTAssertEqual(drag.owner,1); XCTAssertNotNil(drag.end())
     }
+    func testCapturedLateHandCanJoinDragWithoutBeingConsumedByBoth() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:UInt64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"both-late-join",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url)).frames
+        var settings = TwoHandGestureSettings()
+        settings.setAction(.missionControl,for:.init(chord:.threeFingers,phase:.tap))
+        settings.setAction(.showDesktop,for:.init(chord:.threeFingers,phase:.hold))
+        var coordinated = TwoHandGestureEngine(), router = TrackpadGestureRouter(), drag = PrimaryDragOutput()
+        var reservations = 0, downs = 0, ups = 0, joins = 0, dragged = Set<UInt64>(), activated = Set<UInt64>()
+        for record in frames {
+            let frame = record.frame, device = frame.deviceNumericID
+            let decision = coordinated.process(leftHand:frame.deviceIndex == 0,now:Double(record.arrivalTicks)/1e9,
+                contacts:frame.rawTouches,settings:settings)
+            if decision.reserved {
+                reservations += 1
+                if decision.began { router.reset(); _ = drag.end() }
+                continue
+            }
+            let update = router.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0 == .twoFingerMove || $0 == .threeFingerMove
+            }
+            if update.phase == .began && update.gesture == .threeFingerMove {
+                activated.insert(device)
+                if drag.owner != nil {
+                    XCTAssertTrue(drag.join(device:device)); joins += 1
+                } else {
+                    XCTAssertNotNil(drag.begin(device:device,location:.zero,flags:[])); downs += 1
+                }
+            }
+            if update.phase == .ended || update.phase == .cancelled {
+                if drag.end(device:device) != nil { ups += 1 }
+            } else if let delta = update.millimetres, delta != .zero, drag.owner != nil,
+                      update.gesture == .threeFingerMove || update.gesture == .twoFingerMove {
+                let previous = drag.location ?? .zero
+                let location = CGPoint(x:previous.x+delta.x,y:previous.y+delta.y)
+                let event = try XCTUnwrap(drag.movePointer(location:location,delta:delta,flags:[]))
+                XCTAssertEqual(event.type,.leftMouseDragged); dragged.insert(device)
+            }
+        }
+        XCTAssertEqual(reservations,0)
+        XCTAssertEqual(activated.count,2)
+        XCTAssertEqual(dragged.count,2)
+        XCTAssertGreaterThan(joins,0)
+        XCTAssertEqual(downs,1); XCTAssertEqual(ups,1)
+        XCTAssertTrue(drag.owners.isEmpty)
+    }
+
     @MainActor func testIntervalDraftCanBeEmptyAndOnlyClampsWhenCommitted() {
         XCTAssertNil(GestureRepeatIntervalField.committedValue(""))
         XCTAssertNil(GestureRepeatIntervalField.committedValue(" "))

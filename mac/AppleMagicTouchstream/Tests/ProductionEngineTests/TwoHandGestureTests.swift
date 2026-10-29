@@ -54,6 +54,44 @@ final class TwoHandGestureTests:XCTestCase {
             XCTAssertFalse(engine.process(leftHand:false,now:1.13,contacts:contacts(0),settings:settings).reserved)
         }
     }
+    func testFreshFramesCannotLetOrdinaryBothAcquireASecondHandLate() {
+        for chord in [TwoHandChord.threeFingers,.fourFingers] {
+            for firstLeft in [true,false] {
+                for delay in [1.01,1.5,3.0] {
+                    var engine = TwoHandGestureEngine()
+                    let settings = settings(chord), c = contacts(chord.count)
+                    XCTAssertFalse(engine.process(leftHand:firstLeft,now:1,contacts:c,settings:settings).reserved)
+                    for frame in 1...Int(delay*100) {
+                        XCTAssertFalse(engine.process(leftHand:firstLeft,now:1+Double(frame)*0.01,contacts:c,settings:settings).reserved)
+                    }
+                    let second = engine.process(leftHand:!firstLeft,now:1+delay+0.001,contacts:c,settings:settings)
+                    XCTAssertFalse(second.reserved,"Late second hand must keep its independent gesture")
+                    XCTAssertFalse(engine.ownsCycle)
+                    XCTAssertNil(engine.advance(now:1+delay+0.01,settings:settings))
+                }
+            }
+        }
+    }
+
+    func testEveryBothChordSharesTheOneSecondInitialLandingWindow() {
+        for chord in TwoHandChord.allCases {
+            for firstLeft in [true,false] {
+                for delay in [0.5,0.999,1.001,3.0] {
+                    var engine = TwoHandGestureEngine()
+                    let settings = chord.isCorner ? cornerSettings(chord) : settings(chord)
+                    let first = chordContacts(chord,left:firstLeft), second = chordContacts(chord,left:!firstLeft)
+                    _ = engine.process(leftHand:firstLeft,now:1,contacts:first,settings:settings)
+                    for frame in 1...Int(delay*100) {
+                        _ = engine.process(leftHand:firstLeft,now:1+Double(frame)*0.01,contacts:first,settings:settings)
+                    }
+                    let decision = engine.process(leftHand:!firstLeft,now:1+delay,contacts:second,settings:settings)
+                    XCTAssertEqual(decision.began,delay <= 1,"\(chord) at \(delay) seconds")
+                    XCTAssertEqual(decision.reserved,delay <= 1)
+                }
+            }
+        }
+    }
+
     func testHoldFiresOnceAndConsumesTapUntilAllUp() {
         for chord in [TwoHandChord.threeFingers,.fourFingers] {
             var engine = TwoHandGestureEngine()
@@ -243,7 +281,7 @@ final class TwoHandGestureTests:XCTestCase {
             }
         }
     }
-    func testImmediateSingleHandDragHandsOffWithOneBalancedRelease() throws {
+    func testTimelySingleHandDragHandsOffWithOneBalancedRelease() throws {
         for count in [3,4] {
             let chord:TwoHandChord = count == 3 ? .threeFingers : .fourFingers
             let settings = settings(chord)
@@ -256,9 +294,9 @@ final class TwoHandGestureTests:XCTestCase {
             let owner = local.recognize(device:1,time:1.01,contacts:moving,enabled:{$0 == .threeFingerMove || $0 == .fourFingerMove})
             XCTAssertEqual(owner.phase,.began) // 10 ms, no 150 ms join delay.
             if count == 3 { XCTAssertNotNil(drag.begin(device:1,location:.zero,flags:[])) }
-            // The first hand may already have moved for seconds; rebase at joining.
-            _ = both.process(leftHand:true,now:3,contacts:moving,settings:settings)
-            let acquired = both.process(leftHand:false,now:3.01,contacts:contacts(count),settings:settings)
+            // A quick second landing still hands off and rebases within the shared one-second window.
+            _ = both.process(leftHand:true,now:1.9,contacts:moving,settings:settings)
+            let acquired = both.process(leftHand:false,now:1.91,contacts:contacts(count),settings:settings)
             XCTAssertTrue(acquired.began); XCTAssertTrue(acquired.reserved)
             if count == 3 {
                 XCTAssertEqual(try XCTUnwrap(drag.end(device:1)).type,.leftMouseUp)
@@ -266,8 +304,8 @@ final class TwoHandGestureTests:XCTestCase {
             }
             local.reset(device:1)
             XCTAssertNil(local.owner(device:1)); XCTAssertNil(drag.owner)
-            XCTAssertNil(both.process(leftHand:true,now:3.08,contacts:contacts(0),settings:settings).trigger)
-            XCTAssertEqual(both.process(leftHand:false,now:3.09,contacts:contacts(0),settings:settings).trigger,.init(chord:chord,phase:.tap))
+            XCTAssertNil(both.process(leftHand:true,now:1.98,contacts:contacts(0),settings:settings).trigger)
+            XCTAssertEqual(both.process(leftHand:false,now:1.99,contacts:contacts(0),settings:settings).trigger,.init(chord:chord,phase:.tap))
         }
     }
     func testEligibilityRequiresTwoDistinctSelectedOwnedArmedPads() {
