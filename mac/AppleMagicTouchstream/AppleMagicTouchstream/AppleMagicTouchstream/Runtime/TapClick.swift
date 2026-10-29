@@ -228,6 +228,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
     private var source: CGEventSource?
+    var eventSource:CGEventSource? { source }
     mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
         guard owner == nil, location.x.isFinite, location.y.isFinite,
               let source = CGEventSource(stateID:.privateState),
@@ -377,10 +378,13 @@ struct ThreeFingerTapRecognizer {
 
 /// Balanced secondary edges are prepared together; right-click never holds.
 enum SecondaryTapClickOutput {
-    static func events(location: CGPoint, flags: CGEventFlags = []) -> PrimaryTapClickOutput.Events? {
+    static func events(location: CGPoint, flags: CGEventFlags = [], source:CGEventSource? = nil) -> PrimaryTapClickOutput.Events? {
+        // Keep secondary clicks out of the combined source's accumulated button state.
+        // During a drag, both button lifetimes belong to that same private source.
         guard location.x.isFinite, location.y.isFinite,
-              let down = CGEvent(mouseEventSource:nil,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
-              let up = CGEvent(mouseEventSource:nil,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
+              let source = source ?? CGEventSource(stateID:.privateState),
+              let down = CGEvent(mouseEventSource:source,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
+              let up = CGEvent(mouseEventSource:source,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
         for event in [down,up] {
             event.flags = flags
             event.setIntegerValueField(.mouseEventClickState,value:1)
@@ -398,7 +402,8 @@ enum SecondaryTapClickOutput {
 /// before live code posts any edge; tests can inspect it without posting.
 enum GestureTapActionOutput {
     static func events(action: GestureAction, location: CGPoint, time: Double,
-        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput, shortcut: AppleShortcutPlan? = nil) -> [CGEvent]? {
+        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput,
+        shortcut: AppleShortcutPlan? = nil, mouseEventSource:CGEventSource? = nil) -> [CGEvent]? {
         if action.isAppleShortcut {
             clicks.reset()
             return shortcut?.events()
@@ -412,7 +417,7 @@ enum GestureTapActionOutput {
             clicks.reset()
             return [sequence.first.down,sequence.first.up,sequence.second.down,sequence.second.up]
         case .secondaryClick:
-            guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags) else { return nil }
+            guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags,source:mouseEventSource) else { return nil }
             clicks.reset()
             return [pair.down,pair.up]
         default: return nil

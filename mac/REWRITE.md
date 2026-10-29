@@ -3,6 +3,12 @@
 Hm, I think we broke something I liked when adding 2-handed "Both" Gestures.. I think it's allowing a 2nd hand to latch way too late? (atpcap)
 Once a gesture has latched to 1 hand I can't use gestuers on the other hand?
 > Example: I start a 3-finger drag on RHS and now I can't 3-finger drag on LHS (incorrect) even if I wait several seconds to use the 2nd hand. In this case 3+3 gestures never fires (correct)
+...
+breaken.atpcap
+===
+0. Implement special "HAND" key for Touchstream layout.
+1. We will need to synthesize the keys from the legends when the hand is held. Can you create the keys and logic and map these on the RHS? 
+> Here is the list of unshifted and "hand" shifted pairs: (y,0),(u,4),(i,5),(h,left),(j,1),(k,2),(l,3),(n,_),(m,0)
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?

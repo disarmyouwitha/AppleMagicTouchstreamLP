@@ -2484,6 +2484,7 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var autocorrect = AutocorrectStatus.shared
+        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
@@ -2491,15 +2492,26 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 12) {
-                    modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                    snapRadiusToggle
-                }
-                HStack(alignment: .top, spacing: 12) {
-                    autocorrectControls
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    holdRepeatToggle
+            Group {
+                if compact {
+                    VStack(alignment: .leading, spacing: 8) {
+                        modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
+                        autocorrectControls
+                        snapRadiusToggle
+                        holdRepeatToggle
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 12) {
+                            modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
+                            snapRadiusToggle
+                        }
+                        HStack(alignment: .top, spacing: 12) {
+                            autocorrectControls
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            holdRepeatToggle
+                        }
+                    }
                 }
             }
             .toggleStyle(.switch)

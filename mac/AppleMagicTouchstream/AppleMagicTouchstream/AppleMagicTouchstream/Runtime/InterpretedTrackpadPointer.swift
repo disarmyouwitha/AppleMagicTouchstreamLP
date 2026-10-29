@@ -160,7 +160,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard let location = CGEvent(source:nil)?.location,
                   let events = GestureTapActionOutput.events(action:action,location:location,time:time,
                     doubleClickInterval:doubleClickInterval,flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),
-                    clicks:&clicks,shortcut:appleShortcuts[action]) else { return }
+                    clicks:&clicks,shortcut:appleShortcuts[action],mouseEventSource:drag.eventSource) else { return }
             for event in events {
                 event.post(tap:appleShortcuts[action]?.eventTap ?? .cghidEventTap); postedEvents &+= 1
             }
@@ -645,7 +645,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                         time:hostTime,doubleClickInterval:state.doubleClickInterval,
                         flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),clicks:&state.clicks,
-                        shortcut:state.appleShortcuts[forceBindings.action(for:trigger)]) {
+                        shortcut:state.appleShortcuts[forceBindings.action(for:trigger)],mouseEventSource:state.drag.eventSource) {
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)

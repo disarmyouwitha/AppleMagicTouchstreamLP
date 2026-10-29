@@ -123,6 +123,22 @@ ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle
 Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
 secondary/system actions remain independent.
 
+Secondary clicks use the active drag's private event source, or a new private
+source when no drag is held. Both right-button edges are prepared before posting;
+right-click never releases another pad's primary-button owner. Tagged-event and
+outside-button interference checks retain their existing roles. This keeps
+secondary output out of the combined source's accumulated button state.
+
+`breaken.atpcap` (SHA-256
+`e839d425040afd65b7ade7db44f1b7cfabf8bd04c10f475b1bc82fb45900ea1e`)
+is preserved as complete raw frames and both clocks in
+`Tests/ProductionEngineTests/Fixtures/drag-secondary-recovery.json`. Explicit
+three-finger drag, Thumb+2 secondary-click and two-finger pointer assignments
+verify the overlapping right-click's source/tag/edges, retained drag ownership,
+balanced primary release and subsequent pointer recognition on both pads. The
+capture omits current gesture settings and WindowServer button-state tables, so
+these checks do not claim to reproduce native global state or prove live recovery.
+
 Both chords share a one-second stagger window between the two hands’ initial
 contact landings. Fresh frames cannot extend that window while a hand stays down.
 A valid second hand inside the window may acquire Both immediately, releasing

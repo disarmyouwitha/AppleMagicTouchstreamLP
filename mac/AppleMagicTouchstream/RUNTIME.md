@@ -57,10 +57,10 @@ rectangular bounds around oval artwork. Saved per-key overrides still apply.
 Column tuning stays disabled for this fixed independent geometry.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
 narrow sidebar widths. Column Tuning uses the same 50/50 label/control split.
-Mode Toggles uses two fixed rows: Run at Startup / Snap
-Radius, then Autocorrect / Hold Repeat. Switches align at the right edge of each
-half-column, with
-Autocorrect status below its own control.
+At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
+Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
+row instead of wrapping labels into narrow columns. Switches align at the right
+edge of their row or half-column; Autocorrect status stays below its own control.
 Layout and Layer selectors fill the right half of their rows beside their labels,
 including at narrow sidebar widths. Shortcut Builder aligns its Key and App fields
 and the Apply/Browse buttons in shared columns.
