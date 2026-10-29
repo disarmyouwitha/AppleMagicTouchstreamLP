@@ -10,6 +10,7 @@ internal sealed class TouchRuntimeService : IDisposable
 {
     private readonly ReaderOptions _options;
     private readonly RawInputContext _rawInputContext = new();
+    private readonly TrackpadDecoderSession _decoderSession = new();
     private readonly GlobalMouseInputHook _globalMouseInputHook = new();
 
     private RuntimeRoute _leftRoute = RuntimeRoute.Empty;
@@ -162,6 +163,8 @@ internal sealed class TouchRuntimeService : IDisposable
         RefreshDeviceRoutes(leftPath, rightPath);
     }
 
+    public void ResetDecoderSessions() => _decoderSession.Reset();
+
     public void SetFrameObserver(IRuntimeFrameObserver? observer)
     {
         _frameObserver = observer;
@@ -241,6 +244,7 @@ internal sealed class TouchRuntimeService : IDisposable
         }
 
         _rawInputContext.SeedTags(seed);
+        _decoderSession.Reset();
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
         _handGestures?.Configure(_settings);
@@ -308,8 +312,8 @@ internal sealed class TouchRuntimeService : IDisposable
             try
             {
                 long timestampTicks = Stopwatch.GetTimestamp();
-                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName, reportSpan, snapshot.Info);
-                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
+                if (!_decoderSession.TryDecode(packet.DeviceHandle,in snapshot,reportSpan,timestampTicks,_decoderProfilesByPath,
+                    out var decoderProfile,out var decoded))
                 {
                     continue;
                 }
@@ -347,14 +351,6 @@ internal sealed class TouchRuntimeService : IDisposable
                     reportSpan);
             }
         }
-    }
-
-    private TrackpadDecoderProfile ResolveDecoderProfile(
-        string deviceName,
-        ReadOnlySpan<byte> payload,
-        in RawInputDeviceInfo deviceInfo)
-    {
-        return TrackpadDecoderProfileResolver.ResolveForPacket(_decoderProfilesByPath, deviceName, payload, in deviceInfo);
     }
 
     private void TraceDecoderSelection(
@@ -500,6 +496,11 @@ internal sealed class TouchRuntimeService : IDisposable
 
         protected override void WndProc(ref WinForms.Message m)
         {
+            if (m.Msg == RawInputInterop.WM_INPUT_DEVICE_CHANGE)
+            {
+                _owner._decoderSession.Remove(m.LParam);
+                _owner._rawInputContext.RemoveDevice(m.LParam);
+            }
             if (m.Msg == RawInputInterop.WM_INPUT)
             {
                 _owner.HandleRawInput(m.LParam);

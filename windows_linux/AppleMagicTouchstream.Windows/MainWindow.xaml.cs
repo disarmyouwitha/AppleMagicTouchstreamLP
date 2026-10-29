@@ -123,6 +123,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private long _lastRawInputFaultTicks;
     private int _consecutiveRawInputFaults;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TrackpadDecoderSession _decoderSession = new();
     private TrackpadDecoderProfile? _lastDecoderProfileLeft;
     private TrackpadDecoderProfile? _lastDecoderProfileRight;
     private long _lastDecoderProfileLogLeftTicks;
@@ -207,7 +208,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftSurface.Layout = _leftLayout;
         RightSurface.Layout = _rightLayout;
 
-        RefreshButton.Click += (_, _) => LoadDevices(preserveSelection: true);
+        RefreshButton.Click += (_, _) => { _runtimeService?.ResetDecoderSessions(); LoadDevices(preserveSelection: true); };
         LeftDeviceCombo.SelectionChanged += OnLeftSelectionChanged;
         RightDeviceCombo.SelectionChanged += OnRightSelectionChanged;
         LeftDecoderProfileCombo.SelectionChanged += OnLeftDecoderProfileSelectionChanged;
@@ -2750,6 +2751,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         _rawInputContext.SeedTags(_devices);
+        _decoderSession.Reset();
 
         LeftDeviceCombo.ItemsSource = _devices;
         RightDeviceCombo.ItemsSource = _devices;
@@ -3136,6 +3138,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplySelections()
     {
+        _decoderSession.Reset();
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
         RefreshDecoderProfileCombos();
@@ -4609,6 +4612,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (msg == RawInputInterop.WM_INPUT_DEVICE_CHANGE)
+        {
+            _decoderSession.Remove(lParam);
+            _rawInputContext.RemoveDevice(lParam);
+        }
         if (msg == RawInputInterop.WM_INPUT)
         {
             HandleRawInput(lParam);
@@ -4673,9 +4681,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     : CaptureSideHint.Unknown;
             try
             {
-                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName, reportSpan, snapshot.Info);
+                bool parsed = _decoderSession.TryDecode(packet.DeviceHandle,in snapshot,reportSpan,started,_decoderProfilesByPath,
+                    out var decoderProfile,out var decoded);
                 _captureWriter?.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
-                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
+                if (!parsed)
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
@@ -4773,14 +4782,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
             $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
         Console.WriteLine($"[decoder] side={side} ids {TrackpadDecoderDebugFormatter.BuildContactIdSummary(payload, decoded)}");
-    }
-
-    private TrackpadDecoderProfile ResolveDecoderProfile(
-        string deviceName,
-        ReadOnlySpan<byte> payload,
-        in RawInputDeviceInfo deviceInfo)
-    {
-        return TrackpadDecoderProfileResolver.ResolveForPacket(_decoderProfilesByPath, deviceName, payload, in deviceInfo);
     }
 
     private void RegisterRawInputFault(

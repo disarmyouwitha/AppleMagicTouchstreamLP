@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { DecoderSessionTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Decoder session tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { BrandingMigrationTests.Run(); }

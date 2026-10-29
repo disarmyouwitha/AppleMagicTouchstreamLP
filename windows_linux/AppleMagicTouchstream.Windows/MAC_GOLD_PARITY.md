@@ -164,6 +164,16 @@ misclassified 211 packets as Legacy, corrupting contact identities/coordinates
 and breaking corner acquisition. Auto now permits bounded 10% edge overshoot,
 checks the official reserved byte and retains the official decoder's existing
 coordinate clamp. Native PTP and explicit legacy selections retain their paths.
+Live Auto now learns a profile, report size and payload layout from the first
+successfully decoded touching report per device connection. Empty/hover-only
+startup packets do not establish a lock. Movement, all-up and malformed packets
+do not trigger reclassification; locked decoding has no alternate-profile/offset
+fallback. Failed packets are dropped with the existing stale-input cleanup.
+Device arrival/removal invalidates that handle and its cached metadata; Refresh,
+device reselection, metadata/identity changes and explicit profile changes permit
+reacquisition. Opening Config or unrelated settings edits do not reset the live
+runtime's lock. The learned choice remains in memory, outside saved preferences.
+Both tray and standalone Config/capture input use this same session decoder.
 Re-running live Auto selection on the raw capture (rather than honoring its
 historical per-record profile) produces three Open Config actions on either hand
 with the standard 500 ms threshold, and no drag edges. Current offline tests pass;

@@ -70,6 +70,7 @@ probes are manual tools, not build steps.
 - `AppleMagicTouchstream.Windows` is the active Windows app. Live mode runs as a tray/status app that reads touchpad report `0x05` via Raw Input and drives key mapping in the background.
 - Core Windows hot-path/runtime file: `AppleMagicTouchstream.Windows/TouchRuntimeService.cs`
 - Windows Raw Input ingestion: `AppleMagicTouchstream.Windows/RawInputInterop.cs`
+- Live decoding uses `TrackpadDecoderSession`: learn from a valid touching report, retain profile/layout through movement/all-up/bad packets, and decode without fallback. Reset on device arrival/removal, selection/Refresh, identity/metadata or explicit profile changes; never persist learned Auto choices or reset the active runtime merely for unrelated configuration edits. Keep tray and standalone capture paths on this shared decoder.
 - Windows output injection: `AppleMagicTouchstream.Windows/WindowsDispatch/SendInputDispatcher.cs`
 - Windows haptics helper: `AppleMagicTouchstream.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`
 - Windows diagnostics/self-test surface: `AppleMagicTouchstream.Windows/WindowsDiagnostics/`

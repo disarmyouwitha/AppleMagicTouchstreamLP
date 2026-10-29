@@ -42,22 +42,29 @@ internal static class TrackpadDecoderProfileResolver
         ReadOnlySpan<byte> payload,
         in RawInputDeviceInfo deviceInfo)
     {
+        TryResolveAuto(payload,in deviceInfo,out var profile);
+        return profile;
+    }
+
+    public static bool TryResolveAuto(ReadOnlySpan<byte> payload,in RawInputDeviceInfo deviceInfo,out TrackpadDecoderProfile profile)
+    {
+        profile=TrackpadDecoderProfile.Official;
         if (LooksLikeNativeTouchpadUsage(in deviceInfo))
         {
-            return TrackpadDecoderProfile.Legacy;
+            profile=TrackpadDecoderProfile.Legacy; return true;
         }
 
         if (LooksLikeOfficialUsageZeroPacket(payload, in deviceInfo))
         {
-            return TrackpadDecoderProfile.Official;
+            return true;
         }
 
         if (LooksLikeLegacyPtpPacket(payload))
         {
-            return TrackpadDecoderProfile.Legacy;
+            profile=TrackpadDecoderProfile.Legacy; return true;
         }
 
-        return TrackpadDecoderProfile.Official;
+        return false;
     }
 
     private static bool LooksLikeNativeTouchpadUsage(in RawInputDeviceInfo deviceInfo)

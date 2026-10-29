@@ -61,6 +61,8 @@ internal static class MacGoldParityTests
                 hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.OpenConfig };
                 var (engine,output)=Create(settings); Frame(engine,[],-.01,side);
                 using var reader=new InputCaptureReader(path); long? first=null; int index=0,previouslyLegacy=0;
+                var decoderSession=new TrackpadDecoderSession();
+                var overrides=new Dictionary<string,TrackpadDecoderProfile>();
                 while (reader.TryReadNext(out var record))
                 {
                     first ??=record.ArrivalQpcTicks;
@@ -71,7 +73,9 @@ internal static class MacGoldParityTests
                     var profile=TrackpadDecoderProfileResolver.ResolveAuto(record.Payload.Span,in info);
                     Check(profile==TrackpadDecoderProfile.Official,$"edge contact changed packet layout at recorded frame {index}");
                     if (record.DecoderProfile==TrackpadDecoderProfile.Legacy) previouslyLegacy++;
-                    Check(TrackpadReportDecoder.TryDecode(record.Payload.Span,in info,record.ArrivalQpcTicks,profile,out var decoded),
+                    var device=new RawInputDeviceSnapshot("recorded-pad",info,new(0,1));
+                    Check(decoderSession.TryDecode(1,in device,record.Payload.Span,record.ArrivalQpcTicks,overrides,out profile,out var decoded)
+                        && profile==TrackpadDecoderProfile.Official,
                         $"corner recording failed to decode frame {index}");
                     var frame=decoded.Frame;
                     int count=WindowsHandGestures.ReadContacts(in frame,7612,5065,contacts,out bool fourthPending);
