@@ -123,10 +123,26 @@ ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle
 Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
 secondary/system actions remain independent.
 
-A valid second hand may acquire a coordinated Both chord immediately, releasing
-independent outputs and rebasing both hands at acquisition. Single-hand gestures
-start without a join delay. Both owns both pads until both lift; pending keyboard
-layer/modifier ownership blocks acquisition.
+Both chords share a one-second stagger window between the two hands’ initial
+contact landings. Fresh frames cannot extend that window while a hand stays down.
+A valid second hand inside the window may acquire Both immediately, releasing
+independent outputs and rebasing both hands. After the window, each hand keeps its
+independent gesture; pointer motion and drag owners share the cursor/button through
+the existing output path. Single-hand gestures start without a join delay. Both
+owns both pads until both lift; pending keyboard layer/modifier ownership blocks
+acquisition. This landing limit applies equally to count and corner chords; corner
+pair expansion after acquisition retains its existing identity/settling rules.
+
+`bad_latch.atpcap` (SHA-256
+`7b6cb0eb5c124403138e3fa3c9fa3e63806640537527788acb127451edaa9c0b`)
+contains second-hand 3-contact landings about 2.9–5.1 seconds after the first hand.
+The first complete overlapping drag episode is preserved without changing either
+clock, raw contacts or telemetry in
+`Tests/ProductionEngineTests/Fixtures/both-late-join.json`. Offline replay
+with explicit 3+3 Tap/Hold bindings and two-finger pointer/three-finger drag verifies
+no Both reservation, both pads moving the shared drag, and one balanced button
+lifetime. The capture’s legacy configuration omits current per-hand/Both settings;
+these are explicit regression assignments, not inferred captured settings.
 
 ## Motion, geometry and timing
 
@@ -149,6 +165,7 @@ finger labels have separate roles.
 | Generic Hold duration | 500 ms after complete chord landing |
 | Timer-driven freshness | 200 ms, using host receipt time |
 | Force freshness | Up to 200 ms between native samples |
+| Both initial landing stagger (all chords) | At most 1 second |
 | Both Tap maximum / overlap / lift skew | 500 ms / 20 ms / 150 ms |
 | Both and corner settling | 2 app mm |
 | Corner regions | Outer 25% of each axis, shared by single-pad and Both corners |
@@ -267,7 +284,7 @@ Thumb+2 additionally exposes diagonal-only movement under `thumbTwoMove`.
 Its assignment grid is `[↖, Tap, ↗] / [Rotate Left, empty, Rotate Right] /
 [↙, Hold, ↘]`. The empty center has no continuous Movement assignment. Tap,
 Hold and existing rotation bindings retain their identities/defaults. Each arrow
-has the same action picker, shortcut builder, loop control and repeat interval as
+has the same action picker, shortcut builder, Behavior menu, loop control and repeat interval as
 ordinary directions, independently per hand with Mirror Edit and Import/Export.
 All four diagonal actions default to None, with no live candidate/timer enabled
 when none is assigned. Existing two-/three-/four-/five-finger cardinals are unchanged.
@@ -309,16 +326,34 @@ cards can independently assign clicks, system shortcuts, small-step volume or
 brightness, Scroll Up/Down and Pan Left/Right. Empty directional configurations do
 not acquire movement.
 
-Discrete directions fire on commit and, when enabled, repeat on the shared host
-clock timer while held. Stationary contact frames keep the direction alive. There
-is at most one repeat per tick, no catch-up burst, and stale delivery stops repeats.
-A changed direction requires its own travel/dominance evidence. The loop toggle
-stores enabled state separately from the remembered interval. Text editing permits
-an empty draft; Return/focus loss validates/clamps the value.
+Each direction has a Behavior menu: **Repeat every ms** or **Repeat with motion**.
+The choice is saved independently per hand/direction and included in Import/Export;
+Mirror Edit shows Mixed when the hands differ. Existing discrete assignments retain
+timed behavior and existing Scroll/Pan assignments retain motion behavior when the
+new optional field is absent. Choosing a behavior enables repeat and preserves the
+remembered timer interval. The loop control can still disable repeat (one output
+on direction commit).
 
-Scroll Up/Down and Pan Left/Right follow projected motion rather than timed repeat.
-The assigned gesture direction chooses the input axis/sense, while the action
-chooses the output axis/sign. For example, Left can produce Scroll Down and Up can
+All directions use the same activation, turn/reversal arbitration, session latch
+and output cleanup. In timed mode, discrete actions and Scroll/Pan fire on commit
+and repeat on the shared host clock while held, including stationary contact frames.
+There is at most one repeat per tick, no catch-up burst, and stale delivery stops
+repeats. A Scroll/Pan timer step uses the existing profile/acceleration/output path
+with 0.75 mm of projected travel, retaining per-hand scroll sensitivity and explicit
+action direction; it does not create momentum on release.
+
+In motion mode, discrete actions fire on commit, then require another 0.75 mm of
+coherent travel in the committed direction per repeat, bounded to one output per
+80 ms and one output per frame. Turns discard old repeat travel and require their
+own direction evidence; excess travel never queues a burst. Pausing produces no
+output. Scroll/Pan retains smooth projected travel/speed output and release momentum.
+The host timer is disabled for every motion assignment. All-up, invalid/stale input,
+ownership loss, replay, reconfiguration and lifecycle changes use shared cleanup.
+The loop toggle stores enabled state separately from the remembered interval.
+Text editing permits an empty draft; Return/focus loss validates/clamps the value.
+
+For motion scrolling, the assigned gesture direction chooses the input axis/sense,
+while the action chooses the output axis/sign. For example, Left can produce Scroll Down and Up can
 produce Pan Right. Zero, perpendicular and opposite travel produce no output until
 a new direction commits. These explicit signs ignore Natural scrolling.
 

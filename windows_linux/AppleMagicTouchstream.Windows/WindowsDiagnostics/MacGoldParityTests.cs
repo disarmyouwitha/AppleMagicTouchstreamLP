@@ -7,15 +7,18 @@ internal static class MacGoldParityTests
     private sealed class Output : IHandGestureOutput
     {
         public readonly List<HandGestureAction> Actions=[];
-        public int Moves;
+        public int Moves, Scrolls;
         public readonly List<string> Assignments=[];
+        public readonly List<string?> Held=[];
+        public readonly List<bool> Buttons=[];
         public void Move(double x,double y) => Moves++;
-        public void Scroll(double x,double y) { }
-        public void PrimaryButton(bool down) { }
+        public void Scroll(double x,double y) { Scrolls++; }
+        public void PrimaryButton(bool down) => Buttons.Add(down);
         public void Tap(HandGestureAction action) { if (action!=HandGestureAction.None) Actions.Add(action); }
         public void Zoom(double delta) { }
         public void ForceFeedback(TrackpadSide side) { }
         public void AssignedAction(string label) => Assignments.Add(label);
+        public void HeldAssignment(int owner,string? label) { if (owner<2) Held.Add(label); }
     }
     private static void Check(bool value,string message) { if (!value) throw new InvalidOperationException(message); }
     private static HandGestureSettings Empty()
@@ -39,8 +42,126 @@ internal static class MacGoldParityTests
     }
     private static bool Frame(HandGestureEngine engine,HandGestureContact[] contacts,double time,TrackpadSide side=TrackpadSide.Left,bool eligible=true)
         => engine.Process(side,contacts,time,time,eligible);
+    private static void RunCapturedCorners()
+    {
+        var assembly=typeof(MacGoldParityTests).Assembly;
+        string resource=assembly.GetManifestResourceNames().Single(n=>n.EndsWith(".FourCorners.atpcap",StringComparison.Ordinal));
+        string path=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"amt-corner-regression-"+Guid.NewGuid().ToString("N")+".atpcap");
+        try
+        {
+            using (var source=assembly.GetManifestResourceStream(resource)!)
+            using (var file=System.IO.File.Create(path)) source.CopyTo(file);
+            Span<HandGestureContact> contacts=stackalloc HandGestureContact[InputFrame.MaxContacts];
+            foreach (var side in new[] { TrackpadSide.Left,TrackpadSide.Right })
+            {
+                var settings=Empty(); var hand=side==TrackpadSide.Left ? settings.Left : settings.Right;
+                hand.TwoFingerMove=HandGestureAction.Pointer; hand.TwoFingerTap=HandGestureAction.PrimaryClick;
+                hand.ThreeFingerMove=HandGestureAction.PrimaryDrag; hand.ThreeFingerTap=HandGestureAction.SecondaryClick;
+                hand.FourFingerMove=HandGestureAction.Scroll;
+                hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.OpenConfig };
+                var (engine,output)=Create(settings); Frame(engine,[],-.01,side);
+                using var reader=new InputCaptureReader(path); long? first=null; int index=0,previouslyLegacy=0;
+                while (reader.TryReadNext(out var record))
+                {
+                    first ??=record.ArrivalQpcTicks;
+                    double time=(record.ArrivalQpcTicks-first.Value)/(double)reader.HeaderQpcFrequency;
+                    var info=new RawInputDeviceInfo(record.VendorId,record.ProductId,record.UsagePage,record.Usage);
+                    // Re-run today's live Auto selection. Honoring the stored
+                    // historical profile would deliberately reproduce the bug.
+                    var profile=TrackpadDecoderProfileResolver.ResolveAuto(record.Payload.Span,in info);
+                    Check(profile==TrackpadDecoderProfile.Official,$"edge contact changed packet layout at recorded frame {index}");
+                    if (record.DecoderProfile==TrackpadDecoderProfile.Legacy) previouslyLegacy++;
+                    Check(TrackpadReportDecoder.TryDecode(record.Payload.Span,in info,record.ArrivalQpcTicks,profile,out var decoded),
+                        $"corner recording failed to decode frame {index}");
+                    var frame=decoded.Frame;
+                    int count=WindowsHandGestures.ReadContacts(in frame,7612,5065,contacts,out bool fourthPending);
+                    foreach (var c in contacts[..count]) Check(c.X is >=0 and <=160 && c.Y is >=0 and <=114.9,"corner decoding produced out-of-range geometry");
+                    engine.Process(side,contacts[..count],time,time,true,fourthContactPending:fourthPending); engine.Tick(time,true);
+                    index++;
+                }
+                int opened=output.Actions.Count(a=>a==HandGestureAction.OpenConfig);
+                Check(index==484 && previouslyLegacy==211 && opened==3 && output.Buttons.Count==0,
+                    $"corner replay changed: frames={index}, old Legacy packets={previouslyLegacy}, opens={opened}, drag edges={output.Buttons.Count}");
+                Console.WriteLine($"Corner replay ({side}): {index} frames, {previouslyLegacy} formerly Legacy packets, {opened} Open Config actions.");
+            }
+        }
+        finally { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }
+    }
+    private static void RunPendingAcquisition()
+    {
+        foreach (var side in new[] { TrackpadSide.Left,TrackpadSide.Right })
+        {
+            var settings=Empty(); var hand=side==TrackpadSide.Left ? settings.Left : settings.Right;
+            hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.OpenConfig };
+            hand.FourFingerMove=HandGestureAction.Scroll;
+            var corners=new HandGestureContact[] { new(1,10,10),new(2,10,100),new(3,150,10),new(4,150,100) };
+            var (engine,output)=Create(settings);
+            // A forming pair can invalidate its generic Hold before all four
+            // corners land. The completed corner chord gets its own baseline.
+            Frame(engine,corners[..2],1,side);
+            var shifted=corners.Select(c=>c with { X=c.X+3 }).ToArray();
+            Frame(engine,shifted[..2],1.02,side);
+            Frame(engine,shifted,1.03,side);
+            for (int i=1;i<=11;i++) Frame(engine,shifted,1.03+i*.05,side);
+            Check(output.Actions.SequenceEqual(new[]{HandGestureAction.OpenConfig}) && output.Scrolls==0,
+                "moving partial cohort poisoned the completed corner Hold");
+            Frame(engine,shifted[..2],1.60,side); Frame(engine,[],1.62,side);
+            Check(output.Actions.Count==1,"corner partial lift repeated its action");
+
+            // Geometry selects only the initial chord. Remaining within 2mm of
+            // those anchors may cross a region boundary without restarting Hold.
+            corners[0]=corners[0] with { X=39.5 };
+            (engine,output)=Create(settings); Frame(engine,corners,1,side);
+            var jitter=corners.Select(c=>c with { X=c.X+.7 }).ToArray();
+            for (int i=1;i<=11;i++) Frame(engine,jitter,1+i*.05,side);
+            Check(output.Actions.Count==1 && output.Scrolls==0,"corner boundary jitter cancelled valid anchored Hold");
+            Frame(engine,[],1.57,side);
+
+            // Lifting before the threshold cannot reassemble/restart corners or
+            // fall back to a smaller gesture during the reserved cycle.
+            (engine,output)=Create(settings); Frame(engine,corners,1,side); Frame(engine,corners[..3],1.05,side);
+            for (int i=1;i<=11;i++) Frame(engine,corners,1.05+i*.05,side);
+            Frame(engine,[],1.62,side);
+            Check(output.Actions.Count==0 && output.Scrolls==0,"cancelled corner Hold resumed after partial lift");
+
+            hand.CornerHoldActions[HandCornerChord.OuterCorners]=HandGestureAction.Custom;
+            hand.CustomActions=new() { ["CornerHold"]="Shift" }; hand.HeldShortcuts.Add("CornerHold");
+            (engine,output)=Create(settings); Frame(engine,corners,1,side);
+            for (int i=1;i<=11;i++) Frame(engine,corners,1+i*.05,side);
+            Check(output.Held.Last()=="Shift","corner held shortcut failed to activate");
+            Frame(engine,corners[..3],1.57,side);
+            Check(output.Held.Last()=="Shift","corner partial lift released an activated held shortcut early");
+            Frame(engine,corners,1.59,side);
+            Check(output.Held.Last()==null,"corner rejoining retained an invalid held shortcut");
+            Frame(engine,[],1.61,side);
+
+            settings=Empty(); hand=side==TrackpadSide.Left ? settings.Left : settings.Right;
+            hand.FourFingerMove=HandGestureAction.Scroll;
+            hand.HoldActions=new() { [4]=HandGestureAction.Paste };
+            (engine,output)=Create(settings); var row=Contacts(4); Frame(engine,row,1,side);
+            var oneSettles=row.ToArray(); oneSettles[0]=oneSettles[0] with { X=oneSettles[0].X+1 };
+            for (int i=1;i<=11;i++) Frame(engine,oneSettles,1+i*.05,side);
+            Check(output.Scrolls==0 && output.Actions.SequenceEqual(new[]{HandGestureAction.Paste}),
+                "one settling fingertip stole four-finger Hold as scrolling");
+            Frame(engine,[],1.57,side);
+            (engine,output)=Create(settings); Frame(engine,row,1,side);
+            Frame(engine,Contacts(4,.3),1.01,side);
+            Check(output.Scrolls==1 && output.Actions.Count==0,"coherent four-finger movement failed to win over pending Hold");
+            Frame(engine,Contacts(3,.4),1.02,side); Frame(engine,[],1.04,side);
+            Check(output.Actions.Count==0,"activated scroll fell back to Hold after lift");
+
+            // Without a competing Hold, keep ordinary scroll's 0.2mm centroid
+            // threshold; the agreement condition is not a global dead zone.
+            hand.HoldActions.Clear(); (engine,output)=Create(settings);
+            Frame(engine,row,1,side); Frame(engine,oneSettles,1.01,side);
+            Check(output.Scrolls==1,"four-finger agreement gate leaked into ordinary scrolling");
+            Frame(engine,[],1.03,side);
+        }
+    }
     public static void Run()
     {
+        RunCapturedCorners();
+        RunPendingAcquisition();
         foreach (int count in new[] {4,5})
         {
             var settings=Empty(); var trigger=count==4 ? HandGestureTrigger.FourFingerTap : HandGestureTrigger.FiveFingerTap;

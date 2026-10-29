@@ -7,6 +7,10 @@ internal static class TrackpadDecoderProfileResolver
 {
     private const int OfficialMaxRawX = 14720;
     private const int OfficialMaxRawY = 10240;
+    // These are normalization extents, not strict packet-format bounds. The
+    // recorded Apple stream exceeds X=14720 near the physical right edge.
+    // Permit bounded edge overshoot; the official decoder clamps coordinates.
+    private const int OfficialEdgeSlackPercent = 10;
     private const int MaxReasonableLegacyX = 20000;
     private const int MaxReasonableLegacyY = 15000;
 
@@ -75,8 +79,8 @@ internal static class TrackpadDecoderProfileResolver
             return false;
         }
 
-        int contactCount = Math.Min((int)payload[48], PtpReport.MaxContacts);
-        if (contactCount <= 0)
+        int contactCount = payload[48];
+        if (contactCount <= 0 || contactCount > PtpReport.MaxContacts)
         {
             return false;
         }
@@ -93,8 +97,9 @@ internal static class TrackpadDecoderProfileResolver
             int rawY = ReadLittleEndianU16(payload[offset + 4], payload[offset + 5]);
             byte phase = payload[offset + 7];
             byte lifecycle = payload[offset + 8];
-            if (rawX > OfficialMaxRawX ||
-                rawY > OfficialMaxRawY ||
+            if (payload[offset + 1] != 0 ||
+                rawX > OfficialMaxRawX * (100 + OfficialEdgeSlackPercent) / 100 ||
+                rawY > OfficialMaxRawY * (100 + OfficialEdgeSlackPercent) / 100 ||
                 phase > 3 ||
                 (lifecycle != 0x00 && lifecycle != 0x01 && lifecycle != 0x03))
             {

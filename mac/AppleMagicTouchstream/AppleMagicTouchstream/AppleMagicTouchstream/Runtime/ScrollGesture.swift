@@ -86,6 +86,11 @@ struct DirectionalScrollEngine {
     func matches(direction:GestureMovementDirection,action:GestureAction) -> Bool {
         self.direction == direction && self.action == action
     }
+    mutating func step(time:Double,direction:GestureMovementDirection,action:GestureAction,sensitivity:Double) -> CGPoint? {
+        let unit = direction.unitVector
+        return process(time:time,millimetres:CGPoint(x:unit.x * GestureDirectionalStepper.activationMM,
+            y:unit.y * GestureDirectionalStepper.activationMM),direction:direction,action:action,sensitivity:sensitivity)
+    }
     static func travel(_ delta:CGPoint,direction:GestureMovementDirection) -> Double {
         max(0,direction.projection(delta))
     }

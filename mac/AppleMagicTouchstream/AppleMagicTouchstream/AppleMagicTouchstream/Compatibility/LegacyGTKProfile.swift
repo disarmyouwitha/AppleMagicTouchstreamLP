@@ -621,6 +621,10 @@ enum PortableKeymapInterop {
         }
 
         profile.handGestureSettings = bundle.hostExtensions?["mac"]?.handGestureSettings ?? currentProfile.handGestureSettings
+        if let current = currentProfile.handGestureSettings {
+            profile.handGestureSettings?.left.preserveMissingRepeatBehaviors(from:current.left)
+            profile.handGestureSettings?.right.preserveMissingRepeatBehaviors(from:current.right)
+        }
         return try applyPortableKeymap(keymap, to: profile)
     }
 

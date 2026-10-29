@@ -214,14 +214,16 @@ public sealed class UserSettings
     }
 
     public static UserSettings Load()
+        => Load(GetSettingsPath());
+
+    internal static UserSettings Load(string path)
     {
         try
         {
-            string path = GetSettingsPath();
             if (!File.Exists(path))
             {
                 UserSettings firstRunDefaults = LoadBundledDefaultsOrDefault();
-                firstRunDefaults.Save();
+                firstRunDefaults.TrySave(path,out _);
                 return firstRunDefaults;
             }
 
@@ -230,7 +232,7 @@ public sealed class UserSettings
             UserSettings loaded = settings ?? new UserSettings();
             if (loaded.NormalizeRanges())
             {
-                loaded.Save();
+                loaded.TrySave(path,out _);
             }
 
             return loaded;
@@ -253,11 +255,15 @@ public sealed class UserSettings
             : new UserSettings();
     }
 
-    public void Save()
+    public void Save() => TrySave(out _);
+
+    public bool TrySave(out string error) => TrySave(GetSettingsPath(),out error);
+
+    internal bool TrySave(string path,out string error)
     {
+        string? temporary=null;
         try
         {
-            string path = GetSettingsPath();
             string? dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(dir))
             {
@@ -266,12 +272,18 @@ public sealed class UserSettings
 
             var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(this, options);
-            File.WriteAllText(path, json);
+            temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+            File.WriteAllText(temporary,json);
+            File.Move(temporary,path,overwrite:true);
+            error=string.Empty;
+            return true;
         }
-        catch
+        catch(Exception exception)
         {
-            // Best-effort persistence.
+            error=exception.Message;
+            return false;
         }
+        finally { if(temporary!=null) { try { File.Delete(temporary); } catch { } } }
     }
 
     public bool NormalizeRanges()

@@ -23,6 +23,17 @@ private extension EnvironmentValues {
     }
 }
 
+struct FlexibleMenuPickerSizing: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            // Tahoe fits menu controls to their labels unless sizing is explicit.
+            content.buttonSizing(.flexible)
+        } else {
+            content
+        }
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     @State private var inspectorTab = "Keyboard"
@@ -756,7 +767,7 @@ struct ContentView: View {
                             maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:0),
                             trailingColumn:true,label:"Keyboard settings width")
                         rightSidebarView
-                            .environment(\.compactAssignmentMenu, width - 32 < WorkspaceColumnSizing.compactMenuBreakpoint)
+                            .environment(\.compactAssignmentMenu, width < WorkspaceColumnSizing.compactMenuBreakpoint)
                             .padding(16).frame(width:width)
                     }
                 }
@@ -1325,7 +1336,7 @@ struct ContentView: View {
         var body: some View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
-                    EqualSplitFormRow {
+                    EqualSplitFormRow(alwaysHorizontal: true) {
                         Text("Layout")
                     } field: {
                         Picker("", selection: layoutSelection) {
@@ -1335,6 +1346,7 @@ struct ContentView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .labelsHidden()
+                        .modifier(FlexibleMenuPickerSizing())
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(12)
@@ -1445,7 +1457,7 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.05))
                     )
-                    (compact ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
+                    HStack(spacing: 8) {
                         Button(action: onImportKeymap) {
                             Text("Import Settings").frame(maxWidth: .infinity)
                         }
@@ -1572,17 +1584,6 @@ struct ContentView: View {
         }
     }
 
-    private struct TrackpadPickerSizing: ViewModifier {
-        func body(content: Content) -> some View {
-            if #available(macOS 26.0, *) {
-                // Tahoe fits menu controls to their labels unless sizing is explicit.
-                content.buttonSizing(.flexible)
-            } else {
-                content
-            }
-        }
-    }
-
     private struct DevicesSectionView: View {
 
 
@@ -1645,7 +1646,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .modifier(TrackpadPickerSizing())
+                            .modifier(FlexibleMenuPickerSizing())
                             .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1674,7 +1675,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .modifier(TrackpadPickerSizing())
+                            .modifier(FlexibleMenuPickerSizing())
                             .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1790,7 +1791,7 @@ struct ContentView: View {
                 if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
                     if let index = activeColumnIndex,
                        let settings = activeColumnSettings {
-                        EqualSplitFormRow {
+                        EqualSplitFormRow(alwaysHorizontal: true) {
                             Text("Edit Column")
                         } field: {
                             Picker("", selection: editColumnBinding) {
@@ -1800,6 +1801,7 @@ struct ContentView: View {
                             }
                             .pickerStyle(MenuPickerStyle())
                             .labelsHidden()
+                            .modifier(FlexibleMenuPickerSizing())
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         VStack(alignment: .leading, spacing: 14) {
@@ -1816,7 +1818,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Scale X (%)",
@@ -1832,7 +1835,8 @@ struct ContentView: View {
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Scale Y (%)",
@@ -1848,7 +1852,8 @@ struct ContentView: View {
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column X (%)",
@@ -1865,7 +1870,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Column Y (%)",
@@ -1882,7 +1888,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                             ColumnTuningRow(
                                 title: "Rotation (0-360 deg)",
@@ -1899,7 +1906,8 @@ struct ContentView: View {
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
                                 showSlider: false,
-                                fillFieldWidth: true
+                                fillFieldWidth: true,
+                                alwaysHorizontal: true
                             )
                         }
                         HStack(spacing: 8) {
@@ -2216,7 +2224,7 @@ struct ContentView: View {
             let holdGroups = actionGroups(for: selectedHoldAction, hold: true)
 
             VStack(alignment: .leading, spacing: 10) {
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Layer")
                 } field: {
                     Picker("", selection: layerSelection) {
@@ -2226,9 +2234,10 @@ struct ContentView: View {
                     }
                     .pickerStyle(MenuPickerStyle())
                     .labelsHidden()
+                    .modifier(FlexibleMenuPickerSizing())
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Primary Action")
                 } field: {
                     actionChooserButton(
@@ -2237,7 +2246,7 @@ struct ContentView: View {
                         actionGroups: primaryGroups
                     )
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Hold Action")
                 } field: {
                     actionChooserButton(
@@ -2246,7 +2255,7 @@ struct ContentView: View {
                         actionGroups: holdGroups
                     )
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Force Instead of Hold")
                 } field: {
                     TextField(
@@ -2259,7 +2268,7 @@ struct ContentView: View {
                     .disabled(!hasEditableSelection)
                     .help("0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached.")
                 }
-                EqualSplitFormRow {
+                EqualSplitFormRow(alwaysHorizontal: true) {
                     Text("Key Rotation (0-360 deg)")
                 } field: {
                     TextField("", value: keyRotationBinding, formatter: ContentView.rotationDegreesFormatter)
@@ -2475,7 +2484,6 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var autocorrect = AutocorrectStatus.shared
-        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
@@ -2483,19 +2491,16 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            (compact
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: 8))) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
                     modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                    autocorrectControls
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 8) {
                     snapRadiusToggle
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    autocorrectControls
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     holdRepeatToggle
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .toggleStyle(.switch)
 
@@ -4115,6 +4120,7 @@ struct ContentView: View {
         let buttonStep: Double
         let showSlider: Bool
         let fillFieldWidth: Bool
+        let alwaysHorizontal: Bool
         @Binding var value: Double
 
             init(
@@ -4125,7 +4131,8 @@ struct ContentView: View {
                 sliderStep: Double,
                 buttonStep: Double? = nil,
                 showSlider: Bool? = nil,
-                fillFieldWidth: Bool = false
+                fillFieldWidth: Bool = false,
+                alwaysHorizontal: Bool = false
             ) {
                 self.title = title
                 self._value = value
@@ -4135,10 +4142,11 @@ struct ContentView: View {
                 self.buttonStep = buttonStep ?? sliderStep
                 self.showSlider = showSlider ?? true
                 self.fillFieldWidth = fillFieldWidth
+                self.alwaysHorizontal = alwaysHorizontal
             }
 
         var body: some View {
-            EqualSplitFormRow {
+            EqualSplitFormRow(alwaysHorizontal: alwaysHorizontal) {
                 Text(title)
                     .font(.callout)
                     .fontWeight(.semibold)
@@ -4196,8 +4204,10 @@ struct ContentView: View {
         let label: Label
         let field: Field
         let spacing: CGFloat
+        let alwaysHorizontal: Bool
 
         init(
+            alwaysHorizontal: Bool = false,
             spacing: CGFloat = 12,
             @ViewBuilder label: () -> Label,
             @ViewBuilder field: () -> Field
@@ -4205,10 +4215,11 @@ struct ContentView: View {
             self.label = label()
             self.field = field()
             self.spacing = spacing
+            self.alwaysHorizontal = alwaysHorizontal
         }
 
         var body: some View {
-            (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .center, spacing: spacing))) {
+            (compact && !alwaysHorizontal ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .center, spacing: spacing))) {
                 label
                     .frame(maxWidth: .infinity, alignment: .leading)
                 field

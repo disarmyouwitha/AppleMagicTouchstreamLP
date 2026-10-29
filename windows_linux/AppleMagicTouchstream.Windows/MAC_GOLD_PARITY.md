@@ -60,9 +60,32 @@ All new recognition lives in Core and can be exercised without OS input. Tap
 recognizers retain the existing 20 ms overlap, 80 ms landing/lift skew, 500 ms
 duration, 1 mm movement limit and identity checks. Holds require a stationary
 cohort within 2 mm; motion can acquire an ordinary gesture before a Hold fires.
+An assigned two-finger tap retains priority over movement while it remains valid
+within that 1 mm/500 ms budget. With Tap=None, movement keeps its 0.35 mm
+activation. This Windows usability policy intentionally delays small initial
+pointer movement with Tap assigned; it adds no fixed timer and does not change
+an activated owner's acceleration, movement or cleanup.
 Pending four-corner holds reserve their cycle instead of becoming tiny scrolls.
+The completed corner chord gets a fresh anchor and Hold deadline even if movement
+of its earlier partial cohort invalidated a generic Hold. Corner regions select
+the initial chord only; subsequent jitter is measured against its original IDs
+with the shared 2 mm allowance. Partial lift before firing cancels acquisition.
+An activated held shortcut survives partial lift until all-up; replacement,
+rejoining or excessive motion releases invalid corner output.
 An activated motion/force/hold owner persists through membership changes until
 all-up; a pressure crossing cannot replace an activated drag.
+
+Three-finger movement follows Mac's evidenced acquisition policy: a visible fourth
+pre-contact defers activation only during the first 80 ms of the contact episode
+when four-finger movement is enabled. A real drag without that evidence starts
+normally; a hovering fourth slot cannot delay it indefinitely. Windows PTP lacks
+Mac's native starting/hovering phases, so confident in-range non-tip slots supply
+the available evidence. They never count as touching or emit scroll. An unowned
+four-finger cohort cannot become a three-finger drag during lift. Activated owners
+retain precedence through added/lifted fingers. When an eligible four-finger Hold
+competes with ordinary movement, three of the four IDs must project at least
+0.2 mm along the candidate translation, as on Mac; directional assignments and
+ordinary scrolling without a competing Hold retain their existing thresholds.
 
 Coordinated chords require two different selected devices, landing within 80 ms,
 fresh samples within 150 ms and stationary original identities within 2 mm.
@@ -122,6 +145,29 @@ Existing serialized identities and capture formats remain unchanged.
 Build and full `--selftest` run against the Windows project. The suite includes
 the existing recorded tap/long-motion regressions and new hold/direction/chord,
 custom shortcut-plan, settings export/clone and TouchStream geometry checks.
+`WindowsDiagnostics/Fixtures/TwoFingerTapMovingMouse.json` preserves all 1,189
+production-decoded frames of `2F_taps_moving_mouse.atpcap`, its SHA-256 and
+normalization. Both sides and Pointer/Drag assignments recover the two valid
+short taps at frames 255–259 and 489–494: default replay changes from 13 to 15
+tap actions and 895 to 860 pointer calls, with balanced drag cleanup. A separate
+short cycle at 301–307 exceeds the 1 mm tap allowance and still emits four Zoom
+packets when geometric pinch is enabled; it is not counted as a repaired tap.
+The older captured regression retains 11 clicks and all 14 movement cycles;
+their small initial motion now waits for tap invalidation (546 pointer calls).
+Synthetic cases cover corner acquisition after partial-cohort motion, region-edge
+jitter, cancelled reassembly, held-key cleanup, four-finger Hold/scroll agreement,
+actual Windows contact extraction and bounded fourth-contact acquisition.
+`WindowsDiagnostics/Fixtures/FourCorners.atpcap` preserves the 484-record raw
+`4-corners.atpcap` found in the app's local data folder. Its maximum raw X is
+15,224, beyond the provisional normalization extent of 14,720. Auto previously
+misclassified 211 packets as Legacy, corrupting contact identities/coordinates
+and breaking corner acquisition. Auto now permits bounded 10% edge overshoot,
+checks the official reserved byte and retains the official decoder's existing
+coordinate clamp. Native PTP and explicit legacy selections retain their paths.
+Re-running live Auto selection on the raw capture (rather than honoring its
+historical per-record profile) produces three Open Config actions on either hand
+with the standard 500 ms threshold, and no drag edges. Current offline tests pass;
+tap/pointer feel and live corner/scroll acquisition still require hardware acceptance.
 Optional off-screen rendering parses a plain XAML Window, never MainWindow's
 live constructor, and opens no devices or input hooks.
 

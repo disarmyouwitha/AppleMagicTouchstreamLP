@@ -9,6 +9,7 @@ internal sealed class MouseTakeoverPreference
     private readonly object _gate=new();
     private readonly string _path;
     private bool _enabled;
+    public string? LastSaveError { get; private set; }
     public bool Enabled { get { lock(_gate) return _enabled; } }
     public MouseTakeoverPreference(string? path=null)
     {
@@ -20,15 +21,16 @@ internal sealed class MouseTakeoverPreference
     {
         lock(_gate)
         {
-            if(_enabled==enabled) return;
+            if(_enabled==enabled && LastSaveError==null) return;
             _enabled=enabled;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
                 File.WriteAllText(_path+".tmp",JsonSerializer.Serialize(enabled));
                 File.Move(_path+".tmp",_path,overwrite:true);
+                LastSaveError=null;
             }
-            catch { /* Match existing settings' best-effort persistence. */ }
+            catch(Exception error) { LastSaveError=error.Message; }
         }
     }
 }

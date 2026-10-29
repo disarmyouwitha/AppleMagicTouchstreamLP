@@ -159,7 +159,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (!_settings.VisualizerEnabled)
         {
             _settings.VisualizerEnabled = true;
-            _settings.Save();
+            SaveSettings();
         }
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
@@ -249,7 +249,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             var defaults=new UserSettings(); _settings.HoldDurationMs=defaults.HoldDurationMs; _settings.HapticsStrength=defaults.HapticsStrength;
             HoldDurationBox.Text=FormatNumber(_settings.HoldDurationMs); SetHapticsStrengthUiFromSettings();
-            _settings.Save(); ApplyCoreSettings();
+            SaveSettings(); ApplyCoreSettings();
         };
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
@@ -304,9 +304,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         InitializeLayerCombo();
         InitializeSettingsPanel();
-        _handGesturePanel = new HandGesturePanel(_settings, () => { _settings.Save(); ApplyCoreSettings(); });
+        _handGesturePanel = new HandGesturePanel(_settings, () => { SaveSettings(); ApplyCoreSettings(); });
         _handGesturePanel.ActionInspectorWidthChanged += SetInspectorWidth;
         SetInspectorWidth(ControlsPaneExpandedWidth);
+        _handGesturePanel.SetDeviceSelection(_settings.LeftDevicePath,_settings.RightDevicePath,selectActiveScope:true);
         HandGesturePanelHost.Children.Add(_handGesturePanel);
         if (!UsesSharedRuntime)
         {
@@ -430,7 +431,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _handGesturePanel?.SetStatus(IsReplayMode ? "Replay - no gesture output" : _runtimeService?.HandGestureStatus ?? _handGestures?.Status ?? "Waiting for live input");
         MouseTakeoverController? controller = IsReplayMode ? null : MouseTakeover;
         _updatingMouseTakeover = true;
-        MouseTakeoverCheck.IsChecked = controller?.Enabled == true;
+        MouseTakeoverCheck.IsChecked = controller?.Selected == true;
         MouseTakeoverCheck.IsEnabled = controller?.Available == true;
         MouseTakeoverTestButton.IsEnabled = controller?.Available == true && !controller.Enabled;
         MouseTakeoverStatusText.Text = IsReplayMode ? "Unavailable during replay" : controller?.Status ?? "Off";
@@ -1387,13 +1388,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             if (string.Equals(_settings.ShortcutActions[i], normalized, StringComparison.OrdinalIgnoreCase))
             {
                 _settings.ShortcutActions[i] = normalized;
-                _settings.Save();
+                SaveSettings();
                 return;
             }
         }
 
         _settings.ShortcutActions.Add(normalized);
-        _settings.Save();
+        SaveSettings();
     }
 
     private bool HasKeymapSelection()
@@ -1555,9 +1556,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         ApplyCoreSettings();
         ApplyVisualizerEnabled(true, persist: false);
-        _settings.Save();
+        SaveSettings();
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
+    }
+
+    private bool SaveSettings()
+    {
+        const string prefix="Settings could not be saved: ";
+        if(_settings.TrySave(out string error))
+        {
+            if(RawInputErrorText.Text.StartsWith(prefix,StringComparison.Ordinal))
+            { RawInputErrorText.Text=string.Empty; RawInputErrorText.Visibility=Visibility.Collapsed; }
+            return true;
+        }
+        RawInputErrorText.Text=prefix+error;
+        RawInputErrorText.Visibility=Visibility.Visible;
+        return false;
     }
 
     private bool TryExportSettingsBundle(string path, out string error)
@@ -1682,6 +1697,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return true;
         }
 
+        // A failed settings import must not silently succeed as a keymap-only import.
+        if(AppleMagicTouchstreamProfileBundle.IsProfileBundle(json))
+        {
+            error=bundleError;
+            return false;
+        }
+
         // Backward compatibility: allow importing legacy keymap-only JSON.
         if (_keymap.TryImportFromJson(json, out string legacyError))
         {
@@ -1769,7 +1791,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             UpdateHitForSide(_right, TrackpadSide.Right);
         }
 
-        _settings.Save();
+        if(!SaveSettings())
+        {
+            error="Imported settings could not be saved.\n"+RawInputErrorText.Text;
+            return false;
+        }
         _keymap.Save();
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
@@ -1912,7 +1938,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RightSurface.InvalidateVisual();
         if (persist)
         {
-            _settings.Save();
+            SaveSettings();
         }
     }
 
@@ -2165,7 +2191,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RebuildLayouts();
         RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
         ApplyCoreSettings();
-        _settings.Save();
+        SaveSettings();
         UpdateEngineStateDetails();
     }
 
@@ -2186,7 +2212,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RebuildLayouts();
         RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
         ApplyCoreSettings();
-        _settings.Save();
+        SaveSettings();
         UpdateEngineStateDetails();
     }
 
@@ -2695,7 +2721,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ActiveLayer = _activeLayer;
         _touchActor?.SetPersistentLayer(_activeLayer);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
-        _settings.Save();
+        SaveSettings();
         UpdateLabelMatrices();
         EnsureSelectedKeyStillValid();
         UpdateSelectedKeyHighlight();
@@ -2728,8 +2754,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftDeviceCombo.ItemsSource = _devices;
         RightDeviceCombo.ItemsSource = _devices;
 
-        LeftDeviceCombo.SelectedItem = FindDevice(leftPath) ?? _devices[0];
-        RightDeviceCombo.SelectedItem = FindDevice(rightPath) ?? _devices[0];
+        LeftDeviceCombo.SelectedItem = SavedDeviceSelection.Resolve(_devices,leftPath);
+        RightDeviceCombo.SelectedItem = SavedDeviceSelection.Resolve(_devices,rightPath);
 
         _suppressSelectionEvents = false;
         ApplySelections();
@@ -2963,7 +2989,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _settings.Save();
+        SaveSettings();
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
         ApplyPressurePolicyForSide(side);
@@ -3113,6 +3139,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
         RefreshDecoderProfileCombos();
+        _handGesturePanel?.SetDeviceSelection((LeftDeviceCombo.SelectedItem as HidDeviceInfo)?.Path,
+            (RightDeviceCombo.SelectedItem as HidDeviceInfo)?.Path,selectActiveScope:true);
     }
 
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
@@ -3536,7 +3564,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (layoutChanged || sizingChanged)
         {
             RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
-            _settings.Save();
+            SaveSettings();
         }
 
         if (geometryChanged)
@@ -4574,7 +4602,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string? rightPath = (RightDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
         _settings.LeftDevicePath = leftPath;
         _settings.RightDevicePath = rightPath;
-        _settings.Save();
+        SaveSettings();
         _handGestures?.Configure(_settings);
         _runtimeService?.UpdateDeviceSelections(leftPath, rightPath);
     }

@@ -19,6 +19,8 @@
     <Resource Include="Assets\TouchStreamReference.gif" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapMovingMouse.json" />
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\FourCorners.atpcap" />
   </ItemGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />

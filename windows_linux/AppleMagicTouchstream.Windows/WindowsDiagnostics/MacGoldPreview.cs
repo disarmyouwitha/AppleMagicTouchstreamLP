@@ -21,7 +21,7 @@ internal static class MacGoldPreview
             .Replace("clr-namespace:AppleMagicTouchstream\"","clr-namespace:AppleMagicTouchstream;assembly=AppleMagicTouchstream\"");
         foreach (var (name,width,height,gestures,both,touchstream) in new[] {
             ("keyboard",1240,780,false,false,false),("gestures",1240,900,true,false,false),
-            ("both",1240,900,true,true,false),("compact",900,640,true,false,false),
+            ("both",1240,900,true,true,false),("compact",900,640,true,false,false),("right-gestures",1240,900,true,false,false),
             ("held-shortcut",1440,1000,true,false,false),("typing-tuning",1240,900,false,false,false),
             ("touchstream",1440,900,false,false,true) })
         {
@@ -33,6 +33,11 @@ internal static class MacGoldPreview
             ((Border)window.FindName("ControlsPaneBorder")).Width=panel.ActionInspectorWidth;
             ((Grid)window.FindName("HandGesturePanelHost")).Children.Add(panel);
             if (both) panel.EditingScope=HandGestureScope.Both;
+            if(name=="right-gestures")
+            {
+                settings.HandGesturesV1.Right.Set(HandGestureTrigger.TwoFingerPinch,HandGestureAction.None);
+                panel.SetDeviceSelection(null,"right-pad",selectActiveScope:true); panel.SelectPage("2-shape");
+            }
             if(name=="held-shortcut")
             {
                 settings.HandGesturesV1.Left.HoldActions=new() { [2]=HandGestureAction.Custom };
@@ -61,7 +66,7 @@ internal static class MacGoldPreview
                 surface.EmptyMessage="";
             }
             foreach (string device in new[] {"LeftDeviceCombo","RightDeviceCombo"})
-            { var combo=(ComboBox)window.FindName(device); combo.Items.Add(device.StartsWith("Left") ? "Left Magic Trackpad" : "Right Magic Trackpad"); combo.SelectedIndex=0; }
+            { var combo=(ComboBox)window.FindName(device); combo.Items.Add(device.StartsWith("Left") ? name=="right-gestures" ? "None" : "Left Magic Trackpad" : "Right Magic Trackpad"); combo.SelectedIndex=0; }
             var layoutCombo=(ComboBox)window.FindName("LayoutPresetCombo"); layoutCombo.Items.Add(preset.DisplayName); layoutCombo.SelectedIndex=0;
             var root=(FrameworkElement)window.Content; window.Content=null;
             root.Resources=window.Resources; root.Width=width; root.Height=height;

@@ -117,6 +117,18 @@ public sealed class AppleMagicTouchstreamProfileBundle
         }
     }
 
+    public static bool IsProfileBundle(string json)
+    {
+        try
+        {
+            using var document=JsonDocument.Parse(json);
+            return document.RootElement.ValueKind==JsonValueKind.Object
+                && document.RootElement.EnumerateObject().Any(p=>p.Name.Equals("Settings",StringComparison.OrdinalIgnoreCase)
+                    || p.Name.Equals("HostExtensions",StringComparison.OrdinalIgnoreCase));
+        }
+        catch(JsonException) { return false; }
+    }
+
     public static bool TryParse(string json, out AppleMagicTouchstreamProfileBundle bundle, out string error)
     {
         bundle = new AppleMagicTouchstreamProfileBundle();
@@ -130,6 +142,13 @@ public sealed class AppleMagicTouchstreamProfileBundle
 
         try
         {
+            using var document=JsonDocument.Parse(json);
+            if(document.RootElement.ValueKind!=JsonValueKind.Object || !document.RootElement.EnumerateObject().Any(p=>
+                p.Name.Equals("Settings",StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind==JsonValueKind.Object))
+            {
+                error="Expected a settings export with an explicit Settings object.";
+                return false;
+            }
             AppleMagicTouchstreamProfileBundle? parsed = JsonSerializer.Deserialize<AppleMagicTouchstreamProfileBundle>(json, ReadOptions);
             if (parsed == null || parsed.Settings == null || string.IsNullOrWhiteSpace(parsed.KeymapJson))
             {

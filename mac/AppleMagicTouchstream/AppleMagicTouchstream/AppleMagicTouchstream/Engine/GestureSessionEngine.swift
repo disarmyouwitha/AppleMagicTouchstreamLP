@@ -251,6 +251,7 @@ struct GestureDirectionalStepper {
         var direction: GestureMovementDirection?
         var candidate: GestureMovementDirection?
         var candidateMM = 0.0
+        var motionMM = 0.0
         var lastTime: Double?
         var lastOutput = -Double.infinity
     }
@@ -295,6 +296,7 @@ struct GestureDirectionalStepper {
             return direction
         }
         if let candidate = dominant(delta,diagonal:trigger == .thumbTwoMove), candidate != current {
+            session.motionMM = 0
             if candidate != session.candidate { session.candidate = candidate; session.candidateMM = 0 }
             session.candidateMM += projection(delta,onto:candidate)
             guard session.candidateMM >= Self.activationMM,
@@ -304,7 +306,17 @@ struct GestureDirectionalStepper {
             return candidate
         }
         session.candidate = nil; session.candidateMM = 0
-        return nil
+        guard assignments.repeatBehavior(current) == .motion, assignments.repeats(current),
+              !assignments.action(current).isDirectionalScroll,
+              dominant(delta,diagonal:trigger == .thumbTwoMove) == current else {
+            session.motionMM = 0
+            return nil
+        }
+        session.motionMM += max(0,projection(delta,onto:current))
+        guard session.motionMM >= Self.activationMM,
+              time-session.lastOutput >= Self.minimumOutputInterval else { return nil }
+        session.motionMM = 0; session.lastOutput = time
+        return current
     }
     func direction(device:UInt64) -> GestureMovementDirection? { sessions[device]?.direction }
     func trigger(device:UInt64) -> GestureTrigger? { sessions[device]?.trigger }
@@ -361,6 +373,7 @@ enum CornerGestureGeometry {
 /// Both pads use host time: native clocks may have different offsets. No output,
 /// timers or I/O here; the live runtime supplies freshness ticks under its lock.
 struct TwoHandGestureEngine {
+    static let acquisitionWindow = 1.0
     static let joinWindow = 0.15, staleWindow = 0.2, tapWindow = 0.5, movementSlopMM = 2.0
     private struct Sample {
         var time:Double, downAt:Double
@@ -456,7 +469,8 @@ struct TwoHandGestureEngine {
             }
             return Decision(reserved:true,trigger:advance(now:now,settings:settings))
         }
-        if let left, let right, fresh(left,now:now), fresh(right,now:now), !left.invalid, !right.invalid {
+        if let left, let right, fresh(left,now:now), fresh(right,now:now), !left.invalid, !right.invalid,
+           abs(left.downAt-right.downAt) <= Self.acquisitionWindow {
             for chord in TwoHandChord.recognitionOrder where settings.enabled(chord) {
                 guard left.count == chord.count, right.count == chord.count else { continue }
                 if let leftMask = chord.cornerMask(leftHand:true), let rightMask = chord.cornerMask(leftHand:false) {

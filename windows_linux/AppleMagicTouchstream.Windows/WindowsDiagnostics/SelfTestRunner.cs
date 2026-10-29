@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { SettingsPersistenceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { BrandingMigrationTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Branding/migration tests failed: "+error.Message); }
         if (!HyperModifierTests.Run(out string hyperFailure))
@@ -2480,7 +2482,7 @@ internal static class SelfTestRunner
             return false;
         }
 
-        if (settings.ForceMin != 0 || settings.ForceCap != 125)
+        if (settings.ForceMin != 0 || settings.ForceCap != 255)
         {
             failure = "bundled default settings should load bundled force thresholds";
             return false;

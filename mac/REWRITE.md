@@ -1,9 +1,10 @@
 # NEXT:
 =======
-0. For the touchstream layout can you make the delete and enter corner buttons just a little smaller so they don't intersect with space/backspace
-1. Let's renamed GLASSTOKEY_DEFAULT_KEYMAP.json to DEFAULT_KEYMAP.json and all associated code. 
-4. For our Directional gestures there should be a behavior dropdown with options.. (repeat every ms, repeat with motion)
+Hm, I think we broke something I liked when adding 2-handed "Both" Gestures.. I think it's allowing a 2nd hand to latch way too late? (atpcap)
+Once a gesture has latched to 1 hand I can't use gestuers on the other hand?
+> Example: I start a 3-finger drag on RHS and now I can't 3-finger drag on LHS (incorrect) even if I wait several seconds to use the 2nd hand. In this case 3+3 gestures never fires (correct)
 ===
+* Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>

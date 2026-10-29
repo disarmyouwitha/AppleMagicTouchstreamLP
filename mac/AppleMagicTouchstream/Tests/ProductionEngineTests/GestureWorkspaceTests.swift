@@ -41,6 +41,74 @@ final class GestureWorkspaceTests: XCTestCase {
             XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:pane,settings:settings,scope:.left))
         }
     }
+    func testDirectionalBehaviorPickerSendsMotionSelection() throws {
+        var settings = HandGestureSettings()
+        settings.editMovement(.fiveFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall,in:.left)
+        settings.setDirectionalRepeatInterval(50,direction:.up,for:.fiveFingerMove,in:.left)
+        var choices:[GestureDirectionalRepeatBehavior] = []
+        let view = GestureAssignmentWorkspace(settings:settings,initialPane:.fiveFingers,initialDirection:.up,
+            status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected assignment")},
+            setSensitivity:{_,_,_ in XCTFail("Unexpected sensitivity edit")},
+            setDirectionalRepeatBehavior:{behavior,direction,trigger,scope in
+                XCTAssertEqual(direction,.up); XCTAssertEqual(trigger,.fiveFingerMove); XCTAssertEqual(scope,.left)
+                choices.append(behavior)
+                settings.setDirectionalRepeatBehavior(behavior,direction:direction,for:trigger,in:scope)
+            }).frame(width:1320,height:800)
+        let host = NSHostingView(rootView:view)
+        host.frame = NSRect(x:0,y:0,width:1320,height:800)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+        window.contentView = host; host.layoutSubtreeIfNeeded()
+        defer { window.contentView = nil }
+        func popups(_ view:NSView) -> [NSPopUpButton] {
+            (view as? NSPopUpButton).map { [$0] } ?? view.subviews.flatMap { popups($0) }
+        }
+        let popup = try XCTUnwrap(popups(host).first { $0.itemTitles.contains("Repeat with motion") })
+        let item = try XCTUnwrap(popup.item(withTitle:"Repeat with motion"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(item.action),to:item.target,from:item))
+        XCTAssertEqual(choices,[.motion])
+        let suite = "AMT.BehaviorSelectionTests."+UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        settings.save(to:defaults)
+        let loaded = HandGestureSettings.load(from:defaults)
+        XCTAssertEqual(loaded.directionalRepeatBehavior(.up,for:.fiveFingerMove,in:.left),.motion)
+        let assignments = try XCTUnwrap(loaded.routed(to:.init(left:1,right:nil))[1]?.liveDirectionalBindings[.fiveFingerMove])
+        XCTAssertEqual(assignments.configuredRepeatIntervalMS(.up),50)
+        XCTAssertEqual(assignments.repeatIntervalMS(.up),0)
+        var timer = GestureDirectionalRepeater()
+        timer.refresh(device:1,direction:.up,intervalMS:50,now:1)
+        timer.refresh(device:1,direction:.up,intervalMS:assignments.repeatIntervalMS(.up),now:1.01)
+        XCTAssertNil(timer.tick(device:1,now:1.10))
+    }
+
+    func testDirectionalBehaviorModesRenderWithoutInput() throws {
+        for behavior in GestureDirectionalRepeatBehavior.allCases {
+            for action in [GestureAction.volumeUpSmall,.scrollUp] {
+                var settings = HandGestureSettings()
+                settings.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:action,in:.left)
+                settings.setDirectionalRepeatBehavior(behavior,direction:.up,for:.threeFingerMove,in:.left)
+                let view = GestureAssignmentWorkspace(settings:settings,initialPane:.threeFingers,initialDirection:.up,
+                    status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected assignment")},
+                    setSensitivity:{_,_,_ in XCTFail("Unexpected sensitivity edit")},
+                    setDirectionalRepeatBehavior:{_,_,_,_ in XCTFail("Rendering must not change behavior")})
+                    .frame(width:1320,height:800)
+                let host = NSHostingView(rootView:view)
+                host.frame = NSRect(x:0,y:0,width:1320,height:800)
+                let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+                window.contentView = host; host.layoutSubtreeIfNeeded()
+                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+                host.cacheDisplay(in:host.bounds,to:bitmap)
+                if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+                    let url = URL(fileURLWithPath:directory,isDirectory:true)
+                    try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+                    try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
+                        .write(to:url.appendingPathComponent("behavior-\(behavior.rawValue)-\(action.isDirectionalScroll ? "scroll" : "discrete").png"))
+                }
+                window.contentView = nil
+            }
+        }
+    }
+
     func testHoldCardAndRightInspectorRenderWithoutInput() throws {
         var settings = HandGestureSettings()
         settings.setHoldAction(.shortcut(.init(label:"Shift",holdUntilRelease:true)),count:2,in:.left)
@@ -245,6 +313,7 @@ extension GestureWorkspaceTests {
             let view = ShortcutActionBuilder(action:action,allowsHold:true,holdUntilRelease:name == "shift") { _,_ in
                 XCTFail("Rendering must not apply an action")
             }.padding(20).frame(width:381,height:340,alignment:.topLeading)
+                .background(Color(nsColor:.windowBackgroundColor))
             let host = NSHostingView(rootView:view)
             host.frame = NSRect(x:0,y:0,width:381,height:340)
             let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)

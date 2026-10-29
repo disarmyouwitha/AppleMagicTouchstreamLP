@@ -15,6 +15,101 @@ final class DirectionalMovementTests: XCTestCase {
                         gesture:GestureTrigger = .threeFingerMove) -> GestureSessionUpdate<GestureTrigger> {
         GestureSessionUpdate(gesture:gesture,phase:phase,millimetres:delta,cancellation:nil)
     }
+    func testRepeatBehaviorMigrationMirrorEditAndPortableRoundTrip() throws {
+        var settings = HandGestureSettings()
+        let trigger = GestureTrigger.threeFingerMove
+        settings.editMovement(trigger,mode:.directional,direction:.up,action:.volumeUpSmall,in:.both)
+        settings.editMovement(trigger,mode:.directional,direction:.down,action:.scrollDown,in:.both)
+        let legacy = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+        XCTAssertEqual(legacy.directionalRepeatBehavior(.up,for:trigger,in:.both),.timed)
+        XCTAssertEqual(legacy.directionalRepeatBehavior(.down,for:trigger,in:.both),.motion)
+        settings.setDirectionalRepeatInterval(150,direction:.up,for:trigger,in:.both)
+        settings.setDirectionalRepeatBehavior(.motion,direction:.up,for:trigger,in:.left)
+        XCTAssertNil(settings.directionalRepeatBehavior(.up,for:trigger,in:.both))
+        XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.up),0)
+        XCTAssertTrue(settings.left.movement(trigger).repeats(.up))
+        XCTAssertEqual(settings.left.movement(trigger).configuredRepeatIntervalMS(.up),150)
+        settings.setDirectionalRepeatBehavior(.motion,direction:.up,for:trigger,in:.both)
+        XCTAssertEqual(settings.directionalRepeatBehavior(.up,for:trigger,in:.both),.motion)
+        settings.setDirectionalRepeatBehavior(.timed,direction:.down,for:trigger,in:.both)
+        settings.setDirectionalRepeatInterval(120,direction:.down,for:trigger,in:.both)
+        XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),120)
+        settings.setDirectionalRepeatBehavior(.timed,direction:.up,for:trigger,in:.both)
+        XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.up),150)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,settings)
+        var current = profile
+        current.handGestureSettings?.setDirectionalRepeatBehavior(.motion,direction:.up,for:trigger,in:.both)
+        var oldProfile = profile; oldProfile.handGestureSettings = legacy
+        let oldImport = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:oldProfile),currentProfile:current)
+        XCTAssertEqual(oldImport.handGestureSettings?.directionalRepeatBehavior(.up,for:trigger,in:.both),.motion)
+        let explicitImport = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:current)
+        XCTAssertEqual(explicitImport.handGestureSettings?.directionalRepeatBehavior(.up,for:trigger,in:.both),.timed)
+    }
+
+    func testMotionRepeatAllCountsDirectionsPausesAndNoTimerOrCatchUp() {
+        for trigger in GestureDirectionalAssignments.liveTriggers {
+            for direction in GestureDirectionalAssignments.directions(for:trigger) {
+                var settings = HandGestureSettings()
+                settings.editMovement(trigger,mode:.directional,direction:direction,action:.volumeUpSmall,in:.left)
+                settings.setDirectionalRepeatBehavior(.motion,direction:direction,for:trigger,in:.left)
+                let assignments = settings.left.movement(trigger), unit = direction.unitVector
+                func motion(_ mm:Double) -> GestureSessionUpdate<GestureTrigger> {
+                    update(CGPoint(x:unit.x*mm,y:unit.y*mm),gesture:trigger)
+                }
+                var stepper = GestureDirectionalStepper(), timer = GestureDirectionalRepeater()
+                XCTAssertEqual(stepper.process(device:1,time:1,update:update(CGPoint(x:unit.x,y:unit.y),.began,gesture:trigger),assignments:assignments),direction)
+                XCTAssertNil(stepper.process(device:1,time:1.04,update:motion(0.4),assignments:assignments))
+                XCTAssertEqual(stepper.process(device:1,time:1.09,update:motion(0.4),assignments:assignments),direction)
+                XCTAssertNil(stepper.process(device:1,time:1.10,update:motion(0),assignments:assignments))
+                timer.refresh(device:1,direction:direction,intervalMS:assignments.repeatIntervalMS(direction),now:1.10)
+                XCTAssertNil(timer.tick(device:1,now:1.19))
+                XCTAssertNil(stepper.process(device:1,time:1.19,update:motion(0),assignments:assignments))
+                XCTAssertEqual(stepper.process(device:1,time:1.20,update:motion(10),assignments:assignments),direction)
+                XCTAssertNil(stepper.process(device:1,time:1.21,update:motion(0.1),assignments:assignments))
+                XCTAssertNil(stepper.process(device:1,time:1.29,update:motion(0),assignments:assignments))
+                XCTAssertNil(stepper.process(device:2,time:1.30,update:motion(2),assignments:assignments))
+                XCTAssertNil(stepper.process(device:1,time:1.30,update:update(nil,.ended,gesture:trigger),assignments:assignments))
+                XCTAssertNil(stepper.process(device:1,time:1.31,update:motion(2),assignments:assignments))
+            }
+        }
+    }
+
+    func testMotionRepeatOffTurnAndStaleInputDoNotLeakTravel() {
+        var assignments = config()
+        assignments.repeatBehaviors = ["up":.motion,"right":.motion]
+        var stepper = GestureDirectionalStepper()
+        XCTAssertEqual(stepper.process(device:1,time:1,update:update(.init(x:0,y:-1),.began),assignments:assignments),.up)
+        XCTAssertNil(stepper.process(device:1,time:1.09,update:update(.init(x:0,y:-0.5)),assignments:assignments))
+        XCTAssertNil(stepper.process(device:1,time:1.10,update:update(.init(x:0.4,y:0)),assignments:assignments))
+        XCTAssertEqual(stepper.process(device:1,time:1.19,update:update(.init(x:0.4,y:0)),assignments:assignments),.right)
+        XCTAssertNil(stepper.process(device:1,time:1.20,update:update(.init(x:0.4,y:0)),assignments:assignments))
+        XCTAssertNil(stepper.process(device:1,time:1.40,update:update(.init(x:2,y:0)),assignments:assignments))
+        XCTAssertNil(stepper.direction(device:1))
+        assignments.repeatEnabledOverrides = ["up":false]
+        XCTAssertEqual(stepper.process(device:1,time:2,update:update(.init(x:0,y:-1),.began),assignments:assignments),.up)
+        XCTAssertNil(stepper.process(device:1,time:2.1,update:update(.init(x:0,y:-2)),assignments:assignments))
+    }
+
+    func testTimedScrollStepsUseExistingProfileAndExplicitActionSign() throws {
+        for action in GestureAction.directionalScrollActions {
+            var engine = DirectionalScrollEngine(profile:try directionalScrollProfile())
+            var assignments = config()
+            assignments.actions["left"] = action
+            assignments.repeatBehaviors = ["left":.timed]
+            assignments.repeatIntervalsMS = ["left":100]
+            var timer = GestureDirectionalRepeater()
+            timer.refresh(device:1,direction:.left,intervalMS:assignments.repeatIntervalMS(.left),now:1)
+            XCTAssertEqual(timer.tick(device:1,now:1.101),.left)
+            let delta = try XCTUnwrap(engine.step(time:1.101,direction:.left,action:action,sensitivity:1))
+            let signed = action.isHorizontalPan ? delta.x : delta.y
+            XCTAssertGreaterThan(abs(signed),0)
+            XCTAssertEqual(signed > 0,action == .panLeft || action == .scrollUp)
+            XCTAssertEqual(action.isHorizontalPan ? delta.y : delta.x,0)
+        }
+    }
+
     func testAllDirectionsRequireTravelAndRejectDiagonalAmbiguity() {
         for (delta,direction) in [(CGPoint(x:0,y:-0.4),GestureMovementDirection.up),(.init(x:0,y:0.4),.down),(.init(x:-0.4,y:0),.left),(.init(x:0.4,y:0),.right)] {
             var stepper = GestureDirectionalStepper()
