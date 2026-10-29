@@ -123,11 +123,13 @@ ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle
 Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
 secondary/system actions remain independent.
 
-Secondary clicks use the active drag's private event source, or a new private
-source when no drag is held. Both right-button edges are prepared before posting;
-right-click never releases another pad's primary-button owner. Tagged-event and
-outside-button interference checks retain their existing roles. This keeps
-secondary output out of the combined source's accumulated button state.
+Primary drag uses a retained private source. Secondary clicks borrow that source
+while a drag is active; standalone secondary clicks retain their private source
+through posting. Both right-button edges are prepared before posting; right-click
+never releases another pad's primary-button owner. Ordinary pointer, primary tap,
+scroll, magnification and shortcut/media factories retain their established source
+behavior. Combined-session state supplies modifier flags and external-button
+interference checks; read-only cursor snapshots are never posted.
 
 `breaken.atpcap` (SHA-256
 `e839d425040afd65b7ade7db44f1b7cfabf8bd04c10f475b1bc82fb45900ea1e`)
@@ -159,6 +161,57 @@ with explicit 3+3 Tap/Hold bindings and two-finger pointer/three-finger drag ver
 no Both reservation, both pads moving the shared drag, and one balanced button
 lifetime. The capture’s legacy configuration omits current per-hand/Both settings;
 these are explicit regression assignments, not inferred captured settings.
+
+`drag_break.atpcap` (SHA-256
+`91423d8858a8ab5c4f18b23a75e519d13fe2a0fd89be5e288af9264e3c1bcc0d`)
+adds a transient four-contact landing during the opposite pad's drag. The next
+frame travels about 0.253 app mm, crossing ordinary four-finger Scroll activation
+before the contact count settles to three. The complete raw frames and both clocks
+are preserved in `Tests/ProductionEngineTests/Fixtures/drag-scroll-button-state.json`.
+Regression assignments explicitly enable ordinary Scroll, two-finger pointer,
+three-finger drag, two-finger shape actions and Thumb+2 secondary click. Checks
+cover the intervening Scroll output as well as the right-click and later pointer
+movement on both pads. Generated gesture events retain their interpreter tag;
+checks do not post native input or simulate the session button table.
+
+During the live investigation, after all fingers lifted the combined-session left
+button remained down while the HID table reported up. One physical left-click
+cleared it and restored pointer movement. Broader private-source changes were
+trialled but did not resolve the hardware reproduction; they have been reverted.
+The drag/secondary source lifetime cleanup and bounded capture diagnostics remain.
+Offline replay verifies event construction and recognition, without simulating
+WindowServer delivery or downstream event filters.
+
+`mouse_stuck.atpcap` (SHA-256
+`6defac9135018bcfa5c90c8d88d3fb6e481f5e0e4db9a2ac2b5abb6494657883`)
+is preserved with complete raw frames and both clocks in
+`Tests/ProductionEngineTests/Fixtures/drag-release-source-lifetime.json`. It covers
+a held drag, opposite-pad Thumb+2 tap and pointer travel, owner lift, and later
+pointer attempts on both pads. Explicit regression bindings exercise that handoff
+and balanced button edges without posting native input.
+
+A CGEvent's saved source ID does not retain the CGEventSource object that owns its
+private state table. Primary drag therefore retains one private source for the
+output object's lifetime, across all-up/reset and subsequent drags. Returning the
+reserved up clears logical owners and the active source accessor, but cannot
+release the underlying source before the caller posts the up or before queued
+releases are processed. Weak-reference regressions check actual source liveness,
+not just event metadata, after per-pad/global release and during a new drag.
+
+Live diagnostic capture `newcap.atpcap` (SHA-256
+`fdcccbee54bd423365dd338b8ed4d5026f7bc2abf3e0e83402d3954ab6a0704d`)
+contains 872 processed frames. Drag ownership ends at 7.095 s; the HID observer
+records the tagged primary up from the same private source by 7.106 s. The drag
+source and HID button tables are clear, while the combined-session left button
+stays down through the final empty frame at 11.921 s. The other gesture source
+stays clear. This establishes that the remaining reproduction is downstream of
+logical ownership and the HID observer; it does not establish delivery through
+later event filters or identify which downstream component retains the state.
+The same hardware sequence did not freeze after the user disabled BetterTouchTool,
+which had an enabled modifying session mouse-event tap. This isolates an interaction
+with BetterTouchTool in the reproduction; the responsible rule/filter and exact
+release transformation remain unverified. Retain balanced output and the external
+button gate rather than adding blind releases or bypassing downstream filters.
 
 ## Motion, geometry and timing
 

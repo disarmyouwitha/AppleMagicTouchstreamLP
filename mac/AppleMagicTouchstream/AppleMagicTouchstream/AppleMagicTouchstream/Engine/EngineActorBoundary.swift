@@ -590,7 +590,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         let processedRecord = makeProcessedRecord(
             frame: RuntimeRawFrame(sequence: frame.sequence, frame: frame),
             ingress: ingress,
-            diagnostic: diagnostic
+            diagnostic: diagnostic,
+            gestureOutput: liveGestures && captureSession != nil ? pointer.captureOutputDiagnostic() : nil
         )
         return RuntimeFrameProcessingResult(
             renderSnapshot: renderedSnapshot,
@@ -601,7 +602,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private func makeProcessedRecord(
         frame: RuntimeRawFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        diagnostic: RuntimeFrameDiagnostic?
+        diagnostic: RuntimeFrameDiagnostic?,
+        gestureOutput: RuntimeGestureOutputDiagnostic? = nil
     ) -> ProcessedFrameRecord? {
         guard var captureSession else { return nil }
 
@@ -615,7 +617,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 updatedDiagnostic.ingress = updatedDiagnostic.ingress ?? ingress
                 return updatedDiagnostic
             },
-            dispatchEvents: []
+            dispatchEvents: [],
+            gestureOutput: gestureOutput
         )
         record = captureSession.store(record)
         self.captureSession = captureSession

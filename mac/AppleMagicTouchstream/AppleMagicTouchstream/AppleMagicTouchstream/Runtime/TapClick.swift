@@ -227,14 +227,18 @@ struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var owners:Set<UInt64> = Set(minimumCapacity:2)
     private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
-    private var source: CGEventSource?
-    var eventSource:CGEventSource? { source }
+    // CGEvent stores source metadata, but does not retain the CGEventSource.
+    // Keep this private table alive for the output owner's lifetime, including
+    // after end() returns and while WindowServer is processing queued releases.
+    private let source = CGEventSource(stateID:.privateState)
+    var eventSource:CGEventSource? { owner == nil ? nil : source }
+    var diagnosticSourceID: CGEventSourceStateID? { source?.sourceStateID }
     mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
         guard owner == nil, location.x.isFinite, location.y.isFinite,
-              let source = CGEventSource(stateID:.privateState),
+              let source = self.source,
               let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
               let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        self.source = source; owner = device; owners.insert(device); self.location = location; releaseEvent = up
+        owner = device; owners.insert(device); self.location = location; releaseEvent = up
         Self.configure(down,flags:flags,pressure:1)
         Self.configure(up,flags:flags,pressure:0)
         return down
@@ -270,7 +274,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
         if let location, location.x.isFinite, location.y.isFinite { releaseEvent?.location = location }
         releaseEvent?.timestamp = DispatchTime.now().uptimeNanoseconds
         let up = releaseEvent
-        owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil; source = nil
+        owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil
         return up
     }
     private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {
@@ -382,7 +386,7 @@ enum SecondaryTapClickOutput {
         // Keep secondary clicks out of the combined source's accumulated button state.
         // During a drag, both button lifetimes belong to that same private source.
         guard location.x.isFinite, location.y.isFinite,
-              let source = source ?? CGEventSource(stateID:.privateState),
+              let source = source ?? SelectedTrackpadEventPolicy.secondaryEventSource,
               let down = CGEvent(mouseEventSource:source,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
               let up = CGEvent(mouseEventSource:source,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
         for event in [down,up] {
@@ -522,5 +526,20 @@ struct AppleShortcutPlan: Equatable, Sendable {
             event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         }
         return [down,up]
+    }
+}
+
+
+/// Fixed storage on the observer path; captures receive a separate bounded copy.
+/// Only events posted by this process are recorded, without cursor/key content.
+struct GestureMouseOutputTrace {
+    private var edges = [RuntimeGestureMouseEdge?](repeating:nil,count:32)
+    private var next = 0
+    mutating func observe(type:CGEventType,sourceID:Int64,timestamp:UInt64,tagged:Bool) {
+        edges[next] = RuntimeGestureMouseEdge(type:type.rawValue,sourceID:sourceID,timestamp:timestamp,tagged:tagged)
+        next = (next+1) % edges.count
+    }
+    func snapshot() -> [RuntimeGestureMouseEdge] {
+        (0..<edges.count).compactMap { edges[(next+$0) % edges.count] }
     }
 }

@@ -145,12 +145,33 @@ struct RuntimeTouchSnapshot: Codable, Sendable {
     var hasTransitionState: Bool = false
 }
 
+/// Capture-only evidence; never replayed as output. Button masks use left/right/center bits.
+struct RuntimeGestureMouseEdge: Codable, Sendable, Equatable {
+    var type: UInt32
+    var sourceID: Int64
+    var timestamp: UInt64
+    var tagged: Bool
+}
+
+struct RuntimeGestureOutputDiagnostic: Codable, Sendable, Equatable {
+    var dragOwner: UInt64?
+    var dragOwnerCount: Int
+    var dragSourceID: Int32?
+    var combinedButtons: UInt8
+    var hidButtons: UInt8
+    var dragSourceButtons: UInt8
+    var otherGestureSourceButtons: UInt8
+    var observerHealthy: Bool
+    var observedMouseEdges: [RuntimeGestureMouseEdge]
+}
+
 struct ProcessedFrameRecord: Codable, Sendable {
     var frame: RuntimeRawFrame
     var arrivalTicks: Int64
     var ingress: RuntimeCaptureIngressSnapshot?
     var diagnostic: RuntimeFrameDiagnostic?
     var dispatchEvents: [ProcessedDispatchEvent] = []
+    var gestureOutput: RuntimeGestureOutputDiagnostic? = nil
 
     var sequence: UInt64 {
         frame.sequence

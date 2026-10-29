@@ -9,6 +9,12 @@ import os
 
 struct SelectedTrackpadEventPolicy {
     static let interpreterTag: Int64 = 0x414D544745535455
+    // Standalone secondary clicks retain their private source through posting.
+    private final class SourceStorage: @unchecked Sendable {
+        let source = CGEventSource(stateID:.privateState)
+    }
+    private static let storage = SourceStorage()
+    static var secondaryEventSource:CGEventSource? { storage.source }
 }
 
 struct TwoFingerPointerTracker {
@@ -166,6 +172,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
         }
         var drag = PrimaryDragOutput()
+        var mouseOutputTrace = GestureMouseOutputTrace()
         var buttonObserver: ButtonObserver?
         var buttonObserverHealthy = false
         var threeFingerMoveDevices: Set<UInt64> = []
@@ -340,7 +347,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             state.devices = devices; state.displayBounds = bounds
             if state.needsDragObserver && state.buttonObserver == nil {
-                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown]
+                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown,.leftMouseUp,.rightMouseUp,.otherMouseUp]
                     .reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
                 let tap = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.listenOnly,
                     eventsOfInterest:mask,callback: { _,type,event,context in
@@ -424,7 +431,18 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private func observeButton(type: CGEventType, event: CGEvent) {
         let tag = event.getIntegerValueField(.eventSourceUserData)
+        let ownProcess = event.getIntegerValueField(.eventSourceUnixProcessID) == Int64(getpid())
+        let sourceID = event.getIntegerValueField(.eventSourceStateID)
+        let timestamp = event.timestamp
         lock.withLock { state in
+            if ownProcess {
+                switch type {
+                case .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp:
+                    state.mouseOutputTrace.observe(type:type,sourceID:sourceID,
+                        timestamp:timestamp,tagged:tag == SelectedTrackpadEventPolicy.interpreterTag)
+                default: break
+                }
+            }
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 state.buttonObserverHealthy = false
                 state.reset() // fail closed, including the reserved up
@@ -432,6 +450,25 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 tag:tag) {
                 state.reset()
             }
+        }
+    }
+    /// Called only while recording a live frame, never during replay or ordinary input.
+    func captureOutputDiagnostic() -> RuntimeGestureOutputDiagnostic {
+        lock.withLock { state in
+            func buttons(_ source:CGEventSourceStateID?) -> UInt8 {
+                guard let source else { return 0 }
+                var mask:UInt8 = 0
+                if CGEventSource.buttonState(source,button:.left) { mask |= 1 }
+                if CGEventSource.buttonState(source,button:.right) { mask |= 2 }
+                if CGEventSource.buttonState(source,button:.center) { mask |= 4 }
+                return mask
+            }
+            let dragSource = state.drag.diagnosticSourceID
+            return RuntimeGestureOutputDiagnostic(dragOwner:state.drag.owner,dragOwnerCount:state.drag.owners.count,
+                dragSourceID:dragSource?.rawValue,combinedButtons:buttons(.combinedSessionState),
+                hidButtons:buttons(.hidSystemState),dragSourceButtons:buttons(dragSource),
+                otherGestureSourceButtons:buttons(SelectedTrackpadEventPolicy.secondaryEventSource?.sourceStateID),
+                observerHealthy:state.buttonObserverHealthy,observedMouseEdges:state.mouseOutputTrace.snapshot())
         }
     }
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }

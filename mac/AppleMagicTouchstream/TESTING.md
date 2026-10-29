@@ -105,6 +105,16 @@ This writes the synthetic capture and its production transcript. Ordinary test
 runs never rewrite committed fixtures. Capture bytes may include a fresh meta
 date; recognition output is checked independently and is deterministic.
 
+Live captures optionally include `gestureOutput` on each processed frame: logical
+drag ownership, combined/HID/private button masks, observer health, and the last
+32 mouse-button edges observed from this process. Each edge stores type, source
+ID, timestamp and interpreter-tag presence; it records no cursor/key content.
+The observer uses fixed storage, and only capture serialization copies its bounded
+history. Replay never polls live button state or emits these recorded edges. Old
+records without this optional evidence remain readable; the v5 envelope is unchanged.
+This evidence distinguishes an omitted release from state remaining down after an
+observed release. Offline event-construction tests alone cannot prove native recovery.
+
 ## Capture format (`.atpcap`)
 
 Canonical replay captures use `.atpcap` (`ATPCAP01`) with a versioned binary layout.
