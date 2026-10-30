@@ -40,7 +40,9 @@ This is a substantial functional port; the remaining differences below are real.
   None. Corner targets use the outer quarter of each axis.
 - TouchStream: all 43 left and 45 right traced rotated hit regions, independent
   side labels, stable row/column identities, per-key geometry overrides and the
-  Mac reference GIF at 42% opacity. Column tuning is disabled. The geometry sync
+  separate Mac LHS/RHS PNG references at 42% opacity. The revised positions,
+  sizes and rotations are regenerated from the current Mac image traces, keeping
+  all 88 key identities and per-key overrides. Column tuning is disabled. The geometry sync
   script reads the Mac source and regenerates the checked-in C# definition.
 - Contact pressure labels, bounded contact trails and unknown-anatomy black
   contacts. Windows never assigns a thumb/finger color from contact order.
