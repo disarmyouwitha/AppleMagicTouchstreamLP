@@ -185,8 +185,7 @@ public sealed class TrackpadLayoutPreset
         SixByFour,
         FiveByThree,
         FiveByFour,
-        TouchStream,
-        MobileOrthoTwelveByFour
+        TouchStream
     };
 
     public string Name { get; }

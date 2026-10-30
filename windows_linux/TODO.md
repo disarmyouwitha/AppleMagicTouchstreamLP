@@ -1,8 +1,6 @@
 # Notes:
 =======
-1. Can we look at the Touchstream Layout updates? I think we switched to using an updated background for LHS and RHS and because of that we moved the location of some of the keys to match.
-> mac/AppleMagicTouchstream/AppleMagicTouchstream/AppleMagicTouchstream/Resources
-2. Can we add Steno support? I just added it to mac/AppleMagicTouchstream last night so you can copy our notes.
+Can we add Steno support? I just added it to mac/AppleMagicTouchstream last night so you can copy our notes.
 ===
 0. What is the thing that keeps making me switch back / turn off the program:
 > * * * OMG IT'S scrolling in the LIMS that kills me, lol. (pages it is perfect; this particular one I use every day is unusable because we implement our own scrolling logic? Maybe I would have better luck rewriting the LIMS logic. x.x but what to do about websites with bad mouse? Can we try a toggle where we turn off my scroll acceleration to see if that helps? Thoughts??)
