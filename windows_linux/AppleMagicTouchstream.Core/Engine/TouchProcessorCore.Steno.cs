@@ -23,6 +23,12 @@ internal sealed partial class TouchProcessorCore
     }
     internal void TickSteno(long timestamp)
     { if(IsSteno && _stenoChord.Tick(timestamp/(double)Stopwatch.Frequency)) StenoOutput.Invalidate(); }
+    internal void ClaimStenoPointer()
+    {
+        _stenoChord.Cancel(_seenContactMask);
+        _layoutWaitForAllUp=_seenContactMask!=0;
+        StenoOutput.Invalidate();
+    }
     private void CancelSteno()
     { _stenoChord.Cancel(_seenContactMask); _stenoRegions=null; StenoOutput.Invalidate(); }
     private void PrepareStenoLayouts(KeyLayout left,KeyLayout right)

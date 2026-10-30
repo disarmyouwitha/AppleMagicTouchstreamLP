@@ -7091,6 +7091,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
         lock(_coreGate)
         {
             if(!_core.IsSteno) return;
+            _handGestures?.Cancel();
             lock(_gate)
             {
                 _layoutGeneration++;
@@ -7115,6 +7116,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                 }
             }
             _core.RemoveStenoDevice(side);
+            if(_core.IsSteno) _handGestures?.Cancel(side);
         }
     }
 
@@ -7342,6 +7344,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                     if(_core.IsSteno)
                     {
                         if(_stenoEligible!=null) { _core.SetStenoAdmission(_stenoEligible()); _core.TickSteno(Stopwatch.GetTimestamp()); }
+                        _handGestures?.Tick();
                     }
                     else { _handGestures?.Tick(); _keyboardArbiter?.Tick(Stopwatch.GetTimestamp()); }
                 }
@@ -7362,6 +7365,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                         long age=Stopwatch.GetTimestamp()-frame.TimestampTicks;
                         _core.SetStenoAdmission(_stenoEligible() && age>=0 && age<=Stopwatch.Frequency*.25);
                     }
+                    if(_handGestures?.ProcessStenoPointer(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks)==true) _core.ClaimStenoPointer();
                     _core.ProcessFrame(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
                 }
                 else

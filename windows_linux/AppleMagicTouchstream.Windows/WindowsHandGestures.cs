@@ -14,6 +14,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     private readonly Action<string> _releaseTakeover;
     private readonly WindowsGestureOutput _output;
     private readonly HandGestureEngine _engine;
+    private readonly StenoPointerEngine _stenoPointer;
     private bool _disposed;
     private bool _stenoMode;
     private long _frames, _reserved;
@@ -21,7 +22,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     public bool SupportsKeyboardProposals => true;
     public void SetKeyboardPriority(TrackpadSide side,bool priority) { lock(_sync) _keyboardPriority[(int)side]=priority; }
     public HandGestureEvidence Evidence(TrackpadSide side) { lock(_sync) return _engine.Evidence(side); }
-    public void Cancel(TrackpadSide? side=null) { lock(_sync) { if(side is {} pad) _engine.Cancel(pad); else { _output.Release(); _engine.Reset(); } } }
+    public void Cancel(TrackpadSide? side=null) { lock(_sync) { _stenoPointer.Cancel(side); if(side is {} pad) _engine.Cancel(pad); else { _output.Release(); _engine.Reset(); } } }
     public WindowsHandGestures(GlobalMouseInputHook hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover,
         DispatchEventQueue? keyboardQueue=null,SendInputDispatcher? keyboardDispatcher=null)
     {
@@ -30,6 +31,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         var keyboard=keyboardQueue!=null && keyboardDispatcher!=null ? new WindowsGestureKeyboardSession(keyboardQueue,keyboardDispatcher,eligible,hook.PhysicalKeyboard) : null;
         _output = new WindowsGestureOutput(eligible,keyboard);
         _engine = new(_output);
+        _stenoPointer=new(_output);
     }
     // Hook callback only records a flag. Never acquire engine/output locks here.
     private void ObserveButton(MouseHookDiagnosticEvent e)
@@ -44,7 +46,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     }
     public string Status
     {
-        get { lock (_sync) return _stenoMode ? "Gestures are paused in STENO layouts." : $"{(_eligible() ? "Active" : "Waiting for Mouse Takeover")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
+        get { lock (_sync) return _stenoMode ? "STENO pointer movement is enabled; lift both hands before the next chord." : $"{(_eligible() ? "Active" : "Waiting for Mouse Takeover")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
     }
     public void Configure(UserSettings settings)
     {
@@ -52,7 +54,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         {
             _stenoMode=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
-            _output.Release();
+            _output.Release(); _stenoPointer.Configure(settings.StenoPointerFingerCount);
             var effective = (settings.HandGesturesV1 ?? new()).Clone();
             // Windows uses the accepted Apple reference curve for movement and drag.
             effective.Left.PointerResponse = effective.Right.PointerResponse = HandPointerResponse.AppleReference;
@@ -108,11 +110,34 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             catch (Exception ex) { Fail(ex); return true; }
         }
     }
+    public bool ProcessStenoPointer(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,long timestamp)
+    {
+        lock(_sync)
+        {
+            if(_disposed || !_stenoMode) return false;
+            Span<HandGestureContact> contacts=stackalloc HandGestureContact[InputFrame.MaxContacts];
+            int count=ReadContacts(in frame,maxX,maxY,contacts,out _);
+            try
+            {
+                _output.ObserveFrame(); _output.ThrowIfFaulted();
+                bool valid=frame.ContactCount<=InputFrame.MaxContacts && _eligible() && !_output.ForeignButtonDown;
+                return _stenoPointer.Process(side,contacts[..count],timestamp/(double)Stopwatch.Frequency,
+                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,valid);
+            }
+            catch(Exception error) { _stenoPointer.Cancel(); Fail(error); return true; }
+        }
+    }
     public void Tick()
     {
         lock (_sync)
         {
-            if (_disposed || _stenoMode) return;
+            if (_disposed) return;
+            if(_stenoMode)
+            {
+                try { _output.ThrowIfFaulted(); _stenoPointer.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,_eligible() && !_output.ForeignButtonDown); }
+                catch(Exception error) { _stenoPointer.Cancel(); Fail(error); }
+                return;
+            }
             try { CheckButtonInterference(); _output.ThrowIfFaulted(); _engine.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, _eligible() && !_output.ForeignButtonDown); }
             catch (Exception ex) { Fail(ex); }
         }

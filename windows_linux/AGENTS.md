@@ -227,3 +227,9 @@ See AppleMagicTouchstream.Core/HYPER_MODIFIERS.md. Focused Linux validation is
   open the live Plover port or inject input. Hardware verification remains manual.
 - Windows Raw Input currently reports up to five contacts per pad; keep that ingestion
   limit separate from the 42 Gemini PR wire keys and Mac's larger contact capacity.
+
+- The STENO panel installs the bundled Plover plugin on an explicit button click,
+  displays completion/failure, and offers a saved/exported Pointer movement selector.
+  STENO pointer acquisition uses 2 mm translation; two-finger mode requires coherent
+  movement from both contacts. Larger cohorts cannot become the pointer after partial
+  lift. Clicking remains unassigned. Mouse Takeover stays required. Mac is unchanged.

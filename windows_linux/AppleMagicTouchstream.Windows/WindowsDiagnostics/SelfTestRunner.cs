@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { StenoPointerTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Steno pointer tests failed: "+error.Message); }
         try { StenoTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Steno tests failed: "+error.Message); }
         try { DecoderSessionTests.Run(); }

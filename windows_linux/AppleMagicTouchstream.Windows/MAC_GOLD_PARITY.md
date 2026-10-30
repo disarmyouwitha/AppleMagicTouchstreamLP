@@ -232,3 +232,22 @@ lower seams, rolling chords across both pads, rapid repeated chords, disconnect
 while held, Refresh/reselection, Ctrl+Alt+R, leaving STENO, saved mappings and export/
 import. Windows currently accepts five contacts per pad. Real trackpad/Plover typing
 feel has not yet been verified by these automated tests.
+
+### Windows STENO pointer prototype
+
+The STENO panel now offers Install / update Plover plugin and Pointer movement:
+One finger / Two fingers. The latter defaults to two and persists through restart,
+clone and settings export/import. This is a Windows experiment; Mac is unchanged.
+Mouse Takeover remains required. Movement acquires after 2 mm; two-finger mode
+requires both fingers translating together. Stationary one-finger strokes remain
+valid. Pointer acquisition cancels the entire pending two-hand stroke through
+all-up. A larger chord cannot acquire the pointer after partial lift. Clicks are
+unassigned; Ctrl+Alt+R still releases Takeover for normal mouse use.
+
+Automated tests cover both counts, stationary jitter, coherent movement, settling
+one finger, spread, stale input, permission changes, setting changes while held,
+partial lifts, whole-chord cancellation through the actor, fresh single-key strokes
+and settings export/import. Hardware testing must compare both modes for false
+acquisition during rolling chords, pointer feel and repeated transitions back to
+steno. Plugin installation is an explicit user action and does not launch Plover
+or enable its output automatically.

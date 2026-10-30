@@ -156,6 +156,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        StenoPanel.SetPointerFingerCount(_settings.StenoPointerFingerCount);
+        StenoPanel.PointerFingerCountChanged+=count=>
+        {
+            if(_settings.StenoPointerFingerCount==count) return;
+            _settings.StenoPointerFingerCount=count; SaveSettings(); ApplyCoreSettings();
+        };
         WindowsInputPolicy.NormalizeLegacyModes(_settings);
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         if (!_settings.VisualizerEnabled)
@@ -1852,6 +1858,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyCoreSettings()
     {
+        StenoPanel.SetPointerFingerCount(_settings.StenoPointerFingerCount);
         _handGestures?.Configure(_settings);
         _handGesturePanel?.Refresh(_settings);
         if(!UsesSharedRuntime && !IsReplayMode && _touchCore!=null)

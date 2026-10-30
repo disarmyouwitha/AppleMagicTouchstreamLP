@@ -1,13 +1,15 @@
 # AppleMagicTouchstream for Plover (Windows)
 
-1. Close Plover and double-click `Install-PloverPlugin.cmd`. If prompted, select
+1. Install Plover first. In AppleMagicTouchstream, select a STENO layout and click
+   **Install / update Plover plugin**. Alternatively, close Plover and double-click
+   `Install-PloverPlugin.cmd`. If prompted, select
    `plover_console.exe` in your Plover installation. This installs the bundled
    Python wheel into Plover, without a separate Python installation or driver.
 2. Restart Plover. In **Configure → Machine**, select **AppleMagicTouchstream**.
    Existing Gemini PR key mappings are compatible. Enable Plover output.
 3. In AppleMagicTouchstream, select **STENO** or **STENO Voyager**, bind your
    trackpads and enable Mouse Takeover. Both pads contribute to one stroke;
-   the stroke sends when both hands lift. Ordinary typing and gestures pause.
+   the stroke sends when all fingers lift. Ordinary keyboard/gesture assignments pause.
 
 The plugin reconnects automatically over `127.0.0.1:31572`. Select a STENO
 layout to open that connection; leaving STENO or quitting closes it. No COM pair,
@@ -29,3 +31,10 @@ The wheel is deterministic and contains only Python source and package metadata.
 It uses Plover's own Gemini PR key chart and machine API. References:
 [Plover plugins](https://plover.wiki/index.php/Plugins),
 [Gemini PR implementation](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).
+
+In the STENO panel, **Pointer movement** selects **One finger** or **Two fingers**
+(default). Stationary contacts still chord, including single-key strokes. Deliberate
+2 mm movement acquires the pointer; two-finger mode requires both contacts to move
+together. Once acquired, the entire pending stroke is cancelled until both pads
+lift. The choice saves with settings and exports/imports. Clicking is unassigned
+in this prototype; Ctrl+Alt+R releases Takeover for normal mouse use.

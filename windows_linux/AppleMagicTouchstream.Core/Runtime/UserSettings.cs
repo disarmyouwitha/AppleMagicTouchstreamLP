@@ -13,6 +13,7 @@ public sealed class UserSettings
     public string? RightDevicePath { get; set; }
     public int ActiveLayer { get; set; }
     public string LayoutPresetName { get; set; } = "6x3";
+    public int StenoPointerFingerCount { get; set; } = 2;
     public Dictionary<string, string>? DecoderProfilesByDevicePath { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool VisualizerEnabled { get; set; } = true;
     public bool KeyboardModeEnabled { get; set; }
@@ -123,6 +124,7 @@ public sealed class UserSettings
         RightDevicePath = source.RightDevicePath;
         ActiveLayer = source.ActiveLayer;
         LayoutPresetName = source.LayoutPresetName;
+        StenoPointerFingerCount = source.StenoPointerFingerCount;
         DecoderProfilesByDevicePath = CloneDecoderProfiles(source.DecoderProfilesByDevicePath);
         VisualizerEnabled = source.VisualizerEnabled;
         KeyboardModeEnabled = source.KeyboardModeEnabled;
@@ -289,6 +291,7 @@ public sealed class UserSettings
     public bool NormalizeRanges()
     {
         bool changed = false;
+        if(StenoPointerFingerCount is not (1 or 2)) { StenoPointerFingerCount=2; changed=true; }
 
         if (string.IsNullOrWhiteSpace(LayoutPresetName))
         {
