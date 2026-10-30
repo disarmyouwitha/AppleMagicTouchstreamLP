@@ -2085,7 +2085,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnOffsetXBox.Text = FormatNumber(settings.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(settings.OffsetYPercent);
         ColumnRotationBox.Text = FormatNumber(settings.RotationDegrees);
-        ColumnRotationBox.ToolTip = "Rotation range: 0° - 360°.";
+        ColumnRotationBox.ToolTip = "Rotation range: 0Â° - 360Â°.";
     }
 
     private bool ApplyColumnLayoutFromUi()
@@ -2742,6 +2742,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void LoadDevices(bool preserveSelection)
     {
+        _touchActor?.CancelStenoCycle();
         if (IsReplayMode)
         {
             return;
@@ -3146,6 +3147,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplySelections()
     {
+        _touchActor?.CancelStenoCycle();
         _decoderSession.Reset();
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
@@ -3156,6 +3158,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
     {
+        if(!string.Equals(session.DeviceName,device?.Path,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(side);
         session.Reset();
         ClearDetectedDecoderProfile(side);
         ApplyRequestedMaxRange(side, device);
@@ -4622,6 +4625,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (msg == RawInputInterop.WM_INPUT_DEVICE_CHANGE)
         {
+            if(_rawInputContext.TryGetCachedSnapshot(lParam,out var device))
+            {
+                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Left),device.DeviceName,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Left);
+                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Right),device.DeviceName,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
+            }
             _decoderSession.Remove(lParam);
             _rawInputContext.RemoveDevice(lParam);
         }
@@ -4802,7 +4810,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int offset,
         ReadOnlySpan<byte> reportSpan)
     {
-        if (_localMouseTakeover?.Enabled == true) _localMouseTakeover.Release("Off · contact input fault");
+        if (_localMouseTakeover?.Enabled == true) _localMouseTakeover.Release("Off Â· contact input fault");
         string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
         RuntimeFaultLogger.LogException(source, ex, context);
 

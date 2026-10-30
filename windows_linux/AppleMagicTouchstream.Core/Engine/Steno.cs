@@ -52,6 +52,7 @@ public sealed class StenoChordEngine
     private bool _blocked;
     private readonly double[] _times=[-1,-1];
     public byte DownPads=>_down;
+    public bool FrameInvalidated { get; private set; }
     public void Cancel(byte? downPads=null)
     {
         if(downPads.HasValue) _down=downPads.Value;
@@ -66,6 +67,7 @@ public sealed class StenoChordEngine
     }
     public ulong Process(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,double time,ReadOnlySpan<StenoRegion> regions)
     {
+        FrameInvalidated=Tick(time);
         int index=(int)side; if((uint)index>1) return 0;
         bool valid=double.IsFinite(time) && time>=0 && maxX>0 && maxY>0 && frame.ContactCount<=InputFrame.MaxContacts
             && (_times[index]<0 || time>_times[index]);
@@ -82,7 +84,7 @@ public sealed class StenoChordEngine
         if(frame.ContactCount>InputFrame.MaxContacts) count=Math.Max(count,1);
         if(count>0) _down|=(byte)(1<<index); else _down&=(byte)~(1<<index);
         _times[index]=double.IsFinite(time) ? time : -1;
-        if(!valid) { _chord=0; _blocked=_down!=0; return 0; }
+        if(!valid) { FrameInvalidated=true; _chord=0; _blocked=_down!=0; return 0; }
         if(_blocked) { if(_down==0) _blocked=false; return 0; }
         _chord|=keys;
         if(_down!=0) return 0;

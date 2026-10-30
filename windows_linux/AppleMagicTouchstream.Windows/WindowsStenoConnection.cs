@@ -90,9 +90,10 @@ internal sealed class WindowsStenoConnection : IDisposable
         lock(output.Sync)
         lock(_gate)
         {
+            long age=System.Diagnostics.Stopwatch.GetTimestamp()-stroke.TimestampTicks;
             if(!ReferenceEquals(output,_output) || stroke.Kind!=DispatchEventKind.StenoStroke || !output.IsCurrent(stroke.StenoGeneration)
                 || stroke.StenoMask==0 || (stroke.StenoMask&~GeminiPRPacket.KeyMask)!=0 || _eligible?.Invoke()!=true
-                || System.Diagnostics.Stopwatch.GetTimestamp()-stroke.TimestampTicks>System.Diagnostics.Stopwatch.Frequency*.25
+                || age<0 || age>System.Diagnostics.Stopwatch.Frequency*.25
                 || _reader==null) { _dropped++; return false; }
             Span<byte> packet=stackalloc byte[6]; GeminiPRPacket.Write(stroke.StenoMask,packet);
             try

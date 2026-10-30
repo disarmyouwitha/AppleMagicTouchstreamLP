@@ -23,7 +23,8 @@ internal static class MacGoldPreview
             ("keyboard",1240,780,false,false,false),("gestures",1240,900,true,false,false),
             ("both",1240,900,true,true,false),("compact",900,640,true,false,false),("right-gestures",1240,900,true,false,false),
             ("held-shortcut",1440,1000,true,false,false),("typing-tuning",1240,900,false,false,false),
-            ("touchstream",1440,900,false,false,true) })
+            ("touchstream",1440,900,false,false,true),("steno",1440,1000,false,false,false),
+            ("steno-voyager",1440,1000,false,false,false) })
         {
             var window=(Window)XamlReader.Parse(xaml);
             ((Image)window.FindName("AppHandImage")).Source=ApplicationHandIcon.CreateImage();
@@ -51,7 +52,9 @@ internal static class MacGoldPreview
                 while(current!=null && current is not Expander) current=LogicalTreeHelper.GetParent(current);
                 if(current is Expander expander) expander.IsExpanded=true;
             }
-            var preset=touchstream ? TrackpadLayoutPreset.TouchStream : TrackpadLayoutPreset.SixByThree;
+            var preset=name=="steno" ? TrackpadLayoutPreset.Steno : name=="steno-voyager" ? TrackpadLayoutPreset.StenoVoyager
+                : touchstream ? TrackpadLayoutPreset.TouchStream : TrackpadLayoutPreset.SixByThree;
+            if(preset.IsSteno) ((StenoConnectionPanel)window.FindName("StenoPanel")).Visibility=Visibility.Visible;
             var keymap=KeymapStore.LoadBundledDefault(); keymap.SetActiveLayout(preset.Name);
             foreach (bool mirrored in new[] {true,false})
             {

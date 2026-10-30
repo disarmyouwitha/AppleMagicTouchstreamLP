@@ -7086,15 +7086,33 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
         }
     }
 
+    public void CancelStenoCycle()
+    {
+        lock(_coreGate)
+        {
+            if(!_core.IsSteno) return;
+            lock(_gate)
+            {
+                _layoutGeneration++;
+                Interlocked.Add(ref _processedCount,_count); _head=_tail=_count=0;
+                _core.SetLayoutTransitionContacts(_postedDownPads);
+            }
+        }
+    }
+
     public void RemoveStenoDevice(TrackpadSide side)
     {
         lock(_coreGate)
         {
             lock(_gate)
             {
-                _postedDownPads&=(byte)~(1<<(int)side); _layoutGeneration++;
-                Interlocked.Add(ref _processedCount,_count); _head=_tail=_count=0;
-                _core.SetLayoutTransitionContacts(_postedDownPads);
+                _postedDownPads&=(byte)~(1<<(int)side);
+                if(_core.IsSteno)
+                {
+                    _layoutGeneration++;
+                    Interlocked.Add(ref _processedCount,_count); _head=_tail=_count=0;
+                    _core.SetLayoutTransitionContacts(_postedDownPads);
+                }
             }
             _core.RemoveStenoDevice(side);
         }
@@ -7341,8 +7359,8 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                 {
                     if(_stenoEligible!=null)
                     {
-                        _core.SetStenoAdmission(_stenoEligible());
-                        if(Stopwatch.GetTimestamp()-frame.TimestampTicks>Stopwatch.Frequency*.25) _core.ResetState();
+                        long age=Stopwatch.GetTimestamp()-frame.TimestampTicks;
+                        _core.SetStenoAdmission(_stenoEligible() && age>=0 && age<=Stopwatch.Frequency*.25);
                     }
                     _core.ProcessFrame(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
                 }

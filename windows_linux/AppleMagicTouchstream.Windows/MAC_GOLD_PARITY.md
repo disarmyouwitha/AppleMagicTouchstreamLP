@@ -210,3 +210,25 @@ Hardware sequence:
 
 For optional visual QA, set `APPLEMAGICTOUCHSTREAM_PREVIEW_XAML` to MainWindow.xaml and
 `APPLEMAGICTOUCHSTREAM_PREVIEW_DIR` to an output directory before running `--selftest`.
+
+## STENO / Plover (Windows)
+
+STENO and STENO Voyager now share Mac's geometry, 1.5 mm expanded hit regions,
+rolling two-hand chord accumulation and both-pads-up emission. Layout mappings save
+independently and export/import with settings. Ordinary keyboard/gesture recognition
+pauses in STENO; only STN_* primary assignments contribute to chords.
+
+Windows uses the bundled PloverPlugin machine over local TCP, with no COM driver.
+Mac remains unchanged. See [plugin setup](PloverPlugin/README.md). Mouse Takeover
+must be enabled for live Windows strokes. Invalid/stale input, overflow, device loss,
+Refresh and reconfiguration cancel the cycle; lift both hands before the next stroke.
+Disconnected output is dropped, never queued for reconnect.
+
+Automated checks cover wire vectors, layouts/mappings, two-hand all-up, seams,
+cancellation, mode transitions, transport framing, disconnect/reconnect and plugin
+packaging. Manual checklist: install/restart Plover, choose AppleMagicTouchstream,
+select each STENO layout, confirm connection and stroke monitor output; test upper/
+lower seams, rolling chords across both pads, rapid repeated chords, disconnect
+while held, Refresh/reselection, Ctrl+Alt+R, leaving STENO, saved mappings and export/
+import. Windows currently accepts five contacts per pad. Real trackpad/Plover typing
+feel has not yet been verified by these automated tests.

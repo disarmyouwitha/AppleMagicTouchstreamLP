@@ -210,3 +210,20 @@ never synthesize a dummy character or repeat pure modifier groups. Windows
 left/generic modifiers share an index; right-side/AltGr semantics remain intact.
 See AppleMagicTouchstream.Core/HYPER_MODIFIERS.md. Focused Linux validation is
 `selftest --hyper`; it does not access evdev/uinput or write host settings.
+
+## Windows STENO
+
+- Windows exposes STENO and STENO Voyager, ported from Mac. Mac transport stays unchanged.
+- Shared chord accumulation, Gemini PR encoding and per-layout mappings live in Core.
+  Both pads all-up emits once; all intersecting regions include a 1.5 mm edge expansion.
+  Ordinary typing/gesture paths are bypassed. Hold/ordinary keyboard assignments are inert.
+- Windows output requires Mouse Takeover. The bounded keyboard dispatch pump sends typed
+  generation-gated strokes to a loopback-only endpoint (127.0.0.1:31572). No COM driver.
+  Invalid/stale/overflowed input, device loss, Refresh, layout/keymap/layer changes and
+  teardown cancel strokes and wait for all-up. Disconnected/full output drops strokes.
+- PloverPlugin contains the driver-free machine plugin, reproducible wheel builder,
+  installer and isolated Python transport tests. Build its wheel before the Windows app
+  after changing plugin source. Self-tests use a private ephemeral socket and never
+  open the live Plover port or inject input. Hardware verification remains manual.
+- Windows Raw Input currently reports up to five contacts per pad; keep that ingestion
+  limit separate from the 42 Gemini PR wire keys and Mac's larger contact capacity.

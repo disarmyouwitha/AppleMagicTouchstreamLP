@@ -590,6 +590,7 @@ internal readonly record struct RawInputPacket(IntPtr DeviceHandle, uint ReportS
 internal sealed class RawInputContext
 {
     public void RemoveDevice(IntPtr handle) => _snapshots.Remove(handle);
+    public bool TryGetCachedSnapshot(IntPtr handle,out RawInputDeviceSnapshot snapshot) => _snapshots.TryGetValue(handle,out snapshot);
     private readonly Dictionary<IntPtr, RawInputDeviceSnapshot> _snapshots = new();
     private readonly Dictionary<string, RawInputDeviceTag> _tagsByName = new(StringComparer.OrdinalIgnoreCase);
     private int _nextIndex;

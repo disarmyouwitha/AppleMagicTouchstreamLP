@@ -73,7 +73,7 @@ class AppleMagicTouchstream(ThreadedStenotypeBase):
                         keys = [STENO_KEY_CHART[i * 7 + bit]
                                 for i, value in enumerate(packet)
                                 for bit in range(7) if value & (0x40 >> bit)]
-                        if keys:
+                        if keys and not self.finished.is_set():
                             self._notify_keys(keys)
                     packet.clear()
             except OSError:

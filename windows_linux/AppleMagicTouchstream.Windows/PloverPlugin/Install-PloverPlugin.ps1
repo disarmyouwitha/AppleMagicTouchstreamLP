@@ -17,6 +17,24 @@ if(-not $PloverConsole) {
 }
 if(-not (Test-Path -LiteralPath $PloverConsole -PathType Leaf)) { throw 'Plover console executable not found.' }
 Write-Host 'Installing into Plover only. Close Plover first, then restart it after installation.'
-& $PloverConsole -s plover_plugins install --upgrade $wheel.FullName
-if($LASTEXITCODE -ne 0) { throw 'Plover plugin installation failed; see the output above.' }
+$ploverRoot=Split-Path -Parent (Resolve-Path -LiteralPath $PloverConsole).Path
+$bundledPython=Join-Path $ploverRoot 'data/python.exe'
+if(Test-Path -LiteralPath $bundledPython) {
+    # The distributed Windows launcher spawns a detached child. Invoke its
+    # bundled interpreter directly so failures and completion are observable.
+    $pluginBase=& $bundledPython -B -c 'import os; from plover.oslayer.config import CONFIG_DIR, PLUGINS_PLATFORM; print(os.path.join(CONFIG_DIR,"plugins",PLUGINS_PLATFORM))'
+    if($LASTEXITCODE -ne 0 -or -not $pluginBase) { throw 'Could not locate Plover user plugins.' }
+    $previousUserBase=$env:PYTHONUSERBASE
+    try {
+        $env:PYTHONUSERBASE=$pluginBase.Trim()
+        & $bundledPython -B -m plover.scripts.main -s plover_plugins install --no-index --no-deps --upgrade $wheel.FullName
+        if($LASTEXITCODE -ne 0) { throw 'Plover plugin installation failed; see the output above.' }
+    } finally { $env:PYTHONUSERBASE=$previousUserBase }
+} else {
+    Push-Location -LiteralPath $ploverRoot
+    try {
+        & $PloverConsole -s plover_plugins install --no-index --no-deps --upgrade $wheel.FullName
+        if($LASTEXITCODE -ne 0) { throw 'Plover plugin installation failed; see the output above.' }
+    } finally { Pop-Location }
+}
 Write-Host 'Installed. Restart Plover; choose Configure > Machine > AppleMagicTouchstream.'

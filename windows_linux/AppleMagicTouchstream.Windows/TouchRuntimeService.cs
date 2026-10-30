@@ -167,7 +167,11 @@ internal sealed class TouchRuntimeService : IDisposable
         RefreshDeviceRoutes(leftPath, rightPath);
     }
 
-    public void ResetDecoderSessions() => _decoderSession.Reset();
+    public void ResetDecoderSessions()
+    {
+        _touchActor?.CancelStenoCycle();
+        _decoderSession.Reset();
+    }
 
     public void SetFrameObserver(IRuntimeFrameObserver? observer)
     {
@@ -505,6 +509,11 @@ internal sealed class TouchRuntimeService : IDisposable
         {
             if (m.Msg == RawInputInterop.WM_INPUT_DEVICE_CHANGE)
             {
+                if(_owner._rawInputContext.TryGetCachedSnapshot(m.LParam,out var device))
+                {
+                    if(_owner._leftRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Left);
+                    if(_owner._rightRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Right);
+                }
                 _owner._decoderSession.Remove(m.LParam);
                 _owner._rawInputContext.RemoveDevice(m.LParam);
             }

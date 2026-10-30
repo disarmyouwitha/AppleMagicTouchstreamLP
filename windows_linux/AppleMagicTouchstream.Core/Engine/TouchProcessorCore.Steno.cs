@@ -48,6 +48,7 @@ internal sealed partial class TouchProcessorCore
         if(!_stenoAdmitted || !_typingEnabled) { _stenoChord.Cancel(_seenContactMask); return true; }
         if(_stenoRegions==null || _stenoRegionLayer!=_activeLayer) BuildStenoRegions();
         ulong mask=_stenoChord.Process(side,in frame,maxX,maxY,timestamp/(double)Stopwatch.Frequency,_stenoRegions![(int)side]);
+        if(_stenoChord.FrameInvalidated) StenoOutput.Invalidate();
         if(mask!=0)
             lock(StenoOutput.Sync)
                 EnqueueDispatchEvent(DispatchEventKind.StenoStroke,0,DispatchMouseButton.None,0,DispatchEventFlags.None,

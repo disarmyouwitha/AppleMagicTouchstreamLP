@@ -105,6 +105,13 @@ internal static class StenoTests
         Check(Drain(engine).Length==0,"leaving STENO typed held contacts");
         Frame(engine,TrackpadSide.Left,held,1.2); Frame(engine,TrackpadSide.Left,empty,1.25);
         Check(Drain(engine).Any(e=>e.Kind==DispatchEventKind.KeyTap),"ordinary typing did not resume after STENO");
+        // An invalid frame must invalidate strokes already waiting on the output pump.
+        engine=Core(basic,out _);
+        Frame(engine,TrackpadSide.Left,held,2); Frame(engine,TrackpadSide.Left,empty,2.1);
+        var queued=Drain(engine).Single();
+        var bad=held; bad.Contact0=bad.Contact0 with { X=ushort.MaxValue };
+        Frame(engine,TrackpadSide.Left,bad,2.2);
+        Check(!engine.StenoOutput.IsCurrent(queued.StenoGeneration),"invalid input retained queued stroke generation");
         RunActor(); RunConnection();
     }
     private sealed class NoGestures : IHandGestureRuntime
