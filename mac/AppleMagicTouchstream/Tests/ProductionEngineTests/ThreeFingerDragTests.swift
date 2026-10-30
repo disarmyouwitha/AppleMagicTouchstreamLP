@@ -35,6 +35,29 @@ final class ThreeFingerDragTests: XCTestCase {
         XCTAssertNil(try JSONDecoder().decode(ProcessedFrameRecord.self,from:oldData).gestureOutput)
     }
 
+    func testClickModifierEvidenceRoundTripsAndMissingLegacyFlagsStayUnknown() throws {
+        let old = Data(#"{"type":1,"sourceID":0,"timestamp":123,"tagged":true}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(RuntimeGestureMouseEdge.self,from:old).flagsRawValue)
+        var trace = GestureMouseOutputTrace()
+        let flags = CGEventFlags([.maskAlternate,.maskCommand]).rawValue
+        trace.observe(type:.leftMouseDown,sourceID:0,timestamp:124,tagged:true,flagsRawValue:flags)
+        let edge = try XCTUnwrap(trace.snapshot().first)
+        XCTAssertEqual(edge.flagsRawValue,flags)
+        let evidence = RuntimeGestureOutputDiagnostic(dragOwner:nil,dragOwnerCount:0,dragSourceID:17,
+            combinedButtons:0,hidButtons:0,dragSourceButtons:0,otherGestureSourceButtons:0,
+            observerHealthy:true,observedMouseEdges:[edge],combinedFlagsRawValue:flags,hidFlagsRawValue:0,
+            ownedKeyboardFlagsRawValue:0,hidModifierKeys:0)
+        let restored = try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONEncoder().encode(evidence))
+        XCTAssertEqual(restored,evidence)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(evidence)) as? [String:Any])
+        for key in ["combinedFlagsRawValue","hidFlagsRawValue","ownedKeyboardFlagsRawValue","hidModifierKeys"] { legacy.removeValue(forKey:key) }
+        let decoded = try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONSerialization.data(withJSONObject:legacy))
+        XCTAssertNil(decoded.combinedFlagsRawValue)
+        XCTAssertNil(decoded.hidFlagsRawValue)
+        XCTAssertNil(decoded.ownedKeyboardFlagsRawValue)
+        XCTAssertNil(decoded.hidModifierKeys)
+    }
+
     private func touches(_ count: Int = 3, dx: Float = 0, triangular: Bool = false, thumb: Bool = false) -> [OMSRawTouch] {
         (0..<count).map { index in
             let telemetry: OMSTouchTelemetry? = thumb ? OMSTouchTelemetry(

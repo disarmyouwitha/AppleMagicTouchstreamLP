@@ -535,8 +535,8 @@ struct AppleShortcutPlan: Equatable, Sendable {
 struct GestureMouseOutputTrace {
     private var edges = [RuntimeGestureMouseEdge?](repeating:nil,count:32)
     private var next = 0
-    mutating func observe(type:CGEventType,sourceID:Int64,timestamp:UInt64,tagged:Bool) {
-        edges[next] = RuntimeGestureMouseEdge(type:type.rawValue,sourceID:sourceID,timestamp:timestamp,tagged:tagged)
+    mutating func observe(type:CGEventType,sourceID:Int64,timestamp:UInt64,tagged:Bool,flagsRawValue:UInt64? = nil) {
+        edges[next] = RuntimeGestureMouseEdge(type:type.rawValue,sourceID:sourceID,timestamp:timestamp,tagged:tagged,flagsRawValue:flagsRawValue)
         next = (next+1) % edges.count
     }
     func snapshot() -> [RuntimeGestureMouseEdge] {

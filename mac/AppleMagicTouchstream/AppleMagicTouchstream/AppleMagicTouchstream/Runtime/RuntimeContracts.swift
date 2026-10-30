@@ -151,6 +151,7 @@ struct RuntimeGestureMouseEdge: Codable, Sendable, Equatable {
     var sourceID: Int64
     var timestamp: UInt64
     var tagged: Bool
+    var flagsRawValue: UInt64? = nil
 }
 
 struct RuntimeGestureOutputDiagnostic: Codable, Sendable, Equatable {
@@ -163,6 +164,11 @@ struct RuntimeGestureOutputDiagnostic: Codable, Sendable, Equatable {
     var otherGestureSourceButtons: UInt8
     var observerHealthy: Bool
     var observedMouseEdges: [RuntimeGestureMouseEdge]
+    var combinedFlagsRawValue: UInt64? = nil
+    var hidFlagsRawValue: UInt64? = nil
+    var ownedKeyboardFlagsRawValue: UInt64? = nil
+    // Bits: L/R Shift, L/R Option, L/R Control, L/R Command. No ordinary keys.
+    var hidModifierKeys: UInt16? = nil
 }
 
 struct ProcessedFrameRecord: Codable, Sendable {

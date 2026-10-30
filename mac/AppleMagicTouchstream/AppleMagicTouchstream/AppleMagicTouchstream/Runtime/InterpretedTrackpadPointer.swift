@@ -434,12 +434,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         let ownProcess = event.getIntegerValueField(.eventSourceUnixProcessID) == Int64(getpid())
         let sourceID = event.getIntegerValueField(.eventSourceStateID)
         let timestamp = event.timestamp
+        let flags = event.flags.rawValue
         lock.withLock { state in
             if ownProcess {
                 switch type {
                 case .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp:
                     state.mouseOutputTrace.observe(type:type,sourceID:sourceID,
-                        timestamp:timestamp,tagged:tag == SelectedTrackpadEventPolicy.interpreterTag)
+                        timestamp:timestamp,tagged:tag == SelectedTrackpadEventPolicy.interpreterTag,flagsRawValue:flags)
                 default: break
                 }
             }
@@ -464,11 +465,18 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return mask
             }
             let dragSource = state.drag.diagnosticSourceID
+            var modifierKeys:UInt16 = 0
+            for (bit,code) in [CGKeyCode(56),60,58,61,59,62,55,54].enumerated() {
+                if CGEventSource.keyState(.hidSystemState,key:code) { modifierKeys |= UInt16(1) << bit }
+            }
             return RuntimeGestureOutputDiagnostic(dragOwner:state.drag.owner,dragOwnerCount:state.drag.owners.count,
                 dragSourceID:dragSource?.rawValue,combinedButtons:buttons(.combinedSessionState),
                 hidButtons:buttons(.hidSystemState),dragSourceButtons:buttons(dragSource),
                 otherGestureSourceButtons:buttons(SelectedTrackpadEventPolicy.secondaryEventSource?.sourceStateID),
-                observerHealthy:state.buttonObserverHealthy,observedMouseEdges:state.mouseOutputTrace.snapshot())
+                observerHealthy:state.buttonObserverHealthy,observedMouseEdges:state.mouseOutputTrace.snapshot(),
+                combinedFlagsRawValue:CGEventSource.flagsState(.combinedSessionState).rawValue,
+                hidFlagsRawValue:CGEventSource.flagsState(.hidSystemState).rawValue,
+                ownedKeyboardFlagsRawValue:DispatchService.shared.heldGestureFlags.rawValue,hidModifierKeys:modifierKeys)
         }
     }
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }

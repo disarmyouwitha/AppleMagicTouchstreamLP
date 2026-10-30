@@ -110,7 +110,11 @@ drag ownership, combined/HID/private button masks, observer health, and the last
 32 mouse-button edges observed from this process. Each edge stores type, source
 ID, timestamp and interpreter-tag presence; it records no cursor/key content.
 The observer uses fixed storage, and only capture serialization copies its bounded
-history. Replay never polls live button state or emits these recorded edges. Old
+history. Mouse edges optionally retain their actual event modifier flags; live
+frame snapshots also retain combined/HID flags, the app's owned keyboard flags,
+and an eight-bit L/R Shift/Option/Control/Command key-down mask. These additions
+record no ordinary key contents. Missing older fields mean unknown, not zero.
+Replay never polls live button/modifier state or emits these recorded edges. Old
 records without this optional evidence remain readable; the v5 envelope is unchanged.
 This evidence distinguishes an omitted release from state remaining down after an
 observed release. Offline event-construction tests alone cannot prove native recovery.

@@ -213,6 +213,16 @@ with BetterTouchTool in the reproduction; the responsible rule/filter and exact
 release transformation remain unverified. Retain balanced output and the external
 button gate rather than adding blind releases or bypassing downstream filters.
 
+Diagnostic capture `capture_2026-10-30_01-29-51.atpcap.atpcap` (SHA-256
+`2a2468656bd3184be76b6bdcb6f6fc95e3cf9580b2f4155dc69700bb8bdd222f`)
+contains 646 frames over 18.451 s. All seven newly observed primary click pairs
+are balanced, with zero logical drag owners throughout; transient button-down
+snapshots clear on the following frame. The recording cannot identify browser
+link targets, and its older mouse-edge schema omits modifier flags. Reported
+link downloads therefore do not establish a stuck button or prove an Option
+modifier. The live capture schema now adds optional modifier evidence without
+changing click generation or arbitration; historical missing flags remain unknown.
+
 ## Motion, geometry and timing
 
 Only `.making` and `.touching` records count as active gesture contacts. Terminal
