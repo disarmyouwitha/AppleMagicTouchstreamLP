@@ -1469,7 +1469,7 @@ struct GestureActionChooser:View {
         return KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
             .compactMap { action -> GestureAction? in
                 if action.kind == .voice { return actions.contains(.voice) ? .voice : nil }
-                guard action.kind == .key || action.kind == .appLaunch else { return nil }
+                guard action.kind == .key || action.kind == .appLaunch || action.kind == .textPaste else { return nil }
                 return .shortcut(.init(label:action.storageLabel))
             }.filter { seen.insert($0).inserted }
     }
@@ -1520,6 +1520,12 @@ struct ShortcutActionBuilder:View {
     @State private var appLaunchTarget = ""
     @State private var appLaunchArguments = ""
     @State private var held = false
+    @State private var textMode = false
+    @State private var savedText = ""
+    @State private var textError:String?
+    @State private var textLoading = false
+    @State private var textRevision = UUID()
+    var textStore:any TextShortcutStoring = KeychainTextShortcutStore.shared
     private var canEditActionBuilder:Bool { enabled }
     private let shortcutBuilderActionButtonWidth:CGFloat = 84
     var body:some View {
@@ -1530,6 +1536,29 @@ struct ShortcutActionBuilder:View {
                         TextField("Optional shortcut name",text:$shortcutName)
                             .textFieldStyle(.roundedBorder).disabled(!canEditActionBuilder)
                     }
+                    Picker("Action Type",selection:$textMode) {
+                        Text("Shortcut").tag(false)
+                        Text("Text").tag(true)
+                    }.pickerStyle(.segmented).labelsHidden().disabled(!canEditActionBuilder || textLoading)
+                    if textMode {
+                        TextEditor(text:$savedText)
+                            .font(.body).frame(minHeight:90,maxHeight:150).padding(6)
+                            .background(Color(nsColor:.textBackgroundColor),in:RoundedRectangle(cornerRadius:6))
+                            .overlay(RoundedRectangle(cornerRadius:6).stroke(Color.secondary.opacity(0.25)))
+                            .disabled(!canEditActionBuilder)
+                            .disabled(textLoading)
+                            .accessibilityLabel("Text to paste")
+                        Text("Saved in Keychain on this Mac. Text is excluded from exports. Pasting replaces the clipboard; its text clears after 30 seconds unless you copy something else.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        HStack {
+                            if let textError { Text(textError).font(.caption).foregroundStyle(.red) }
+                            if textLoading { ProgressView().controlSize(.small) }
+                            Spacer(minLength:0)
+                            Button("Apply Text") { applyText() }
+                                .buttonStyle(.bordered)
+                                .disabled(!canEditActionBuilder || textLoading || !TextShortcutReference.valid(savedText))
+                        }
+                    } else {
                     HStack(spacing: 8) {
                         ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
                             shortcutModifierButton(modifier)
@@ -1584,17 +1613,44 @@ struct ShortcutActionBuilder:View {
                     Text(actionBuilderPreview)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    }
 
         }
         .onAppear { sync() }
         .onChange(of:action) { _ in sync() }
         .onChange(of:holdUntilRelease) { _ in held = holdUntilRelease }
+        .onDisappear { savedText = ""; textRevision = UUID(); textLoading = false }
+    }
+    private func applyText() {
+        guard canEditActionBuilder, !textLoading, TextShortcutReference.valid(savedText) else { return }
+        let text = savedText, store = textStore, revision = textRevision
+        let name = NamedShortcutStorage.normalizedName(shortcutName)
+        textLoading = true; textError = nil
+        Task { @MainActor in
+            let action = await Task.detached { try? TextShortcutReference.savedAction(text:text,name:name,using:store) }.value
+            guard textRevision == revision else { return }
+            textLoading = false
+            guard let action else { textError = TextShortcutStorageError.unavailable.localizedDescription; return }
+            apply(action,false)
+        }
     }
     private func sync() {
         clearShortcutBuilderState(); shortcutName = action?.customName ?? ""
         appLaunchTarget = ""; appLaunchArguments = ""; held = holdUntilRelease
+        textMode = false; savedText = ""; textError = nil; textLoading = false; textRevision = UUID()
         guard let action else { return }
-        if let spec = KeyActionCatalog.appLaunchSpec(for:action) {
+        if action.kind == .textPaste, let id = TextShortcutReference.id(from:action.label) {
+            textMode = true
+            let store = textStore, revision = textRevision
+            textLoading = true
+            Task { @MainActor in
+                let text = await Task.detached { try? store.load(id) }.value
+                guard textRevision == revision else { return }
+                textLoading = false
+                if let text { savedText = text }
+                else { textError = TextShortcutStorageError.unavailable.localizedDescription }
+            }
+        } else if let spec = KeyActionCatalog.appLaunchSpec(for:action) {
             appLaunchTarget = spec.fileName; appLaunchArguments = spec.arguments
         } else if let spec = KeyActionCatalog.shortcutSpec(for:action) {
             shortcutModifiers = spec.modifiers; shortcutKeyLabel = spec.keyLabel
@@ -1854,7 +1910,7 @@ struct ShortcutLibraryManager:View {
                                     }
                                 }
                                 Button("Edit") { editing = action.storageLabel }
-                                    .disabled(action.kind != .key && action.kind != .appLaunch)
+                                    .disabled(action.kind != .key && action.kind != .appLaunch && action.kind != .textPaste)
                                 Button(role:.destructive) {
                                     write(ShortcutActionLibraryStorage.removing(action.storageLabel,from:labels))
                                     if editing == action.storageLabel { editing = nil }

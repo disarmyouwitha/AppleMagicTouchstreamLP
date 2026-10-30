@@ -809,7 +809,7 @@ struct GestureShortcutAssignment:Equatable,Hashable,Codable,Sendable {
     init(label:String,holdUntilRelease:Bool = false) {
         self.label = label; self.holdUntilRelease = holdUntilRelease
         let resolved = KeyActionCatalog.action(for:label)
-        self.action = resolved.flatMap { $0.kind == .key || $0.kind == .appLaunch ? $0 : nil }
+        self.action = resolved.flatMap { $0.kind == .key || $0.kind == .appLaunch || $0.kind == .textPaste ? $0 : nil }
     }
     init(from decoder:any Decoder) throws {
         let box = try decoder.container(keyedBy:CodingKeys.self)

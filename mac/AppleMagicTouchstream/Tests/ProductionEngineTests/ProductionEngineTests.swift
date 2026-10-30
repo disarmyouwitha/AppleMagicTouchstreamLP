@@ -1181,3 +1181,29 @@ extension ProductionEngineTests {
         XCTAssertEqual(imported.handGestureSettings?.action(.twoFingerTap,in:.left),assigned)
     }
 }
+
+extension ProductionEngineTests {
+    func testSavedTextReferencesFireOnceFromPrimaryHoldAndCustomButtonInReplay() throws {
+        let action = TextShortcutReference.action(id:UUID())
+        for source in ["primary","hold","custom"] {
+            let run = session(allowHold:true)
+            let key = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            if source == "custom" {
+                run.engine.updateCustomButtons([CustomButton(id:UUID(),side:.left,
+                    rect:NormalizedRect(x:0.65,y:0.7,width:0.3,height:0.2),action:action,hold:nil)])
+            } else {
+                run.engine.updateKeyMappings([0:[key:KeyMapping(primary:source == "hold" ? KeyActionCatalog.noneAction:action,
+                    hold:source == "hold" ? action:nil)]])
+            }
+            func touch(_ state:OMSState) -> OMSRawTouch {
+                source == "custom" ? OMSRawTouch(id:1,posX:0.8,posY:0.2,total:1,pressure:100,
+                    majorAxis:5,minorAxis:3,angle:0,density:1,state:state) : contact(state:state)
+            }
+            frame(run,1,[touch(.making)]); frame(run,1.6,[touch(.touching)])
+            frame(run,1.7,[touch(.breaking)]); frame(run,1.8,[]); run.finish(at:2)
+            let commands = run.output.events.filter { if case .systemKey(action.label) = $0.kind { return true }; return false }
+            XCTAssertEqual(commands.count,1,"Expected a single opaque paste reference from \(source)")
+            XCTAssertTrue(keys(run).isEmpty) // No fake key code 0 or native paste in replay.
+        }
+    }
+}

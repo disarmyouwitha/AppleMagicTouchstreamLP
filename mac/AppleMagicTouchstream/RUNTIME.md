@@ -37,6 +37,40 @@ Balanced keystrokes restore pre-shortcut modifier flags on key-up. Emoji maps
 Globe to Control–Command–Space through that factory; it must not leave borrowed
 Control/Command flags on subsequent clicks or typing.
 
+## Saved text shortcuts
+
+Shortcut Builder's Text tab stores the content as a generic-password item in the
+local login Keychain. A calling-app-only access list protects the item. The signed
+app reads its own unlocked items without repeated approval; authentication UI is
+forbidden, so locked/unavailable items fail closed. Keychain operations run on
+workers, outside input processing and the main actor. The legacy login-Keychain
+interaction flag is serialized and restored around each operation; no new access
+group, provisioning profile or entitlement is required.
+
+Key actions, custom buttons, gestures, the saved library, settings exports and
+capture transcripts carry `TEXT_SHORTCUT:<UUID>` references only. Content is never
+serialized there. Optional display names remain ordinary settings metadata. On
+another Mac, a missing Keychain item must be re-entered and reassigned. Editing
+creates a new reference so other assignments keep their original text; removing a
+library entry preserves its assigned actions and their Keychain item.
+
+Text is one-shot, including on Hold; held-key output is unavailable for it.
+Replay records only the reference through the existing system-event envelope,
+without reading Keychain, touching the clipboard or posting native keys. Live
+pastes retain the shared dispatch order while a worker reads the item, revalidate
+the focused destination on the main actor, and send balanced Command-V through
+shared keyboard output. Explicit text pasting may target secure text fields;
+Voice retains its existing secure-input exclusion. Reset/ownership cleanup cancels
+pending reads and resumes queued release edges exactly once. No AX call runs on
+the input/output queues.
+
+Pasting necessarily exposes plaintext to the destination and clipboard. Clipboard
+items carry the concealed marker for supporting history tools and, while the app
+is running, clear after 30 seconds only if the clipboard change count still
+identifies that item. A new
+user copy is preserved. The prior clipboard is replaced; content is not retained
+in settings, action labels or diagnostics.
+
 ## TouchStream layout
 
 TouchStream uses independent traced left/right regions. Delete and Enter corner

@@ -855,6 +855,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     private func captureActionKindLabel(_ action: KeyBindingAction) -> String {
         switch action {
+        case .textPaste:
+            return "textPaste"
         case .key:
             return "key"
         case .appLaunch:
@@ -1346,7 +1348,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     continue
                 case .none:
                     break
-                case .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
+                case .textPaste, .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
                      .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
                      .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall,
                      .chordalShift,
@@ -2117,6 +2119,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         switch action.kind {
         case .typingToggle, .chordalShift, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
             return nil
+        case .textPaste:
+            guard TextShortcutReference.id(from:action.label) != nil else { return nil }
+            return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:"Text (Keychain)",
+                action:.textPaste(action.label),position:position,customButtonID:customButtonID,side:side,
+                holdAction:holdAction,holdForceThreshold:holdForceThreshold)
         case .voice:
             return KeyBinding(rect: rect, normalizedRect: normalizedRect, canvasSize: canvasSize,
                 label: action.label, action: .voice, position: position, customButtonID: customButtonID,
@@ -2955,6 +2962,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
+        case let .textPaste(label):
+            dispatchService.postTextPaste(label,sourceSequence:currentDispatchSourceSequence())
         case let .appLaunch(label):
             dispatchService.postAppLaunch(label, sourceSequence: currentDispatchSourceSequence())
         case .voice:

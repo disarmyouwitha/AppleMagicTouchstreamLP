@@ -561,7 +561,7 @@ enum NamedShortcutStorage {
               let entry = try? JSONDecoder().decode(Entry.self,from:data),
               let name = normalizedName(entry.name), !entry.command.hasPrefix(prefix) else { return nil }
         guard var action = KeyActionCatalog.action(for:entry.command),
-              action.kind == .key || action.kind == .appLaunch else { return nil }
+              action.kind == .key || action.kind == .appLaunch || action.kind == .textPaste else { return nil }
         action.customName = name
         return action
     }
@@ -769,6 +769,7 @@ enum ShortcutActionHelper {
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags)
+        case textPaste(String)
         case appLaunch(String)
         case leftClick
         case doubleClick
@@ -1984,6 +1985,7 @@ struct KeyGeometryOverride: Codable, Hashable {
 
 enum KeyActionKind: String, Codable, Sendable {
     case key
+    case textPaste
     case appLaunch
     case leftClick
     case doubleClick
@@ -2033,6 +2035,8 @@ struct KeyAction: Codable, Hashable, Sendable {
                 return KeyActionCatalog.noneLabel
             case .typingToggle:
                 return KeyActionCatalog.typingToggleDisplayLabel
+            case .textPaste:
+                return "Text (Keychain)"
             case .appLaunch:
                 return AppLaunchActionHelper.keymapDisplayLabel(for: label)
             default:
@@ -2051,6 +2055,8 @@ struct KeyAction: Codable, Hashable, Sendable {
             switch kind {
             case .typingToggle:
                 return KeyActionCatalog.typingToggleLabel
+            case .textPaste:
+                return "Text (Keychain)"
             case .appLaunch:
                 return AppLaunchActionHelper.displayLabel(for: label)
             default:
@@ -2709,6 +2715,7 @@ enum KeyActionCatalog {
     }
 
     static func action(for label: String) -> KeyAction? {
+        if let id = TextShortcutReference.id(from:label) { return TextShortcutReference.action(id:id) }
         if let named = NamedShortcutStorage.resolve(label) { return named }
         // Archived GTK labels are decode-only. Never turn them into live actions.
         let removed = [typingToggleLabel, "TT", gestureInnerCornersHoldLabel, volumeUpSmallLabel,

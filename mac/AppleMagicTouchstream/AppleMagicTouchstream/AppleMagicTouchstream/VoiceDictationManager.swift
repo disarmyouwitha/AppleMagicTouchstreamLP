@@ -77,13 +77,13 @@ struct VoiceDestinationPolicy {
     }
 }
 
-@MainActor private struct VoiceDictationDestination {
+@MainActor struct FocusedTextDestination {
     let pid:pid_t
     let field:AXUIElement?
     let window:AXUIElement?
 
-    static func capture() -> Self? {
-        guard !IsSecureEventInputEnabled(), AXIsProcessTrusted(),
+    static func capture(rejectSecureInput:Bool = true) -> Self? {
+        guard (!rejectSecureInput || !IsSecureEventInputEnabled()), AXIsProcessTrusted(),
               let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier, pid > 0 else { return nil }
         let app = AXUIElementCreateApplication(pid)
         // Voice is an explicit, infrequent action on the main actor, independent
@@ -101,13 +101,13 @@ struct VoiceDestinationPolicy {
         if let field {
             var subrole:CFTypeRef?
             _ = AXUIElementCopyAttributeValue(field,kAXSubroleAttribute as CFString,&subrole)
-            guard subrole as? String != kAXSecureTextFieldSubrole else { return nil }
+            guard !rejectSecureInput || subrole as? String != kAXSecureTextFieldSubrole else { return nil }
         }
         return Self(pid:pid,field:field,window:element(kAXFocusedWindowAttribute))
     }
 
-    func matches(_ current:Self) -> Bool {
-        VoiceDestinationPolicy.permits(originalPID:pid,currentPID:current.pid,secure:IsSecureEventInputEnabled(),
+    func matches(_ current:Self,rejectSecureInput:Bool = true) -> Bool {
+        VoiceDestinationPolicy.permits(originalPID:pid,currentPID:current.pid,secure:rejectSecureInput && IsSecureEventInputEnabled(),
             fieldMatches:field.map { original in current.field.map { CFEqual(original,$0) } ?? false },
             windowMatches:window.map { original in current.window.map { CFEqual(original,$0) } ?? false })
     }
@@ -125,7 +125,7 @@ struct VoiceDestinationPolicy {
     private var task: SFSpeechRecognitionTask?
     private var engine: AVAudioEngine?
     private var tapInstalled = false
-    private var destination: VoiceDictationDestination?
+    private var destination: FocusedTextDestination?
     private var restartAttempts = 0
 
     func toggle() {
@@ -160,7 +160,7 @@ struct VoiceDestinationPolicy {
         } else { microphone = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized }
         guard token == session.generation, session.phase == .authorizing else { return }
         guard microphone else { fail("Voice: enable Microphone in Privacy & Security"); return }
-        guard let focused = VoiceDictationDestination.capture() else {
+        guard let focused = FocusedTextDestination.capture() else {
             fail("Voice: focus a non-secure destination app first"); return
         }
         destination = focused
@@ -234,7 +234,7 @@ struct VoiceDestinationPolicy {
         teardown(); isActive = false
         defer { destination = nil }
         guard !text.isEmpty else { status = "Voice: no speech detected"; return }
-        guard let destination, let focused = VoiceDictationDestination.capture(), destination.matches(focused) else {
+        guard let destination, let focused = FocusedTextDestination.capture(), destination.matches(focused) else {
             status = "Voice: focus changed; transcript discarded"; return
         }
         AutocorrectEngine.shared.invalidate()

@@ -2282,7 +2282,10 @@ struct ContentView: View {
                         Picker("",selection:$actionBuilderTarget) {
                             ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
                         }.pickerStyle(.segmented).labelsHidden()
-                        Button { managingShortcuts = true } label: { Image(systemName:"slider.horizontal.3") }
+                        Button { managingShortcuts = true } label: {
+                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
+                        }
+                            .buttonStyle(.bordered).controlSize(.large)
                             .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
                     }
                     .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }

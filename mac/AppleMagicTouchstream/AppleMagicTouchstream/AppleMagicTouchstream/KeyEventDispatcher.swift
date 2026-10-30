@@ -724,9 +724,10 @@ final class DispatchService: @unchecked Sendable {
 
     private static let defaultQueueCapacity = 1024
 
-    private enum CommandPayload {
+    private enum CommandPayload:Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
         case leftClick(clickCount: Int)
@@ -736,7 +737,7 @@ final class DispatchService: @unchecked Sendable {
         case haptic(strength: Double, deviceID: String?)
     }
 
-    private struct Command {
+    private struct Command:Sendable {
         let id: UInt64
         let payload: CommandPayload
         let sourceSequence: UInt64?
@@ -865,7 +866,8 @@ final class DispatchService: @unchecked Sendable {
                     enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
                 }
             }
-        } else if action.kind == .appLaunch { postAppLaunch(action.label) }
+        } else if action.kind == .textPaste { postTextPaste(action.label) }
+        else if action.kind == .appLaunch { postAppLaunch(action.label) }
         else { postKeyStroke(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags)) }
     }
     func releaseGestureShortcut(_ owner:GestureShortcutOwner) {
@@ -878,6 +880,23 @@ final class DispatchService: @unchecked Sendable {
 
     func postVoiceToggle(sourceSequence: UInt64? = nil) {
         enqueue(.voiceToggle, sourceSequence: sourceSequence)
+    }
+
+    func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
+        guard TextShortcutReference.id(from:label) != nil else { return }
+        enqueue(.textPaste(label,TextShortcutPasteOutput.shared.generation),sourceSequence:sourceSequence)
+    }
+
+    func performPreparedTextPaste(pid:pid_t,generation:UInt64,completion:@escaping @Sendable (Bool)->Void) {
+        guard keyDispatcher != nil else { completion(false); return }
+        dispatchQueue.async { [self] in
+            guard TextShortcutPasteOutput.shared.isCurrent(generation), AXIsProcessTrusted(),
+                  NSRunningApplication(processIdentifier:pid)?.isActive == true else { completion(false); return }
+            let flags = CGEventSource.flagsState(.combinedSessionState).union(heldGestureFlags)
+            keyDispatcher?.postKeyStrokeImmediate(code:CGKeyCode(kVK_ANSI_V),flags:.maskCommand,
+                altAscii:0,token:nil,heldFlags:flags)
+            completion(true)
+        }
     }
 
     func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
@@ -978,6 +997,7 @@ final class DispatchService: @unchecked Sendable {
         if keyDispatcher != nil {
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.cancel()
+            TextShortcutPasteOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
             let pending = state.queue.removeAll()
@@ -1041,6 +1061,15 @@ final class DispatchService: @unchecked Sendable {
 
     private func drainQueue() {
         while let command = popNextCommand() {
+            if case let .textPaste(label,generation) = command.payload {
+                AutocorrectEngine.shared.invalidate()
+                TextShortcutPasteOutput.shared.request(label,generation:generation) { [weak self] pasted in
+                    guard let self else { return }
+                    self.emitRecordedEvent(for:command,status:pasted ? .posted:.cancelled)
+                    self.dispatchQueue.async { self.drainQueue() }
+                }
+                return // Keep later commands ordered behind this asynchronous paste.
+            }
             dispatch(command)
         }
     }
@@ -1076,6 +1105,8 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
+        case .textPaste:
+            return // The asynchronous path is handled by drainQueue.
         case let .appLaunch(actionLabel):
             AutocorrectEngine.shared.invalidate()
             appLaunchDispatcher.open(actionLabel)
@@ -1123,6 +1154,8 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
+        case let .textPaste(label,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey(label),status:status,sourceSequence:command.sourceSequence)
         case let .appLaunch(actionLabel):
             return makeDispatchEvent(
                 commandID: command.id,

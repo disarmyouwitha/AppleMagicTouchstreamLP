@@ -115,6 +115,15 @@ records without this optional evidence remain readable; the v5 envelope is uncha
 This evidence distinguishes an omitted release from state remaining down after an
 observed release. Offline event-construction tests alone cannot prove native recovery.
 
+Saved-text tests use an injected in-memory store and a hidden editor. They verify
+opaque settings/gesture/library round trips, single-fire primary/Hold/custom-button
+replay, silent Keychain query policy, text size/Unicode handling and exactly-once
+cancellation. They never read/write the user's Keychain or clipboard and never
+post a paste. Native acceptance requires user-triggered checks in the signed app:
+save and relaunch, paste multiline/Unicode text, cancel during focus/lifecycle
+changes, verify an unchanged clipboard item clears while a newer copy survives,
+and verify a locked Keychain skips without an authentication dialog.
+
 ## Capture format (`.atpcap`)
 
 Canonical replay captures use `.atpcap` (`ATPCAP01`) with a versioned binary layout.
