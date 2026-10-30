@@ -288,7 +288,7 @@ public sealed class TouchView : FrameworkElement
 
                 if (LabelMatrix != null && row < LabelMatrix.Length && col < LabelMatrix[row].Length)
                 {
-                    string label = LabelMatrix[row][col];
+                    string label = GeminiPRPacket.Display(LabelMatrix[row][col]);
                     DrawKeyLabel(dc, rowRects[col], rect, label);
                 }
             }

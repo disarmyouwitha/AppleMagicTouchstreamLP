@@ -41,6 +41,7 @@ public static class LayoutBuilder
     {
         int columns = preset.Columns;
         int rows = preset.Rows;
+        if(preset.IsSteno) return StenoLayoutDefinition.Build(preset,mirrored,columnSettings,keymap,keySpacingPercent);
         if (preset.Name == "touchstream") return TouchStreamLayoutDefinition.Build(mirrored,keymap);
         if (mirrored && preset.BlankLeftSide)
         {

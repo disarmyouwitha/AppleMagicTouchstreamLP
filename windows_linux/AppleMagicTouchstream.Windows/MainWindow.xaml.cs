@@ -124,6 +124,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private int _consecutiveRawInputFaults;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly TrackpadDecoderSession _decoderSession = new();
+    private readonly WindowsStenoConnection _localStenoConnection=new();
     private TrackpadDecoderProfile? _lastDecoderProfileLeft;
     private TrackpadDecoderProfile? _lastDecoderProfileRight;
     private long _lastDecoderProfileLogLeftTicks;
@@ -317,6 +318,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchCore.UseUnifiedInputPolicy();
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
+            if(!IsReplayMode) _sendInputDispatcher.StenoConnection=_localStenoConnection;
             if (!IsReplayMode)
             {
                 _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
@@ -326,9 +328,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
-                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures);
+                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures,
+                stenoEligible:IsReplayMode ? null : ()=>MouseTakeover?.Enabled==true);
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
+            if(!IsReplayMode) _localStenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true);
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
@@ -370,6 +374,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _dispatchPump?.Dispose();
             _dispatchQueue?.Dispose();
             _captureWriter?.Dispose();
+            _localStenoConnection.Dispose();
             EmitCaptureReplayTraceIfRequested();
             FrameMetricsSnapshot snapshot = _liveMetrics.CreateSnapshot();
             Console.WriteLine(snapshot.ToSummary());
@@ -545,12 +550,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         LayoutPresetCombo.Items.Clear();
-        foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.Selectable)
+        foreach (TrackpadLayoutPreset preset in WindowsInputPolicy.SelectableLayouts)
         {
             LayoutPresetCombo.Items.Add(preset);
         }
 
-        LayoutPresetCombo.SelectedItem = TrackpadLayoutPreset.Selectable.Contains(_preset)
+        LayoutPresetCombo.SelectedItem = WindowsInputPolicy.SelectableLayouts.Contains(_preset)
             ? _preset
             : TrackpadLayoutPreset.SixByThree;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
@@ -1849,6 +1854,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         _handGestures?.Configure(_settings);
         _handGesturePanel?.Refresh(_settings);
+        if(!UsesSharedRuntime && !IsReplayMode && _touchCore!=null)
+            _localStenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true);
         if (_touchActor != null)
         {
             _touchActor.Configure(BuildConfigFromSettings());
@@ -2373,6 +2380,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static List<KeyActionOption> BuildKeyActionOptions()
     {
         List<KeyActionOption> options = new(120);
+        foreach(var key in Enum.GetValues<StenoKey>()) AddKeyActionOption(options,GeminiPRPacket.Label(key),"Steno keys");
         AddKeyActionOption(options, "None", "General");
         AddKeyActionOption(options, "Left Click", "Mouse Actions");
         AddKeyActionOption(options, "Double Click", "Mouse Actions");
@@ -3320,8 +3328,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             CustomButtonsExpander.IsExpanded = true;
             KeymapPrimaryCombo.IsEnabled = true;
-            KeymapHoldCombo.IsEnabled = true;
-            KeymapHoldForceBox.IsEnabled = true;
+            KeymapHoldCombo.IsEnabled = !_preset.IsSteno;
+            KeymapHoldForceBox.IsEnabled = !_preset.IsSteno;
             CustomButtonDeleteButton.IsEnabled = true;
             KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
@@ -3372,8 +3380,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         KeymapPrimaryCombo.IsEnabled = true;
-        KeymapHoldCombo.IsEnabled = true;
-        KeymapHoldForceBox.IsEnabled = true;
+        KeymapHoldCombo.IsEnabled = !_preset.IsSteno;
+        KeymapHoldForceBox.IsEnabled = !_preset.IsSteno;
         CustomButtonDeleteButton.IsEnabled = false;
         KeyRotationBox.IsEnabled = true;
         CustomButtonsExpander.IsExpanded = false;
@@ -4911,6 +4919,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateEngineStateDetails()
     {
+        StenoPanel.Visibility=_preset.IsSteno ? Visibility.Visible : Visibility.Collapsed;
+        StenoPanel.Bind(_runtimeService?.StenoConnection ?? _localStenoConnection);
         if (TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)

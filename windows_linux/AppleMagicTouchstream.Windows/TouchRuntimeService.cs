@@ -34,6 +34,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private WindowsHandGestures? _handGestures;
     public string HandGestureStatus => _handGestures?.Status ?? "Unavailable";
+    public WindowsStenoConnection StenoConnection { get; }=new();
     private UserSettings _settings;
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
@@ -72,13 +73,14 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchCore.UseUnifiedInputPolicy();
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.StenoConnection=StenoConnection;
             _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
                 () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason),_dispatchQueue,_sendInputDispatcher);
             _handGestures.Configure(_settings);
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
-                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures);
+                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures,stenoEligible:()=>MouseTakeover?.Enabled==true);
 
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
@@ -110,6 +112,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
             MouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedSelectedTrackpad);
             MouseTakeover.Start();
+            StenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true);
             _started = true;
             return true;
         }
@@ -154,6 +157,7 @@ internal sealed class TouchRuntimeService : IDisposable
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));
+        StenoConnection.Configure(_preset.IsSteno,_touchCore!.StenoOutput,()=>MouseTakeover?.Enabled==true);
     }
 
     public void UpdateDeviceSelections(string? leftPath, string? rightPath)
@@ -198,6 +202,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     public void Dispose()
     {
+        StenoConnection.Dispose();
         MouseTakeover?.Dispose(); MouseTakeover = null;
         _frameObserver = null;
 
@@ -245,6 +250,8 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _rawInputContext.SeedTags(seed);
         _decoderSession.Reset();
+        if(!string.Equals(_leftRoute.DevicePath,leftPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Left);
+        if(!string.Equals(_rightRoute.DevicePath,rightPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
         _handGestures?.Configure(_settings);

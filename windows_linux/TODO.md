@@ -1,6 +1,7 @@
 # Notes:
 =======
-Can we add Steno support? I just added it to mac/AppleMagicTouchstream last night so you can copy our notes.
+0. Can we add Steno support? I just added it to mac/AppleMagicTouchstream last night so you can copy our notes.
+1. One Pad Steno Layout?
 ===
 0. What is the thing that keeps making me switch back / turn off the program:
 > * * * OMG IT'S scrolling in the LIMS that kills me, lol. (pages it is perfect; this particular one I use every day is unusable because we implement our own scrolling logic? Maybe I would have better luck rewriting the LIMS logic. x.x but what to do about websites with bad mouse? Can we try a toggle where we turn off my scroll acceleration to see if that helps? Thoughts??)

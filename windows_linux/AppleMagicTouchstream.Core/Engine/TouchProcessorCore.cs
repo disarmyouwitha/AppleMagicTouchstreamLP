@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace AppleMagicTouchstream;
 
-internal sealed class TouchProcessorCore
+internal sealed partial class TouchProcessorCore
 {
     private const double DragReleasePointerGraceMs = 1500.0;
     private const double FiveFingerSwipeThresholdMm = 8.0;
@@ -282,6 +282,7 @@ internal sealed class TouchProcessorCore
         _keymap = keymap;
         _config = NormalizeConfig(config ?? TouchProcessorConfig.Default);
         RefreshGestureActionsFromConfig();
+        StenoOutput.Configure(IsSteno);
     }
 
     public void UseUnifiedInputPolicy()
@@ -296,6 +297,7 @@ internal sealed class TouchProcessorCore
 
     public void ConfigureLayouts(KeyLayout leftLayout, KeyLayout rightLayout)
     {
+        PrepareStenoLayouts(leftLayout,rightLayout);
         _leftLayout = leftLayout;
         _rightLayout = rightLayout;
         InvalidateBindings();
@@ -384,6 +386,7 @@ internal sealed class TouchProcessorCore
 
     public void SetPersistentLayer(int layer)
     {
+        if(_persistentLayer!=Math.Clamp(layer,0,7) && IsSteno) CancelSteno();
         _persistentLayer = Math.Clamp(layer, 0, 7);
         UpdateActiveLayer();
     }
@@ -523,6 +526,7 @@ internal sealed class TouchProcessorCore
 
     public void ResetState()
     {
+        CancelSteno();
         _keyboardProposalEpoch++;
         _handReservedLeft = _handReservedRight = false;
         EndAllGestureDispatches(Stopwatch.GetTimestamp());
@@ -626,6 +630,7 @@ internal sealed class TouchProcessorCore
         _proposalModifiers=proposalModifiers;
         CaptureClockAnchor(timestampTicks);
         _framesProcessed++;
+        if(ProcessStenoOrBarrier(side,in frame,maxX,maxY,timestampTicks)) return;
         EnsureBindingIndexes();
         BindingIndex sideIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
         int contactCountInFrame = frame.GetClampedContactCount();
@@ -1063,6 +1068,7 @@ internal sealed class TouchProcessorCore
 
     private void InvalidateBindings()
     {
+        if(IsSteno) CancelSteno();
         _bindingsGeneration++;
         _leftBindingIndex = null;
         _rightBindingIndex = null;
@@ -2294,7 +2300,8 @@ internal sealed class TouchProcessorCore
         DispatchSemanticAction semanticAction = default,
         bool allowTypingDisabledOverride = false,
         int forceNorm = -1,
-        DispatchRepeatProfile repeatProfile = default)
+        DispatchRepeatProfile repeatProfile = default,
+        ulong stenoMask = 0,long stenoGeneration = 0)
     {
         if(kind is DispatchEventKind.KeyTap or DispatchEventKind.KeyDown) semanticAction=WithProposalModifiers(semanticAction);
         if (_hapticsOnKeyDispatch && kind == DispatchEventKind.KeyTap)
@@ -2395,7 +2402,7 @@ internal sealed class TouchProcessorCore
             side,
             normalizedDispatchLabel,
             semanticAction,
-            repeatProfile);
+            repeatProfile,StenoMask:stenoMask,StenoGeneration:stenoGeneration);
         if(_dispatchSink!=null)
         {
             if(!_dispatchSink.TryPublish(in dispatchEvent)) { _dispatchDrops++; return false; }
@@ -6975,6 +6982,9 @@ internal sealed class TouchProcessorCore
 
 internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
 {
+    private readonly Func<bool>? _stenoEligible;
+    private int _layoutGeneration;
+    private byte _postedDownPads;
     private readonly TouchProcessorCore _core;
     private readonly IHandGestureRuntime? _handGestures;
     private readonly GestureKeyboardArbiter? _keyboardArbiter;
@@ -7000,9 +7010,10 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
         int queueCapacity = 2048,
         DispatchEventQueue? dispatchQueue = null,
         IThreeFingerDragSink? threeFingerDragSink = null,
-        IHandGestureRuntime? handGestures = null)
+        IHandGestureRuntime? handGestures = null,Func<bool>? stenoEligible=null)
     {
         _core = core;
+        _stenoEligible=stenoEligible;
         _handGestures = handGestures;
         _dispatchQueue = dispatchQueue;
         if(handGestures?.SupportsKeyboardProposals==true)
@@ -7029,6 +7040,10 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                 return false;
             }
 
+            bool touching=frame.ContactCount>InputFrame.MaxContacts;
+            for(int i=0;i<frame.GetClampedContactCount();i++) touching|=frame.GetContact(i).TipSwitch;
+            if(touching) _postedDownPads|=(byte)(1<<(int)side); else _postedDownPads&=(byte)~(1<<(int)side);
+
             if (_count >= _queue.Length)
             {
                 _core.RecordQueueDrop();
@@ -7036,7 +7051,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                 return false;
             }
 
-            _queue[_tail] = new FrameEnvelope(side, frame, maxX, maxY, timestampTicks);
+            _queue[_tail] = new FrameEnvelope(side, frame, maxX, maxY, timestampTicks,_layoutGeneration);
             _tail = (_tail + 1) % _queue.Length;
             _count++;
             _postedCount++;
@@ -7057,7 +7072,31 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
     {
         lock (_coreGate)
         {
+            if(_core.IsSteno || (leftLayout.IsSteno && rightLayout.IsSteno))
+            {
+                lock(_gate)
+                {
+                    _layoutGeneration++; Interlocked.Add(ref _processedCount,_count);
+                    _head=_tail=_count=0; _core.SetLayoutTransitionContacts(_postedDownPads);
+                }
+                _dispatchQueue?.Clear(); _handGestures?.Cancel(); _keyboardArbiter?.Invalidate(true);
+            }
             _core.ConfigureLayouts(leftLayout, rightLayout);
+            FlushQueuedDispatch();
+        }
+    }
+
+    public void RemoveStenoDevice(TrackpadSide side)
+    {
+        lock(_coreGate)
+        {
+            lock(_gate)
+            {
+                _postedDownPads&=(byte)~(1<<(int)side); _layoutGeneration++;
+                Interlocked.Add(ref _processedCount,_count); _head=_tail=_count=0;
+                _core.SetLayoutTransitionContacts(_postedDownPads);
+            }
+            _core.RemoveStenoDevice(side);
         }
     }
 
@@ -7280,7 +7319,14 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
 
             if (!hasFrame)
             {
-                lock (_coreGate) { _handGestures?.Tick(); _keyboardArbiter?.Tick(Stopwatch.GetTimestamp()); }
+                lock (_coreGate)
+                {
+                    if(_core.IsSteno)
+                    {
+                        if(_stenoEligible!=null) { _core.SetStenoAdmission(_stenoEligible()); _core.TickSteno(Stopwatch.GetTimestamp()); }
+                    }
+                    else { _handGestures?.Tick(); _keyboardArbiter?.Tick(Stopwatch.GetTimestamp()); }
+                }
                 _signal.WaitOne(4);
                 continue;
             }
@@ -7288,8 +7334,20 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
             InputFrame payload = frame.Frame;
             lock (_coreGate)
             {
-                if(Interlocked.Exchange(ref _proposalOverflow,0)!=0 && _keyboardArbiter!=null)
-                { _keyboardArbiter.Invalidate(true); _handGestures?.Cancel(); _core.ResetState(); }
+                if(frame.LayoutGeneration!=_layoutGeneration) { Interlocked.Increment(ref _processedCount); continue; }
+                if(Interlocked.Exchange(ref _proposalOverflow,0)!=0)
+                { _keyboardArbiter?.Invalidate(true); _handGestures?.Cancel(); _core.ResetState(); }
+                if(_core.IsSteno)
+                {
+                    if(_stenoEligible!=null)
+                    {
+                        _core.SetStenoAdmission(_stenoEligible());
+                        if(Stopwatch.GetTimestamp()-frame.TimestampTicks>Stopwatch.Frequency*.25) _core.ResetState();
+                    }
+                    _core.ProcessFrame(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
+                }
+                else
+                {
                 if(_keyboardArbiter!=null && Stopwatch.GetTimestamp()-frame.TimestampTicks>Stopwatch.Frequency*.15)
                 { _keyboardArbiter.Reject(frame.Side); _handGestures?.Cancel(frame.Side); }
                 if(_keyboardArbiter!=null) _keyboardArbiter.Process(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
@@ -7299,6 +7357,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                     _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks, reserved);
                 }
                 _handGestures?.Tick();
+                }
                 while (true)
                 {
                     int drainedDragEffects = _core.DrainPointerDragEffects(dragScratchBuffer);
@@ -7329,7 +7388,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
             for(int i=0;i<count;i++) if(!_dispatchQueue.TryEnqueue(_proposalDispatchScratch[i]))
             {
                 _core.RecordDispatchDrop();
-                if(_keyboardArbiter!=null)
+                if(_keyboardArbiter!=null || _core.IsSteno)
                 {
                     return CancelOutputPublication();
                 }
@@ -7387,5 +7446,5 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
         InputFrame Frame,
         ushort MaxX,
         ushort MaxY,
-        long TimestampTicks);
+        long TimestampTicks,int LayoutGeneration);
 }

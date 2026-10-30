@@ -2,6 +2,7 @@ namespace AppleMagicTouchstream;
 
 internal static class WindowsInputPolicy
 {
+    internal static TrackpadLayoutPreset[] SelectableLayouts { get; }=[..TrackpadLayoutPreset.Selectable,TrackpadLayoutPreset.Steno,TrackpadLayoutPreset.StenoVoyager];
     internal static TouchProcessorConfig BuildTouchConfig(UserSettings settings)=>RuntimeConfigurationFactory.BuildTouchConfig(settings) with
     { SnapRadiusPercent=double.IsFinite(settings.SnapRadiusPercent) ? Math.Clamp(settings.SnapRadiusPercent,0,100) : 0 };
     // Retained fields belong to the shared Linux/profile format. Windows ignores

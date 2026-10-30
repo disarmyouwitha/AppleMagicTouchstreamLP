@@ -193,6 +193,7 @@ internal sealed class ReplayRunner
             dispatchFingerprint = Mix(dispatchFingerprint, dispatchEvent.RepeatToken);
             dispatchFingerprint = Mix(dispatchFingerprint, (ulong)dispatchEvent.Flags);
             dispatchFingerprint = Mix(dispatchFingerprint, (ulong)dispatchEvent.Side);
+            if(dispatchEvent.Kind==DispatchEventKind.StenoStroke) dispatchFingerprint=Mix(dispatchFingerprint,dispatchEvent.StenoMask);
 
             if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey < modifierBalance.Length)
             {

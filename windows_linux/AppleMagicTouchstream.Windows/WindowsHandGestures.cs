@@ -15,6 +15,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     private readonly WindowsGestureOutput _output;
     private readonly HandGestureEngine _engine;
     private bool _disposed;
+    private bool _stenoMode;
     private long _frames, _reserved;
     private readonly bool[] _keyboardPriority=new bool[2];
     public bool SupportsKeyboardProposals => true;
@@ -43,12 +44,13 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     }
     public string Status
     {
-        get { lock (_sync) return $"{(_eligible() ? "Active" : "Waiting for Mouse Takeover")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
+        get { lock (_sync) return _stenoMode ? "Gestures are paused in STENO layouts." : $"{(_eligible() ? "Active" : "Waiting for Mouse Takeover")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
     }
     public void Configure(UserSettings settings)
     {
         lock (_sync)
         {
+            _stenoMode=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
             _output.Release();
             var effective = (settings.HandGesturesV1 ?? new()).Clone();
@@ -86,7 +88,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     {
         lock (_sync)
         {
-            if (_disposed) return false;
+            if (_disposed || _stenoMode) return false;
             Span<HandGestureContact> contacts = stackalloc HandGestureContact[InputFrame.MaxContacts];
             int count = ReadContacts(in frame,maxX,maxY,contacts,out bool fourthContactPending);
             try
@@ -110,7 +112,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     {
         lock (_sync)
         {
-            if (_disposed) return;
+            if (_disposed || _stenoMode) return;
             try { CheckButtonInterference(); _output.ThrowIfFaulted(); _engine.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, _eligible() && !_output.ForeignButtonDown); }
             catch (Exception ex) { Fail(ex); }
         }

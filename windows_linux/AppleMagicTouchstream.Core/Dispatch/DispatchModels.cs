@@ -17,7 +17,8 @@ public enum DispatchEventKind : byte
     GestureShortcutDown = 10,
     GestureShortcutUp = 11,
     GestureShortcutTap = 12,
-    ReleaseAllKeyboard = 13
+    ReleaseAllKeyboard = 13,
+    StenoStroke = 14
 }
 
 public enum DispatchMouseButton : byte
@@ -210,4 +211,6 @@ public readonly record struct DispatchEvent(
     string DispatchLabel,
     DispatchSemanticAction SemanticAction = default,
     DispatchRepeatProfile RepeatProfile = default,
-    [property:System.Text.Json.Serialization.JsonIgnore] long GestureGeneration = 0);
+    [property:System.Text.Json.Serialization.JsonIgnore] long GestureGeneration = 0,
+    ulong StenoMask = 0,
+    [property:System.Text.Json.Serialization.JsonIgnore] long StenoGeneration = 0);

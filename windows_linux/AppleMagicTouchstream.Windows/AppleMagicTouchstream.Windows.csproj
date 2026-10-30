@@ -38,4 +38,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Update="PloverPlugin\dist\*.whl;PloverPlugin\Install-PloverPlugin.ps1;PloverPlugin\Install-PloverPlugin.cmd;PloverPlugin\README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
