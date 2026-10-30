@@ -727,6 +727,7 @@ final class DispatchService: @unchecked Sendable {
     private enum CommandPayload:Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case stenoStroke(UInt64,UInt64)
         case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
@@ -797,6 +798,8 @@ final class DispatchService: @unchecked Sendable {
         var isPumpScheduled = false
         var drops: UInt64 = 0
         var nextCommandID: UInt64 = 1
+        var stenoEnabled = false
+        var stenoGeneration:UInt64 = 0
     }
 
     private let shortcutKeys = OSAllocatedUnfairLock(initialState:GestureShortcutKeyOwnership())
@@ -880,6 +883,23 @@ final class DispatchService: @unchecked Sendable {
 
     func postVoiceToggle(sourceSequence: UInt64? = nil) {
         enqueue(.voiceToggle, sourceSequence: sourceSequence)
+    }
+
+    func configureStenoMode(_ enabled:Bool) {
+        let changed = stateLock.withLockUnchecked { state in
+            guard state.stenoEnabled != enabled else { return false }
+            state.stenoEnabled = enabled; state.stenoGeneration &+= 1; return true
+        }
+        guard changed, keyDispatcher != nil else { return }
+        dispatchQueue.async {
+            if enabled { GeminiPRPort.shared.start() } else { GeminiPRPort.shared.stop() }
+        }
+    }
+    func postStenoStroke(_ mask:UInt64,sourceSequence:UInt64? = nil) {
+        guard mask != 0, mask & ~GeminiPRPacket.keyMask == 0 else { return }
+        let generation = stateLock.withLockUnchecked { $0.stenoEnabled ? $0.stenoGeneration:nil }
+        guard let generation else { return }
+        enqueue(.stenoStroke(mask,generation),sourceSequence:sourceSequence)
     }
 
     func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
@@ -1000,6 +1020,7 @@ final class DispatchService: @unchecked Sendable {
             TextShortcutPasteOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
+            state.stenoGeneration &+= 1
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
             // release edges so a held shortcut cannot leave a synthetic key down.
@@ -1013,6 +1034,7 @@ final class DispatchService: @unchecked Sendable {
         for command in cancelledCommands {
             emitRecordedEvent(for: command, status: .cancelled)
         }
+        if keyDispatcher != nil { dispatchQueue.async { GeminiPRPort.shared.flush() } }
     }
 
     private func enqueue(_ payload: CommandPayload, sourceSequence: UInt64?) {
@@ -1105,6 +1127,11 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
+        case let .stenoStroke(mask,generation):
+            guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
+                emitRecordedEvent(for:command,status:.cancelled); return
+            }
+            _ = GeminiPRPort.shared.send(mask)
         case .textPaste:
             return // The asynchronous path is handled by drainQueue.
         case let .appLaunch(actionLabel):
@@ -1154,6 +1181,8 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
+        case let .stenoStroke(mask,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(label),status:status,sourceSequence:command.sourceSequence)
         case let .appLaunch(actionLabel):

@@ -6,6 +6,19 @@ starting the app, listening to trackpads, posting native events, launching
 apps, playing haptics, or starting dictation. UI declarations are compiled to
 satisfy the existing model/geometry dependencies; the UI model is not created.
 
+## STENO verification
+
+`GeminiPRTests`, `StenoChordTests` and `StenoLayoutTests` check canonical Plover
+wire vectors, every wire bit, rolling two-pad all-up, arbitrary selected device
+indices, cancellation, seam combinations, mode transitions and settings round-trip.
+The transport test opens only its own private PTY, configures a raw reader as
+Plover does, verifies exact packets (including CR bytes), disconnect/drop behavior
+and path cleanup; it never uses the live singleton or native input. Optional
+`STENO_PREVIEW_DIR=/tmp ./test.sh --filter StenoLayoutTests` renders both layouts.
+Hardware acceptance still requires Plover connection, real chords/rolls and
+comparison of translated strokes, takeover and cleanup. No offline test establishes
+physical comfort or Plover delivery.
+
 ## Run
 
 Start with `./test.sh`: it runs native takeover lifecycle checks, then Swift tests.

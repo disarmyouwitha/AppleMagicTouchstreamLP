@@ -104,6 +104,41 @@ Letters, numbers, modifiers, navigation and function keys use the action catalog
 Unsupported hand-logo/PC-only legends remain editable inactive placeholders until
 assigned a supported action. Changing layouts does not replace saved mappings.
 
+## STENO layouts and Gemini PR
+
+`STENO` follows the [Asterisk v2](https://stenokeyboards.com/products/asterisk-v2)
+arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
+E/U thumb pairs. `STENO Voyager` uses the supplied Voyager image's staggered 6×3
+main grid plus those thumb pairs. Voyager retains mirrored column tuning; the
+Asterisk arrangement has fixed independent geometry. Both retain per-key edits
+and their own saved layout namespaces. `STN_*` catalog actions identify the 42
+Gemini PR wire positions; they are inert in ordinary keyboard layouts.
+
+STENO replaces ordinary typing and pauses gesture recognition/output. Selected
+pads retain the normal live routing, listening and lifecycle admission.
+Making/touching non-palm contacts accumulate every intersected steno key; key edges
+expand 1.5 mm to permit upper/lower row combinations under one fingertip. Keys roll
+into one shared stroke while either pad has contacts, including contacts between
+keys. Both-pad all-up sends exactly one stroke. Invalid coordinates, non-monotonic
+or stale active delivery (>250 ms), overflow (>16 non-palm contacts per frame),
+device loss, reset and layout/mapping/layer changes cancel the partial stroke and
+wait for remaining contacts to lift. Switching into or out of STENO cannot turn
+held contacts into a new stroke or ordinary key press.
+
+The shared output queue sends six-byte packets using
+[Plover's Gemini PR wire order](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).
+Choosing STENO opens a private user-space PTY and displays a Copy Port path. In
+Plover, Configure → Machine → Gemini PR, paste this path into Port and select
+9600 baud, 8 data bits, no parity, 1 stop bit, no flow control; enable Plover output.
+Plover configures its serial reader in raw mode. No driver/helper is installed.
+Switching between the two STENO variants preserves the port; leaving STENO or
+quitting removes it. A fresh app session has a fresh path and needs reconnection.
+Disconnected/full output drops strokes rather than queuing them for later;
+interrupted partial writes close the stream and show a reconnect error. Lifecycle
+cleanup invalidates queued strokes and flushes the port. Replay records intended
+packets as `GeminiPR:` plus twelve hex digits in the existing system-event envelope;
+it never opens the live port or sends serial/native keyboard output.
+
 ## Snap radius
 
 Keyboard → Mode Toggles uses `GlassToKey.snapRadiusPercent`, also retained in

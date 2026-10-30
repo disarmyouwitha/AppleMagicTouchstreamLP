@@ -320,6 +320,10 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         trackpadWidthMm: CGFloat
     ) async {
         await run {
+            if self.processor.isStenoLayout != (leftLayout.isSteno && rightLayout.isSteno) {
+                InterpretedTrackpadPointer.shared.resetBaseline()
+                for proposal in self.keyboardProposals { proposal.reset() }
+            }
             self.processor.updateLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
@@ -527,6 +531,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool,
         liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
+        let liveGestures = liveGestures && !processor.isStenoLayout
         if liveGestures { InterpretedTrackpadPointer.shared.interruptMomentum(frame) }
         let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
         let coordinated = liveGestures && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
@@ -797,6 +802,9 @@ final class ProductionReplaySession {
         let geometry = profile.keyGeometryByLayout?[name] ?? [:]
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
+            if preset.isSteno {
+                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry)
+            }
             if preset == .touchstream {
                 return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)
             }

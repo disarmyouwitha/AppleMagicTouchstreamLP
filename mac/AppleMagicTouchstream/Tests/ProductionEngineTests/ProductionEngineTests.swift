@@ -826,7 +826,7 @@ final class ProductionEngineTests: XCTestCase {
 
     func testActionCatalogOffersOnlySupportedBootstrapActions() {
         let allowed: Set<KeyActionKind> = [.key, .leftClick, .doubleClick, .rightClick,
-            .middleClick, .volumeUp, .volumeDown, .voice, .layerMomentary, .layerToggle, .none]
+            .middleClick, .volumeUp, .volumeDown, .voice, .layerMomentary, .layerToggle, .none, .steno]
         for group in KeyActionCatalog.primaryActionGroups {
             for action in group.actions { XCTAssertTrue(allowed.contains(action.kind), action.label) }
         }

@@ -553,6 +553,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let isTypingEnabled = true
     private var holdRepeatEnabled = false
     private var activeLayer: Int = 0
+    private(set) var isStenoLayout = false
+    private var stenoChord = StenoChordEngine()
+    private var padsWithContacts:UInt8 = 0
+    private var layoutTransitionBlockedPads:UInt8 = 0
+    private var stenoRegions = SidePair<[StenoRegion]>(left:[],right:[])
     private var persistentLayer: Int = 0
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
@@ -683,6 +688,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) {
+        if leftDeviceIndex != leftIndex || self.leftDeviceID != leftDeviceID {
+            stenoChord.removeDevice(0); padsWithContacts &= ~1; layoutTransitionBlockedPads &= ~1
+        }
+        if rightDeviceIndex != rightIndex || self.rightDeviceID != rightDeviceID {
+            stenoChord.removeDevice(1); padsWithContacts &= ~2; layoutTransitionBlockedPads &= ~2
+        }
         let next = Set([leftIndex, rightIndex].compactMap { $0 })
         for removed in Set([leftDeviceIndex, rightDeviceIndex].compactMap { $0 }).subtracting(next) {
             cancelDevice(removed)
@@ -696,6 +707,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
     /// Disconnect cancellation must never replay a pending tap or release keys
     /// owned by the other hand. Reuse the normal disqualification cleanup.
     private func cancelDevice(_ deviceIndex: Int) {
+        let slot = leftDeviceIndex == deviceIndex ? 0:1
+        stenoChord.removeDevice(slot)
+        padsWithContacts &= ~(UInt8(1)<<slot)
         touchRemovalBuffer.removeAll(keepingCapacity: true)
         touchStates.forEach { key, _ in
             if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
@@ -729,6 +743,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) {
+        let steno = leftLayout.isSteno && rightLayout.isSteno
+        if steno != isStenoLayout {
+            releaseHeldKeys(stopVoiceDictation:false)
+            layoutTransitionBlockedPads |= padsWithContacts
+        }
+        isStenoLayout = steno
+        stenoChord.cancel(blockedPads:padsWithContacts)
+        dispatchService.configureStenoMode(steno)
         self.leftLayout = leftLayout
         self.rightLayout = rightLayout
         self.leftLabels = leftLabels
@@ -747,6 +769,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) {
         customKeyMappingsByLayer = actions
+        if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
         invalidateBindingsCache()
     }
 
@@ -855,6 +878,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     private func captureActionKindLabel(_ action: KeyBindingAction) -> String {
         switch action {
+        case .steno:
+            return "steno"
         case .textPaste:
             return "textPaste"
         case .key:
@@ -1101,6 +1126,27 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         guard isLeftDevice || isRightDevice else { return nil }
+        do {
+            let bit = UInt8(1) << (isLeftDevice ? 0:1)
+            if touches.contains(where:{($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID != 6}) { padsWithContacts |= bit }
+            else { padsWithContacts &= ~bit }
+        }
+        let transitionBit = UInt8(1) << (isLeftDevice ? 0:1)
+        if layoutTransitionBlockedPads & transitionBit != 0 {
+            if padsWithContacts & transitionBit == 0 { layoutTransitionBlockedPads &= ~transitionBit }
+            if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
+            return nil // A mode change cannot turn held contacts into a fresh chord/key tap.
+        }
+        if isStenoLayout {
+            let side:TrackpadSide = isLeftDevice ? .left:.right
+            let index = bindings(for:side,layout:isLeftDevice ? leftLayout:rightLayout,
+                labels:isLeftDevice ? leftLabels:rightLabels,canvasSize:trackpadSize)
+            if suppressKeyboard { stenoChord.cancel(blockedPads:padsWithContacts) }
+            else if let chord = stenoChord.process(device:isLeftDevice ? 0:1,time:now,touches:touches,regions:stenoRegions[side],size:trackpadSize) {
+                dispatchService.postStenoStroke(chord,sourceSequence:currentDispatchSourceSequence())
+            }
+            return makeFrameDiagnostic(deviceIndex:deviceIndex,touches:touches,bindings:index,now:now)
+        }
         let keyboardReserved = reserveGestureKeyboard(deviceIndex: deviceIndex, touches: touches, requested: suppressKeyboard)
         let leftTouches = touches.prefix(isLeftDevice ? touches.count : 0)
         let rightTouches = touches.prefix(isRightDevice ? touches.count : 0)
@@ -1168,6 +1214,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func resetState(stopVoiceDictation: Bool = false) {
+        stenoChord.cancel(blockedPads:padsWithContacts)
         lastHapticTimeBySide = SidePair(repeating: nil)
         dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
@@ -1208,7 +1255,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     /// An established layer, modifier or committed key hold makes its originating pad a keyboard chord
     /// through all-up; the opposite pad keeps normal gesture arbitration.
-    func keyboardChordOwnsCycle(deviceIndex: Int) -> Bool { keyboardChordDevices.contains(deviceIndex) }
+    func keyboardChordOwnsCycle(deviceIndex: Int) -> Bool {
+        let slot = leftDeviceIndex == deviceIndex ? 0:1
+        return keyboardChordDevices.contains(deviceIndex) || layoutTransitionBlockedPads & (UInt8(1)<<slot) != 0
+    }
 
     private func reserveGestureKeyboard<C: Collection>(deviceIndex: Int, touches: C, requested: Bool) -> Bool where C.Element == OMSRawTouch {
         guard !keyboardChordDevices.contains(deviceIndex) else { return false }
@@ -1348,7 +1398,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     continue
                 case .none:
                     break
-                case .textPaste, .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
+                case .steno, .textPaste, .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
                      .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
                      .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall,
                      .chordalShift,
@@ -2003,6 +2053,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
             snapRadiusSq.append(radius * radius)
         }
 
+        stenoRegions[side].removeAll(keepingCapacity:true)
+        func appendSteno(_ binding:KeyBinding) {
+            guard case let .steno(key) = binding.action else { return }
+            let rect = binding.normalizedRect
+            // 1.5 mm overlap permits one fingertip to chord adjacent row keys.
+            let dx = 1.5/trackpadWidthMm, dy = dx*canvasSize.width/max(canvasSize.height,1)
+            let expanded = NormalizedRect(x:rect.x-dx,y:rect.y-dy,width:rect.width+2*dx,height:rect.height+2*dy,rotationDegrees:rect.rotationDegrees)
+            stenoRegions[side].append(.init(key:key,geometry:KeyHitGeometry(normalizedRect:expanded,size:canvasSize)))
+        }
         let fallbackNormalized = NormalizedRect(x: 0, y: 0, width: 0, height: 0)
         for row in 0..<keyRects.count {
             let rowRects = keyRects[row]
@@ -2025,6 +2084,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 }
                 keyGrid.insert(binding)
                 appendSnapBinding(binding)
+                appendSteno(binding)
             }
         }
 
@@ -2038,6 +2098,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             ) else { continue }
             customBindings.append(binding)
             customGrid?.insert(binding)
+            appendSteno(binding)
         }
 
         return BindingIndex(
@@ -2119,6 +2180,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         switch action.kind {
         case .typingToggle, .chordalShift, .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold, .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight, .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall, .volumeUpSmall, .volumeDownSmall:
             return nil
+        case .steno:
+            guard let key = StenoKey.resolve(action.label), key.rawValue == action.keyCode else { return nil }
+            return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:key.legend,
+                action:.steno(key),position:position,customButtonID:customButtonID,side:side,holdAction:nil)
         case .textPaste:
             guard TextShortcutReference.id(from:action.label) != nil else { return nil }
             return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:"Text (Keychain)",
@@ -2962,6 +3027,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
+        case .steno:
+            return // Steno keycodes are inert outside the chord layout.
         case let .textPaste(label):
             dispatchService.postTextPaste(label,sourceSequence:currentDispatchSourceSequence())
         case let .appLaunch(label):
@@ -3505,6 +3572,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let currentMomentaryLayer = maxMomentaryLayer()
         let resolvedLayer = currentMomentaryLayer ?? persistentLayer
         if activeLayer != resolvedLayer {
+            if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
             activeLayer = resolvedLayer
             invalidateBindingsCache()
             onActiveLayerChanged(resolvedLayer)

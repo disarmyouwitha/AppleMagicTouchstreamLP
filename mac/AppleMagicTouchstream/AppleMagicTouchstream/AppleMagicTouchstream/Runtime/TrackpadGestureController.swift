@@ -13,6 +13,11 @@ final class TrackpadGestureController: ObservableObject {
     private var owned: Set<UInt64> = []
     private var takeoverEnabled = false
     private var armed = false
+    private var stenoMode = false
+    func setStenoMode(_ enabled:Bool) {
+        guard stenoMode != enabled else { return }
+        stenoMode = enabled; configure()
+    }
     private var pointerProfiles: [UInt64: ApplePointerAccelerationProfile] = [:]
     private var scrollProfiles: [UInt64: AppleScrollProfile] = [:]
 
@@ -81,6 +86,7 @@ final class TrackpadGestureController: ObservableObject {
         settings.coordinated = value; settings.save(to:.standard); configure()
     }
     func holdStatus(count:Int,scope:GestureHandScope) -> String {
+        if stenoMode { return "Gestures are paused in STENO layouts." }
         guard settings.holdAvailable(count:count,in:scope) else {
             return "Unsupported contact count."
         }
@@ -185,6 +191,7 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
     func twoHandStatus(_ trigger:TwoHandTrigger) -> String {
+        if stenoMode { return "Gestures are paused in STENO layouts." }
         guard let left = pads.left, let right = pads.right, left != right else { return "Select two distinct trackpads." }
         guard takeoverEnabled, armed, owned.isSuperset(of:[left,right]) else { return "Enable Trackpad Takeover on both selected pads." }
         let action = settings.twoHand.action(trigger)
@@ -197,6 +204,7 @@ final class TrackpadGestureController: ObservableObject {
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
+        if stenoMode { return "Gestures are paused in STENO layouts." }
         func hand(_ side: GestureHandScope) -> String {
             let directional = GestureDirectionalAssignments.triggers.contains(trigger)
                 && settings.movementMode(trigger,in:side) == .directional
@@ -237,6 +245,9 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     private func configure() {
+        if stenoMode {
+            InterpretedTrackpadPointer.shared.stop(); statusRevision &+= 1; return
+        }
         let shortcuts = AppleShortcutPlan.load()
         let routed = settings.routed(to: pads)
         let eligible = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,

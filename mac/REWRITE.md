@@ -1,9 +1,13 @@
 # NEXT:
 =======
+I'M LEARNING STENO BABY!!
+0. I want to implement a "STENO" layout with something similar to an astrisk v2 
+1. I want you to implement `GeminiPR protocol` when switched to this layout.
+2. Take a look at my layout on my @voyager.jpg
+> It looks like we could use the 6x3 layout for it if we add STENO keycodes?
+===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
-3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
-> (Setting Default keymap back to default was a good example)
 ===
 * * Start working on TouchStream gesture defaults template!!
 

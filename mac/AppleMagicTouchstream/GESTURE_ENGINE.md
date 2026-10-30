@@ -24,6 +24,10 @@ the architecture review and remaining work.
 6. Every acquired output has an explicit release obligation. Shared cursor/button
    state is separate from per-pad recognition state.
 
+STENO presets pause all ordinary gesture reservation, recognition and output;
+contacts instead form shared two-pad steno chords. Leaving STENO restores saved
+gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).
+
 ## Inputs and factory actions
 
 | Input | Default action | Activation / completion |

@@ -768,6 +768,7 @@ enum ShortcutActionHelper {
 @MainActor
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
+        case steno(StenoKey)
         case key(code: CGKeyCode, flags: CGEventFlags)
         case textPaste(String)
         case appLaunch(String)
@@ -840,14 +841,16 @@ final class ContentViewModel: ObservableObject {
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
+        let isSteno: Bool
 
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true
+            allowHoldBindings: Bool = true, isSteno: Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
+            self.isSteno = isSteno
             self.keyRects = normalizedKeyRects.map { row in
                 row.map { $0.boundingRect(in: trackpadSize) }
             }
@@ -856,10 +859,11 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true
+            allowHoldBindings: Bool = true, isSteno: Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
+            self.isSteno = isSteno
             self.normalizedKeyRects = Layout.normalize(keyRects, trackpadSize: trackpadSize)
         }
 
@@ -1149,6 +1153,7 @@ final class ContentViewModel: ObservableObject {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) {
+        gestures.setStenoMode(leftLayout.isSteno && rightLayout.isSteno)
         runtimeCommandService.updateLayouts(
             leftLayout: leftLayout,
             rightLayout: rightLayout,
@@ -1984,6 +1989,7 @@ struct KeyGeometryOverride: Codable, Hashable {
 }
 
 enum KeyActionKind: String, Codable, Sendable {
+    case steno
     case key
     case textPaste
     case appLaunch
@@ -2031,6 +2037,8 @@ struct KeyAction: Codable, Hashable, Sendable {
         var displayText: String {
             if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
+            case .steno:
+                return StenoKey(rawValue:keyCode)?.legend ?? "None"
             case .none:
                 return KeyActionCatalog.noneLabel
             case .typingToggle:
@@ -2053,6 +2061,8 @@ struct KeyAction: Codable, Hashable, Sendable {
         var pickerText: String {
             if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
+            case .steno:
+                return "Steno "+(StenoKey(rawValue:keyCode)?.legend ?? label)+" ("+label+")"
             case .typingToggle:
                 return KeyActionCatalog.typingToggleLabel
             case .textPaste:
@@ -2699,6 +2709,7 @@ enum KeyActionCatalog {
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
         }
+        groups.append(ActionGroup(title:dashedHeader("Steno keys"),actions:StenoKey.allCases.map(\.action)))
         return groups
     }
 
@@ -2715,6 +2726,7 @@ enum KeyActionCatalog {
     }
 
     static func action(for label: String) -> KeyAction? {
+        if let key = StenoKey.resolve(label) { return key.action }
         if let id = TextShortcutReference.id(from:label) { return TextShortcutReference.action(id:id) }
         if let named = NamedShortcutStorage.resolve(label) { return named }
         // Archived GTK labels are decode-only. Never turn them into live actions.

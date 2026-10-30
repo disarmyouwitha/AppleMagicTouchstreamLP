@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AC7300000000000000000C02 /* Steno.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7300000000000000000C01; };
+        AC7300000000000000000D02 /* GeminiPRPort.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7300000000000000000D01; };
         AC7200000000000000000B02 /* TextShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7200000000000000000B01; };
         AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000A01; };
         AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7100000000000000000901; };
@@ -46,6 +48,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AC7300000000000000000C01 /* Steno.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Steno.swift; sourceTree = "<group>"; };
+        AC7300000000000000000D01 /* GeminiPRPort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/GeminiPRPort.swift; sourceTree = "<group>"; };
         AC7200000000000000000B01 /* TextShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextShortcuts.swift; sourceTree = "<group>"; };
         AC7100000000000000000A01 /* VoiceDictationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceDictationManager.swift; sourceTree = "<group>"; };
         AC7100000000000000000901 /* AutocorrectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocorrectEngine.swift; sourceTree = "<group>"; };
@@ -147,6 +151,8 @@
                 AC7100000000000000000901 /* AutocorrectEngine.swift */,
                 AC7100000000000000000A01 /* VoiceDictationManager.swift */,
                 AC7200000000000000000B01 /* TextShortcuts.swift */,
+                AC7300000000000000000C01 /* Steno.swift */,
+                AC7300000000000000000D01 /* GeminiPRPort.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppleMagicTouchstreamDefaultsKeys.swift */,
 				31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */,
 			);
@@ -287,6 +293,8 @@
                 AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */,
                 AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */,
                 AC7200000000000000000B02 /* TextShortcuts.swift in Sources */,
+                AC7300000000000000000C02 /* Steno.swift in Sources */,
+                AC7300000000000000000D02 /* GeminiPRPort.swift in Sources */,
 				5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */,
 				D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */,
 				3C193E5CB3384DBB97B4BD76 /* LegacyMobileLayout.swift in Sources */,

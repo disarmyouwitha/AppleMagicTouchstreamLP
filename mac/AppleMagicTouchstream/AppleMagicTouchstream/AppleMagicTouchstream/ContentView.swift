@@ -1355,6 +1355,8 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
+                    if layoutOption.isSteno { StenoConnectionPanel() }
+
                     CollapsibleSection(
                         isExpanded: $columnTuningExpanded
                     ) {
@@ -3314,6 +3316,13 @@ struct ContentView: View {
     }
 
     private func rebuildLayouts() {
+        if layoutOption.isSteno {
+            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides)
+            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides)
+            viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
+                trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
+            return
+        }
         if layoutOption == .touchstream {
             leftLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
             rightLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)
