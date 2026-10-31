@@ -1,9 +1,14 @@
 # NEXT:
 ======= 
-* Shortcut editor button make a little bigger? (screenshot)
-1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
-> test?? I thought we build this but I cant find it, lol. You asked me if we should use the Apple Keychain? Am I hallucinating?
+1. Instead of having Text implemented like that, can we just add a textbox here? Maybe you can (briefly) explain in the placeholder text that text saved here is saved in keychain encrypted.
+2. In Gesture mode there is no way to edit the gestures? Like there is a slick menu from Keymap Tuning that is not being used here.&#x20;
+3. `key` dropdown in both keyboard and gesture `shortcut builder` sucks. Why doesn't it match the other ones we have elsewhere for `key`? 
+4. When I try to apply Text  to a Gesture without a name it doesn't save (and doesn't indicate it is required)
+5. After it pastes it does NOT clear the clipboard immediately, only after 30 seconds.
 ===
+0. How does Better Touch Tools paste during Locked screens? It shows this message when it happens, ("Secure Input Active, System Settings has enabled secure input - simulated keystrokes may not arrivem"
+===
+1. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
 * * Start working on TouchStream gesture defaults template!!
 * * make 6x3 decal girl template in gimp with layers for ppl to edit
 * Built-in small typing games for typing practice and steno practice (like lapdrill.py)
