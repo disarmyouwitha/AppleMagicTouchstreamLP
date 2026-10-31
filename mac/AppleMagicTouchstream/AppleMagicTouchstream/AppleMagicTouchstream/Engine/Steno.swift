@@ -257,9 +257,14 @@ struct StenoChordEngine:Sendable {
     }
 }
 
-/// Stable grid identities for two visualizations of the same wire keys.
+/// Stable grid identities for split and single-pad visualizations of the same wire keys.
 enum StenoLayoutDefinition {
     static func labels(preset:TrackpadLayoutPreset,side:TrackpadSide) -> [[String]] {
+        if preset == .stenoSingle {
+            guard side == .right else { return [] }
+            return [[StenoKey.n1,.n6],[.s1,.tl,.pl,.hl,.star1,.fr,.pr,.lr,.tr,.dr],
+                [.s2,.kl,.wl,.rl,.rr,.br,.gr,.sr,.zr],[.a,.o,.e,.u]].map { $0.map(\.label) }
+        }
         let keys:[[StenoKey?]]
         if preset == .stenoVoyager {
             keys = side == .left ? [
@@ -276,7 +281,28 @@ enum StenoLayoutDefinition {
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
                        columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .plugin,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
-        if preset == .stenoVoyager {
+        if preset == .stenoSingle {
+            rects = []
+            if side == .right {
+                // Nine equal consonant columns plus one 1.5-width tall star.
+                // Leave fixed outer margins and 1.6 mm gaps on a 160 mm pad.
+                let gap:CGFloat = 0.01, width:CGFloat = (0.95-9*gap)/10.5
+                var x:CGFloat = 0.025
+                var upper:[NormalizedRect] = []
+                for column in 0..<10 {
+                    let w = column == 4 ? 1.5*width:width
+                    upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 0.48:0.23))
+                    x += w+gap
+                }
+                let lower = upper.enumerated().filter { $0.offset != 4 }.map {
+                    NormalizedRect(x:$0.element.x,y:0.43,width:$0.element.width,height:0.23)
+                }
+                let vowelsWidth = 4*width+3*gap, vowelsX = (1-vowelsWidth)/2
+                rects = [[.init(x:upper[0].x,y:0.1,width:upper[3].x+width-upper[0].x,height:0.05),
+                    .init(x:upper[5].x,y:0.1,width:upper[9].x+width-upper[5].x,height:0.05)],upper,lower,
+                    (0..<4).map { .init(x:vowelsX+CGFloat($0)*(width+gap),y:0.79,width:width,height:0.18) }]
+            }
+        } else if preset == .stenoVoyager {
             // Reuse the 6×3 stagger and its mirrored, inner-to-outer column identities.
             let main = ContentView.makeKeyLayout(size:size,keyWidth:ContentView.baseKeyWidthMM,keyHeight:ContentView.baseKeyHeightMM,
                 columns:6,rows:3,trackpadWidth:ContentView.trackpadWidthMM,trackpadHeight:ContentView.trackpadHeightMM,
@@ -296,8 +322,10 @@ enum StenoLayoutDefinition {
                     (0..<5).map { .init(x:0.22+CGFloat($0)*0.145,y:0.43,width:0.13,height:0.23) }]
             }
         }
-        rects.append(side == .left ? [.init(x:0.56,y:0.79,width:0.15,height:0.18),.init(x:0.76,y:0.79,width:0.15,height:0.18)]
-            : [.init(x:0.06,y:0.79,width:0.15,height:0.18),.init(x:0.26,y:0.79,width:0.15,height:0.18)])
+        if preset != .stenoSingle {
+            rects.append(side == .left ? [.init(x:0.56,y:0.79,width:0.15,height:0.18),.init(x:0.76,y:0.79,width:0.15,height:0.18)]
+                : [.init(x:0.06,y:0.79,width:0.15,height:0.18),.init(x:0.26,y:0.79,width:0.15,height:0.18)])
+        }
         for row in rects.indices {
             for col in rects[row].indices {
                 guard let edit = overrides[GridKeyPosition(side:side,row:row,column:col).storageKey] else { continue }

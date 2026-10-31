@@ -505,8 +505,8 @@ final class StenoMouseTests:XCTestCase {
     private func packets(_ run:ProductionReplaySession) -> [String] {
         run.output.events.compactMap { if case let .systemKey(label) = $0.kind, label.hasPrefix("GeminiPR:") { return label }; return nil }
     }
-    func testBothPresetsKeepVoyagerKeysAndAsteriskGeometryDistinct() throws {
-        for preset in [TrackpadLayoutPreset.steno,.stenoVoyager] {
+    func testStenoPresetsKeepKeysAndGeometryDistinct() throws {
+        for preset in [TrackpadLayoutPreset.steno,.stenoVoyager,.stenoSingle] {
             XCTAssertTrue(TrackpadLayoutPreset.selectableCases.contains(preset))
             XCTAssertEqual(TrackpadLayoutPreset.resolveByName(preset.rawValue),preset)
             for side in [TrackpadSide.left,.right] {
@@ -524,6 +524,76 @@ final class StenoMouseTests:XCTestCase {
         XCTAssertEqual(TrackpadLayoutPreset.stenoVoyager.leftLabels[0], [StenoKey.n5,.n4,.n3,.n2,.n1,.nc].map(\.label))
         XCTAssertTrue(TrackpadLayoutPreset.steno.leftLabels[3].contains(StenoKey.a.label))
         XCTAssertTrue(TrackpadLayoutPreset.steno.rightLabels[3].contains(StenoKey.u.label))
+    }
+    func testSinglePadPresetUsesRHSWithOneOneAndAHalfWidthStarAndWiderConsonants() {
+        let preset = TrackpadLayoutPreset.stenoSingle
+        XCTAssertEqual(preset.displayName,"STENO single")
+        XCTAssertEqual(TrackpadLayoutPreset.resolveByName("STENO SINGLE"),preset)
+        XCTAssertTrue(preset.blankLeftSide); XCTAssertTrue(preset.leftLabels.isEmpty)
+        XCTAssertFalse(preset.allowsColumnSettings); XCTAssertFalse(preset.allowHoldBindings)
+        XCTAssertEqual(preset.columns,10); XCTAssertEqual(preset.rows,4)
+        XCTAssertEqual(preset.rightLabels.map(\.count),[2,10,9,4])
+        let expected = Set(TrackpadLayoutPreset.steno.leftLabels.flatMap{$0}+TrackpadLayoutPreset.steno.rightLabels.flatMap{$0}).subtracting([StenoKey.star3.label])
+        XCTAssertEqual(Set(preset.rightLabels.flatMap{$0}),expected)
+        XCTAssertEqual(preset.rightLabels.flatMap{$0}.filter { StenoKey.resolve($0)?.legend == "*" }.count,1)
+        let size = CGSize(width:432,height:310.23)
+        XCTAssertTrue(StenoLayoutDefinition.layout(preset:preset,side:.left,size:size).normalizedKeyRects.isEmpty)
+        let layout = StenoLayoutDefinition.layout(preset:preset,side:.right,size:size)
+        XCTAssertEqual(layout.normalizedKeyRects.map(\.count),preset.rightLabels.map(\.count))
+        for rect in layout.normalizedKeyRects.flatMap({$0}) {
+            XCTAssertGreaterThan(rect.width,0); XCTAssertGreaterThan(rect.height,0)
+            XCTAssertGreaterThanOrEqual(rect.x,0); XCTAssertLessThanOrEqual(rect.x+rect.width,1)
+            XCTAssertGreaterThanOrEqual(rect.y,0); XCTAssertLessThanOrEqual(rect.y+rect.height,1)
+        }
+        let upper = layout.normalizedKeyRects[1], width = upper[0].width
+        XCTAssertEqual(upper[4].height,0.48)
+        XCTAssertEqual(upper[4].width,1.5*width,accuracy:0.000001)
+        for column in upper.indices where column != 4 { XCTAssertEqual(upper[column].width,width,accuracy:0.000001) }
+        XCTAssertGreaterThan(width*160,13)
+        for pair in zip(upper,upper.dropFirst()) { XCTAssertLessThan(pair.0.x+pair.0.width,pair.1.x) }
+        XCTAssertEqual(StenoKey.star1.legend,StenoKey.star3.legend)
+    }
+    func testSinglePadBothHandChordVowelsAndStarEmitOnRHSOnly() {
+        let run = session(.stenoSingle,pointerMode:.twoFinger)
+        run.engine.updateActiveDevices(leftIndex:nil,rightIndex:7,leftDeviceID:nil,rightDeviceID:"43")
+        let t = contact(.tl,preset:.stenoSingle,side:.right)
+        let f = contact(.fr,preset:.stenoSingle,side:.right,id:2)
+        frame(run,1,7,[t]); frame(run,1.02,7,[t,f])
+        frame(run,1.04,7,[f]); XCTAssertTrue(packets(run).isEmpty)
+        frame(run,1.06,7,[])
+        XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit|StenoKey.fr.bit)])
+        XCTAssertTrue(run.output.acceptedBindings.allSatisfy { $0.side == .right })
+        let vowels = [StenoKey.a,.o,.e,.u].enumerated().map { contact($0.element,preset:.stenoSingle,side:.right,id:Int32($0.offset+1)) }
+        frame(run,1.08,7,vowels); frame(run,1.1,7,[])
+        XCTAssertEqual(packets(run).last,GeminiPRPacket.recordingLabel(for:StenoKey.a.bit|StenoKey.o.bit|StenoKey.e.bit|StenoKey.u.bit))
+        frame(run,1.12,7,[contact(.star1,preset:.stenoSingle,side:.right)]); frame(run,1.14,7,[])
+        XCTAssertEqual(packets(run).last,GeminiPRPacket.recordingLabel(for:StenoKey.star1.bit))
+        XCTAssertNil(GeminiPRPort.shared.snapshot.path); XCTAssertEqual(PloverConnection.shared.snapshot.port,0)
+    }
+    func testMainLayoutPickerGroupsStenoVariantsWithoutChangingSavedNames() {
+        XCTAssertEqual(TrackpadLayoutPreset.mainPickerCases.filter(\.isSteno),[.steno])
+        XCTAssertEqual(TrackpadLayoutPreset.stenoVariants.map(\.stenoVariantTitle),["Steno Asterisk","Steno 6x3","Steno Single"])
+        for variant in TrackpadLayoutPreset.stenoVariants {
+            XCTAssertEqual(variant.mainPickerValue,.steno)
+            XCTAssertEqual(TrackpadLayoutPreset.resolveByName(variant.rawValue),variant)
+        }
+        XCTAssertEqual(TrackpadLayoutPreset.touchstream.mainPickerValue,.touchstream)
+        XCTAssertEqual(TrackpadLayoutPreset.stenoVoyager.rawValue,"STENO Voyager")
+        XCTAssertEqual(TrackpadLayoutPreset.resolveByName("Steno Asterisk"),.steno)
+    }
+    func testSinglePadGeometryOverridesAndPortableProfileRoundTripKeepOwnIdentity() throws {
+        let preset = TrackpadLayoutPreset.stenoSingle, size = CGSize(width:432,height:310.23)
+        let position = GridKeyPosition(side:.right,row:1,column:6)
+        let edit = KeyGeometryOverride(rotationDegrees:7,widthScale:0.9,heightScale:0.8)
+        let base = StenoLayoutDefinition.layout(preset:preset,side:.right,size:size)
+        let changed = StenoLayoutDefinition.layout(preset:preset,side:.right,size:size,overrides:[position.storageKey:edit])
+        XCTAssertEqual(changed.normalizedKeyRects[1][6].width,base.normalizedKeyRects[1][6].width*0.9,accuracy:0.000001)
+        XCTAssertEqual(changed.normalizedKeyRects[1][6].rotationDegrees,-7)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+        json["layoutPreset"] = preset.rawValue
+        let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:json))
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.layoutPreset,preset.rawValue)
     }
     func testProductionEngineRoutesArbitraryNativeIndicesAndAllUpToOnePacket() {
         for preset in [TrackpadLayoutPreset.steno,.stenoVoyager] {
@@ -562,7 +632,7 @@ final class StenoMouseTests:XCTestCase {
     }
     func testLayoutRenderingPreview() throws {
         guard let folder = ProcessInfo.processInfo.environment["STENO_PREVIEW_DIR"] else { return }
-        for preset in [TrackpadLayoutPreset.steno,.stenoVoyager] {
+        for preset in [TrackpadLayoutPreset.steno,.stenoVoyager,.stenoSingle] {
             let size = CGSize(width:432,height:310)
             var snapshot = TrackpadSurfaceSnapshot.empty
             snapshot.trackpadSize = size; snapshot.spacing = 16; snapshot.showDetailed = true

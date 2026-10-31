@@ -101,11 +101,13 @@ final class GeminiPRPort:@unchecked Sendable {
 /// Visible only for a STENO preset. Snapshot polling does not open a port.
 struct StenoConnectionPanel:View {
     @Binding var forceThreshold:Double
+    @Binding var layoutPreset:TrackpadLayoutPreset
     @Binding var connectionMode:StenoConnectionMode
     @Binding var hapticTouch:Bool
     @Binding var hapticRelease:Bool
     @StateObject private var installer = PloverPluginInstaller()
-    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.plugin),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false)) {
+    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.plugin),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false),layoutPreset:Binding<TrackpadLayoutPreset> = .constant(.steno)) {
+        _layoutPreset = layoutPreset
         _forceThreshold = forceThreshold; _connectionMode = connectionMode; _hapticTouch = hapticTouch; _hapticRelease = hapticRelease
     }
     @State private var draftThreshold:Double = 130
@@ -142,10 +144,16 @@ struct StenoConnectionPanel:View {
                 }
                 Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
                 HStack(spacing:12) {
+                    Text("Layout").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                    Picker("STENO Layout",selection:$layoutPreset) {
+                        ForEach(TrackpadLayoutPreset.stenoVariants) { Text($0.stenoVariantTitle).tag($0) }
+                    }.labelsHidden().modifier(FlexibleMenuPickerSizing()).frame(minWidth:0,maxWidth:.infinity)
+                }
+                HStack(spacing:12) {
                     Text("Connection").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                     Picker("Connection",selection:$connectionMode) {
                         ForEach(StenoConnectionMode.allCases) { Text($0.title).tag($0) }
-                    }.labelsHidden().frame(minWidth:0,maxWidth:.infinity)
+                    }.labelsHidden().modifier(FlexibleMenuPickerSizing()).frame(minWidth:0,maxWidth:.infinity)
                 }
                 if connectionMode == .plugin {
                     let plugin = PloverConnection.shared.snapshot

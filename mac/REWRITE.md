@@ -1,14 +1,22 @@
 # NEXT:
 =======
 2. Can we squeeze an Asterisk-size layout (both halves) onto a single trackpad??
+3. Can we maybe have one "STENO" Layout in the main layout picker, and then add a second layout picker above Connection: "Layout: <Steno Asterisk, Steno 6x3, Steno Single
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
-> test??
+> test?? I thought we build this but I cant find it, lol. You asked me if we should use the Apple Keychain? Am I hallucinating?
 ===
 * * Start working on TouchStream gesture defaults template!!
 * * make 6x3 decal girl template in gimp with layers for ppl to edit
 * Built-in small typing games for typing practice and steno practice (like lapdrill.py)
+===
+VERY often during 3F pinch, 4F pinc and 5F pinch the gesture will be recognized as 3F,4F,5F movement or directional actions.. For an example 5F pinch it’s like it sees the 4 fingers touch down, the thumb joins the gesture, but it only takes into account the 4 fingers going down, not the thumb going in an oposite direction. 
+
+Basically, Pinch gestures are not being recognized properly 
+===
+* Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
+> Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys?
 
 
 `AppleMagicTouchstream`:

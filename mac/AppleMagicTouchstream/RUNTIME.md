@@ -110,8 +110,22 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
 E/U thumb pairs. `STENO 6x3` uses the supplied Voyager image's staggered 6×3
 main grid plus those thumb pairs. It retains mirrored column tuning; the
-Asterisk arrangement has fixed independent geometry. Both retain per-key edits
-and their own saved layout namespaces. The displayed `STENO 6x3` preserves the
+Asterisk arrangement has fixed independent geometry. `STENO single` packs both
+Asterisk halves on the RHS only; the LHS key surface is blank. It has two number
+bars, 10 upper keys, 9 lower keys and A/O/E/U thumbs. One tall central star spans
+both consonant rows and is exactly 1.5× a regular column's key width; the nine
+letter columns have equal width (about 13.1 mm on a 160 mm pad). Gemini PR's star
+slots all map to the same `*` in Plover's default keymap; this layout emits star1.
+All wire identities remain supported for older profiles/captures.
+
+The main layout menu groups these under **STENO**. The STENO panel's **Layout**
+selector, directly above Connection, offers Steno Asterisk, Steno 6x3 and Steno
+Single. It changes the existing saved preset binding, preserving per-layout
+settings and transport behavior. Returning to STENO within the sidebar recalls
+its last selected variant. All presets retain per-key edits and separate saved
+layout namespaces. `STENO single` uses the existing chord/Gemini PR engine,
+mouse/force controls, haptics and lifecycle gates with no new recognizer or live
+transport. The displayed `STENO 6x3` preserves the
 serialized `STENO Voyager` name; both names resolve on import. `STN_*` catalog actions identify the 42
 Gemini PR wire positions; they are inert in ordinary keyboard layouts.
 
@@ -262,7 +276,7 @@ displays a Copy Port path. In
 Plover, Configure → Machine → Gemini PR, paste this path into Port and select
 9600 baud, 8 data bits, no parity, 1 stop bit, no flow control; enable Plover output.
 Plover configures its serial reader in raw mode. No driver/helper is installed.
-Switching between the two STENO variants preserves the port; leaving STENO or
+Switching between STENO variants preserves the port; leaving STENO or
 quitting removes it. A fresh serial session has a fresh path and needs reconnection;
 the plugin connection instead reconnects automatically.
 Disconnected/full output drops strokes rather than queuing them for later;

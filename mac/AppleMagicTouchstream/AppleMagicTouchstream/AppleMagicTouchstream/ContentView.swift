@@ -1323,6 +1323,13 @@ struct ContentView: View {
         @Binding var bottomRightForceClickGestureAction: String
         @Binding var gestureRepeatCadenceData: Data
         @Binding var systemThreeFingerDragEnabled: Bool
+        @State private var lastStenoVariant:TrackpadLayoutPreset = .steno
+        private var mainLayoutSelection:Binding<TrackpadLayoutPreset> {
+            Binding(get:{layoutOption.mainPickerValue},set:{ selection in
+                if layoutOption.isSteno { lastStenoVariant = layoutOption }
+                layoutSelection.wrappedValue = selection == .steno ? lastStenoVariant:selection
+            })
+        }
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
@@ -1349,8 +1356,8 @@ struct ContentView: View {
                     EqualSplitFormRow(alwaysHorizontal: true) {
                         Text("Layout")
                     } field: {
-                        Picker("", selection: layoutSelection) {
-                            ForEach(TrackpadLayoutPreset.selectableCases.filter { $0 != .mobile && $0 != .mobileOrtho12x4 }) { preset in
+                        Picker("", selection: mainLayoutSelection) {
+                            ForEach(TrackpadLayoutPreset.mainPickerCases.filter { $0 != .mobile && $0 != .mobileOrtho12x4 }) { preset in
                                 Text(preset.displayName).tag(preset)
                             }
                         }
@@ -1358,6 +1365,8 @@ struct ContentView: View {
                         .labelsHidden()
                         .modifier(FlexibleMenuPickerSizing())
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .onAppear { if layoutOption.isSteno { lastStenoVariant = layoutOption } }
+                        .onChange(of:layoutOption) { value in if value.isSteno { lastStenoVariant = value } }
                     }
                     .padding(12)
                     .background(
@@ -1365,7 +1374,7 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
-                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease) }
+                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
 
                     CollapsibleSection(
                         isExpanded: $columnTuningExpanded

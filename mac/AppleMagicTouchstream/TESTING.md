@@ -290,3 +290,12 @@ shared scroll acceleration, momentum and event-phase factories without posting;
 it checks coast start and cross-pad braking while a fresh steno chord remains
 available. Hardware acceptance verifies one Force pulse per activation with typing
 haptic checkboxes both off, flick/release coasting and either-pad touch braking.
+
+`STENO single` tests verify selectable/serialized identity, RHS-only Asterisk key
+coverage, blank LHS, in-bounds geometry, a single 1.5× tall center star, equal wider
+letter columns, separate per-key overrides and portable profile round-trip. Main
+picker tests group variants without changing saved preset identities. Production
+recording-only tests chord left/right consonants, the merged star and all four vowels on the RHS with rolling/partial releases, then emit one Gemini PR packet at
+all-up. `STENO_PREVIEW_DIR=/tmp ./test.sh --filter StenoLayoutTests` also renders
+the single-pad preset. Hardware acceptance: select STENO → Layout → Steno Single, select the right pad,
+and test full two-hand chords, thumb vowels and the retained mouse/force controls.

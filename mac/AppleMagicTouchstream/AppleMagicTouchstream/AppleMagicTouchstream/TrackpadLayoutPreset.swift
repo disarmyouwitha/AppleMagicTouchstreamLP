@@ -2,6 +2,7 @@ import CoreGraphics
 
 enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     case steno = "STENO"
+    case stenoSingle = "STENO single"
     case stenoVoyager = "STENO Voyager"
     case blank = "Blank"
     case sixByThree = "6x3"
@@ -12,9 +13,21 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     case mobile = "mobile"
     case touchstream = "TouchStream"
 
-    static let allCases: [TrackpadLayoutPreset] = [.touchstream,.steno,.stenoVoyager,.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.mobile]
-    static let selectableCases: [TrackpadLayoutPreset] = [.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.touchstream,.steno,.stenoVoyager]
-    var isSteno:Bool { self == .steno || self == .stenoVoyager }
+    static let allCases: [TrackpadLayoutPreset] = [.touchstream,.steno,.stenoVoyager,.stenoSingle,.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.mobile]
+    static let selectableCases: [TrackpadLayoutPreset] = [.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.touchstream,.steno,.stenoVoyager,.stenoSingle]
+    var isSteno:Bool { self == .steno || self == .stenoVoyager || self == .stenoSingle }
+    static let stenoVariants:[Self] = [.steno,.stenoVoyager,.stenoSingle]
+    static var mainPickerCases:[Self] { selectableCases.filter { !$0.isSteno || $0 == .steno } }
+    var mainPickerValue:Self { isSteno ? .steno:self }
+    var stenoVariantTitle:String {
+        switch self {
+        case .steno:return "Steno Asterisk"
+        case .stenoVoyager:return "Steno 6x3"
+        case .stenoSingle:return "Steno Single"
+        default:return displayName
+        }
+    }
+
 
     var id: String { rawValue }
 
@@ -37,6 +50,8 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         switch self {
         case .touchstream:
             return 9
+        case .stenoSingle:
+            return 10
         case .steno, .stenoVoyager, .sixByThree, .sixByFour:
             return 6
         case .fiveByThree, .fiveByFour:
@@ -56,7 +71,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return 6
         case .sixByThree, .fiveByThree:
             return 3
-        case .steno, .stenoVoyager, .sixByFour, .fiveByFour, .mobileOrtho12x4, .mobile:
+        case .steno, .stenoVoyager, .stenoSingle, .sixByFour, .fiveByFour, .mobileOrtho12x4, .mobile:
             return 4
         case .blank:
             return 0
@@ -69,6 +84,8 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var columnAnchors: [CGPoint] {
         switch self {
+        case .stenoSingle:
+            return (0..<10).map { CGPoint(x:8+CGFloat($0)*14.4,y:20) }
         case .touchstream:
             return (0..<9).map { CGPoint(x: CGFloat($0) * 16, y: 0) }
         case .steno, .stenoVoyager, .sixByThree, .sixByFour:
@@ -88,7 +105,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var rightLabels: [[String]] {
         switch self {
-        case .steno, .stenoVoyager:
+        case .steno, .stenoVoyager, .stenoSingle:
             return StenoLayoutDefinition.labels(preset:self,side:.right)
         case .touchstream:
             return TouchStreamLayoutDefinition.right.map { $0.map(\.label) }
@@ -111,7 +128,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var leftLabels: [[String]] {
         switch self {
-        case .steno, .stenoVoyager:
+        case .steno, .stenoVoyager, .stenoSingle:
             return StenoLayoutDefinition.labels(preset:self,side:.left)
         case .touchstream:
             return TouchStreamLayoutDefinition.left.map { $0.map(\.label) }
@@ -124,7 +141,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var blankLeftSide: Bool {
         switch self {
-        case .mobileOrtho12x4, .mobile:
+        case .mobileOrtho12x4, .mobile, .stenoSingle:
             return true
         default:
             return false
@@ -133,7 +150,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var allowsColumnSettings: Bool {
         switch self {
-        case .mobile, .touchstream, .steno:
+        case .mobile, .touchstream, .steno, .stenoSingle:
             return false
         default:
             return hasGrid
@@ -147,6 +164,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         }
 
         switch trimmed.lowercased() {
+        case "steno asterisk": return .steno
         case "steno 6x3": return .stenoVoyager
         case "blank", "none":
             return .blank
