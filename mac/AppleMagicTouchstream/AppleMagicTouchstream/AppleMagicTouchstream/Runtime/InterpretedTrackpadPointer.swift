@@ -50,6 +50,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     private struct State {
         var devices: Set<UInt64> = []
         var stenoDevices:Set<UInt64> = []
+        var stenoDragOwners:Set<UInt64> = Set(minimumCapacity:2)
         var cornerEngines:[UInt64:SinglePadCornersEngine] = [:]
         var cornerSettings:[UInt64:TwoHandGestureSettings] = [:]
         var cornerEligible:Set<UInt64> = []
@@ -104,7 +105,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func primaryClickConflicts(_ action:GestureAction) -> Bool {
             drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
         }
-        var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
+        var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { $0.uses(.primaryDrag) } }
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool {
             bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
@@ -268,6 +269,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollEngines[device]?.reset(); directionalScrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64,preservingCorner:Bool = false) {
+            stenoDragOwners.remove(device)
             releaseShortcut(.pad(device))
             if !preservingCorner { releaseShortcut(.corners(device)); cornerEngines[device]?.reset() }
             holds.cancel(device:device)
@@ -280,6 +282,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
         }
         mutating func reset() {
+            stenoDragOwners.removeAll(keepingCapacity:true)
             keyboardEpoch &+= 1; keyboardClaimed.removeAll(keepingCapacity:true)
             for owner in Array(shortcutOwners) { releaseShortcut(owner) }
             for device in cornerEngines.keys { cornerEngines[device]?.reset() }
@@ -525,21 +528,40 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     /// Uses the shared acceleration, cursor bounds, button ownership and discrete
     /// click builder. Only the controller's live selected/owned/armed/AX gate enables it.
     func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double]) {
-        let changed = lock.withLock { $0.stenoDevices != devices || !$0.devices.isEmpty }
-        if changed { stop() }
+        guard !devices.isEmpty else { stop(); return }
+        let wasOrdinary = lock.withLock { !$0.devices.isEmpty && $0.stenoDevices.isEmpty }
+        if wasOrdinary { stop() }
         configure(response:.apple,sensitivity:1,profiles:profiles,sensitivities:sensitivities)
-        var displays = [CGDirectDisplayID](repeating:0,count:16), count:UInt32 = 0
-        let valid = CGGetActiveDisplayList(16,&displays,&count) == .success
-        let bounds = valid ? displays.prefix(Int(count)).map { CGDisplayBounds($0) }:[]
+        lock.withLock { $0.stenoDevices = devices }
+        // Reuse the ordinary display bounds, button observer and stale-owner timer.
+        enable(devices:devices)
+    }
+    func releaseStenoPointer(device:UInt64) {
         lock.withLock { state in
-            state.stenoDevices = devices
-            state.displayBounds = bounds
+            let owned = state.stenoDragOwners.remove(device) != nil
+            if owned { state.drag.end(device:device)?.post(tap:.cghidEventTap) }
+            if owned || state.stenoDevices.contains(device) { state.tracker.reset(device:device) }
         }
     }
     func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double) {
         lock.withLock { state in
-            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { return }
+            if (update.reset || !update.dragging), state.stenoDragOwners.remove(device) != nil {
+                state.drag.end(device:device)?.post(tap:.cghidEventTap)
+            }
+            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { state.reset(device:device); return }
+            state.lastReceipt[device] = CACurrentMediaTime(); state.lastContactTime[device] = time
             if update.reset { state.tracker.reset(device:device) }
+            if update.dragBegan, state.buttonObserverHealthy {
+                if state.drag.owner != nil {
+                    if state.drag.join(device:device) { state.stenoDragOwners.insert(device) }
+                }
+                else if let location = CGEvent(source:nil)?.location,
+                        let down = state.drag.begin(device:device,location:location,
+                            flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) {
+                    state.stenoDragOwners.insert(device)
+                    state.clicks.reset(); down.post(tap:.cghidEventTap)
+                }
+            }
             if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
             if let click = update.click { state.postDirectional(click.action,device:device,time:time) }
         }

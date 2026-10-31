@@ -119,157 +119,239 @@ final class StenoMouseTests:XCTestCase {
     @discardableResult private func frame(_ engine:inout StenoChordEngine,_ time:Double,_ touches:[OMSRawTouch],pad:Int = 0) -> UInt64? {
         engine.process(device:pad,time:time,touches:touches,regions:regions,size:size)
     }
-    func testStationaryOneAndTwoFingerStrokesRemainStenoInBothModes() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
-            for count in 1...2 {
-                var engine = StenoChordEngine(); engine.pointerMode = mode
-                let touches = (0..<count).map { touch(0.2+Float($0)*0.2,id:Int32($0+1)) }
-                frame(&engine,1,touches); frame(&engine,1.02,touches)
-                XCTAssertNil(engine.pointerUpdate)
-                XCTAssertEqual(frame(&engine,1.04,[]),StenoKey.s1.bit)
-            }
-        }
-    }
-    func testCoherentTwoFingerTravelClaimsMouseAndCannotEmitOnLift() {
+    func testLightOneFingerMovementStaysStenoAndTwoFingerMouseDoesNotType() {
         var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
-        frame(&engine,1,[touch(),touch(0.4,id:2)])
-        frame(&engine,1.02,[touch(0.22),touch(0.42,id:2)])
-        XCTAssertGreaterThan(engine.pointerUpdate?.millimetres?.x ?? 0,2)
-        // Shared continuous latch survives membership growth and partial lift.
-        frame(&engine,1.04,[touch(0.23),touch(0.43,id:2),touch(0.6,id:3)])
-        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
-        frame(&engine,1.06,[touch(0.24)])
-        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
-        XCTAssertNil(frame(&engine,1.08,[]))
-        frame(&engine,1.1,[touch()]); XCTAssertEqual(frame(&engine,1.12,[]),StenoKey.s1.bit)
-    }
-    func testOneMovingFingerCannotStealTwoFingerChord() {
-        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
-        frame(&engine,1,[touch(),touch(0.4,id:2)])
-        frame(&engine,1.02,[touch(0.25),touch(0.4,id:2)])
+        frame(&engine,1,[touch()]); frame(&engine,1.02,[touch(0.23)])
         XCTAssertNil(engine.pointerUpdate)
         XCTAssertEqual(frame(&engine,1.04,[]),StenoKey.s1.bit)
-    }
-    func testOneFingerTravelAndForceClickClaimOnceAndNeverSendStroke() {
-        var engine = StenoChordEngine(); engine.pointerMode = .oneFingerForce
-        frame(&engine,1,[touch()]); frame(&engine,1.02,[touch(0.22)])
+        frame(&engine,1.06,[touch(),touch(0.4,id:2)])
+        frame(&engine,1.08,[touch(0.23),touch(0.43,id:2)])
         XCTAssertNotNil(engine.pointerUpdate?.millimetres)
-        frame(&engine,1.04,[touch(0.23,pressure:140)])
-        XCTAssertTrue(engine.pointerUpdate?.click == .primary)
-        frame(&engine,1.06,[touch(0.23,pressure:140)])
-        XCTAssertFalse(engine.pointerUpdate?.click == .primary)
+        XCTAssertNil(frame(&engine,1.1,[]))
+    }
+    func testOneFingerForceHoldsDragThroughMotionPressureDropAndCountChanges() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(pressure:140)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNil(engine.pointerUpdate?.click)
+        frame(&engine,1.02,[touch(0.22)]) // Lower pressure keeps the button held.
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertFalse(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        frame(&engine,1.04,[touch(0.23),touch(0.43,id:2)])
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        frame(&engine,1.06,[touch(0.24)])
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
         XCTAssertNil(frame(&engine,1.08,[]))
-        frame(&engine,1.1,[touch(pressure:140)])
-        XCTAssertTrue(engine.pointerUpdate?.click == .primary) // Stationary force-click.
-        XCTAssertNil(frame(&engine,1.12,[]))
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        XCTAssertFalse(engine.pointerUpdate?.dragging == true)
+        frame(&engine,1.1,[touch()]); XCTAssertEqual(frame(&engine,1.12,[]),StenoKey.s1.bit)
     }
-    func testTwoFingerForceClicksOnceStationaryAndWhileMoving() {
-        for moving in [false,true] {
+    func testOneFingerForceTapProducesDragDownAndReleaseWithoutStroke() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(pressure:140)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertNil(frame(&engine,1.02,[]))
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        XCTAssertFalse(engine.pointerUpdate?.dragging == true)
+    }
+    func testTwoFingerPrimaryAndThreeFingerSecondaryForceRemainOneShot() {
+        for count in [2,3] {
             var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
-            frame(&engine,1,[touch(),touch(0.4,id:2)])
-            let x:Float = moving ? 0.23:0.2
-            frame(&engine,1.02,[touch(x),touch(x+0.2,id:2)])
-            frame(&engine,1.04,[touch(x,pressure:140),touch(x+0.2,id:2)])
-            XCTAssertEqual(engine.pointerUpdate?.click,.primary)
-            frame(&engine,1.06,[touch(x,pressure:140),touch(x+0.2,id:2)])
-            XCTAssertNil(engine.pointerUpdate?.click)
-            XCTAssertNil(frame(&engine,1.08,[]))
-        }
-    }
-    func testThreeFingerForceRightClicksOnceInBothModes() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
-            var engine = StenoChordEngine(); engine.pointerMode = mode
-            let fingers = [touch(),touch(0.4,id:2),touch(0.6,id:3,pressure:140)]
+            let fingers = (0..<count).map { touch(0.2+Float($0)*0.2,id:Int32($0+1),pressure:140) }
             frame(&engine,1,fingers)
-            XCTAssertEqual(engine.pointerUpdate?.click,.secondary)
-            frame(&engine,1.02,fingers)
-            XCTAssertNil(engine.pointerUpdate?.click)
+            XCTAssertEqual(engine.pointerUpdate?.click,count == 2 ? .primary:.secondary)
+            XCTAssertFalse(engine.pointerUpdate?.dragBegan == true)
+            frame(&engine,1.02,fingers); XCTAssertNil(engine.pointerUpdate?.click)
             XCTAssertNil(frame(&engine,1.04,[]))
-            frame(&engine,1.06,[touch()]); XCTAssertEqual(frame(&engine,1.08,[]),StenoKey.s1.bit)
         }
     }
-    func testRightClickCanJoinAnActivePointerWithoutEmittingAStroke() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
-            var engine = StenoChordEngine(); engine.pointerMode = mode
-            let initial = mode == .twoFinger ? [touch(),touch(0.4,id:2)]:[touch()]
-            frame(&engine,1,initial)
-            frame(&engine,1.02,mode == .twoFinger ? [touch(0.23),touch(0.43,id:2)]:[touch(0.23)])
-            XCTAssertNotNil(engine.pointerUpdate?.millimetres)
-            frame(&engine,1.04,[touch(0.23),touch(0.43,id:2),touch(0.6,id:3,pressure:140)])
-            XCTAssertEqual(engine.pointerUpdate?.click,.secondary)
-            XCTAssertNil(frame(&engine,1.06,[]))
-        }
+    func testOtherPadMouseAndDragCanShareCursorAndDisconnectKeepsOtherOwner() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(pressure:140)])
+        frame(&engine,1.01,[touch(),touch(0.4,id:2)],pad:1)
+        frame(&engine,1.02,[touch(0.23),touch(0.43,id:2)],pad:1)
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        XCTAssertFalse(engine.pointerUpdate?.dragging == true) // Other pad only moves the shared cursor.
+        frame(&engine,1.03,[],pad:1)
+        frame(&engine,1.04,[touch(pressure:140)],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        engine.removeDevice(1)
+        frame(&engine,1.06,[touch(0.24)])
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        XCTAssertNil(frame(&engine,1.08,[]))
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
     }
-    func testThreeFingerNonForceRemainsStenoAndBothHandsRejectForceClicks() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
-            var engine = StenoChordEngine(); engine.pointerMode = mode
-            frame(&engine,1,[touch(),touch(0.4,id:2),touch(0.6,id:3)])
-            XCTAssertNil(engine.pointerUpdate)
-            XCTAssertEqual(frame(&engine,1.02,[]),StenoKey.s1.bit)
-            frame(&engine,1.04,[touch()]); frame(&engine,1.05,[touch()],pad:1)
-            frame(&engine,1.06,[touch(),touch(0.4,id:2),touch(0.6,id:3,pressure:140)])
-            XCTAssertNil(engine.pointerUpdate)
-            frame(&engine,1.08,[])
-            XCTAssertEqual(frame(&engine,1.09,[],pad:1),StenoKey.s1.bit)
-        }
-    }
-    func testBothHandsKeepStenoPriorityAndPointerNeverResurrectsTyping() {
-        var engine = StenoChordEngine(); engine.pointerMode = .oneFingerForce
+    func testBothHandsKeepPendingStenoPriorityAndLargerCountsCannotRolloverToMouse() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
         frame(&engine,1,[touch()]); frame(&engine,1.01,[touch()],pad:1)
-        frame(&engine,1.02,[touch(0.23)])
+        frame(&engine,1.02,[touch(pressure:140)])
         XCTAssertNil(engine.pointerUpdate)
         frame(&engine,1.04,[]); XCTAssertEqual(frame(&engine,1.05,[],pad:1),StenoKey.s1.bit)
-        frame(&engine,1.1,[touch()]); frame(&engine,1.12,[touch(0.23)])
-        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
-        frame(&engine,1.13,[touch()],pad:1)
-        frame(&engine,1.14,[])
-        XCTAssertNil(frame(&engine,1.15,[],pad:1))
-    }
-    func testHigherCountStrokeCannotTurnIntoMouseDuringRollover() {
-        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
-        frame(&engine,1,[touch(),touch(0.4,id:2),touch(0.6,id:3)])
-        frame(&engine,1.02,[touch(),touch(0.4,id:2)])
-        frame(&engine,1.04,[touch(0.23),touch(0.43,id:2)])
+        frame(&engine,1.1,[touch(),touch(0.4,id:2),touch(0.6,id:3)])
+        frame(&engine,1.12,[touch(),touch(0.4,id:2)])
+        frame(&engine,1.14,[touch(0.23),touch(0.43,id:2,pressure:140)])
         XCTAssertNil(engine.pointerUpdate)
-        XCTAssertEqual(frame(&engine,1.06,[]),StenoKey.s1.bit)
+        XCTAssertEqual(frame(&engine,1.16,[]),StenoKey.s1.bit)
     }
-    func testResetInvalidStaleAndDisconnectCancelMouseAndPendingStroke() {
+    func testResetInvalidStaleAndDisconnectCancelDragWithoutStroke() {
         for reason in ["reset","invalid","stale","disconnect"] {
-            var engine = StenoChordEngine(); engine.pointerMode = .oneFingerForce
-            frame(&engine,1,[touch()]); frame(&engine,1.02,[touch(0.23)])
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+            frame(&engine,1,[touch(pressure:140)])
             switch reason {
             case "reset": engine.cancel()
-            case "invalid": frame(&engine,1.04,[touch(.nan)])
-            case "stale": frame(&engine,2,[touch(0.24)])
+            case "invalid": frame(&engine,1.02,[touch(.nan)])
+            case "stale": frame(&engine,2,[touch()])
             default: engine.removeDevice(0)
             }
+            XCTAssertTrue(engine.pointerUpdate?.reset == true,reason)
+            XCTAssertFalse(engine.pointerUpdate?.dragging == true,reason)
             XCTAssertNil(frame(&engine,2.1,[]),reason)
             frame(&engine,2.12,[touch()]); XCTAssertEqual(frame(&engine,2.14,[]),StenoKey.s1.bit,reason)
         }
     }
-    func testModeSettingsDecodeOldSaveAndPortableProfile() throws {
-        var oldObject = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(HandGestureSettings())) as? [String:Any])
-        oldObject.removeValue(forKey:"stenoPointerMode")
-        let old = try JSONSerialization.data(withJSONObject:oldObject)
-        XCTAssertEqual(try JSONDecoder().decode(HandGestureSettings.self,from:old).resolvedStenoPointerMode,.twoFinger)
+    func testInvalidPadCancelsOnlyItsDragAndOtherPadContinues() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(pressure:140)])
+        frame(&engine,1.01,[touch(pressure:140)],pad:1)
+        frame(&engine,1.02,[touch(.nan)])
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        frame(&engine,1.03,[touch(0.22)],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        frame(&engine,1.04,[touch(0.23,pressure:140)])
+        XCTAssertFalse(engine.pointerUpdate?.dragBegan == true)
+        frame(&engine,1.05,[])
+        frame(&engine,1.06,[touch(0.23)],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNil(frame(&engine,1.08,[],pad:1))
+    }
+    func testDragActivationExcludesAllPreForceTravel() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch()]); frame(&engine,1.02,[touch(0.3)])
+        frame(&engine,1.04,[touch(0.32,pressure:140)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertNil(engine.pointerUpdate?.millimetres)
+        frame(&engine,1.06,[touch(0.33)])
+        XCTAssertEqual(engine.pointerUpdate?.millimetres?.x ?? -1,1.6,accuracy:0.001)
+    }
+    func testConfiguredThresholdAppliesToDragAndBothClicks() {
+        for count in 1...3 {
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger; engine.forceThreshold = 220
+            func fingers(_ pressure:Float) -> [OMSRawTouch] { (0..<count).map { touch(0.2+Float($0)*0.2,id:Int32($0+1),pressure:pressure) } }
+            frame(&engine,1,fingers(219))
+            XCTAssertNil(engine.pointerUpdate)
+            frame(&engine,1.02,fingers(220))
+            if count == 1 { XCTAssertTrue(engine.pointerUpdate?.dragBegan == true) }
+            else { XCTAssertEqual(engine.pointerUpdate?.click,count == 2 ? .primary:.secondary) }
+            XCTAssertNil(frame(&engine,1.04,[]))
+        }
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger; engine.forceThreshold = 80
+        frame(&engine,1,[touch(pressure:80)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+    }
+    func testThresholdRoundTripValidationAndMissingImportPreservesCurrentValue() throws {
+        XCTAssertEqual(StenoForceThreshold.validated(.nan),130)
+        XCTAssertEqual(StenoForceThreshold.validated(-20),1)
+        XCTAssertEqual(StenoForceThreshold.validated(900),500)
+        var current = AppKeymapProfile.defaultProfile()
+        var settings = HandGestureSettings(); settings.stenoForceThreshold = 230
+        current.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:current),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings?.resolvedStenoForceThreshold,230)
+        var old = AppKeymapProfile.defaultProfile(); old.handGestureSettings = HandGestureSettings()
+        let merged = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:old),currentProfile:current)
+        XCTAssertEqual(merged.handGestureSettings?.resolvedStenoForceThreshold,230)
+        XCTAssertEqual(HandGestureSettings().resolvedStenoForceThreshold,130)
+    }
+    func testHapticEdgesAndWholeStrokeReleaseExcludeHeldRepeatsAndPointerCancellation() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch()]); XCTAssertEqual(engine.hapticTouchPads,0)
+        frame(&engine,1.02,[touch()]); XCTAssertEqual(engine.hapticTouchPads,0)
+        frame(&engine,1.09,[touch()]); XCTAssertEqual(engine.hapticTouchPads,1)
+        frame(&engine,1.1,[touch()],pad:1); XCTAssertEqual(engine.hapticTouchPads,0)
+        frame(&engine,1.19,[touch()],pad:1); XCTAssertEqual(engine.hapticTouchPads,2)
+        frame(&engine,1.2,[]); XCTAssertEqual(engine.hapticReleasePads,0)
+        XCTAssertEqual(frame(&engine,1.21,[],pad:1),StenoKey.s1.bit)
+        XCTAssertEqual(engine.hapticReleasePads,3)
+        frame(&engine,1.3,[touch()]); XCTAssertEqual(engine.hapticTouchPads,0)
+        let revision = engine.hapticCancellationRevision
+        frame(&engine,1.32,[touch(pressure:140)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertGreaterThan(engine.hapticCancellationRevision,revision)
+        XCTAssertEqual(engine.hapticTouchPads,0)
+        frame(&engine,1.34,[]); XCTAssertEqual(engine.hapticReleasePads,0)
+        frame(&engine,1.36,[touch()]); engine.cancel()
+        frame(&engine,1.38,[]); XCTAssertEqual(engine.hapticReleasePads,0)
+    }
+    func testMovementDropsPendingTouchAndReleaseFeedbackButQuickTapStillHasFeedback() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(),touch(0.4,id:2)])
+        XCTAssertEqual(engine.hapticTouchPads,0)
+        let revision = engine.hapticCancellationRevision
+        frame(&engine,1.02,[touch(0.23),touch(0.43,id:2)])
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        XCTAssertGreaterThan(engine.hapticCancellationRevision,revision)
+        frame(&engine,1.1,[touch(0.24),touch(0.44,id:2)])
+        XCTAssertEqual(engine.hapticTouchPads,0)
+        XCTAssertNil(frame(&engine,1.12,[])); XCTAssertEqual(engine.hapticReleasePads,0)
+        frame(&engine,1.2,[touch()])
+        XCTAssertEqual(frame(&engine,1.24,[]),StenoKey.s1.bit)
+        XCTAssertEqual(engine.hapticTouchPads,1); XCTAssertEqual(engine.hapticReleasePads,1)
+    }
+    func testForceDragUsesSharedBalancedLedgerUntilLastPadOwnerLifts() throws {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        var output = PrimaryDragOutput()
+        frame(&engine,1,[touch(pressure:140)])
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertEqual(try XCTUnwrap(output.begin(device:42,location:.zero,flags:[])).type,.leftMouseDown)
+        frame(&engine,1.01,[touch(pressure:140)],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true); XCTAssertTrue(output.join(device:43))
+        frame(&engine,1.03,[]); XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        XCTAssertNil(output.end(device:42)); XCTAssertEqual(output.owner,43)
+        frame(&engine,1.04,[touch(0.22)],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertEqual(try XCTUnwrap(output.movePointer(location:.init(x:20,y:5),delta:.init(x:20,y:5),flags:[])).type,.leftMouseDragged)
+        frame(&engine,1.06,[],pad:1); XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        let up = try XCTUnwrap(output.end(device:43))
+        XCTAssertEqual(up.type,.leftMouseUp); XCTAssertEqual(up.location,CGPoint(x:20,y:5)); XCTAssertTrue(output.owners.isEmpty)
+        // Events were constructed only, never posted.
+    }
+    func testNewStenoOptionsRoundTripAndMissingImportPreservesCurrentValues() throws {
+        var settings = HandGestureSettings(); settings.stenoConnectionMode = .plugin
+        settings.stenoHapticOnTouch = true; settings.stenoHapticOnRelease = true
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings?.resolvedStenoConnectionMode,.plugin)
+        XCTAssertEqual(restored.handGestureSettings?.stenoHapticOnTouch,true)
+        XCTAssertEqual(restored.handGestureSettings?.stenoHapticOnRelease,true)
+        var old = AppKeymapProfile.defaultProfile(); old.handGestureSettings = HandGestureSettings()
+        let merged = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:old),currentProfile:profile)
+        XCTAssertEqual(merged.handGestureSettings?.resolvedStenoConnectionMode,.plugin)
+        XCTAssertEqual(merged.handGestureSettings?.stenoHapticOnTouch,true)
+        XCTAssertEqual(merged.handGestureSettings?.stenoHapticOnRelease,true)
+    }
+    func testLegacyModeSettingsAlwaysResolveToFixedTwoFingerBehavior() throws {
         for mode in StenoPointerMode.allCases {
             var settings = HandGestureSettings(); settings.stenoPointerMode = mode
             var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
             let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
-            XCTAssertEqual(restored.handGestureSettings?.resolvedStenoPointerMode,mode)
+            XCTAssertEqual(restored.handGestureSettings?.resolvedStenoPointerMode,.twoFinger)
         }
+        XCTAssertEqual(HandGestureSettings().resolvedStenoPointerMode,.twoFinger)
         XCTAssertEqual(TrackpadLayoutPreset.stenoVoyager.displayName,"STENO 6x3")
-        XCTAssertEqual(TrackpadLayoutPreset.resolveByName("STENO 6x3"),.stenoVoyager)
-        XCTAssertEqual(TrackpadLayoutPreset.resolveByName("STENO Voyager"),.stenoVoyager)
     }
+
 }
 
 @MainActor final class StenoLayoutTests:XCTestCase {
-    private func session(_ preset:TrackpadLayoutPreset = .steno,left:Int = 4,right:Int = 7,pointerMode:StenoPointerMode = .disabled) -> ProductionReplaySession {
+    private func session(_ preset:TrackpadLayoutPreset = .steno,left:Int = 4,right:Int = 7,pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .serial,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ProductionReplaySession {
         let run = ProductionReplaySession(startTime:1)
         let size = CGSize(width:432,height:310.23)
-        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:preset,side:.left,size:size,pointerMode:pointerMode),
-            rightLayout:StenoLayoutDefinition.layout(preset:preset,side:.right,size:size,pointerMode:pointerMode),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
+        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:preset,side:.left,size:size,pointerMode:pointerMode,forceThreshold:forceThreshold,connectionMode:connectionMode,hapticTouch:hapticTouch,hapticRelease:hapticRelease),
+            rightLayout:StenoLayoutDefinition.layout(preset:preset,side:.right,size:size,pointerMode:pointerMode,forceThreshold:forceThreshold,connectionMode:connectionMode,hapticTouch:hapticTouch,hapticRelease:hapticRelease),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
             trackpadSize:size,trackpadWidthMm:160)
         run.engine.updateActiveDevices(leftIndex:left,rightIndex:right,leftDeviceID:"42",rightDeviceID:"43")
         run.engine.setListening(true)
@@ -366,7 +448,7 @@ final class StenoMouseTests:XCTestCase {
         }
     }
     func testProductionMouseReplayRecordsIntentionWithoutSerialOrNativeOutput() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+        for mode in [StenoPointerMode.twoFinger] {
             let run = session(pointerMode:mode)
             var first = contact(.tl,preset:.steno,side:.left)
             let other = contact(.pl,preset:.steno,side:.left,id:2)
@@ -387,7 +469,7 @@ final class StenoMouseTests:XCTestCase {
         }
     }
     func testProductionForceClickReplayRecordsPrimaryAndSecondaryWithoutNativeOutput() {
-        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+        for mode in [StenoPointerMode.twoFinger] {
             for count in [mode.count,3] {
                 let run = session(pointerMode:mode)
                 let keys:[StenoKey] = [.tl,.pl,.hl]
@@ -404,22 +486,95 @@ final class StenoMouseTests:XCTestCase {
             }
         }
     }
-    func testChangingMouseModeWithHeldContactsCancelsPartialStroke() {
+    func testReconfiguringStenoWithHeldContactsCancelsPartialStroke() {
         let run = session(pointerMode:.twoFinger)
         let point = contact(.tl,preset:.steno,side:.left)
         frame(run,1,4,[point])
         let size = CGSize(width:432,height:310.23)
-        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:.steno,side:.left,size:size,pointerMode:.oneFingerForce),
-            rightLayout:StenoLayoutDefinition.layout(preset:.steno,side:.right,size:size,pointerMode:.oneFingerForce),
+        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:.steno,side:.left,size:size,pointerMode:.twoFinger),
+            rightLayout:StenoLayoutDefinition.layout(preset:.steno,side:.right,size:size,pointerMode:.twoFinger),
             leftLabels:TrackpadLayoutPreset.steno.leftLabels,rightLabels:TrackpadLayoutPreset.steno.rightLabels,trackpadSize:size,trackpadWidthMm:160)
         frame(run,1.02,4,[point]); frame(run,1.04,4,[])
         XCTAssertTrue(run.output.events.isEmpty)
         frame(run,1.06,4,[point]); frame(run,1.08,4,[])
         XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
     }
+    func testProductionDragReplayRecordsBeginReleaseAndLifecycleCleanupOnly() {
+        for reason in ["lift","reset","mapping","custom","disconnect","layout"] {
+            let run = session(pointerMode:.twoFinger)
+            let point = contact(.tl,preset:.steno,side:.left)
+            let held = OMSRawTouch(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:140,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+            frame(run,1,4,[held]); frame(run,1.02,4,[held])
+            switch reason {
+            case "reset": run.engine.resetState()
+            case "mapping": run.engine.updateKeyMappings([:])
+            case "custom": run.engine.updateCustomButtons([])
+            case "disconnect": run.engine.updateActiveDevices(leftIndex:nil,rightIndex:7,leftDeviceID:nil,rightDeviceID:"43")
+            case "layout":
+                let size = CGSize(width:432,height:310.23)
+                let normal = ContentViewModel.Layout(normalizedKeyRects:[[.init(x:0,y:0,width:1,height:1)]],trackpadSize:size)
+                run.engine.updateLayouts(leftLayout:normal,rightLayout:normal,leftLabels:[["A"]],rightLabels:[["A"]],trackpadSize:size,trackpadWidthMm:160)
+            default: frame(run,1.04,4,[])
+            }
+            let intentions = run.output.events.compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+            XCTAssertEqual(intentions.filter { $0 == "StenoMouse:42:dragBegin" }.count,1,reason)
+            XCTAssertTrue(intentions.contains("StenoMouse:42:reset"),reason)
+            XCTAssertTrue(packets(run).isEmpty,reason)
+            XCTAssertNil(GeminiPRPort.shared.snapshot.path)
+        }
+    }
+    func testThresholdChangeReleasesDragAndCannotReactivateHeldContacts() {
+        let run = session(pointerMode:.twoFinger)
+        let point = contact(.tl,preset:.steno,side:.left)
+        let held = OMSRawTouch(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:140,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        frame(run,1,4,[held])
+        let size = CGSize(width:432,height:310.23)
+        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:.steno,side:.left,size:size,pointerMode:.twoFinger,forceThreshold:90),
+            rightLayout:StenoLayoutDefinition.layout(preset:.steno,side:.right,size:size,pointerMode:.twoFinger,forceThreshold:90),
+            leftLabels:TrackpadLayoutPreset.steno.leftLabels,rightLabels:TrackpadLayoutPreset.steno.rightLabels,trackpadSize:size,trackpadWidthMm:160)
+        frame(run,1.02,4,[held]); frame(run,1.04,4,[])
+        var intentions = run.output.events.compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+        XCTAssertEqual(intentions.filter { $0 == "StenoMouse:42:dragBegin" }.count,1)
+        XCTAssertTrue(intentions.contains("StenoMouse:42:reset"))
+        frame(run,1.06,4,[held]); frame(run,1.08,4,[])
+        intentions = run.output.events.compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+        XCTAssertEqual(intentions.filter { $0 == "StenoMouse:42:dragBegin" }.count,2)
+        XCTAssertTrue(packets(run).isEmpty)
+    }
+    func testStenoHapticCheckboxesAreIndependentAndReplayNeverOpensEitherTransport() {
+        for touch in [false,true] { for release in [false,true] {
+            let run = session(pointerMode:.twoFinger,connectionMode:.plugin,hapticTouch:touch,hapticRelease:release)
+            run.engine.updateHapticStrength(0.25)
+            XCTAssertTrue(run.output.events.isEmpty)
+            let point = contact(.tl,preset:.steno,side:.left)
+            frame(run,1,4,[point]); frame(run,1.02,4,[point]); frame(run,1.1,4,[point]); frame(run,1.15,4,[])
+            let pulses = run.output.events.filter { if case .haptic = $0.kind { return true }; return false }
+            XCTAssertEqual(pulses.count,(touch ? 1:0)+(release ? 1:0))
+            XCTAssertNil(GeminiPRPort.shared.snapshot.path); XCTAssertEqual(PloverConnection.shared.snapshot.port,0)
+        } }
+        let run = session(pointerMode:.twoFinger,hapticTouch:true,hapticRelease:true)
+        // Strength zero suppresses feedback even when both boxes are checked.
+        let point = contact(.tl,preset:.steno,side:.left)
+        frame(run,1,4,[point]); frame(run,1.05,4,[])
+        XCTAssertFalse(run.output.events.contains { if case .haptic = $0.kind { return true }; return false })
+    }
+    func testStenoPluginPanelPreview() throws {
+        guard let path = ProcessInfo.processInfo.environment["STENO_PLUGIN_PREVIEW_PATH"] else { return }
+        let view = NSHostingView(rootView:StenoConnectionPanel(forceThreshold:.constant(130),connectionMode:.constant(.plugin),hapticTouch:.constant(true),hapticRelease:.constant(true)).padding(12).frame(width:360).background(Color(nsColor:.windowBackgroundColor)))
+        view.frame = .init(origin:.zero,size:view.fittingSize); view.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in:view.bounds))
+        view.cacheDisplay(in:view.bounds,to:bitmap)
+        try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:URL(fileURLWithPath:path))
+    }
+    func testPluginIsDefaultAndSerialChoiceRemainsExplicit() {
+        XCTAssertEqual(HandGestureSettings().resolvedStenoConnectionMode,.plugin)
+        var settings = HandGestureSettings(); settings.stenoConnectionMode = .serial
+        XCTAssertEqual(settings.resolvedStenoConnectionMode,.serial)
+        XCTAssertEqual(StenoLayoutDefinition.layout(preset:.steno,side:.left,size:.init(width:432,height:310)).stenoConnectionMode,.plugin)
+    }
     func testMousePanelPreview() throws {
         guard let path = ProcessInfo.processInfo.environment["STENO_MOUSE_PREVIEW_PATH"] else { return }
-        let view = NSHostingView(rootView:StenoConnectionPanel(pointerMode:.constant(.oneFingerForce)).padding(12).frame(width:360).background(Color(nsColor:.windowBackgroundColor)))
+        let view = NSHostingView(rootView:StenoConnectionPanel(forceThreshold:.constant(130)).padding(12).frame(width:360).background(Color(nsColor:.windowBackgroundColor)))
         view.frame = .init(origin:.zero,size:view.fittingSize)
         view.layoutSubtreeIfNeeded()
         let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in:view.bounds))

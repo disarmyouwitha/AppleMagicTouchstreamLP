@@ -100,39 +100,89 @@ final class GeminiPRPort:@unchecked Sendable {
 
 /// Visible only for a STENO preset. Snapshot polling does not open a port.
 struct StenoConnectionPanel:View {
-    @Binding var pointerMode:StenoPointerMode
+    @Binding var forceThreshold:Double
+    @Binding var connectionMode:StenoConnectionMode
+    @Binding var hapticTouch:Bool
+    @Binding var hapticRelease:Bool
+    @StateObject private var installer = PloverPluginInstaller()
+    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.plugin),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false)) {
+        _forceThreshold = forceThreshold; _connectionMode = connectionMode; _hapticTouch = hapticTouch; _hapticRelease = hapticRelease
+    }
+    @State private var draftThreshold:Double = 130
+    @State private var isEditingThreshold = false
     var body:some View {
         TimelineView(.periodic(from:.now,by:1)) { _ in
             let status = GeminiPRPort.shared.snapshot
             VStack(alignment:.leading,spacing:8) {
+                Text("STENO Mouse").font(.callout.weight(.semibold))
+                Text("1F force drag/select · 2F mouse/left-click · 3F right-click")
+                    .font(.caption).fixedSize(horizontal:false,vertical:true)
+
+                HStack(spacing:12) {
+                    Text("Force Threshold").frame(maxWidth:.infinity,alignment:.leading)
+                    HStack {
+                        Slider(value:Binding(get:{ draftThreshold },set:{ draftThreshold = $0.rounded() }),in:1...500,onEditingChanged:{ editing in
+                            isEditingThreshold = editing
+                            if !editing, forceThreshold != draftThreshold { forceThreshold = draftThreshold }
+                        })
+                            .accessibilityLabel("Force threshold")
+                        Text(draftThreshold,format:.number.precision(.fractionLength(0)))
+                            .monospacedDigit().frame(width:32,alignment:.trailing)
+                    }.frame(maxWidth:.infinity)
+                }
+                Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox)
+                Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox)
+                Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
                 HStack {
-                    Text("Mouse")
-                    Picker("Mouse",selection:$pointerMode) {
-                        ForEach(StenoPointerMode.allCases) { Text($0.title).tag($0) }
+                    Text("Connection").frame(maxWidth:.infinity,alignment:.leading)
+                    Picker("Connection",selection:$connectionMode) {
+                        ForEach(StenoConnectionMode.allCases) { Text($0.title).tag($0) }
                     }.labelsHidden().frame(maxWidth:.infinity)
                 }
-                Text(pointerMode == .disabled ? "Mouse is off; all contacts form chords." : "Move 2 mm to claim the mouse. Two-pad chords keep steno priority. Lift all fingers before switching between mouse and steno.")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                if pointerMode != .disabled {
-                    Text("Press firmly with \(pointerMode.count) finger\(pointerMode.count == 1 ? "" : "s") for a left-click; three fingers for a right-click. A force-click discards the pending stroke.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                if connectionMode == .plugin {
+                    let plugin = PloverConnection.shared.snapshot
+                    HStack(spacing:8) {
+                        Button(installer.installing ? "Installing…":installer.checking ? "Checking…":installer.isInstalled ? "Plugin Installed":installer.installation?.state == "outdated" ? "Update Plugin":"Install Plugin") { installer.install() }
+                            .disabled(installer.installing || installer.checking || installer.isInstalled)
+                            .help(installer.installation?.version.map { "Installed version: \($0)" } ?? "Install the bundled Plover plugin")
+                        Text(plugin.connected ? "Connected":"Not connected")
+                            .font(.caption.weight(.semibold)).foregroundStyle(plugin.connected ? Color.green:Color.red)
+                    }
+                    if let error = plugin.error { Text(error).font(.caption).foregroundStyle(.red) }
+                    if let message = installer.message { Text(message).font(.caption).textSelection(.enabled).fixedSize(horizontal:false,vertical:true) }
+                    if !plugin.connected {
+                        Text("Restart Plover after installation. Choose AppleMagicTouchstream under Configure → Machine.")
+                            .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    }
+                    Text("Sent: \(plugin.sent) · Dropped: \(plugin.dropped)").font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    Text(status.error ?? (status.path == nil ? "Preparing serial port…" : status.connected ? "Serial reader connected" : "Waiting for Plover"))
+                        .font(.caption).foregroundStyle(status.error == nil ? Color.secondary:Color.red)
+                    if let path = status.path {
+                        Text(path).font(.caption.monospaced()).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
+                        Button("Copy Port") {
+                            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path,forType:.string)
+                        }.buttonStyle(.bordered)
+                    }
+                    Text("Plover: Gemini PR, 9600 baud, 8N1, no flow control.").font(.caption2).foregroundStyle(.secondary)
+                    Text("Sent: \(status.sent) · Dropped: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
                 }
-                Text("Gemini PR → Plover").font(.callout.weight(.semibold))
-                Text(status.error ?? (status.path == nil ? "Preparing serial port…" : status.connected ? "Serial reader connected" : "Waiting for Plover"))
-                    .font(.caption).foregroundStyle(status.error == nil ? Color.secondary:Color.red)
-                if let path = status.path {
-                    Text(path).font(.caption.monospaced()).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
-                    Button("Copy Port") {
-                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path,forType:.string)
-                    }.buttonStyle(.bordered)
-                }
-                Text("Plover: Configure → Machine → Gemini PR. Paste the port path into Port; use 9600 baud, 8N1, no flow control. Enable Plover output.")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                Text("Chords send when both hands lift. Other gestures pause in STENO. Mouse requires Trackpad Takeover and Accessibility permission.")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                Text("Sent: \(status.sent) · Dropped without a reader: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
             }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
                 .background(Color.primary.opacity(0.05),in:RoundedRectangle(cornerRadius:12))
+                .onAppear {
+                    draftThreshold = forceThreshold
+                    if connectionMode == .plugin { installer.refreshInstallation() }
+                }
+                .onChange(of:connectionMode) { value in if value == .plugin { installer.refreshInstallation() } }
+                .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in
+                    if connectionMode == .plugin { installer.refreshInstallation() }
+                }
+                .onChange(of:forceThreshold) { value in
+                    if !isEditingThreshold { draftThreshold = value }
+                }
+                .onChange(of:draftThreshold) { value in
+                    if !isEditingThreshold, forceThreshold != value { forceThreshold = value }
+                }
         }
     }
 }

@@ -915,8 +915,11 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
-            stenoPointerMode:Binding(get:{ viewModel.gestures.settings.resolvedStenoPointerMode },set:{
-                viewModel.gestures.setStenoPointerMode($0); rebuildLayouts()
+            stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
+            stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
+            stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
+            stenoForceThreshold:Binding(get:{ viewModel.gestures.settings.resolvedStenoForceThreshold },set:{
+                viewModel.gestures.setStenoForceThreshold($0); rebuildLayouts()
             }),
             columnSettings: columnSettings,
             columnSelection: columnInspectorSelection,
@@ -1244,7 +1247,10 @@ struct ContentView: View {
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
-        let stenoPointerMode:Binding<StenoPointerMode>
+        let stenoConnectionMode:Binding<StenoConnectionMode>
+        let stenoHapticTouch:Binding<Bool>
+        let stenoHapticRelease:Binding<Bool>
+        let stenoForceThreshold:Binding<Double>
         let columnSettings: [ColumnLayoutSettings]
         let columnSelection: ColumnInspectorSelection?
         @Binding var columnSpacingPercent: Double
@@ -1359,7 +1365,7 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
-                    if layoutOption.isSteno { StenoConnectionPanel(pointerMode:stenoPointerMode) }
+                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease) }
 
                     CollapsibleSection(
                         isExpanded: $columnTuningExpanded
@@ -2685,16 +2691,7 @@ struct ContentView: View {
                         }
                     )
                     .frame(width: combinedWidth, height: trackpadSize.height)
-                    if let hit = lastHitLeft {
-                        LastHitHighlightLayer(lastHit: hit)
-                            .frame(width: trackpadSize.width, height: trackpadSize.height)
-                            .offset(x: 0, y: 0)
-                    }
-                    if let hit = lastHitRight {
-                        LastHitHighlightLayer(lastHit: hit)
-                            .frame(width: trackpadSize.width, height: trackpadSize.height)
-                            .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
-                    }
+
                 }
                 .frame(width: combinedWidth, height: trackpadSize.height)
             }
@@ -2761,32 +2758,6 @@ struct ContentView: View {
             }
         }
 
-    }
-
-    private struct LastHitHighlightLayer: View {
-        let lastHit: ContentViewModel.DebugHit
-
-        var body: some View {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
-                let age = CACurrentMediaTime() - lastHit.timestamp
-                let fadeDuration: TimeInterval = 0.6
-                let normalized = max(0, fadeDuration - age) / fadeDuration
-                if normalized <= 0 {
-                    EmptyView()
-                } else {
-                    Canvas { context, _ in
-                        let cornerRadius = ContentView.keyCornerRadius
-                        let highlightColor = Color.green.opacity(normalized * 0.95)
-                        let strokePath = Path(roundedRect: lastHit.rect, cornerRadius: cornerRadius)
-                        context.stroke(
-                            strokePath,
-                            with: .color(highlightColor),
-                            lineWidth: 2.5
-                        )
-                    }
-                }
-            }
-        }
     }
 
     static func makeKeyLayout(
@@ -3321,8 +3292,8 @@ struct ContentView: View {
 
     private func rebuildLayouts() {
         if layoutOption.isSteno {
-            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
-            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
+            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
             viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
                 trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
             return

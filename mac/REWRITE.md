@@ -1,9 +1,14 @@
 # NEXT:
 =======
-0. Test 1F and 2F modes with force left and right clicks.
+It looks really good!
+1. When you gesture over keys (they don't dispatch) they shouldn't highlight either!
+2. When a gesture is recognized can we display it somewhere? Maybe to the right of peak for the trackpad it was for?
+3. 
 ===
-Do you see the Plover plugin for windows_linux/AppleMagicTouchstream? Lets do something like that as an option too!
-> Lets test these on Windows first!
+0. It seems like we were able to do 2f gesture really well can we just enable all non-tapping gestures? (Maybe a Gestures toggle?)
+> Lets force and maintain the Force gestures I decide for Mouse during STENO mode.
+> If not.. can we do 4F force scroll in steno mode? (We just need the gesture to start as force/4 fingers you can release force or fingers until all up because of latching)
+1. Can we squeeze an Asterisk-size layout (both halves) onto a single trackpad??
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?

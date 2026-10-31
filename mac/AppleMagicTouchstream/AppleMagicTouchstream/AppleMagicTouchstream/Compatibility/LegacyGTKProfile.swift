@@ -622,6 +622,10 @@ enum PortableKeymapInterop {
 
         profile.handGestureSettings = bundle.hostExtensions?["mac"]?.handGestureSettings ?? currentProfile.handGestureSettings
         if let current = currentProfile.handGestureSettings {
+            if profile.handGestureSettings?.stenoConnectionMode == nil { profile.handGestureSettings?.stenoConnectionMode = current.stenoConnectionMode }
+            if profile.handGestureSettings?.stenoHapticOnTouch == nil { profile.handGestureSettings?.stenoHapticOnTouch = current.stenoHapticOnTouch }
+            if profile.handGestureSettings?.stenoHapticOnRelease == nil { profile.handGestureSettings?.stenoHapticOnRelease = current.stenoHapticOnRelease }
+            if profile.handGestureSettings?.stenoForceThreshold == nil { profile.handGestureSettings?.stenoForceThreshold = current.stenoForceThreshold }
             profile.handGestureSettings?.left.preserveMissingRepeatBehaviors(from:current.left)
             profile.handGestureSettings?.right.preserveMissingRepeatBehaviors(from:current.right)
         }

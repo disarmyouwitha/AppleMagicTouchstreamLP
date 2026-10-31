@@ -842,17 +842,23 @@ final class ContentViewModel: ObservableObject {
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
         let isSteno: Bool
+        let stenoConnectionMode:StenoConnectionMode
+        let stenoHapticTouch:Bool
+        let stenoHapticRelease:Bool
+        let stenoForceThreshold:Float
         let stenoPointerMode:StenoPointerMode
 
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
             self.stenoPointerMode = stenoPointerMode
+            self.stenoForceThreshold = stenoForceThreshold
+            self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.keyRects = normalizedKeyRects.map { row in
                 row.map { $0.boundingRect(in: trackpadSize) }
             }
@@ -861,12 +867,14 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
             self.stenoPointerMode = stenoPointerMode
+            self.stenoForceThreshold = stenoForceThreshold
+            self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.normalizedKeyRects = Layout.normalize(keyRects, trackpadSize: trackpadSize)
         }
 

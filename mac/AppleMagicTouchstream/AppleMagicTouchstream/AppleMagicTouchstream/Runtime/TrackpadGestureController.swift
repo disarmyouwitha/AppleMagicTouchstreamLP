@@ -19,10 +19,13 @@ final class TrackpadGestureController: ObservableObject {
         InterpretedTrackpadPointer.shared.stop()
         stenoMode = enabled; configure()
     }
-    func setStenoPointerMode(_ mode:StenoPointerMode) {
-        if stenoMode { InterpretedTrackpadPointer.shared.resetBaseline() }
-        settings.stenoPointerMode = mode; settings.save(to:.standard); configure()
+    func setStenoForceThreshold(_ value:Double) {
+        settings.stenoForceThreshold = StenoForceThreshold.validated(value)
+        settings.save(to:.standard)
     }
+    func setStenoConnectionMode(_ value:StenoConnectionMode) { settings.stenoConnectionMode = value; settings.save(to:.standard) }
+    func setStenoHapticTouch(_ value:Bool) { settings.stenoHapticOnTouch = value; settings.save(to:.standard) }
+    func setStenoHapticRelease(_ value:Bool) { settings.stenoHapticOnRelease = value; settings.save(to:.standard) }
     private var pointerProfiles: [UInt64: ApplePointerAccelerationProfile] = [:]
     private var scrollProfiles: [UInt64: AppleScrollProfile] = [:]
 
@@ -179,6 +182,11 @@ final class TrackpadGestureController: ObservableObject {
     func applyImportedSettings(_ imported: HandGestureSettings) {
         InterpretedTrackpadPointer.shared.resetBaseline()
         var normalized = imported
+        if normalized.stenoConnectionMode == nil { normalized.stenoConnectionMode = settings.stenoConnectionMode }
+        if normalized.stenoHapticOnTouch == nil { normalized.stenoHapticOnTouch = settings.stenoHapticOnTouch }
+        if normalized.stenoHapticOnRelease == nil { normalized.stenoHapticOnRelease = settings.stenoHapticOnRelease }
+        if normalized.stenoForceThreshold == nil { normalized.stenoForceThreshold = settings.stenoForceThreshold }
+        if let value = normalized.stenoForceThreshold { normalized.stenoForceThreshold = StenoForceThreshold.validated(value) }
         normalized.left.normalize(); normalized.right.normalize()
         settings = normalized
         settings.save(to:.standard)
@@ -196,10 +204,10 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
     func twoHandStatus(_ trigger:TwoHandTrigger) -> String {
-        if stenoMode { return "Gestures are paused in STENO layouts." }
+        if stenoMode && (trigger.chord != .fourCorners || trigger.phase != .hold) { return "Gestures are paused in STENO layouts." }
         guard let left = pads.left, let right = pads.right, left != right else { return "Select two distinct trackpads." }
         guard takeoverEnabled, armed, owned.isSuperset(of:[left,right]) else { return "Enable Trackpad Takeover on both selected pads." }
-        let action = settings.twoHand.action(trigger)
+        let action:GestureAction = stenoMode ? .openConfig:settings.twoHand.action(trigger)
         if action == .disabled { return "Choose an action to enable this input." }
         if action != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
         if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "System action is unavailable." }
@@ -255,7 +263,14 @@ final class TrackpadGestureController: ObservableObject {
             let eligible = NativeTwoFingerMouseGate.outputDevices(enabled:settings.resolvedStenoPointerMode != .disabled,
                 armed:armed,takeoverEnabled:takeoverEnabled,trusted:AXIsProcessTrusted(),selected:Set(routed.keys),owned:owned)
                 .filter { pointerProfiles[$0] != nil }
-            InterpretedTrackpadPointer.shared.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity))
+            let output = InterpretedTrackpadPointer.shared
+            output.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity))
+            let cornerEligible = NativeTwoFingerMouseGate.outputDevices(enabled:true,armed:armed,takeoverEnabled:takeoverEnabled,
+                trusted:true,selected:Set(routed.keys),owned:owned)
+            output.configureCorners(settings:routed.mapValues { $0.singlePadCorners.stenoConfigurationOnly },eligible:cornerEligible)
+            output.configureTwoHand(pads:pads,settings:settings.twoHand.stenoConfigurationOnly,
+                eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),trusted:AXIsProcessTrusted())
+            output.enable(devices:Set(eligible))
             statusRevision &+= 1; return
         }
         let shortcuts = AppleShortcutPlan.load()

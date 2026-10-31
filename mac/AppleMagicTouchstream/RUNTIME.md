@@ -115,7 +115,7 @@ and their own saved layout namespaces. The displayed `STENO 6x3` preserves the
 serialized `STENO Voyager` name; both names resolve on import. `STN_*` catalog actions identify the 42
 Gemini PR wire positions; they are inert in ordinary keyboard layouts.
 
-STENO replaces ordinary typing and pauses ordinary gesture recognition/output. Selected
+STENO replaces ordinary typing and pauses ordinary gestures except Outer Corners → Open Config. Selected
 pads retain the normal live routing, listening and lifecycle admission.
 Making/touching non-palm contacts accumulate every intersected steno key; key edges
 expand 1.5 mm to permit upper/lower row combinations under one fingertip. Keys roll
@@ -126,49 +126,129 @@ device loss, reset and layout/mapping/layer changes cancel the partial stroke an
 wait for remaining contacts to lift. Switching into or out of STENO cannot turn
 held contacts into a new stroke or ordinary key press.
 
-The STENO Mouse dropdown offers Off, 2F Mouse + Force Click (default), and 1F Mouse + Force
-Click, saved in `HandGestureSettings` and its existing portable Mac extension.
-An absent field selects 2F Mouse + Force Click. The shared continuous session/coherence engine
-requires 2 mm of coherent translation by the selected contact count. Stationary
-contacts, small settling, and motion by only one of a two-finger chord remain
-steno. Before activation, exceeding the selected count excludes pointer activation
-through local all-up, so a larger stroke cannot turn into a mouse at partial lift.
-If both pads participate before a pointer activates, the whole cycle retains steno
-priority. An activated pointer uses the shared count-change/all-up latch; any
-contacts subsequently added to either pad cannot resurrect a discarded stroke.
-Lift both hands before starting another stroke. Force at the shared 130 pressure
-threshold claims one balanced click per cycle, including while stationary: the
-mode's movement count (one or two fingers) gives primary click, and three fingers
-gives secondary/right-click in either mode. Force eligibility is independent of
-the pending movement-count exclusion; a stationary three-finger press can right-click
-without enabling three-finger mouse movement. Larger counts, invalid/substituted
-contacts and count decreases cannot become force-clicks at partial lift. After one
-force-click fires, changing count/pressure cannot fire another before all-up.
-Clicks do not hold a button or start a drag. A mouse win discards
-the pending whole stroke. Motion classification is a heuristic: moving a lone
-finger or two-finger chord deliberately beyond the threshold chooses the mouse.
+STENO has one fixed mouse behavior and no mode dropdown: two-finger movement,
+two-finger force left-click, three-finger force right-click, and one-finger force
+left-button hold/drag. The retired Off/1F mode values remain decodable in settings;
+all saved choices resolve to the fixed behavior. Existing profile and capture
+identities remain unchanged.
+
+The shared continuous session/coherence engine requires 2 mm of coherent
+translation by two contacts to activate ordinary mouse movement. Light single
+fingers, stationary contacts and motion by only one finger of a two-finger chord
+remain steno. Before activation, exceeding two contacts excludes movement through
+local all-up, so larger strokes cannot become a mouse at partial lift. If both
+pads participate before a mouse/drag activates, the cycle retains steno priority.
+A mouse/drag win discards the pending whole stroke and owns that cycle through
+both-pad all-up; subsequent contacts cannot resurrect typing. Once activated,
+the other pad may share the cursor or join the held drag.
+
+The STENO panel exposes a Force Threshold slider with a numeric value (1–500, default 130), shared by 1F drag,
+2F left-click and 3F right-click. Higher values require more pressure. The slider previews its value during tracking
+and commits on release so adjusting it with 1F drag cannot cancel its own drag. It is saved
+and exported under the existing Mac gesture settings; missing imported thresholds
+preserve the current value. Editing it cancels pending strokes/held output and
+waits for held contacts to lift before using the new value. Non-finite values
+resolve to 130 and out-of-range values clamp to the supported range. Ordinary
+gestures retain their existing force threshold. Two contacts emit one balanced
+primary click; three emit one balanced secondary click, stationary or moving.
+One contact presses the primary button once and holds it until that pad's all-up:
+motion by that finger drags without requiring two fingers or continued pressure.
+Pre-force movement is excluded from drag activation so pressing cannot jump the
+cursor by replaying earlier single-finger travel.
+Additional contacts and partial lifts retain the owner. A stationary force-press
+and lift is a click; a light single-finger slide remains steno. The shared drag
+ledger lets either pad move the cursor and releases the system button only after
+the last drag owner lifts. A force owner cannot fire another force action until
+all-up. Force recognition retains identity, count and validity checks, so larger
+chords cannot turn into force clicks during partial lift.
+
+STENO uses the same retained drag source, button observer, stale-owner timer,
+acceleration and per-pad cleanup as ordinary drag gestures. Native button
+interference, stale/invalid input, disconnect, layout/mapping/layer changes,
+suspend and reset release acquired ownership; cleanup survives output-queue
+cancellation and mode changes. A disconnected pad releases its ownership without
+releasing another pad's hold. Drag-down is edge-triggered and cannot restart from
+continuing contacts after native output cancellation. Other gestures except the configuration corner chord remain paused.
 
 Pointer and click commands use the shared output queue, native numeric device ID,
 Apple tracking profile/sensitivity, cursor bounds and existing discrete click
 builder. Selected/owned/armed/takeover/Accessibility and profile gates control live
 output; reconfiguration/lifecycle cancellation invalidates queued commands and
 partial strokes. Replay records `StenoMouse:` intentions in the existing system
-event envelope without posting input. Other saved gestures remain paused and are
-restored on leaving STENO. These modes do not change ordinary keyboard arbitration.
+event envelope without posting input. Other saved gestures are
+restored on leaving STENO. STENO does not change ordinary keyboard arbitration.
+
+Two independent STENO checkboxes enable **Haptic on touch** and **Haptic on release**,
+both off by default. They use the existing Typing Tuning strength, waveform 6 and
+per-pad throttle. Touch feedback queues on a new key contact edge, without repeats for held keys.
+It waits through an 80 ms settling window so early mouse/force acquisition can
+cancel it; a valid shorter tap flushes its touch feedback at completion. Release feedback pulses the pads that contributed keys when the
+whole valid stroke finishes. Pointer/force activation, invalid/stale input and
+cancellation discard pending touch and release feedback. Mouse acquisition also
+invalidates queued native feedback independently of completed stroke packets.
+Pulses that already played cannot be recalled if motion begins after the settling
+window. Very short touch/release pulses coalesce under the shared per-pad throttle.
+Configuration changes alone never pulse.
+These events use generation-gated output commands and the existing capture haptic
+envelope; replay records them without touching hardware. Missing imported options
+preserve saved values.
+
+Per-pad and coordinated Both **Outer Corners** remain Hold → Open Config in
+STENO, using the shared geometry, stagger, saved hold threshold, timer and cleanup.
+Other coordinated/corner actions stay paused. The shared live runtime reserves
+these contacts before steno dispatch; a pending or fired corner chord cannot emit
+steno keys. Activated mouse/drag owners keep priority until all-up. Configuration
+is app-local and does not require an acceleration profile or Accessibility for
+its own action; normal selected/owned/armed/takeover gates remain. Leaving STENO
+restores the ordinary gesture assignments.
+
+The Connection selector offers the existing Gemini PR Serial endpoint and a
+**Plover Plugin** loopback connection. The plugin is the default for missing/new preferences; an explicitly saved serial
+choice stays serial. Plugin mode listens only on `127.0.0.1:31572`, with the same HELLO/READY
+handshake and six-byte Gemini PR frames as the Windows plugin. It automatically
+reconnects, bounds setup time/output buffering, rejects invalid setup or commands,
+and drops disconnected/full output rather than storing strokes for reconnect.
+Switching transports invalidates queued output and closes the previous transport;
+only one sends at a time. Lifecycle reset closes the plugin reader so buffered
+partial packets cannot carry into the next connection. Replay opens neither.
+
+**Install Plugin / Update Plugin** uses the bundled deterministic wheel and the
+installed Plover.app's Python/plugin installer. Installation is explicit-button
+only, offline (`--no-index --no-deps`, reinstalling the bundled wheel), and scoped to Plover's user-plugin directory.
+It does not launch Plover or edit its machine/output settings. Status/error output
+is visible. The connection status sits beside the button, green when connected and
+red when disconnected. A read-only probe checks Plover's actual plugin environment,
+entry point and installed source against the bundled wheel. Matching installations
+disable the button as “Plugin Installed”; missing or modified copies keep Install
+or Update available. Detection refreshes on panel entry, app activation and after
+installation, without starting Plover's GUI or changing its settings.
+After installation, restart Plover and choose AppleMagicTouchstream
+under Configure → Machine. The source/builder and usage are in
+[PloverPlugin](PloverPlugin/README.md); the Windows copy remains intact.
 
 The shared output queue sends six-byte packets using
 [Plover's Gemini PR wire order](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).
-Choosing STENO opens a private user-space PTY and displays a Copy Port path. In
+In Gemini PR Serial mode, choosing STENO opens a private user-space PTY and
+displays a Copy Port path. In
 Plover, Configure → Machine → Gemini PR, paste this path into Port and select
 9600 baud, 8 data bits, no parity, 1 stop bit, no flow control; enable Plover output.
 Plover configures its serial reader in raw mode. No driver/helper is installed.
 Switching between the two STENO variants preserves the port; leaving STENO or
-quitting removes it. A fresh app session has a fresh path and needs reconnection.
+quitting removes it. A fresh serial session has a fresh path and needs reconnection;
+the plugin connection instead reconnects automatically.
 Disconnected/full output drops strokes rather than queuing them for later;
 interrupted partial writes close the stream and show a reconnect error. Lifecycle
 cleanup invalidates queued strokes and flushes the port. Replay records intended
 packets as `GeminiPR:` plus twelve hex digits in the existing system-event envelope;
 it never opens the live port or sends serial/native keyboard output.
+
+Key contact highlights work across layouts and replay, including every key in a
+steno chord and custom buttons. The renderer keeps a bounded per-pad history:
+held keys have a green fill/outline, then fade smoothly for 1.2 seconds after lift.
+Rotations and the STENO seam overlap use the same hit geometry as the keys. Layout
+changes and replay rewind clear history; missing input expires stale held
+highlights. The 30 Hz fade refresh is UI-only and stops after the history empties
+or the view closes. Recognition/output timing and inspector selection are separate.
 
 ## Snap radius
 

@@ -531,11 +531,12 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool,
         liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
+        let liveCorners = liveGestures
         let liveGestures = liveGestures && !processor.isStenoLayout
         if liveGestures { InterpretedTrackpadPointer.shared.interruptMomentum(frame) }
-        let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
-        let coordinated = liveGestures && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
-        let corners = liveGestures && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)
+        let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) || (processor.isStenoLayout && processor.stenoPointerOwnsCycle)
+        let coordinated = liveCorners && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
+        let corners = liveCorners && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)
         let pointer = InterpretedTrackpadPointer.shared
         var diagnostic:RuntimeFrameDiagnostic?
         let allUp = !frame.touches.contains { $0.state == .making || $0.state == .touching }
@@ -551,7 +552,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
             let candidate = liveGestures && !keyboardChord && !coordinated && !corners && pointer.reserveKeyboard(frame)
             if !liveGestures || keyboardChord || coordinated || corners {
                 proposal.reset()
-                diagnostic = processor.processRawFrame(frame,suppressKeyboard:liveGestures && !keyboardChord && (coordinated || corners))
+                diagnostic = processor.processRawFrame(frame,suppressKeyboard:!keyboardChord && (coordinated || corners))
                 if liveGestures && !coordinated && !corners { pointer.suspendForKeyboardChord(frame) }
             } else if proposal.mode == .typing {
                 diagnostic = processor.processRawFrame(frame)
@@ -803,7 +804,7 @@ final class ProductionReplaySession {
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
             if preset.isSteno {
-                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger)
+                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger,forceThreshold:profile.handGestureSettings?.resolvedStenoForceThreshold ?? 130,connectionMode:profile.handGestureSettings?.resolvedStenoConnectionMode ?? .plugin,hapticTouch:profile.handGestureSettings?.stenoHapticOnTouch ?? false,hapticRelease:profile.handGestureSettings?.stenoHapticOnRelease ?? false)
             }
             if preset == .touchstream {
                 return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)

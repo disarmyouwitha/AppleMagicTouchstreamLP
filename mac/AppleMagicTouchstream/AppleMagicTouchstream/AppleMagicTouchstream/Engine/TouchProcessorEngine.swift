@@ -555,6 +555,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var activeLayer: Int = 0
     private(set) var isStenoLayout = false
     private var stenoChord = StenoChordEngine()
+    var stenoPointerOwnsCycle:Bool { stenoChord.hasPointerOwner }
+    private var stenoHapticTouch = false, stenoHapticRelease = false
     private var padsWithContacts:UInt8 = 0
     private var layoutTransitionBlockedPads:UInt8 = 0
     private var stenoRegions = SidePair<[StenoRegion]>(left:[],right:[])
@@ -689,9 +691,13 @@ final class TouchProcessorEngine: @unchecked Sendable {
         rightDeviceID: String?
     ) {
         if leftDeviceIndex != leftIndex || self.leftDeviceID != leftDeviceID {
+            if isStenoLayout { dispatchService.cancelStenoHaptics() }
+            if isStenoLayout, let id = self.leftDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
             stenoChord.removeDevice(0); padsWithContacts &= ~1; layoutTransitionBlockedPads &= ~1
         }
         if rightDeviceIndex != rightIndex || self.rightDeviceID != rightDeviceID {
+            if isStenoLayout { dispatchService.cancelStenoHaptics() }
+            if isStenoLayout, let id = self.rightDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
             stenoChord.removeDevice(1); padsWithContacts &= ~2; layoutTransitionBlockedPads &= ~2
         }
         let next = Set([leftIndex, rightIndex].compactMap { $0 })
@@ -749,9 +755,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             layoutTransitionBlockedPads |= padsWithContacts
         }
         isStenoLayout = steno
-        stenoChord.cancel(blockedPads:padsWithContacts)
+        cancelStenoStroke(blockedPads:padsWithContacts)
         stenoChord.pointerMode = leftLayout.stenoPointerMode
-        dispatchService.configureStenoMode(steno,pointerMode:leftLayout.stenoPointerMode)
+        stenoChord.forceThreshold = Float(StenoForceThreshold.validated(Double(leftLayout.stenoForceThreshold)))
+        stenoHapticTouch = leftLayout.stenoHapticTouch; stenoHapticRelease = leftLayout.stenoHapticRelease
+        dispatchService.configureStenoMode(steno,pointerMode:leftLayout.stenoPointerMode,forceThreshold:stenoChord.forceThreshold,
+            connectionMode:leftLayout.stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease)
         self.leftLayout = leftLayout
         self.rightLayout = rightLayout
         self.leftLabels = leftLabels
@@ -763,6 +772,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func updateCustomButtons(_ buttons: [CustomButton]) {
+        if isStenoLayout { cancelStenoStroke(blockedPads:padsWithContacts) }
         customButtons = buttons
         rebuildCustomButtonsIndex()
         invalidateBindingsCache()
@@ -770,7 +780,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) {
         customKeyMappingsByLayer = actions
-        if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
+        if isStenoLayout { cancelStenoStroke(blockedPads:padsWithContacts) }
         invalidateBindingsCache()
     }
 
@@ -1135,16 +1145,26 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let transitionBit = UInt8(1) << (isLeftDevice ? 0:1)
         if layoutTransitionBlockedPads & transitionBit != 0 {
             if padsWithContacts & transitionBit == 0 { layoutTransitionBlockedPads &= ~transitionBit }
-            if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
+            if isStenoLayout { cancelStenoStroke(blockedPads:padsWithContacts) }
             return nil // A mode change cannot turn held contacts into a fresh chord/key tap.
         }
         if isStenoLayout {
             let side:TrackpadSide = isLeftDevice ? .left:.right
             let index = bindings(for:side,layout:isLeftDevice ? leftLayout:rightLayout,
                 labels:isLeftDevice ? leftLabels:rightLabels,canvasSize:trackpadSize)
-            if suppressKeyboard { stenoChord.cancel(blockedPads:padsWithContacts) }
+            let hapticRevision = stenoChord.hapticCancellationRevision
+            if suppressKeyboard { cancelStenoStroke(blockedPads:padsWithContacts) }
             else if let chord = stenoChord.process(device:isLeftDevice ? 0:1,time:now,touches:touches,regions:stenoRegions[side],size:trackpadSize) {
                 dispatchService.postStenoStroke(chord,sourceSequence:currentDispatchSourceSequence())
+            }
+            if stenoChord.hapticCancellationRevision != hapticRevision { dispatchService.cancelStenoHaptics() }
+            if stenoHapticTouch {
+                if stenoChord.hapticTouchPads & 1 != 0 { playHapticIfNeeded(on:.left,steno:true) }
+                if stenoChord.hapticTouchPads & 2 != 0 { playHapticIfNeeded(on:.right,steno:true) }
+            }
+            if stenoHapticRelease {
+                if stenoChord.hapticReleasePads & 1 != 0 { playHapticIfNeeded(on:.left,steno:true) }
+                if stenoChord.hapticReleasePads & 2 != 0 { playHapticIfNeeded(on:.right,steno:true) }
             }
             if let update = stenoChord.pointerUpdate,
                let id = UInt64((isLeftDevice ? leftDeviceID:rightDeviceID) ?? "") {
@@ -1218,8 +1238,17 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
+    private func cancelStenoStroke(blockedPads:UInt8) {
+        dispatchService.cancelStenoHaptics()
+        if stenoChord.hasPointerOwner {
+            if let id = leftDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
+            if let id = rightDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
+        }
+        stenoChord.cancel(blockedPads:blockedPads)
+    }
+
     func resetState(stopVoiceDictation: Bool = false) {
-        stenoChord.cancel(blockedPads:padsWithContacts)
+        cancelStenoStroke(blockedPads:padsWithContacts)
         lastHapticTimeBySide = SidePair(repeating: nil)
         dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
@@ -3128,7 +3157,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     /// Optional Apple-trackpad feedback extension; never part of gesture recognition.
-    private func playHapticIfNeeded(on side: TrackpadSide?, touchKey: TouchKey? = nil) {
+    private func playHapticIfNeeded(on side: TrackpadSide?, touchKey: TouchKey? = nil,steno:Bool = false) {
         guard hapticStrength > 0, let side else { return }
         if let touchKey, disqualifiedTouches.value(for: touchKey) != nil { return }
         let deviceID = side == .left ? leftDeviceID : rightDeviceID
@@ -3137,8 +3166,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         if let last = lastHapticTimeBySide[side], now >= last,
            now - last < Self.hapticMinIntervalNanos { return }
         lastHapticTimeBySide[side] = now
-        dispatchService.postHaptic(strength: hapticStrength, deviceID: deviceID,
-                                   sourceSequence: currentDispatchSourceSequence())
+        if steno { dispatchService.postStenoHaptic(strength:hapticStrength,deviceID:deviceID,sourceSequence:currentDispatchSourceSequence()) }
+        else { dispatchService.postHaptic(strength:hapticStrength,deviceID:deviceID,sourceSequence:currentDispatchSourceSequence()) }
     }
 
     private func beginHoldRepeat(
@@ -3577,7 +3606,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let currentMomentaryLayer = maxMomentaryLayer()
         let resolvedLayer = currentMomentaryLayer ?? persistentLayer
         if activeLayer != resolvedLayer {
-            if isStenoLayout { stenoChord.cancel(blockedPads:padsWithContacts) }
+            if isStenoLayout { cancelStenoStroke(blockedPads:padsWithContacts) }
             activeLayer = resolvedLayer
             invalidateBindingsCache()
             onActiveLayerChanged(resolvedLayer)

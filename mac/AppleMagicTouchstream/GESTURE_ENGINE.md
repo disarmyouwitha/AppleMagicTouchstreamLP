@@ -24,13 +24,15 @@ the architecture review and remaining work.
 6. Every acquired output has an explicit release obligation. Shared cursor/button
    state is separate from per-pad recognition state.
 
-STENO presets pause ordinary gesture reservation, recognition and output;
-contacts form shared two-pad steno chords with an optional dedicated 2F Mouse + Force Click or
-1F Mouse + Force Click mode. Those modes reuse continuous ownership/coherence and
-discrete force recognition, discard a pending stroke only on activation, and keep
-two-pad chords at steno priority. The selected movement count force-clicks primary;
-three-finger force-click gives secondary/right-click in either mouse mode, once
-per contact cycle. Leaving STENO restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).
+STENO presets pause ordinary gestures except per-pad and Both Outer Corners Hold
+→ Open Config, which retain their shared reservation, thresholds and cleanup.
+Contacts form shared two-pad steno chords with fixed 2F movement, 2F force primary
+click, 3F force secondary click and 1F force primary hold/drag. These reuse continuous
+ownership/coherence, force recognition and the shared drag ledger; they discard a
+pending stroke only on activation and keep pending two-pad chords at steno priority.
+Held drags survive count changes, share the cursor, and release through per-pad
+all-up and the existing invalid/stale/disconnect/lifecycle cleanup. Leaving STENO
+restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).
 
 ## Inputs and factory actions
 

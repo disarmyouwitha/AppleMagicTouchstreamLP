@@ -15,7 +15,8 @@ Trackpads, with native selected-pad takeover, capture/replay and optional haptic
 - Traced TouchStream layout, automatic reference background, per-key overrides,
   visualizers with anatomical contact colors, pressure and paths.
 - Asterisk-style STENO and staggered STENO 6x3 layouts, rolling two-pad
-  chords, selectable 2F/1F mouse modes and a Gemini PR virtual serial port for Plover.
+  chords, 2F mouse/force clicks, 1F force dragging, independent touch/release haptics,
+  and Plover plugin/serial connections with an in-app plugin installer.
 - Import/Export Settings including gesture assignments and gains. Native device
   selection and takeover opt-in stay app-local.
 - Run at Startup through the macOS service manager, default off.

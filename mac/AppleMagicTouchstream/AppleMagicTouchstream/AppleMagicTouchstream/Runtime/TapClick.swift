@@ -17,14 +17,15 @@ struct ForceClickRecognizer:Sendable {
     }
     private var sessions: [UInt64: Session] = Dictionary(minimumCapacity:2)
     mutating func clear() { sessions.removeAll(keepingCapacity:true) }
+    mutating func clear(device:UInt64) { sessions[device] = nil }
     func claimed(device: UInt64) -> Bool { sessions[device]?.fired == true }
     mutating func cancel(device: UInt64) { sessions[device] = Session(blocked:true) }
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
-    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C, threshold:Float = ForceClickRecognizer.threshold,
         enabled: (GestureTrigger) -> Bool) -> GestureTrigger? where C.Element == OMSRawTouch {
         var ids = SIMD8<Int32>(repeating:0), count = 0
         var maximumPressure: Float = 0
-        var invalid = !time.isFinite
+        var invalid = !time.isFinite || !threshold.isFinite || threshold <= 0
         for touch in contacts where touch.state == .making || touch.state == .touching {
             if count < 8 {
                 for index in 0..<count where ids[index] == touch.id { invalid = true }
@@ -49,7 +50,7 @@ struct ForceClickRecognizer:Sendable {
             }
         }
         session.ids = ids; session.count = count; session.lastTime = time
-        guard !session.blocked, !session.fired, enabled(trigger), maximumPressure >= Self.threshold else { return nil }
+        guard !session.blocked, !session.fired, enabled(trigger), maximumPressure >= threshold else { return nil }
         session.fired = true
         return trigger
     }

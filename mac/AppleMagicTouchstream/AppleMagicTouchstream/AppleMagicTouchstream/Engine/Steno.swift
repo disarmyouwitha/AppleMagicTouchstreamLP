@@ -42,13 +42,15 @@ struct StenoRegion:Sendable {
     let geometry:KeyHitGeometry
 }
 
-enum StenoPointerMode:String,CaseIterable,Codable,Sendable,Identifiable {
+enum StenoForceThreshold {
+    static let defaultValue:Double = 130
+    static func validated(_ value:Double) -> Double { value.isFinite ? min(500,max(1,value)):defaultValue }
+}
+
+enum StenoPointerMode:String,CaseIterable,Codable,Sendable {
     case disabled, twoFinger, oneFingerForce
-    var id:String { rawValue }
-    var title:String {
-        switch self { case .disabled: return "Off"; case .twoFinger: return "2F Mouse + Force Click"; case .oneFingerForce: return "1F Mouse + Force Click" }
-    }
-    var count:Int { self == .twoFinger ? 2 : 1 }
+    // Legacy mode identities remain decodable; STENO now has one fixed behavior.
+    var count:Int { 2 }
 }
 
 enum StenoPointerClick:Sendable {
@@ -60,19 +62,27 @@ struct StenoPointerUpdate:Sendable {
     var millimetres:CGPoint? = nil
     var click:StenoPointerClick? = nil
     var reset = false
+    var dragBegan = false
+    var dragging = false
 }
 
 /// Shares continuous contact ownership/coherence and force recognition with
 /// ordinary gestures, while keeping the pending stroke available until a win.
 struct StenoPointerArbiter:Sendable {
     private var movement = GestureSessionEngine<Int>(rules:[
-        .init(gesture:1,activationCount:1,minimumMovementMM:2,requiresFullChordMotion:true),
+        .init(gesture:1,activationCount:1,minimumMovementMM:0),
         .init(gesture:2,activationCount:2,minimumMovementMM:2,requiresFullChordMotion:true)])
     private var force = ForceClickRecognizer()
     private var excluded:UInt8 = 0
     private var forceExcluded:UInt8 = 0
-    mutating func reset() { movement.reset(); force.clear(); excluded = 0; forceExcluded = 0 }
-    mutating func process<C:Collection>(mode:StenoPointerMode,device:Int,time:Double,touches:C,mayActivate:Bool) -> (claimed:Bool,update:StenoPointerUpdate) where C.Element == OMSRawTouch {
+    private var dragOwners:UInt8 = 0
+    mutating func reset() { movement.reset(); force.clear(); excluded = 0; forceExcluded = 0; dragOwners = 0 }
+    mutating func removeDevice(_ device:Int) {
+        let id = UInt64(device), bit = UInt8(1)<<device
+        movement.cancel(device:id); force.clear(device:id)
+        excluded &= ~bit; forceExcluded &= ~bit; dragOwners &= ~bit
+    }
+    mutating func process<C:Collection>(mode:StenoPointerMode,device:Int,time:Double,touches:C,mayActivate:Bool,forceThreshold:Float = 130) -> (claimed:Bool,update:StenoPointerUpdate) where C.Element == OMSRawTouch {
         guard mode != .disabled else { return (false,.init()) }
         let id = UInt64(device), bit = UInt8(1)<<device
         let count = touches.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1:0) }
@@ -81,20 +91,27 @@ struct StenoPointerArbiter:Sendable {
         if (count > 3 || !mayActivate) && !existingOwner { forceExcluded |= bit }
         let allowed = excluded & bit == 0
         let forceAllowed = forceExcluded & bit == 0
-        let trigger = force.recognize(device:id,time:time,contacts:touches,enabled:{ trigger in
-            forceAllowed && (trigger.forceCount == mode.count || trigger.forceCount == 3)
+        let trigger = force.recognize(device:id,time:time,contacts:touches,threshold:forceThreshold,enabled:{ trigger in
+            forceAllowed && (1...3).contains(trigger.forceCount ?? 0)
         })
-        let click:StenoPointerClick? = trigger.map { $0.forceCount == 3 ? .secondary:.primary }
+        let dragBegan = trigger?.forceCount == 1
+        if dragBegan {
+            dragOwners |= bit
+            movement.cancel(device:id) // Pre-press travel cannot jump the drag on activation.
+        }
+        if count == 0 { dragOwners &= ~bit }
+        let dragging = dragOwners & bit != 0
+        let click:StenoPointerClick? = trigger.flatMap { $0.forceCount == 1 ? nil:$0.forceCount == 3 ? .secondary:.primary }
         let forceOwned = force.claimed(device:id)
         let motion = movement.process(device:id,time:time,touches:touches,
-            enabled:{ $0 == mode.count && allowed },requiresCoherentTranslation:true,
-            activationFilter:{ _, context in (context.coherentMovementMM ?? 0) >= 2 })
+            enabled:{ $0 == 1 ? dragging:allowed },requiresCoherentTranslation:true,
+            activationFilter:{ gesture, context in gesture == 1 ? dragging:(context.coherentMovementMM ?? 0) >= 2 })
         if motion.phase == .cancelled { excluded |= bit }
         let moving = motion.phase == .began || motion.phase == .changed
         let claimed = moving || click != nil || forceOwned
         if count == 0 { excluded &= ~bit; forceExcluded &= ~bit }
         return (claimed,.init(millimetres:moving ? motion.millimetres:nil,click:click,
-            reset:motion.phase == .cancelled || motion.phase == .ended || count == 0))
+            reset:motion.phase == .cancelled || motion.phase == .ended || count == 0,dragBegan:dragBegan,dragging:dragging))
     }
 }
 
@@ -102,29 +119,49 @@ struct StenoPointerArbiter:Sendable {
 /// both-pad all-up emits. Invalid/stale/overflow/reset cancels, never completes.
 struct StenoChordEngine:Sendable {
     var pointerMode:StenoPointerMode = .disabled
+    var forceThreshold:Float = 130
     private(set) var pointerUpdate:StenoPointerUpdate?
+    private(set) var hapticTouchPads:UInt8 = 0, hapticReleasePads:UInt8 = 0
+    private var heldKeys = SIMD2<UInt64>(repeating:0)
+    private var strokePads:UInt8 = 0
+    private var pendingTouchPads:UInt8 = 0
+    private var touchDue = SIMD2<Double>(repeating:0)
+    private(set) var hapticCancellationRevision:UInt64 = 0
+    static let touchFeedbackSettleWindow = 0.08
     private var pointer = StenoPointerArbiter()
     private var pointerOwned = false
+    var hasPointerOwner:Bool { pointerOwned }
     private var sawBothHands = false
+    private var cancelledPointerPads:UInt8 = 0
     private var chord:UInt64 = 0
     private var down:UInt8 = 0
     private var blocked = false
     private var times = SIMD2<Double>(repeating:-1)
     mutating func cancel(blockedPads:UInt8? = nil) {
-        chord = 0; pointer.reset(); pointerOwned = false; sawBothHands = false; pointerUpdate = nil
+        hapticCancellationRevision &+= 1; pendingTouchPads = 0
+        hapticTouchPads = 0; hapticReleasePads = 0; heldKeys = SIMD2(repeating:0); strokePads = 0
+        pointerUpdate = pointerOwned ? .init(reset:true):nil
+        chord = 0; pointer.reset(); pointerOwned = false; sawBothHands = false; cancelledPointerPads = 0
         if let blockedPads { down = blockedPads }
         blocked = down != 0
         times = SIMD2<Double>(repeating:-1)
     }
     mutating func removeDevice(_ index:Int) {
         guard index == 0 || index == 1 else { return }
+        pendingTouchPads &= ~(UInt8(1)<<index); hapticCancellationRevision &+= 1
+        heldKeys[index] = 0; strokePads &= ~(UInt8(1)<<index)
+        hapticTouchPads = 0; hapticReleasePads = 0
         down &= ~(UInt8(1)<<index)
-        cancel()
+        cancelledPointerPads &= ~(UInt8(1)<<index)
+        if pointerOwned {
+            pointer.removeDevice(index); times[index] = -1; chord = 0
+            pointerOwned = down != 0; pointerUpdate = .init(reset:true)
+        } else { cancel() }
     }
     mutating func process<C:Collection>(device:Int,time:Double,touches:C,regions:[StenoRegion],size:CGSize) -> UInt64? where C.Element == OMSRawTouch {
         guard device == 0 || device == 1 else { return nil }
         let pad = UInt8(1)<<device
-        pointerUpdate = nil
+        pointerUpdate = nil; hapticTouchPads = 0; hapticReleasePads = 0
         var count = 0, keys:UInt64 = 0
         var valid = time.isFinite && time >= 0 && (times[device] < 0 || time > times[device])
         if times[device] >= 0, down & pad != 0, time-times[device] > 0.25 { valid = false }
@@ -137,22 +174,52 @@ struct StenoChordEngine:Sendable {
         }
         if count > 0 { down |= pad } else { down &= ~pad }
         times[device] = time.isFinite ? time : -1
-        if !valid { cancel(blockedPads:down); return nil }
+        if !valid {
+            if pointerOwned {
+                pendingTouchPads = 0; hapticCancellationRevision &+= 1
+                pointer.removeDevice(device); cancelledPointerPads |= pad
+                pointerUpdate = .init(reset:true)
+                if down == 0 { cancel(blockedPads:0); pointerUpdate = .init(reset:true) }
+            } else { cancel(blockedPads:down) }
+            return nil
+        }
+        if cancelledPointerPads & pad != 0 {
+            if count == 0 { cancelledPointerPads &= ~pad }
+            pointerUpdate = .init(reset:true)
+            if down == 0 { cancel(blockedPads:0); pointerUpdate = .init(reset:true) }
+            return nil
+        }
         if blocked {
             if down == 0 { blocked = false }
             return nil
         }
+        let newKeys = keys & ~heldKeys[device]
+        heldKeys[device] = keys
         if down == 3 { sawBothHands = true }
-        let mouse = pointer.process(mode:pointerMode,device:device,time:time,touches:touches,mayActivate:down == pad && !sawBothHands)
-        if mouse.claimed { pointerOwned = true; chord = 0 }
+        let mouse = pointer.process(mode:pointerMode,device:device,time:time,touches:touches,mayActivate:pointerOwned || (down == pad && !sawBothHands),forceThreshold:forceThreshold)
+        if mouse.claimed {
+            if !pointerOwned { pendingTouchPads = 0; hapticCancellationRevision &+= 1 }
+            pointerOwned = true; chord = 0
+        }
         if pointerOwned {
             pointerUpdate = mouse.update
             if down == 0 { pointer.reset(); pointerOwned = false; sawBothHands = false }
             return nil
         }
+        if newKeys != 0, pendingTouchPads & pad == 0 {
+            pendingTouchPads |= pad; touchDue[device] = time+Self.touchFeedbackSettleWindow
+        }
+        if pendingTouchPads & pad != 0, time >= touchDue[device] {
+            hapticTouchPads = pad; pendingTouchPads &= ~pad
+        }
+        if keys != 0 { strokePads |= pad }
         chord |= keys
         guard down == 0 else { return nil }
         let stroke = chord; chord = 0; pointer.reset(); sawBothHands = false
+        if stroke != 0 {
+            hapticTouchPads |= pendingTouchPads; hapticReleasePads = strokePads
+        }
+        pendingTouchPads = 0; strokePads = 0
         return stroke == 0 ? nil:stroke
     }
 }
@@ -174,7 +241,7 @@ enum StenoLayoutDefinition {
         return keys.map { $0.map { $0?.label ?? "None" } }
     }
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
-                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled) -> ContentViewModel.Layout {
+                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .plugin,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
         if preset == .stenoVoyager {
             // Reuse the 6×3 stagger and its mirrored, inner-to-outer column identities.
@@ -205,6 +272,6 @@ enum StenoLayoutDefinition {
                 rects[row][col] = .init(x:old.centerX-w/2,y:old.centerY-h/2,width:w,height:h,rotationDegrees:old.rotationDegrees-edit.rotationDegrees)
             }
         }
-        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true,stenoPointerMode:pointerMode)
+        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true,stenoPointerMode:pointerMode,stenoForceThreshold:Float(StenoForceThreshold.validated(forceThreshold)),stenoConnectionMode:connectionMode,stenoHapticTouch:hapticTouch,stenoHapticRelease:hapticRelease)
     }
 }

@@ -333,8 +333,8 @@ final class GlassToKeyController: ObservableObject {
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
         if layout.isSteno {
-            leftLayout = StenoLayoutDefinition.layout(preset:layout,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
-            rightLayout = StenoLayoutDefinition.layout(preset:layout,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
+            leftLayout = StenoLayoutDefinition.layout(preset:layout,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            rightLayout = StenoLayoutDefinition.layout(preset:layout,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
         } else if layout == .touchstream {
             leftLayout = ContentView.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
             rightLayout = ContentView.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)

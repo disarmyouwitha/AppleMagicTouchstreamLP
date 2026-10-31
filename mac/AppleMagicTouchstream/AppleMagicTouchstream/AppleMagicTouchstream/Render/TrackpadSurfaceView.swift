@@ -110,6 +110,71 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
     }
 }
 
+/// UI-only contact highlights; chords retain every key, independently of output
+/// and inspector selection. No animation work is added to the input engine.
+struct KeyHitHighlightHistory {
+    enum Key:Hashable { case grid(Int,Int), button(UUID) }
+    struct Entry {
+        var rect:NormalizedRect
+        var active:Bool
+        var releasedAt:Double
+        func opacity(at now:Double) -> Double {
+            if active { return 1 }
+            let t = min(1,max(0,(now-releasedAt)/KeyHitHighlightHistory.fadeDuration))
+            return 1-t*t*(3-2*t)
+        }
+    }
+    static let fadeDuration = 1.2
+    static let capacity = 512
+    private(set) var entries:[Key:Entry] = [:]
+    private var lastInputTime:Double?
+    var needsAnimation:Bool { entries.values.contains { !$0.active } }
+    mutating func clear() { entries.removeAll(keepingCapacity:true); lastInputTime = nil }
+    mutating func prune(now:Double) {
+        for key in Array(entries.keys) where entries[key]?.active == true {
+            if let last = entries[key]?.releasedAt, now-last > 0.25 {
+                entries[key]?.active = false; entries[key]?.releasedAt = last+0.25
+            }
+        }
+        entries = entries.filter { $0.value.active || $0.value.opacity(at:now) > 0 }
+    }
+    mutating func update(_ touches:[OMSTouchData],rects:[[NormalizedRect]],buttons:[CustomButton],isSteno:Bool,size:CGSize,now:Double) {
+        guard size.width > 0, size.height > 0, now.isFinite else { clear(); return }
+        if let inputTime = touches.map(\.timestamp).max(), inputTime.isFinite {
+            if let previous = lastInputTime, inputTime < previous { clear() }
+            lastInputTime = inputTime
+        }
+        var active:Set<Key> = []
+        func contains(_ rect:NormalizedRect,_ point:CGPoint) -> Bool {
+            let dx:CGFloat = isSteno ? 1.5/160:0, dy = dx*size.width/size.height
+            let hit = NormalizedRect(x:rect.x-dx,y:rect.y-dy,width:rect.width+2*dx,height:rect.height+2*dy,rotationDegrees:rect.rotationDegrees)
+            return KeyHitGeometry(normalizedRect:hit,size:size).contains(point)
+        }
+        for touch in touches where (touch.state == .making || touch.state == .touching) && touch.telemetry?.fingerID != 6 {
+            let x = CGFloat(touch.position.x), y = CGFloat(touch.position.y)
+            guard x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { continue }
+            let point = CGPoint(x:x*size.width,y:(1-y)*size.height)
+            for row in rects.indices { for col in rects[row].indices where contains(rects[row][col],point) { active.insert(.grid(row,col)) } }
+            for button in buttons where contains(button.rect,point) { active.insert(.button(button.id)) }
+        }
+        for key in Array(entries.keys) where !active.contains(key) && entries[key]?.active == true {
+            entries[key]?.active = false; entries[key]?.releasedAt = now
+        }
+        prune(now:now)
+        for key in active {
+            if entries[key] == nil, entries.count >= Self.capacity {
+                if let oldest = entries.min(by:{$0.value.releasedAt < $1.value.releasedAt})?.key { entries.removeValue(forKey:oldest) }
+            }
+            let rect:NormalizedRect
+            switch key {
+            case let .grid(row,col): rect = rects[row][col]
+            case let .button(id): guard let button = buttons.first(where:{$0.id == id}) else { continue }; rect = button.rect
+            }
+            entries[key] = .init(rect:rect,active:true,releasedAt:now)
+        }
+    }
+}
+
 /// UI-only history, bounded independently of engine sampling. Physical contact IDs
 /// determine continuity; lifting and replay rewinds always start a new segment.
 struct ContactPathHistory {
@@ -187,6 +252,39 @@ final class TrackpadSurfaceView: NSView {
     private var leftPaths = ContactPathHistory()
     private var rightPaths = ContactPathHistory()
     private var pathRefreshScheduled = false
+    private var leftKeyHighlights = KeyHitHighlightHistory(), rightKeyHighlights = KeyHitHighlightHistory()
+    private var highlightRefreshScheduled = false
+    private func refreshKeyHighlights() {
+        guard !highlightRefreshScheduled, !leftKeyHighlights.entries.isEmpty || !rightKeyHighlights.entries.isEmpty else { return }
+        highlightRefreshScheduled = true
+        DispatchQueue.main.asyncAfter(deadline:.now()+1.0/30) { [weak self] in
+            guard let self else { return }; self.highlightRefreshScheduled = false
+            let now = CACurrentMediaTime()
+            self.leftKeyHighlights.prune(now:now); self.rightKeyHighlights.prune(now:now)
+            self.needsDisplay = true
+            if self.window != nil { self.refreshKeyHighlights() }
+        }
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            let now = CACurrentMediaTime(); leftKeyHighlights.prune(now:now); rightKeyHighlights.prune(now:now)
+            refreshKeyHighlights()
+        }
+    }
+    private func drawKeyHighlights(_ history:KeyHitHighlightHistory,origin:CGPoint) {
+        let now = CACurrentMediaTime()
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect:.init(origin:origin,size:snapshot.trackpadSize)).addClip()
+        for entry in history.entries.values {
+            let opacity = entry.opacity(at:now)
+            guard opacity > 0 else { continue }
+            let path = keyPath(for:entry.rect,origin:origin,trackpadSize:snapshot.trackpadSize)
+            NSColor.systemGreen.withAlphaComponent(opacity*0.22).setFill(); path.fill()
+            NSColor.systemGreen.withAlphaComponent(opacity*0.9).setStroke(); path.lineWidth = 1.8; path.stroke()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+    }
 
     private func refreshPaths() {
         guard snapshot.showContactPaths, !pathRefreshScheduled,
@@ -235,11 +333,13 @@ final class TrackpadSurfaceView: NSView {
             if !snapshot.showContactPaths || snapshot.replayModeEnabled != oldValue.replayModeEnabled {
                 leftPaths.clear()
                 rightPaths.clear()
+                leftKeyHighlights.clear(); rightKeyHighlights.clear()
             }
             let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
             if cachedStaticRenderInput != staticRenderInput {
                 cachedStaticRenderInput = staticRenderInput
                 cachedStaticImage = nil
+                leftKeyHighlights.clear(); rightKeyHighlights.clear()
             }
             needsDisplay = true
         }
@@ -252,6 +352,10 @@ final class TrackpadSurfaceView: NSView {
     func updateTouches(left: [OMSTouchData], right: [OMSTouchData]) {
         leftTouches = left
         rightTouches = right
+        let now = CACurrentMediaTime()
+        leftKeyHighlights.update(left,rects:snapshot.leftLayout.normalizedKeyRects,buttons:snapshot.leftCustomButtons,isSteno:snapshot.leftLayout.isSteno,size:snapshot.trackpadSize,now:now)
+        rightKeyHighlights.update(right,rects:snapshot.rightLayout.normalizedKeyRects,buttons:snapshot.rightCustomButtons,isSteno:snapshot.rightLayout.isSteno,size:snapshot.trackpadSize,now:now)
+        refreshKeyHighlights()
         if snapshot.showContactPaths {
             let now = CACurrentMediaTime()
             leftPaths.update(left, now: now)
@@ -301,6 +405,8 @@ final class TrackpadSurfaceView: NSView {
             drawPaths(leftPaths, origin: leftOrigin)
             drawPaths(rightPaths, origin: rightOrigin)
         }
+        drawKeyHighlights(leftKeyHighlights,origin:leftOrigin)
+        drawKeyHighlights(rightKeyHighlights,origin:rightOrigin)
         drawTrackpadDynamicSide(
             origin: leftOrigin,
             layout: snapshot.leftLayout,
@@ -419,18 +525,7 @@ final class TrackpadSurfaceView: NSView {
             trackpadSize: trackpadSize
         )
         drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
-        if snapshot.replayModeEnabled && selectedKey == nil && selectedButtonID == nil,
-           let highlightedRect = replayHitRect(
-               layout: layout,
-               customButtons: customButtons,
-               touches: touches,
-               trackpadSize: trackpadSize
-           ) {
-            drawReplayHighlight(
-                highlightedRect,
-                origin: origin
-            )
-        }
+
     }
 
     private func selectionEvent(at point: CGPoint) -> TrackpadSurfaceSelectionEvent? {
@@ -794,68 +889,6 @@ final class TrackpadSurfaceView: NSView {
         pressure.draw(at: CGPoint(x: center.x - pressureSize.width / 2,
                                   y: center.y - pressureSize.height / 2),
                       withAttributes: pressureAttributes)
-    }
-
-    private func drawReplayHighlight(_ rect: CGRect, origin: CGPoint) {
-        let translated = rect.offsetBy(dx: origin.x, dy: origin.y)
-        let path = NSBezierPath(roundedRect: translated, xRadius: 6, yRadius: 6)
-        NSColor.systemGreen.withAlphaComponent(0.95).setStroke()
-        path.lineWidth = 2.5
-        path.stroke()
-    }
-
-    private func replayHitRect(
-        layout: ContentViewModel.Layout,
-        customButtons: [CustomButton],
-        touches: [OMSTouchData],
-        trackpadSize: CGSize
-    ) -> CGRect? {
-        guard trackpadSize.width > 0, trackpadSize.height > 0 else { return nil }
-        guard let selectedTouch = touches.first(where: { Self.isPhysicalContactState($0.state) }) ?? touches.first else {
-            return nil
-        }
-
-        let x = CGFloat(selectedTouch.position.x) * trackpadSize.width
-        let y = (1.0 - CGFloat(selectedTouch.position.y)) * trackpadSize.height
-        let point = CGPoint(x: x, y: y)
-        let normalizedPoint = normalize(point: point, in: trackpadSize)
-
-        var bestRect: CGRect?
-        var bestScore = -CGFloat.greatestFiniteMagnitude
-        var bestArea = CGFloat.greatestFiniteMagnitude
-
-        for row in layout.normalizedKeyRects {
-            for rect in row {
-                guard rect.contains(normalizedPoint) else { continue }
-                let score = rect.distanceToEdge(from: normalizedPoint)
-                let area = rect.width * rect.height
-                if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
-                    bestRect = rect.boundingRect(in: trackpadSize)
-                    bestScore = score
-                    bestArea = area
-                }
-            }
-        }
-
-        for button in customButtons {
-            let rect = button.rect.rect(in: trackpadSize)
-            guard rect.contains(point) else { continue }
-            let score = edgeDistanceScore(point: point, rect: rect)
-            let area = rect.width * rect.height
-            if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
-                bestRect = rect
-                bestScore = score
-                bestArea = area
-            }
-        }
-
-        return bestRect
-    }
-
-    private func edgeDistanceScore(point: CGPoint, rect: CGRect) -> CGFloat {
-        let dx = min(point.x - rect.minX, rect.maxX - point.x)
-        let dy = min(point.y - rect.minY, rect.maxY - point.y)
-        return min(dx, dy)
     }
 
     private func normalize(point: CGPoint, in trackpadSize: CGSize) -> CGPoint {

@@ -539,8 +539,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     static let defaultsKey = "AppleMagicTouchstream.handGestureBindings.v1"
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
+    var stenoConnectionMode:StenoConnectionMode?
+    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .plugin }
+    var stenoHapticOnTouch:Bool?
+    var stenoHapticOnRelease:Bool?
+    var stenoForceThreshold:Double?
+    var resolvedStenoForceThreshold:Double { StenoForceThreshold.validated(stenoForceThreshold ?? StenoForceThreshold.defaultValue) }
     var stenoPointerMode:StenoPointerMode?
-    var resolvedStenoPointerMode:StenoPointerMode { stenoPointerMode ?? .twoFinger }
+    var resolvedStenoPointerMode:StenoPointerMode { .twoFinger }
     var coordinated: TwoHandGestureSettings?
     var twoHand: TwoHandGestureSettings { coordinated ?? TwoHandGestureSettings() }
     init(mirrored seed: PerHandGestureSettings = PerHandGestureSettings()) { left = seed; right = seed }
@@ -790,6 +796,16 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
         guard (!trigger.chord.isCorner || trigger.phase == .hold), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
         assignments[trigger.key] = action
+    }
+}
+
+
+extension TwoHandGestureSettings {
+    var stenoConfigurationOnly:Self {
+        var value = Self()
+        value.holdThresholds = holdThresholds
+        value.setAction(.openConfig,for:.init(chord:.fourCorners,phase:.hold))
+        return value
     }
 }
 
