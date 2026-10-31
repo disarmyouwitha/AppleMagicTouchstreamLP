@@ -1,12 +1,12 @@
 # NEXT:
 ======= 
-1. Instead of having Text implemented like that, can we just add a textbox here? Maybe you can (briefly) explain in the placeholder text that text saved here is saved in keychain encrypted.
-2. In Gesture mode there is no way to edit the gestures? Like there is a slick menu from Keymap Tuning that is not being used here.&#x20;
-3. `key` dropdown in both keyboard and gesture `shortcut builder` sucks. Why doesn't it match the other ones we have elsewhere for `key`? 
-4. When I try to apply Text  to a Gesture without a name it doesn't save (and doesn't indicate it is required)
-5. After it pastes it does NOT clear the clipboard immediately, only after 30 seconds.
-===
-0. How does Better Touch Tools paste during Locked screens? It shows this message when it happens, ("Secure Input Active, System Settings has enabled secure input - simulated keystrokes may not arrivem"
+1. Is there any way for me to preserve what I had in the clipboard previously? (Is there a reason for it to be copied to the clipboard, or that's how keychain works?)
+2. How does Better Touch Tools paste during Locked screens? It shows this message when it happens, ("Secure Input Active, System Settings has enabled secure input - simulated keystrokes may not arrive")
+3. In the GUI, when you select a Gesture or Key with Text assigned can it be hidden until you click an eye icon? Is that stuff pulled from keychain as well?
+4. Shortcut "Key" Menu is still missing the Shortcuts on the list
+5. Lets Hide Steno keys (in Keymap Tuning Primary/Hold) menu unless you are in the Steno Layout 
+6. I think Custom Buttons should be moved above Shortcut Builder 
+7. I think the textbox is too big for Text and should be slimmer, like in my screenshot (You can have the "Apply Text" button to the right of it) and move the "Shortcut: none" label below it.
 ===
 1. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
 * * Start working on TouchStream gesture defaults template!!
