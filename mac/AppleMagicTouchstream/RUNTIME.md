@@ -39,7 +39,12 @@ Control/Command flags on subsequent clicks or typing.
 
 ## Saved text shortcuts
 
-Shortcut Builder's Text tab stores the content as a generic-password item in the
+Keyboard and Gesture Shortcut Builders share an inline Text box below App, with
+a brief encrypted-Keychain placeholder and a separate Apply Text button. Names
+are optional; a successful text save displays confirmation. Both builders use the
+shared searchable grouped chooser for Key, and the gesture header directly opens
+the same saved-shortcut manager as Keymap Tuning. The Text box stores content as a
+generic-password item in the
 local login Keychain. A calling-app-only access list protects the item. The signed
 app reads its own unlocked items without repeated approval; authentication UI is
 forbidden, so locked/unavailable items fail closed. Keychain operations run on
@@ -66,9 +71,10 @@ the input/output queues.
 
 Pasting necessarily exposes plaintext to the destination and clipboard. Clipboard
 items carry the concealed marker for supporting history tools and, while the app
-is running, clear after 30 seconds only if the clipboard change count still
-identifies that item. A new
-user copy is preserved. The prior clipboard is replaced; content is not retained
+is running, clear after a 200 ms Command-V delivery window, only if the clipboard
+change count still identifies that item. Failed paste dispatch clears immediately.
+The output queue waits through delivery/cleanup, and a new user copy is preserved.
+The prior clipboard is replaced; content is not retained
 in settings, action labels or diagnostics.
 
 ## TouchStream layout

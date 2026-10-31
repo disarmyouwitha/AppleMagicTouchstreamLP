@@ -102,6 +102,14 @@ final class TextShortcutPasteRequest:@unchecked Sendable {
     }
 }
 
+/// Clear only our paste item; another app/user copy always wins.
+@MainActor enum TextShortcutClipboardCleanup {
+    static let deliveryDelay:TimeInterval = 0.2
+    static func clearIfOwned(_ board:NSPasteboard,changeCount:Int) {
+        if board.changeCount == changeCount { board.clearContents() }
+    }
+}
+
 final class TextShortcutPasteOutput:@unchecked Sendable {
     static let shared = TextShortcutPasteOutput()
     private struct State { var generation:UInt64 = 0; var requests:[UUID:TextShortcutPasteRequest] = [:] }
@@ -145,9 +153,22 @@ final class TextShortcutPasteOutput:@unchecked Sendable {
                     board.clearContents()
                     guard board.writeObjects([item]) else { request.finish(false); return }
                     let changeCount = board.changeCount
-                    DispatchService.shared.performPreparedTextPaste(pid:destination.pid,generation:generation) { request.finish($0) }
-                    DispatchQueue.main.asyncAfter(deadline:.now()+30) {
-                        if board.changeCount == changeCount { board.clearContents() }
+                    let boardName = board.name.rawValue
+                    DispatchService.shared.performPreparedTextPaste(pid:destination.pid,generation:generation) { pasted in
+                        Task { @MainActor in
+                            let board = NSPasteboard(name:NSPasteboard.Name(boardName))
+                            // Cmd-V delivery is asynchronous. Keep the output queue ordered
+                            // through this brief read window, then erase our item immediately.
+                            if pasted {
+                                DispatchQueue.main.asyncAfter(deadline:.now()+TextShortcutClipboardCleanup.deliveryDelay) {
+                                    TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:changeCount)
+                                    request.finish(true)
+                                }
+                            } else {
+                                TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:changeCount)
+                                request.finish(false)
+                            }
+                        }
                     }
                 }
             }

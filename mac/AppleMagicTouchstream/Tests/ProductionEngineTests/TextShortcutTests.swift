@@ -57,6 +57,45 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         XCTAssertThrowsError(try MemoryTextShortcutStore().load(id))
     }
 
+    func testUnnamedTextActionSurvivesGestureAndLibraryRoundTrip() throws {
+        let store = MemoryTextShortcutStore()
+        for name:String? in [nil,"","   "] {
+            let action = try TextShortcutReference.savedAction(text:"private text",name:name,using:store)
+            XCTAssertNil(action.customName)
+            let gesture = GestureAction.shortcut(.init(label:action.storageLabel))
+            var settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(gesture,for:.twoFingerTap,in:.left))
+            let restored = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+            XCTAssertEqual(restored,settings)
+            XCTAssertEqual(GestureAction(rawValue:gesture.rawValue),gesture)
+            let library = try XCTUnwrap(ShortcutActionLibraryStorage.encode([action.storageLabel]))
+            XCTAssertEqual(ShortcutActionLibraryStorage.decode(from:library),[action.storageLabel])
+            XCTAssertTrue(GestureActionChooser.shortcutActions(GestureTrigger.twoFingerTap.allowedActions,savedLabels:[action.storageLabel]).contains(gesture))
+        }
+    }
+
+    func testClipboardCleanupErasesOwnedTextAndPreservesNewCopies() {
+        let board = NSPasteboard(name:.init("AMT-test-"+UUID().uuidString))
+        defer { board.releaseGlobally() }
+        board.clearContents(); board.setString("secret",forType:.string)
+        let owned = board.changeCount
+        TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:owned)
+        XCTAssertNil(board.string(forType:.string))
+        board.setString("secret",forType:.string)
+        let old = board.changeCount
+        board.clearContents(); board.setString("new user copy",forType:.string)
+        TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:old)
+        XCTAssertEqual(board.string(forType:.string),"new user copy")
+        XCTAssertLessThanOrEqual(TextShortcutClipboardCleanup.deliveryDelay,0.2)
+    }
+
+    func testShortcutKeyChooserRetainsEverySupportedKeyExactlyOnce() {
+        let labels = ShortcutActionBuilder.shortcutKeyGroups.flatMap(\.actions)
+        XCTAssertEqual(labels.filter { $0.isEmpty }.count,1)
+        XCTAssertEqual(Set(labels.filter { !$0.isEmpty }),Set(KeyActionCatalog.shortcutKeyLabels))
+        XCTAssertEqual(Set(labels).count,labels.count)
+    }
+
     func testKeychainQueryProhibitsAuthenticationUIAndUsesAnAppSpecificService() {
         let id = UUID(), query = KeychainTextShortcutStore.query(id:UUID())
         XCTAssertEqual(query[kSecUseAuthenticationUI as String] as? String,kSecUseAuthenticationUIFail as String)
@@ -95,7 +134,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
             XCTAssertFalse(held); applied.append(value)
         },textStore:store)
         let host = NSHostingView(rootView:root.padding(16).background(Color(nsColor:.windowBackgroundColor)))
-        host.frame = NSRect(x:0,y:0,width:550,height:380)
+        host.frame = NSRect(x:0,y:0,width:550,height:520)
         let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
         window.contentView = host
         func editors(_ view:NSView) -> [NSTextView] { (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(editors) }
