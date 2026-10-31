@@ -123,6 +123,8 @@ struct StenoChordEngine:Sendable {
     private(set) var pointerUpdate:StenoPointerUpdate?
     private(set) var hapticTouchPads:UInt8 = 0, hapticReleasePads:UInt8 = 0
     private var heldKeys = SIMD2<UInt64>(repeating:0)
+    private var strokeKeys = SIMD2<UInt64>(repeating:0)
+    private(set) var completedKeys = SIMD2<UInt64>(repeating:0)
     private var strokePads:UInt8 = 0
     private var pendingTouchPads:UInt8 = 0
     private var touchDue = SIMD2<Double>(repeating:0)
@@ -141,6 +143,7 @@ struct StenoChordEngine:Sendable {
         hapticCancellationRevision &+= 1; pendingTouchPads = 0
         hapticTouchPads = 0; hapticReleasePads = 0; heldKeys = SIMD2(repeating:0); strokePads = 0
         pointerUpdate = pointerOwned ? .init(reset:true):nil
+        strokeKeys = SIMD2(repeating:0); completedKeys = SIMD2(repeating:0)
         chord = 0; pointer.reset(); pointerOwned = false; sawBothHands = false; cancelledPointerPads = 0
         if let blockedPads { down = blockedPads }
         blocked = down != 0
@@ -161,6 +164,7 @@ struct StenoChordEngine:Sendable {
     mutating func process<C:Collection>(device:Int,time:Double,touches:C,regions:[StenoRegion],size:CGSize) -> UInt64? where C.Element == OMSRawTouch {
         guard device == 0 || device == 1 else { return nil }
         let pad = UInt8(1)<<device
+        completedKeys = SIMD2(repeating:0)
         pointerUpdate = nil; hapticTouchPads = 0; hapticReleasePads = 0
         var count = 0, keys:UInt64 = 0
         var valid = time.isFinite && time >= 0 && (times[device] < 0 || time > times[device])
@@ -199,7 +203,7 @@ struct StenoChordEngine:Sendable {
         let mouse = pointer.process(mode:pointerMode,device:device,time:time,touches:touches,mayActivate:pointerOwned || (down == pad && !sawBothHands),forceThreshold:forceThreshold)
         if mouse.claimed {
             if !pointerOwned { pendingTouchPads = 0; hapticCancellationRevision &+= 1 }
-            pointerOwned = true; chord = 0
+            pointerOwned = true; chord = 0; strokeKeys = SIMD2(repeating:0)
         }
         if pointerOwned {
             pointerUpdate = mouse.update
@@ -213,8 +217,9 @@ struct StenoChordEngine:Sendable {
             hapticTouchPads = pad; pendingTouchPads &= ~pad
         }
         if keys != 0 { strokePads |= pad }
-        chord |= keys
+        chord |= keys; strokeKeys[device] |= keys
         guard down == 0 else { return nil }
+        completedKeys = strokeKeys; strokeKeys = SIMD2(repeating:0)
         let stroke = chord; chord = 0; pointer.reset(); sawBothHands = false
         if stroke != 0 {
             hapticTouchPads |= pendingTouchPads; hapticReleasePads = strokePads

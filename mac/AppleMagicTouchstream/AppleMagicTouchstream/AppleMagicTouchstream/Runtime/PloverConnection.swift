@@ -11,6 +11,8 @@ final class PloverConnection:@unchecked Sendable {
     private struct State {
         var listener:Int32 = -1, client:Int32 = -1
         var port:UInt16 = 0
+        var enabled = false
+        var nextRetry:UInt64 = 0
         var ready = false
         var hello:[UInt8] = []
         var accepted:UInt64 = 0, sent:UInt64 = 0, dropped:UInt64 = 0
@@ -22,11 +24,25 @@ final class PloverConnection:@unchecked Sendable {
     private let requestedPort:UInt16
     init(port:UInt16 = 31572) { requestedPort = port }
     var snapshot:Snapshot { state.withLock { .init(port:$0.port,connected:$0.ready,sent:$0.sent,dropped:$0.dropped,error:$0.error) } }
-    func start() {
+    func start() { start(onlyIfEnabled:false) }
+    private func start(onlyIfEnabled:Bool) {
         state.withLock { value in
+            if onlyIfEnabled && !value.enabled { return }
+            value.enabled = true
+            if value.timer == nil {
+                let timer = DispatchSource.makeTimerSource(queue:queue)
+                timer.schedule(deadline:.now(),repeating:.milliseconds(25),leeway:.milliseconds(2))
+                timer.setEventHandler { [weak self] in self?.tick() }
+                value.timer = timer; timer.resume()
+            }
             guard value.listener < 0 else { return }
+            value.nextRetry = DispatchTime.now().uptimeNanoseconds+1_000_000_000
             let fd = socket(AF_INET,SOCK_STREAM,0)
             guard fd >= 0 else { value.error = "Could not create Plover connection."; return }
+            // Permit immediate rebinding after our previous accepted TCP session.
+            // SO_REUSEPORT stays off: another live listener must remain exclusive.
+            var reuse:Int32 = 1
+            _ = setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&reuse,socklen_t(MemoryLayout<Int32>.size))
             var address = sockaddr_in()
             address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size); address.sin_family = sa_family_t(AF_INET)
             address.sin_port = requestedPort.bigEndian; address.sin_addr = in_addr(s_addr:INADDR_LOOPBACK.bigEndian)
@@ -37,13 +53,16 @@ final class PloverConnection:@unchecked Sendable {
             var length = socklen_t(MemoryLayout<sockaddr_in>.size)
             _ = withUnsafeMutablePointer(to:&address) { pointer in pointer.withMemoryRebound(to:sockaddr.self,capacity:1) { getsockname(fd,$0,&length) } }
             value.listener = fd; value.port = UInt16(bigEndian:address.sin_port); value.error = nil
-            let timer = DispatchSource.makeTimerSource(queue:queue)
-            timer.schedule(deadline:.now(),repeating:.milliseconds(25),leeway:.milliseconds(2))
-            timer.setEventHandler { [weak self] in self?.tick() }
-            value.timer = timer; timer.resume()
+
         }
     }
+    /// Retry only an unavailable listener; never interrupt a healthy client.
+    func retry() {
+        start(onlyIfEnabled:true)
+    }
     private func tick() {
+        let needsRetry = state.withLock { $0.enabled && $0.listener < 0 && DispatchTime.now().uptimeNanoseconds >= $0.nextRetry }
+        if needsRetry { retry() }
         state.withLock { value in
             guard value.listener >= 0 else { return }
             if value.client < 0 {
@@ -92,6 +111,7 @@ final class PloverConnection:@unchecked Sendable {
     func flush() { state.withLock { Self.closeClient(&$0) } }
     func stop() {
         state.withLock { value in
+            value.enabled = false; value.nextRetry = 0
             value.timer?.cancel(); value.timer = nil; Self.closeClient(&value)
             if value.listener >= 0 { Darwin.close(value.listener); value.listener = -1 }
             value.port = 0; value.error = nil

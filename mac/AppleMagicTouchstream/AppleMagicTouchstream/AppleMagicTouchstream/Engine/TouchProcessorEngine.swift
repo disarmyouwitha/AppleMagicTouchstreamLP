@@ -559,6 +559,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var stenoHapticTouch = false, stenoHapticRelease = false
     private var padsWithContacts:UInt8 = 0
     private var layoutTransitionBlockedPads:UInt8 = 0
+    private var stenoFeedbackBindings = SidePair<[KeyBinding]>(left:[],right:[])
     private var stenoRegions = SidePair<[StenoRegion]>(left:[],right:[])
     private var persistentLayer: Int = 0
     private var leftDeviceIndex: Int?
@@ -1156,6 +1157,13 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if suppressKeyboard { cancelStenoStroke(blockedPads:padsWithContacts) }
             else if let chord = stenoChord.process(device:isLeftDevice ? 0:1,time:now,touches:touches,regions:stenoRegions[side],size:trackpadSize) {
                 dispatchService.postStenoStroke(chord,sourceSequence:currentDispatchSourceSequence())
+                for pad in 0..<2 {
+                    let hand:TrackpadSide = pad == 0 ? .left:.right
+                    let mask = stenoChord.completedKeys[pad]
+                    for binding in stenoFeedbackBindings[hand] {
+                        if case let .steno(key) = binding.action, mask & key.bit != 0 { onDebugBindingDetected(binding) }
+                    }
+                }
             }
             if stenoChord.hapticCancellationRevision != hapticRevision { dispatchService.cancelStenoHaptics() }
             if stenoHapticTouch {
@@ -2087,9 +2095,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
             snapRadiusSq.append(radius * radius)
         }
 
+        stenoFeedbackBindings[side].removeAll(keepingCapacity:true)
         stenoRegions[side].removeAll(keepingCapacity:true)
         func appendSteno(_ binding:KeyBinding) {
             guard case let .steno(key) = binding.action else { return }
+            stenoFeedbackBindings[side].append(binding)
             let rect = binding.normalizedRect
             // 1.5 mm overlap permits one fingertip to chord adjacent row keys.
             let dx = 1.5/trackpadWidthMm, dy = dx*canvasSize.width/max(canvasSize.height,1)
@@ -2440,9 +2450,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             reason: "snapped",
             binding: binding
         )
-        #if DEBUG
         onDebugBindingDetected(binding)
-        #endif
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         let modifierFlags = currentModifierFlags()
@@ -3039,6 +3047,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         switch binding.action {
+        case .layerMomentary,.layerToggle,.leftClick,.doubleClick,.rightClick,.middleClick,
+             .volumeUp,.volumeDown,.textPaste,.appLaunch,.voice:
+            onDebugBindingDetected(binding)
+        default: break
+        }
+        switch binding.action {
         case let .layerMomentary(layer):
             guard let touchKey else { return }
             momentaryLayerTouches.set(touchKey, layer)
@@ -3143,9 +3157,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) {
         guard case let .key(code, flags) = binding.action else { return }
 
-        #if DEBUG
         onDebugBindingDetected(binding)
-#endif
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         sendKey(
@@ -3177,9 +3189,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) -> Bool {
         guard canHoldRepeat(binding: binding) else { return false }
 
-        #if DEBUG
         onDebugBindingDetected(binding)
-        #endif
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         recordFrameDecision(
@@ -3453,9 +3463,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     private func postKey(binding: KeyBinding, keyDown: Bool, aggregateFlags: Bool = false) {
         guard case let .key(code, flags) = binding.action else { return }
-#if DEBUG
-        onDebugBindingDetected(binding)
-#endif
+        if keyDown { onDebugBindingDetected(binding) }
         dispatchService.postKey(
             code: code,
             flags: aggregateFlags ? (keyDown ? currentModifierFlags().union(flags) : currentModifierFlags()) : flags,

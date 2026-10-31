@@ -90,7 +90,10 @@ final class StenoChordTests:XCTestCase {
         XCTAssertNil(chord.process(device:0,time:1.1,touches:[touch(0.5,id:2)],regions:regions,size:size))
         XCTAssertNil(chord.process(device:0,time:1.15,touches:[],regions:regions,size:size))
         XCTAssertEqual(chord.process(device:1,time:100.1,touches:[],regions:regions,size:size),StenoKey.s1.bit|StenoKey.tl.bit)
+        XCTAssertEqual(chord.completedKeys[0],StenoKey.s1.bit|StenoKey.tl.bit)
+        XCTAssertEqual(chord.completedKeys[1],StenoKey.tl.bit)
         XCTAssertNil(chord.process(device:1,time:100.2,touches:[],regions:regions,size:size))
+        XCTAssertEqual(chord.completedKeys,SIMD2<UInt64>(repeating:0))
     }
     func testCancellationInvalidOverflowStaleAndDisconnectNeverEmitPartialStroke() {
         for reason in ["reset","overflow","invalid","stale","disconnect"] {
@@ -128,6 +131,7 @@ final class StenoMouseTests:XCTestCase {
         frame(&engine,1.08,[touch(0.23),touch(0.43,id:2)])
         XCTAssertNotNil(engine.pointerUpdate?.millimetres)
         XCTAssertNil(frame(&engine,1.1,[]))
+        XCTAssertEqual(engine.completedKeys,SIMD2<UInt64>(repeating:0))
     }
     func testOneFingerForceHoldsDragThroughMotionPressureDropAndCountChanges() {
         var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
@@ -459,6 +463,7 @@ final class StenoMouseTests:XCTestCase {
             }
             frame(run,1.02,4,before.map(moved)); frame(run,1.04,4,[])
             XCTAssertTrue(packets(run).isEmpty)
+            XCTAssertTrue(run.output.acceptedBindings.isEmpty)
             XCTAssertTrue(run.output.events.contains { if case let .systemKey(label) = $0.kind { return label.hasPrefix("StenoMouse:42:move") }; return false })
             XCTAssertTrue(run.output.events.allSatisfy { if case .systemKey = $0.kind { return true }; return false })
             XCTAssertNil(GeminiPRPort.shared.snapshot.path)
@@ -466,6 +471,8 @@ final class StenoMouseTests:XCTestCase {
             first = contact(.tl,preset:.steno,side:.left)
             frame(run,1.06,4,[first]); frame(run,1.08,4,[])
             XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
+            XCTAssertEqual(run.output.acceptedBindings.map(\.label),[StenoKey.tl.legend])
+            XCTAssertEqual(run.output.acceptedBindings.map(\.side),[.left])
         }
     }
     func testProductionForceClickReplayRecordsPrimaryAndSecondaryWithoutNativeOutput() {

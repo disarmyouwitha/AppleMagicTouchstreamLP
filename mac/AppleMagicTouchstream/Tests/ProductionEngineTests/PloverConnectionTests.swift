@@ -58,6 +58,22 @@ import XCTest
         XCTAssertFalse(server.send(StenoKey.zr.bit))
         server.stop(); XCTAssertEqual(server.snapshot.port,0)
     }
+    func testUnavailableListenerAutomaticallyRecoversAndRetryPreservesHealthyConnection() throws {
+        let first = PloverConnection(port:0); first.start()
+        let port = first.snapshot.port
+        let recovering = PloverConnection(port:port); recovering.start()
+        defer { first.stop(); recovering.stop() }
+        XCTAssertNotNil(recovering.snapshot.error)
+        first.stop()
+        XCTAssertTrue(wait { recovering.snapshot.port == port && recovering.snapshot.error == nil })
+        let fd = try client(port); defer { Darwin.close(fd) }
+        write(fd,Array("AMT-GEMINIPR/1\n".utf8)); XCTAssertEqual(read(fd,6),Array("READY\n".utf8))
+        XCTAssertTrue(wait { recovering.snapshot.connected })
+        recovering.retry(); XCTAssertTrue(recovering.snapshot.connected)
+        XCTAssertTrue(recovering.send(StenoKey.s1.bit)); XCTAssertEqual(read(fd,6),GeminiPRPacket.bytes(for:StenoKey.s1.bit))
+        recovering.stop(); recovering.retry()
+        XCTAssertEqual(recovering.snapshot.port,0) // UI/timer retries cannot resurrect a stopped transport.
+    }
     private func python() throws -> URL {
         guard let path = PloverPluginInstaller.python(in:URL(fileURLWithPath:"/Applications/Plover.app")) else {
             throw XCTSkip("Plover is not installed; bundled-runtime integration is optional.")

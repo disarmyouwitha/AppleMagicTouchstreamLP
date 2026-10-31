@@ -57,6 +57,7 @@ struct TrackpadSurfaceSnapshot {
     var selectedRightKey: TrackpadSurfaceKeySelection?
     var selectedLeftButtonID: UUID?
     var selectedRightButtonID: UUID?
+    var acceptedKeyHits:[ContentViewModel.DebugHit] = []
 }
 
 extension TrackpadSurfaceSnapshot {
@@ -110,8 +111,7 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
     }
 }
 
-/// UI-only contact highlights; chords retain every key, independently of output
-/// and inspector selection. No animation work is added to the input engine.
+/// UI-only fade history populated exclusively by accepted keyboard output.
 struct KeyHitHighlightHistory {
     enum Key:Hashable { case grid(Int,Int), button(UUID) }
     struct Entry {
@@ -138,41 +138,13 @@ struct KeyHitHighlightHistory {
         }
         entries = entries.filter { $0.value.active || $0.value.opacity(at:now) > 0 }
     }
-    mutating func update(_ touches:[OMSTouchData],rects:[[NormalizedRect]],buttons:[CustomButton],isSteno:Bool,size:CGSize,now:Double) {
-        guard size.width > 0, size.height > 0, now.isFinite else { clear(); return }
-        if let inputTime = touches.map(\.timestamp).max(), inputTime.isFinite {
-            if let previous = lastInputTime, inputTime < previous { clear() }
-            lastInputTime = inputTime
-        }
-        var active:Set<Key> = []
-        func contains(_ rect:NormalizedRect,_ point:CGPoint) -> Bool {
-            let dx:CGFloat = isSteno ? 1.5/160:0, dy = dx*size.width/size.height
-            let hit = NormalizedRect(x:rect.x-dx,y:rect.y-dy,width:rect.width+2*dx,height:rect.height+2*dy,rotationDegrees:rect.rotationDegrees)
-            return KeyHitGeometry(normalizedRect:hit,size:size).contains(point)
-        }
-        for touch in touches where (touch.state == .making || touch.state == .touching) && touch.telemetry?.fingerID != 6 {
-            let x = CGFloat(touch.position.x), y = CGFloat(touch.position.y)
-            guard x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { continue }
-            let point = CGPoint(x:x*size.width,y:(1-y)*size.height)
-            for row in rects.indices { for col in rects[row].indices where contains(rects[row][col],point) { active.insert(.grid(row,col)) } }
-            for button in buttons where contains(button.rect,point) { active.insert(.button(button.id)) }
-        }
-        for key in Array(entries.keys) where !active.contains(key) && entries[key]?.active == true {
-            entries[key]?.active = false; entries[key]?.releasedAt = now
-        }
-        prune(now:now)
-        for key in active {
-            if entries[key] == nil, entries.count >= Self.capacity {
-                if let oldest = entries.min(by:{$0.value.releasedAt < $1.value.releasedAt})?.key { entries.removeValue(forKey:oldest) }
-            }
-            let rect:NormalizedRect
-            switch key {
-            case let .grid(row,col): rect = rects[row][col]
-            case let .button(id): guard let button = buttons.first(where:{$0.id == id}) else { continue }; rect = button.rect
-            }
-            entries[key] = .init(rect:rect,active:true,releasedAt:now)
-        }
+    mutating func record(key:Key,rect:NormalizedRect,time:Double) {
+        guard time.isFinite else { return }
+        if entries[key] == nil, entries.count >= Self.capacity,
+           let oldest = entries.min(by:{$0.value.releasedAt < $1.value.releasedAt})?.key { entries.removeValue(forKey:oldest) }
+        entries[key] = .init(rect:rect,active:false,releasedAt:time)
     }
+
 }
 
 /// UI-only history, bounded independently of engine sampling. Physical contact IDs
@@ -253,6 +225,8 @@ final class TrackpadSurfaceView: NSView {
     private var rightPaths = ContactPathHistory()
     private var pathRefreshScheduled = false
     private var leftKeyHighlights = KeyHitHighlightHistory(), rightKeyHighlights = KeyHitHighlightHistory()
+    var keyHighlightCount:Int { leftKeyHighlights.entries.count+rightKeyHighlights.entries.count }
+    private var lastKeyHitID:UInt64 = 0
     private var highlightRefreshScheduled = false
     private func refreshKeyHighlights() {
         guard !highlightRefreshScheduled, !leftKeyHighlights.entries.isEmpty || !rightKeyHighlights.entries.isEmpty else { return }
@@ -333,6 +307,8 @@ final class TrackpadSurfaceView: NSView {
             if !snapshot.showContactPaths || snapshot.replayModeEnabled != oldValue.replayModeEnabled {
                 leftPaths.clear()
                 rightPaths.clear()
+            }
+            if snapshot.replayModeEnabled != oldValue.replayModeEnabled {
                 leftKeyHighlights.clear(); rightKeyHighlights.clear()
             }
             let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
@@ -341,6 +317,15 @@ final class TrackpadSurfaceView: NSView {
                 cachedStaticImage = nil
                 leftKeyHighlights.clear(); rightKeyHighlights.clear()
             }
+            for hit in snapshot.acceptedKeyHits where hit.id > lastKeyHitID {
+                let key:KeyHitHighlightHistory.Key
+                if let position = hit.position { key = .grid(position.row,position.column) }
+                else if let id = hit.customButtonID { key = .button(id) } else { continue }
+                if hit.side == .left { leftKeyHighlights.record(key:key,rect:hit.normalizedRect,time:hit.timestamp) }
+                else { rightKeyHighlights.record(key:key,rect:hit.normalizedRect,time:hit.timestamp) }
+            }
+            if let id = snapshot.acceptedKeyHits.last?.id { lastKeyHitID = max(lastKeyHitID,id) }
+            refreshKeyHighlights()
             needsDisplay = true
         }
     }
@@ -352,10 +337,6 @@ final class TrackpadSurfaceView: NSView {
     func updateTouches(left: [OMSTouchData], right: [OMSTouchData]) {
         leftTouches = left
         rightTouches = right
-        let now = CACurrentMediaTime()
-        leftKeyHighlights.update(left,rects:snapshot.leftLayout.normalizedKeyRects,buttons:snapshot.leftCustomButtons,isSteno:snapshot.leftLayout.isSteno,size:snapshot.trackpadSize,now:now)
-        rightKeyHighlights.update(right,rects:snapshot.rightLayout.normalizedKeyRects,buttons:snapshot.rightCustomButtons,isSteno:snapshot.rightLayout.isSteno,size:snapshot.trackpadSize,now:now)
-        refreshKeyHighlights()
         if snapshot.showContactPaths {
             let now = CACurrentMediaTime()
             leftPaths.update(left, now: now)

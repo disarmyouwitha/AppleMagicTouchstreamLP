@@ -216,8 +216,9 @@ partial packets cannot carry into the next connection. Replay opens neither.
 installed Plover.app's Python/plugin installer. Installation is explicit-button
 only, offline (`--no-index --no-deps`, reinstalling the bundled wheel), and scoped to Plover's user-plugin directory.
 It does not launch Plover or edit its machine/output settings. Status/error output
-is visible. The connection status sits beside the button, green when connected and
-red when disconnected. A read-only probe checks Plover's actual plugin environment,
+is visible. The green/red connection status sits in the left half below Connection; the
+install button occupies the right half below the transport picker. Touch/release
+haptic checkboxes share an equal-width row. A read-only probe checks Plover's actual plugin environment,
 entry point and installed source against the bundled wheel. Matching installations
 disable the button as “Plugin Installed”; missing or modified copies keep Install
 or Update available. Detection refreshes on panel entry, app activation and after
@@ -242,13 +243,25 @@ cleanup invalidates queued strokes and flushes the port. Replay records intended
 packets as `GeminiPR:` plus twelve hex digits in the existing system-event envelope;
 it never opens the live port or sends serial/native keyboard output.
 
-Key contact highlights work across layouts and replay, including every key in a
-steno chord and custom buttons. The renderer keeps a bounded per-pad history:
-held keys have a green fill/outline, then fade smoothly for 1.2 seconds after lift.
-Rotations and the STENO seam overlap use the same hit geometry as the keys. Layout
-changes and replay rewind clear history; missing input expires stale held
-highlights. The 30 Hz fade refresh is UI-only and stops after the history empties
-or the view closes. Recognition/output timing and inspector selection are separate.
+Key highlights follow accepted keyboard actions, including snapped keys, custom
+buttons and completed STENO chords. Candidate contacts and gesture-owned contacts
+never highlight keys. STENO feedback waits for the completed valid stroke, so a
+mouse/force/cancelled chord cannot flash keys. A bounded UI history fades each
+accepted key's green fill/outline over 1.2 seconds; accepting it again restarts its
+fade. Geometry retains key rotation. The 30 Hz animation stops when empty or closed.
+This display does not change recognition, output timing or inspector selection.
+
+Recognized gestures appear beside Peak on the originating pad for two seconds
+since the latest recognition update. Both gestures report on both pads. Candidates
+do not appear. Feedback is observational and never becomes recognition evidence;
+it expires or clears on interpreter stop, without altering ownership/cleanup.
+
+The Plover plugin listener retries a failed bind once per second while enabled.
+SO_REUSEADDR permits rapid reuse after an earlier TCP session, while exclusive live
+listener ownership is retained (no SO_REUSEPORT). Retry Connection attempts the same
+listener without disturbing an established client. Stop disables retries atomically;
+no UI refresh can reopen a disabled transport. The plugin still owns client reconnect,
+and disconnected strokes are dropped rather than buffered.
 
 ## Snap radius
 

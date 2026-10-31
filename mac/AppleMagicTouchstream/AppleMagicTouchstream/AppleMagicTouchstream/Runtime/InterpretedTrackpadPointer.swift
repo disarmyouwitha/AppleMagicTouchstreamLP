@@ -35,6 +35,30 @@ struct TwoFingerPointerTracker {
     }
 }
 
+/// Observational UI feedback, separate from candidate reservation/output ownership.
+struct GestureRecognitionFeedback:Equatable,Sendable {
+    enum Kind:Equatable,Sendable {
+        case gesture(GestureTrigger), direction(GestureTrigger,GestureMovementDirection), hold(Int), coordinated(TwoHandTrigger), corner(TwoHandTrigger)
+        case stenoMove, stenoDrag, stenoLeftClick, stenoRightClick
+        var title:String {
+            switch self {
+            case let .gesture(trigger):return trigger.title
+            case let .direction(trigger,direction):return "\(trigger.title) \(direction.arrow)"
+            case let .hold(count):return "\(count)-finger hold"
+            case let .corner(trigger):return "\(trigger.chord.title) \(trigger.phase.title)"
+            case let .coordinated(trigger):return "Both · \(trigger.chord.title) \(trigger.phase.title)"
+            case .stenoMove:return "2F mouse"
+            case .stenoDrag:return "1F drag/select"
+            case .stenoLeftClick:return "2F left-click"
+            case .stenoRightClick:return "3F right-click"
+            }
+        }
+    }
+    var kind:Kind
+    var time:Double
+    func visible(at now:Double) -> Bool { now >= time && now-time < 2 }
+}
+
 final class InterpretedTrackpadPointer: @unchecked Sendable {
     static let shared = InterpretedTrackpadPointer()
     /// Installed only by live enable; no observer is created by init or tests.
@@ -49,6 +73,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private struct State {
         var devices: Set<UInt64> = []
+        var feedback = Dictionary<UInt64,GestureRecognitionFeedback>(minimumCapacity:2)
+        mutating func recognized(_ kind:GestureRecognitionFeedback.Kind,device:UInt64,time:Double) {
+            if feedback[device] == nil && feedback.count >= 2 { feedback.removeAll(keepingCapacity:true) }
+            feedback[device] = .init(kind:kind,time:time)
+        }
         var stenoDevices:Set<UInt64> = []
         var stenoDragOwners:Set<UInt64> = Set(minimumCapacity:2)
         var cornerEngines:[UInt64:SinglePadCornersEngine] = [:]
@@ -57,6 +86,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsCornerTimer:Bool { !cornerEligible.isEmpty && cornerSettings.values.contains { $0.enabled(.fourCorners) } }
         mutating func postCorner(_ trigger:TwoHandTrigger,device:UInt64,time:Double) {
             let action = cornerSettings[device]?.action(trigger) ?? .disabled
+            if action != .disabled { recognized(.corner(trigger),device:device,time:time) }
             if action == .openConfig { openConfiguration?() }
             else if devices.contains(device) { postDirectional(action,device:device,time:time,owner:.corners(device)) }
         }
@@ -68,6 +98,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsTwoHandTimer:Bool { twoHandEligible && TwoHandChord.allCases.contains(where:twoHandSettings.enabled) }
         mutating func postCoordinated(_ trigger:TwoHandTrigger,time:Double) {
             let action = twoHandSettings.action(trigger)
+            if action != .disabled {
+                if let device = twoHandPads.left { recognized(.coordinated(trigger),device:device,time:time) }
+                if let device = twoHandPads.right { recognized(.coordinated(trigger),device:device,time:time) }
+            }
             if action == .openConfig { openConfiguration?() }
             else if twoHandTrusted, let device = twoHandPads.left { postDirectional(action,device:device,time:time,owner:.coordinated) }
         }
@@ -86,6 +120,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var holdThresholds:[UInt64:[Int:Double]] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
+            recognized(.hold(count),device:device,time:time)
             keyboardClaimed.insert(device)
             taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
             forceClicks.cancel(device:device)
@@ -132,6 +167,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
+            recognized(.gesture(trigger),device:device,time:time)
             keyboardClaimed.insert(device)
             // Same discrete dispatcher as Force/Hold/directions, including native
             // Dock actions (Mission Control / App Exposé have no CGEvent sequence).
@@ -282,6 +318,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
         }
         mutating func reset() {
+            feedback.removeAll(keepingCapacity:true)
             stenoDragOwners.removeAll(keepingCapacity:true)
             keyboardEpoch &+= 1; keyboardClaimed.removeAll(keepingCapacity:true)
             for owner in Array(shortcutOwners) { releaseShortcut(owner) }
@@ -525,6 +562,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         $0.momentumTimer?.cancel(); $0.momentumTimer = nil
         $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
     } }
+    /// Reading UI feedback never enables input or output.
+    func recentRecognition(device:UInt64,now:Double = CACurrentMediaTime()) -> GestureRecognitionFeedback? {
+        lock.withLock { value in
+            guard let feedback = value.feedback[device], feedback.visible(at:now) else { return nil }
+            return feedback
+        }
+    }
     /// Uses the shared acceleration, cursor bounds, button ownership and discrete
     /// click builder. Only the controller's live selected/owned/armed/AX gate enables it.
     func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double]) {
@@ -549,7 +593,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
             guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { state.reset(device:device); return }
-            state.lastReceipt[device] = CACurrentMediaTime(); state.lastContactTime[device] = time
+            let now = CACurrentMediaTime()
+            state.lastReceipt[device] = now; state.lastContactTime[device] = time
+            if update.dragging { state.recognized(.stenoDrag,device:device,time:now) }
+            else if update.millimetres != nil { state.recognized(.stenoMove,device:device,time:now) }
+            if let click = update.click { state.recognized(click == .secondary ? .stenoRightClick:.stenoLeftClick,device:device,time:now) }
             if update.reset { state.tracker.reset(device:device) }
             if update.dragBegan, state.buttonObserverHealthy {
                 if state.drag.owner != nil {
@@ -769,6 +817,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                         time:hostTime,doubleClickInterval:state.doubleClickInterval,
                         flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),clicks:&state.clicks,
                         shortcut:state.appleShortcuts[forceBindings.action(for:trigger)],mouseEventSource:state.drag.eventSource) {
+                state.recognized(.gesture(trigger),device:device,time:hostTime)
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
@@ -807,7 +856,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 default: return false
                 }
             })
-            if update.phase == .began || update.phase == .changed { state.keyboardClaimed.insert(device) }
+            if update.phase == .began || update.phase == .changed {
+                state.keyboardClaimed.insert(device)
+                if let gesture = update.gesture { state.recognized(.gesture(gesture),device:device,time:hostTime) }
+            }
             let directionalOwner = update.gesture.flatMap { state.directionals[device]?[$0] } != nil
             if !directionalOwner, let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
                     contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
@@ -829,6 +881,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if update.phase == .began { state.directionalRepeater.reset(device:device) }
                 let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments)
                 let heldDirection = state.directionalStepper.direction(device:device)
+                if let heldDirection { state.recognized(.direction(gesture,heldDirection),device:device,time:hostTime) }
                 if let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
                     contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:true,direction:heldDirection),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
                     state.postHold(count:count,device:device,time:hostTime)

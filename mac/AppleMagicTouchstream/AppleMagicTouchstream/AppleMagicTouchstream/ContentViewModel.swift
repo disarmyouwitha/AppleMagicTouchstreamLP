@@ -963,15 +963,19 @@ final class ContentViewModel: ObservableObject {
         let label: String
         let side: TrackpadSide
         let timestamp: TimeInterval
+        let id:UInt64
+        let normalizedRect:NormalizedRect
+        let position:GridKeyPosition?
+        let customButtonID:UUID?
     }
 
+    @Published private(set) var acceptedKeyHits:[DebugHit] = []
+    private var keyHitSequence:UInt64 = 0
     @Published private(set) var debugLastHitLeft: DebugHit?
     @Published private(set) var debugLastHitRight: DebugHit?
 
     private var keymapEditingEnabled = false
     private var debugHitPublishingEnabled = true
-    private let debugHitMinimumPublishInterval: TimeInterval = 1.0 / 20.0
-    private var lastDebugHitPublishTimeBySide = SidePair(left: 0.0, right: 0.0)
 
     private let manager = OMSManager.shared
     private let renderSnapshotService: RuntimeRenderSnapshotService
@@ -1053,15 +1057,18 @@ final class ContentViewModel: ObservableObject {
     private func recordDebugHit(_ binding: KeyBinding) {
         guard debugHitPublishingEnabled else { return }
         let now = CACurrentMediaTime()
-        let lastPublishTime = lastDebugHitPublishTimeBySide[binding.side]
-        guard now - lastPublishTime >= debugHitMinimumPublishInterval else { return }
-        lastDebugHitPublishTimeBySide[binding.side] = now
+        keyHitSequence &+= 1
         let hit = DebugHit(
             rect: binding.rect,
             label: binding.label,
             side: binding.side,
-            timestamp: now
+            timestamp: now,
+            id:keyHitSequence, normalizedRect:binding.normalizedRect,
+            position:binding.position,customButtonID:binding.customButtonID
         )
+        acceptedKeyHits.removeAll { now-$0.timestamp > KeyHitHighlightHistory.fadeDuration }
+        if acceptedKeyHits.count >= 128 { acceptedKeyHits.removeFirst() }
+        acceptedKeyHits.append(hit)
         switch binding.side {
         case .left:
             debugLastHitLeft = hit
@@ -1269,6 +1276,7 @@ final class ContentViewModel: ObservableObject {
         keymapEditingEnabled = enabled
         debugHitPublishingEnabled = !enabled
         if enabled {
+            acceptedKeyHits.removeAll()
             debugLastHitLeft = nil
             debugLastHitRight = nil
         }

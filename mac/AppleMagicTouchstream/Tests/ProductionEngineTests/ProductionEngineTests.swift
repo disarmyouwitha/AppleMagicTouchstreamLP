@@ -55,6 +55,19 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testKeyboardFeedbackWaitsForAcceptanceAndGestureReservationNeverHighlights() {
+        let typing = session()
+        frame(typing,1,[contact()])
+        frame(typing,1.02,[])
+        XCTAssertFalse(typing.output.acceptedBindings.isEmpty)
+        let gesture = session()
+        frame(gesture,1,[contact()],reserved:true)
+        frame(gesture,1.02,[contact(x:0.8)],reserved:true)
+        frame(gesture,1.04,[],reserved:true)
+        XCTAssertTrue(gesture.output.acceptedBindings.isEmpty)
+        XCTAssertTrue(keys(gesture).isEmpty)
+    }
+
     func testContactPathsAreBoundedExpireAndRestartAfterLift() {
         func touch(_ x: Float, timestamp: Double = 1) -> OMSTouchData {
             OMSTouchData(deviceID: "42", deviceIndex: 0, id: 1,

@@ -3,7 +3,8 @@
 It looks really good!
 1. When you gesture over keys (they don't dispatch) they shouldn't highlight either!
 2. When a gesture is recognized can we display it somewhere? Maybe to the right of peak for the trackpad it was for?
-3. 
+3. GUI edits: a. Lets move Haptic on Release to be to the right of Haptic on touch 50/50. b.  Lets move "Plugin Installed" to the right of the column under the "Plover Plugin" dropdown. (And move "Connected" status message to the LHS under "Connection"
+4. "Plover connection unavailable port 31572" however when I switched layout and went back it was fine.. is there a way to refresh this if it happens?
 ===
 0. It seems like we were able to do 2f gesture really well can we just enable all non-tapping gestures? (Maybe a Gestures toggle?)
 > Lets force and maintain the Force gestures I decide for Mouse during STENO mode.

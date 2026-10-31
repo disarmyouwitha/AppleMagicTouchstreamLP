@@ -130,8 +130,10 @@ struct StenoConnectionPanel:View {
                             .monospacedDigit().frame(width:32,alignment:.trailing)
                     }.frame(maxWidth:.infinity)
                 }
-                Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox)
-                Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox)
+                HStack(spacing:12) {
+                    Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox).frame(maxWidth:.infinity,alignment:.leading)
+                    Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox).frame(maxWidth:.infinity,alignment:.leading)
+                }
                 Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
                 HStack {
                     Text("Connection").frame(maxWidth:.infinity,alignment:.leading)
@@ -141,12 +143,20 @@ struct StenoConnectionPanel:View {
                 }
                 if connectionMode == .plugin {
                     let plugin = PloverConnection.shared.snapshot
-                    HStack(spacing:8) {
+                    HStack(spacing:12) {
+                        HStack {
+                            Text(plugin.connected ? "Connected":"Not connected")
+                                .font(.caption.weight(.semibold)).foregroundStyle(plugin.connected ? Color.green:Color.red)
+                            if !plugin.connected {
+                                Button { PloverConnection.shared.retry() } label: {
+                                    Image(systemName:"arrow.clockwise")
+                                }.buttonStyle(.borderless).help("Retry Connection").accessibilityLabel("Retry Connection")
+                            }
+                        }.frame(maxWidth:.infinity,alignment:.leading)
                         Button(installer.installing ? "Installing…":installer.checking ? "Checking…":installer.isInstalled ? "Plugin Installed":installer.installation?.state == "outdated" ? "Update Plugin":"Install Plugin") { installer.install() }
                             .disabled(installer.installing || installer.checking || installer.isInstalled)
                             .help(installer.installation?.version.map { "Installed version: \($0)" } ?? "Install the bundled Plover plugin")
-                        Text(plugin.connected ? "Connected":"Not connected")
-                            .font(.caption.weight(.semibold)).foregroundStyle(plugin.connected ? Color.green:Color.red)
+                            .frame(maxWidth:.infinity,alignment:.trailing)
                     }
                     if let error = plugin.error { Text(error).font(.caption).foregroundStyle(.red) }
                     if let message = installer.message { Text(message).font(.caption).textSelection(.enabled).fixedSize(horizontal:false,vertical:true) }

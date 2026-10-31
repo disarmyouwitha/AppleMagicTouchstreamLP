@@ -2657,9 +2657,9 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: trackpadSpacing) {
-                    pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure)
+                    pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure,device:viewModel.leftDevice?.deviceIDNumeric)
                         .frame(width: trackpadSize.width, alignment: .leading)
-                    pressureHeader(title: "Right Trackpad", peakPressure: rightPeakPressure)
+                    pressureHeader(title: "Right Trackpad", peakPressure: rightPeakPressure,device:viewModel.rightDevice?.deviceIDNumeric)
                         .frame(width: trackpadSize.width, alignment: .leading)
                 }
                 ZStack(alignment: .topLeading) {
@@ -2681,7 +2681,8 @@ struct ContentView: View {
                             selectedLeftKey: surfaceKeySelection(from: selectedLeftKey),
                             selectedRightKey: surfaceKeySelection(from: selectedRightKey),
                             selectedLeftButtonID: selectedButton(for: leftButtons)?.id,
-                            selectedRightButtonID: selectedButton(for: rightButtons)?.id
+                            selectedRightButtonID: selectedButton(for: rightButtons)?.id,
+                            acceptedKeyHits:viewModel.acceptedKeyHits
                         ),
                         viewModel: viewModel,
                         selectionHandler: surfaceSelectionChanged,
@@ -2707,13 +2708,19 @@ struct ContentView: View {
         }
 
         @ViewBuilder
-        private func pressureHeader(title: String, peakPressure: Int) -> some View {
+        private func pressureHeader(title: String, peakPressure: Int,device:UInt64?) -> some View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(title)
                     .font(.subheadline)
                 Text("Peak: \(peakPressure)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                TimelineView(.periodic(from:.now,by:0.1)) { _ in
+                    if let device, let feedback = InterpretedTrackpadPointer.shared.recentRecognition(device:device) {
+                        Text(feedback.kind.title).font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.tail).help(feedback.kind.title)
+                    }
+                }
             }
         }
 

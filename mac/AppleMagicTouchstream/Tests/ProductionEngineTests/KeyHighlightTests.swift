@@ -1,60 +1,41 @@
 import AppKit
 import OpenMultitouchSupport
+import QuartzCore
 import XCTest
 @testable import GlassToKeyRuntime
 
-final class KeyHighlightTests:XCTestCase {
-    private let size = CGSize(width:160,height:115)
-    private let rects:[[NormalizedRect]] = [[.init(x:0.1,y:0.1,width:0.2,height:0.2),.init(x:0.4,y:0.1,width:0.2,height:0.2)]]
-    private func touch(_ x:Float = 0.2,_ y:Float = 0.8,id:Int32 = 1,time:Double = 1,state:OMSState = .touching) -> OMSTouchData {
-        .init(deviceID:"42",deviceIndex:4,id:id,position:.init(x:x,y:y),total:1,pressure:50,axis:.init(major:5,minor:3),angle:0,density:1,state:state,timestamp:time)
-    }
-    private func update(_ history:inout KeyHitHighlightHistory,_ touches:[OMSTouchData],now:Double,steno:Bool = false) {
-        history.update(touches,rects:rects,buttons:[],isSteno:steno,size:size,now:now)
-    }
-    func testEveryChordKeyStaysBrightWhileHeldThenFadesAndExpires() throws {
+@MainActor final class KeyHighlightTests:XCTestCase {
+    private let rect = NormalizedRect(x:0.1,y:0.1,width:0.2,height:0.2,rotationDegrees:30)
+    func testAcceptedChordKeysFadeIndependentlyAndRetriggerOnlyTheirOwnKey() throws {
         var history = KeyHitHighlightHistory()
-        update(&history,[touch(),touch(0.5,id:2)],now:1)
+        history.record(key:.grid(0,0),rect:rect,time:1)
+        history.record(key:.grid(0,1),rect:rect,time:1)
         XCTAssertEqual(history.entries.count,2)
-        update(&history,[touch(time:1.2),touch(0.5,id:2,time:1.2)],now:1.2)
-        XCTAssertTrue(history.entries.values.allSatisfy { $0.opacity(at:1.2) == 1 })
-        update(&history,[],now:1.3)
-        for entry in history.entries.values {
-            XCTAssertEqual(entry.opacity(at:1.3),1)
-            XCTAssertEqual(entry.opacity(at:1.9),0.5,accuracy:0.001)
-            XCTAssertEqual(entry.opacity(at:2.5),0,accuracy:0.001)
-        }
-        history.prune(now:2.51); XCTAssertTrue(history.entries.isEmpty)
+        XCTAssertEqual(history.entries[.grid(0,0)]?.rect,rect)
+        XCTAssertEqual(try XCTUnwrap(history.entries[.grid(0,0)]).opacity(at:1.6),0.5,accuracy:0.001)
+        history.record(key:.grid(0,0),rect:rect,time:1.6)
+        XCTAssertEqual(history.entries[.grid(0,0)]?.opacity(at:1.6),1)
+        XCTAssertEqual(try XCTUnwrap(history.entries[.grid(0,1)]).opacity(at:1.6),0.5,accuracy:0.001)
+        history.prune(now:2.21); XCTAssertEqual(history.entries.count,1)
+        history.prune(now:2.81); XCTAssertTrue(history.entries.isEmpty)
     }
-    func testNewHitRebrightensOnlyThatKeyAndRewindClearsOldKeys() throws {
-        var history = KeyHitHighlightHistory()
-        update(&history,[touch(),touch(0.5,id:2)],now:1)
-        update(&history,[],now:1.1)
-        update(&history,[touch(time:1.5)],now:1.5)
-        XCTAssertEqual(history.entries[.grid(0,0)]?.opacity(at:1.5),1)
-        XCTAssertLessThan(try XCTUnwrap(history.entries[.grid(0,1)]?.opacity(at:1.5)),1)
-        update(&history,[touch(time:0.5)],now:1.6)
-        XCTAssertEqual(history.entries.count,1)
-        XCTAssertNil(history.entries[.grid(0,1)])
+    func testRawGestureTouchesNeverLightKeysAndOnlyAcceptedFeedbackDoes() {
+        let view = TrackpadSurfaceView(frame:.init(x:0,y:0,width:320,height:115))
+        let touch = OMSTouchData(deviceID:"42",deviceIndex:0,id:1,position:.init(x:0.2,y:0.8),total:1,pressure:50,axis:.init(major:5,minor:3),angle:0,density:1,state:.touching,timestamp:1)
+        view.updateTouches(left:[touch],right:[])
+        XCTAssertEqual(view.keyHighlightCount,0)
+        var snapshot = TrackpadSurfaceSnapshot.empty
+        snapshot.acceptedKeyHits = [.init(rect:.zero,label:"F",side:.left,timestamp:CACurrentMediaTime(),id:1,normalizedRect:rect,position:.init(side:.left,row:0,column:0),customButtonID:nil)]
+        view.snapshot = snapshot
+        XCTAssertEqual(view.keyHighlightCount,1)
+        view.snapshot = snapshot // Publishing the same event must not restart its fade.
+        XCTAssertEqual(view.keyHighlightCount,1)
     }
-    func testStenoSeamHighlightsBothKeysAndOrdinaryLayoutsKeepDirectHitGeometry() {
-        let rows:[[NormalizedRect]] = [[.init(x:0.1,y:0.1,width:0.2,height:0.2)], [.init(x:0.1,y:0.31,width:0.2,height:0.2)]]
-        let seam = touch(0.2,0.695)
-        var steno = KeyHitHighlightHistory(), normal = KeyHitHighlightHistory()
-        steno.update([seam],rects:rows,buttons:[],isSteno:true,size:size,now:1)
-        normal.update([seam],rects:rows,buttons:[],isSteno:false,size:size,now:1)
-        XCTAssertEqual(steno.entries.count,2); XCTAssertEqual(normal.entries.count,0)
-    }
-    func testRotatedGeometryMissesInvalidPositionsAndMissingFramesCannotStick() {
-        var history = KeyHitHighlightHistory()
-        let rotated:[[NormalizedRect]] = [[.init(x:0.1,y:0.1,width:0.2,height:0.2,rotationDegrees:30)]]
-        history.update([touch()],rects:rotated,buttons:[],isSteno:false,size:size,now:1)
-        XCTAssertEqual(history.entries.count,1)
-        history.prune(now:1.5)
-        XCTAssertTrue(history.entries.values.allSatisfy { !$0.active && $0.opacity(at:1.5) < 1 })
-        history.prune(now:2.5); XCTAssertTrue(history.entries.isEmpty)
-        update(&history,[touch(.nan),touch(2)],now:3)
-        XCTAssertTrue(history.entries.isEmpty)
+    func testGestureFeedbackPersistsBrieflyAfterReleaseAndExpires() {
+        let value = GestureRecognitionFeedback(kind:.gesture(.threeFingerMove),time:1)
+        XCTAssertTrue(value.visible(at:2.9)); XCTAssertFalse(value.visible(at:3))
+        XCTAssertFalse(value.visible(at:0.9))
+        XCTAssertEqual(GestureRecognitionFeedback.Kind.stenoDrag.title,"1F drag/select")
     }
 }
 
@@ -73,6 +54,10 @@ final class KeyHighlightTests:XCTestCase {
             let left = snapshot.leftLayout.normalizedKeyRects[1].prefix(3).enumerated().map { index,rect in
                 OMSTouchData(deviceID:"42",deviceIndex:4,id:Int32(index+1),position:.init(x:Float(rect.centerX),y:Float(1-rect.centerY)),total:1,pressure:50,axis:.init(major:5,minor:3),angle:0,density:1,state:.touching,timestamp:1)
             }
+            snapshot.acceptedKeyHits = snapshot.leftLayout.normalizedKeyRects[1].prefix(3).enumerated().map { index,rect in
+                .init(rect:.zero,label:"key",side:.left,timestamp:CACurrentMediaTime(),id:UInt64(index+1),normalizedRect:rect,position:.init(side:.left,row:1,column:index),customButtonID:nil)
+            }
+            view.snapshot = snapshot
             view.updateTouches(left:left,right:[])
             let image = NSImage(size:view.bounds.size); image.lockFocusFlipped(true)
             NSColor.windowBackgroundColor.setFill(); view.bounds.fill(); view.draw(view.bounds); image.unlockFocus()

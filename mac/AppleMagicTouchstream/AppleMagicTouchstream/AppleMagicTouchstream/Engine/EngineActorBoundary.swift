@@ -770,6 +770,7 @@ final class ProductionReplaySession {
     final class Output: @unchecked Sendable {
         var events: [RuntimeDispatchEvent] = []
         var voiceTransitions: [Bool] = []
+        var acceptedBindings:[ContentViewModel.KeyBinding] = []
         var intents = SidePair(left: ContentViewModel.IntentDisplay.idle,
                                right: ContentViewModel.IntentDisplay.idle)
     }
@@ -787,7 +788,7 @@ final class ProductionReplaySession {
             dispatchService: sink, scheduler: scheduler,
             voiceSessionChanged: { output.voiceTransitions.append($0) },
             onTypingEnabledChanged: { _ in }, onActiveLayerChanged: { _ in },
-            onDebugBindingDetected: { _ in },
+            onDebugBindingDetected: { output.acceptedBindings.append($0) },
             onIntentStateChanged: { output.intents = $0 }, onVoiceGestureChanged: { _ in }
         )
         engine.setCaptureFrameDiagnosticsEnabled(true)

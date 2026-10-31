@@ -264,7 +264,11 @@ The test suite's offscreen hosts render without taking over trackpads or posting
 input. For available gesture-workspace preview hooks, inspect the corresponding
 `Tests/ProductionEngineTests` renderer test before choosing its environment flag.
 
-`KeyHighlightTests` checks simultaneous keys, held brightness, fade timing,
-retrigger, rewind, rotated/seam geometry and stale-input expiry without native
-output. `KEY_HIGHLIGHT_PREVIEW_DIR=/tmp ./test.sh --filter KeyHighlightPreviewTests`
-renders STENO and TouchStream contact highlights using synthetic touches.
+`KeyHighlightTests` checks accepted chord keys, independent fade/retrigger,
+rotation and raw-contact exclusion, without native output. Production engine tests
+check that gesture reservation never publishes keyboard feedback; STENO tests check
+per-pad completed-key masks and mouse cancellation. Gesture feedback expiry is pure.
+`KEY_HIGHLIGHT_PREVIEW_DIR=/tmp ./test.sh --filter KeyHighlightPreviewTests`
+renders STENO and TouchStream accepted-key highlights using synthetic output feedback.
+`PloverConnectionTests` covers occupied-port automatic recovery, healthy-client retry,
+exclusive binding and retry-after-stop, using private loopback servers only.
