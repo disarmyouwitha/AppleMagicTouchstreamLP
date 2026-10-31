@@ -119,7 +119,7 @@ struct StenoConnectionPanel:View {
                     .font(.caption).fixedSize(horizontal:false,vertical:true)
 
                 HStack(spacing:12) {
-                    Text("Force Threshold").frame(maxWidth:.infinity,alignment:.leading)
+                    Text("Force Threshold").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                     HStack {
                         Slider(value:Binding(get:{ draftThreshold },set:{ draftThreshold = $0.rounded() }),in:1...500,onEditingChanged:{ editing in
                             isEditingThreshold = editing
@@ -128,18 +128,18 @@ struct StenoConnectionPanel:View {
                             .accessibilityLabel("Force threshold")
                         Text(draftThreshold,format:.number.precision(.fractionLength(0)))
                             .monospacedDigit().frame(width:32,alignment:.trailing)
-                    }.frame(maxWidth:.infinity)
+                    }.frame(minWidth:0,maxWidth:.infinity)
                 }
                 HStack(spacing:12) {
-                    Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox).frame(maxWidth:.infinity,alignment:.leading)
-                    Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox).frame(maxWidth:.infinity,alignment:.leading)
+                    Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                    Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                 }
                 Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
-                HStack {
-                    Text("Connection").frame(maxWidth:.infinity,alignment:.leading)
+                HStack(spacing:12) {
+                    Text("Connection").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                     Picker("Connection",selection:$connectionMode) {
                         ForEach(StenoConnectionMode.allCases) { Text($0.title).tag($0) }
-                    }.labelsHidden().frame(maxWidth:.infinity)
+                    }.labelsHidden().frame(minWidth:0,maxWidth:.infinity)
                 }
                 if connectionMode == .plugin {
                     let plugin = PloverConnection.shared.snapshot
@@ -152,11 +152,14 @@ struct StenoConnectionPanel:View {
                                     Image(systemName:"arrow.clockwise")
                                 }.buttonStyle(.borderless).help("Retry Connection").accessibilityLabel("Retry Connection")
                             }
-                        }.frame(maxWidth:.infinity,alignment:.leading)
-                        Button(installer.installing ? "Installing…":installer.checking ? "Checking…":installer.isInstalled ? "Plugin Installed":installer.installation?.state == "outdated" ? "Update Plugin":"Install Plugin") { installer.install() }
+                        }.frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                        Button { installer.install() } label: {
+                            Text(installer.installing ? "Installing…":installer.checking ? "Checking…":installer.isInstalled ? "Plugin Installed":installer.installation?.state == "outdated" ? "Update Plugin":"Install Plugin")
+                                .frame(maxWidth:.infinity)
+                        }
                             .disabled(installer.installing || installer.checking || installer.isInstalled)
                             .help(installer.installation?.version.map { "Installed version: \($0)" } ?? "Install the bundled Plover plugin")
-                            .frame(maxWidth:.infinity,alignment:.trailing)
+                            .frame(minWidth:0,maxWidth:.infinity)
                     }
                     if let error = plugin.error { Text(error).font(.caption).foregroundStyle(.red) }
                     if let message = installer.message { Text(message).font(.caption).textSelection(.enabled).fixedSize(horizontal:false,vertical:true) }
@@ -177,7 +180,7 @@ struct StenoConnectionPanel:View {
                     Text("Plover: Gemini PR, 9600 baud, 8N1, no flow control.").font(.caption2).foregroundStyle(.secondary)
                     Text("Sent: \(status.sent) · Dropped: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
                 }
-            }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
+            }.padding(12).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                 .background(Color.primary.opacity(0.05),in:RoundedRectangle(cornerRadius:12))
                 .onAppear {
                     draftThreshold = forceThreshold
