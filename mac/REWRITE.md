@@ -1,7 +1,12 @@
 # NEXT:
 =======
-2. Can we squeeze an Asterisk-size layout (both halves) onto a single trackpad??
-3. Can we maybe have one "STENO" Layout in the main layout picker, and then add a second layout picker above Connection: "Layout: <Steno Asterisk, Steno 6x3, Steno Single
+It looks great! Next:
+1. Does Snap Radius affect STENO mode? Should it? (I feel like it would mess things up)
+2. Take a look at this screenshot, Can we elongate the keys to where they almost touch in the middle for Steno Asterisk? I think you are supposed to press them at the same time a lot. Can we also make the top # bar a little longer to almost touch the top keys? make sure to do this for both halves of Steno Asterisk. 
+3. I can see in the key dispatched as well as the highlight of the key that when I press 2 buttons at the same time like T+S it either doesn't trigger any dispatch, or it picks one of the two (This happens even with Snap Radius off) I notice that if I drag my fingers across the keys it will include them in the chord, which I feel like is correct. [Like if I do K-A-T-S by tap/hold at once I get "cat" but if I drag my RHS finger T->S then I get "cats"]
+===
+0. Can we adjust the STENO Single layer to align the LHS thumb keys with A more under R (like in their diagram) and U aligned more under R (the spacing between them seems fine!) @screenshot
+> Can we also modify the length/spacing of the STENO Single layout to match what we just did for STENO Asterisk?
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
@@ -17,7 +22,7 @@ Basically, Pinch gestures are not being recognized properly
 ===
 * Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
 > Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys?
-> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno)
+> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno$$)
 
 
 `AppleMagicTouchstream`:

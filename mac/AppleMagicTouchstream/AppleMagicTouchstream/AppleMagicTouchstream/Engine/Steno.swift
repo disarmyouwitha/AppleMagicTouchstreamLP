@@ -281,12 +281,12 @@ enum StenoLayoutDefinition {
     // Key bounds from the maker's published Asterisk layout drawing:
     // https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg
     // Its 626-unit board width is calibrated to the published 234 mm board.
-    // Keep the drawing's independent widths/heights, rather than stretching each
+    // Keep the drawing's widths and outside edges, rather than stretching each
     // half to fill its pad. Rounded ends use their full enclosing touch bounds.
     @MainActor private static func asteriskRects(side:TrackpadSide) -> [[NormalizedRect]] {
         let scale:CGFloat = 234/626
         let left = side == .left
-        let bounds:[[CGRect]] = left ? [
+        var bounds:[[CGRect]] = left ? [
             [CGRect(x:9.13078,y:3.9384,width:177.665,height:10.3977)],
             [CGRect(x:9.06885,y:25.1304,width:32.78585,height:61.5942),
              CGRect(x:57.4512,y:25.1304,width:32.7859,height:61.5942),
@@ -304,6 +304,21 @@ enum StenoLayoutDefinition {
                 [CGRect(x:577.839,y:97.0658,width:40.6866,height:55.1532)],
             [351.35,394.749].map { CGRect(x:$0,y:181.603,width:32.549,height:56.961) }
         ]
+        // Touch surfaces need a narrow seam for a stationary fingertip to chord
+        // both rows. Keep the outside edges and widths from the drawing, extend
+        // only into the row gap, and bring the number bar down to the same gap.
+        let gap = CGFloat(1)/scale // 1 mm visible seam; independent of Snap Radius.
+        let seam = (CGFloat(86.7246)+97.0658)/2
+        for column in bounds[1].indices where column != (left ? 4:0) {
+            bounds[1][column].size.height = seam-gap/2-bounds[1][column].minY
+        }
+        for column in bounds[2].indices {
+            let bottom = bounds[2][column].maxY
+            bounds[2][column].origin.y = seam+gap/2
+            bounds[2][column].size.height = bottom-bounds[2][column].minY
+        }
+        let upperEdge = bounds[1].map(\.minY).min()!
+        bounds[0][0].size.height = upperEdge-gap-bounds[0][0].minY
         let minX:CGFloat = left ? 9.06885:347.734
         let maxX:CGFloat = left ? 230.978:618.5256
         let offsetX = (ContentView.trackpadWidthMM-(maxX-minX)*scale)/2

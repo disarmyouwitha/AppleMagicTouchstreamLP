@@ -555,16 +555,52 @@ final class StenoMouseTests:XCTestCase {
         for pair in zip(upper,upper.dropFirst()) { XCTAssertLessThan(pair.0.x+pair.0.width,pair.1.x) }
         XCTAssertEqual(StenoKey.star1.legend,StenoKey.star3.legend)
     }
-    func testAsteriskUsesPublishedDrawingDimensionsWithoutStretchingEitherHalf() {
+    func testAsteriskKeepsPublishedWidthsAndNarrowsRowAndNumberBarSeams() {
         let size = CGSize(width:432,height:310.23), scale = 234.0/626.0
         for side in [TrackpadSide.left,.right] {
             let rects = StenoLayoutDefinition.layout(preset:.steno,side:side,size:size).normalizedKeyRects
             let key = rects[1][side == .left ? 0:1]
             XCTAssertEqual(key.width*ContentView.trackpadWidthMM,32.786*scale,accuracy:0.001)
-            XCTAssertEqual(key.height*ContentView.trackpadHeightMM,61.5942*scale,accuracy:0.001)
+            let lower = rects[2][0]
+            XCTAssertEqual((lower.y-key.y-key.height)*ContentView.trackpadHeightMM,1,accuracy:0.001)
+            let top = rects[1].map(\.y).min()!
+            XCTAssertEqual((top-rects[0][0].y-rects[0][0].height)*ContentView.trackpadHeightMM,1,accuracy:0.001)
             let star = rects[1][side == .left ? 4:0]
             XCTAssertEqual(star.height*ContentView.trackpadHeightMM,126.5809*scale,accuracy:0.001)
             XCTAssertEqual(rects[3][0].height*ContentView.trackpadHeightMM,56.961*scale,accuracy:0.001)
+        }
+    }
+    func testStationaryAsteriskSeamChordsAreIndependentOfSnapRadiusOnBothPads() {
+        for snap in [0.0,100.0] {
+            let run = session(pointerMode:.twoFinger)
+            run.engine.updateSnapRadiusPercent(snap)
+            let size = CGSize(width:432,height:310.23)
+            for (side,index,upperColumn,lowerColumn,expected) in [
+                (TrackpadSide.left,4,1,1,StenoKey.tl.bit|StenoKey.kl.bit),
+                (.right,7,4,3,StenoKey.tr.bit|StenoKey.sr.bit)
+            ] {
+                let rects = StenoLayoutDefinition.layout(preset:.steno,side:side,size:size).normalizedKeyRects
+                let upper = rects[1][upperColumn], lower = rects[2][lowerColumn]
+                let seam = (upper.y+upper.height+lower.y)/2
+                let point = OMSRawTouch(id:1,posX:Float(upper.centerX),posY:Float(1-seam),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                let time = Double(index)
+                frame(run,time,index,[point]); frame(run,time+0.02,index,[point]); frame(run,time+0.04,index,[])
+                XCTAssertEqual(packets(run).last,GeminiPRPacket.recordingLabel(for:expected))
+            }
+        }
+    }
+    func testStationaryKATSChordIncludesBothRHSRowKeysWithoutDragging() {
+        for snap in [0.0,100.0] {
+            let run = session(pointerMode:.twoFinger)
+            run.engine.updateSnapRadiusPercent(snap)
+            let rects = StenoLayoutDefinition.layout(preset:.steno,side:.right,size:.init(width:432,height:310.23)).normalizedKeyRects
+            let t = rects[1][4], s = rects[2][3]
+            let ts = OMSRawTouch(id:1,posX:Float(t.centerX),posY:Float(1-(t.y+t.height+s.y)/2),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+            let left = [contact(.kl,preset:.steno,side:.left),contact(.a,preset:.steno,side:.left,id:2)]
+            frame(run,1,4,left); frame(run,1.01,7,[ts])
+            frame(run,1.03,4,left); frame(run,1.04,7,[ts])
+            frame(run,1.06,4,[]); frame(run,1.07,7,[])
+            XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.kl.bit|StenoKey.a.bit|StenoKey.tr.bit|StenoKey.sr.bit)])
         }
     }
     func testSinglePadBothHandChordVowelsAndStarEmitOnRHSOnly() {

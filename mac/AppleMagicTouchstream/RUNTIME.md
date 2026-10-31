@@ -113,7 +113,11 @@ main grid plus those thumb pairs. It retains mirrored column tuning; the
 Asterisk arrangement has fixed independent geometry. Its key bounds follow the
 [maker’s layout drawing](https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg),
 calibrated to the published 234 mm board width and centered independently on each
-pad without stretching. These are the published drawing’s enclosing bounds; the
+pad without stretching. For stationary row chords, both consonant rows extend
+into their middle gap, leaving a 1 mm visible seam. Number bars extend downward
+to a 1 mm gap above the upper keys. Widths and outer row edges remain from the
+drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
+edge allowance remains independent of the keyboard toggle. The
 maker does not publish separate v2 copper-pad dimensions in that drawing. `STENO single` packs both
 Asterisk halves on the RHS only; the LHS key surface is blank. It has two number
 bars, 10 upper keys, 9 lower keys and A/O/E/U thumbs. One tall central star spans
