@@ -1,9 +1,6 @@
 # NEXT:
 =======
-1. VERY often during 3F pinch, 4F pinc and 5F pinch the gesture will be recognized as 3F,4F,5F movement or directional actions.. For an example 5F pinch it’s like it sees the 4 fingers touch down, the thumb joins the gesture, but it only takes into account the 4 fingers going down, not the thumb going in an oposite direction. <bad_pinch_atpcap>
-> Basically, Pinch gestures are not being recognized properly 
-2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 
-3. Please god can we finally fix Column tuning? (Drag to move??)
+0. Please god can we finally fix Column tuning? (Drag to move??)
 * Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
 * Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes?
 * Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys? Lets talk about it!
@@ -11,8 +8,9 @@
 > add/remove columns so we dont need so many different layout options?
 > > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno)
 ===
-1.5. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
-2.5. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
+0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
+1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
+2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 
 ===
 # Human Tasks...?
 0. Start working on TouchStream gesture defaults template!!
