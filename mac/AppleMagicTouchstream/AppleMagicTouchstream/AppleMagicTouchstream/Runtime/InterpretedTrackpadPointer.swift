@@ -39,7 +39,7 @@ struct TwoFingerPointerTracker {
 struct GestureRecognitionFeedback:Equatable,Sendable {
     enum Kind:Equatable,Sendable {
         case gesture(GestureTrigger), direction(GestureTrigger,GestureMovementDirection), hold(Int), coordinated(TwoHandTrigger), corner(TwoHandTrigger)
-        case stenoMove, stenoDrag, stenoLeftClick, stenoRightClick
+        case stenoMove, stenoDrag, stenoLeftClick, stenoRightClick, stenoScroll
         var title:String {
             switch self {
             case let .gesture(trigger):return trigger.title
@@ -47,6 +47,7 @@ struct GestureRecognitionFeedback:Equatable,Sendable {
             case let .hold(count):return "\(count)-finger hold"
             case let .corner(trigger):return "\(trigger.chord.title) \(trigger.phase.title)"
             case let .coordinated(trigger):return "Both · \(trigger.chord.title) \(trigger.phase.title)"
+            case .stenoScroll:return "4F force scroll"
             case .stenoMove:return "2F mouse"
             case .stenoDrag:return "1F drag/select"
             case .stenoLeftClick:return "2F left-click"
@@ -80,6 +81,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         }
         var stenoDevices:Set<UInt64> = []
         var stenoDragOwners:Set<UInt64> = Set(minimumCapacity:2)
+        var stenoScrollOwners:Set<UInt64> = Set(minimumCapacity:2)
         var cornerEngines:[UInt64:SinglePadCornersEngine] = [:]
         var cornerSettings:[UInt64:TwoHandGestureSettings] = [:]
         var cornerEligible:Set<UInt64> = []
@@ -305,6 +307,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollEngines[device]?.reset(); directionalScrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64,preservingCorner:Bool = false) {
+            stenoScrollOwners.remove(device)
             stenoDragOwners.remove(device)
             releaseShortcut(.pad(device))
             if !preservingCorner { releaseShortcut(.corners(device)); cornerEngines[device]?.reset() }
@@ -319,6 +322,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         }
         mutating func reset() {
             feedback.removeAll(keepingCapacity:true)
+            stenoScrollOwners.removeAll(keepingCapacity:true)
             stenoDragOwners.removeAll(keepingCapacity:true)
             keyboardEpoch &+= 1; keyboardClaimed.removeAll(keepingCapacity:true)
             for owner in Array(shortcutOwners) { releaseShortcut(owner) }
@@ -571,31 +575,48 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     /// Uses the shared acceleration, cursor bounds, button ownership and discrete
     /// click builder. Only the controller's live selected/owned/armed/AX gate enables it.
-    func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double]) {
+    func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double],scrollProfiles:[UInt64:AppleScrollProfile] = [:],scrollSensitivities:[UInt64:Double] = [:]) {
         guard !devices.isEmpty else { stop(); return }
         let wasOrdinary = lock.withLock { !$0.devices.isEmpty && $0.stenoDevices.isEmpty }
         if wasOrdinary { stop() }
         configure(response:.apple,sensitivity:1,profiles:profiles,sensitivities:sensitivities)
-        lock.withLock { $0.stenoDevices = devices }
+        lock.withLock { state in
+            state.stenoDevices = devices
+            if state.scrollProfiles != scrollProfiles || state.scrollSensitivities != scrollSensitivities {
+                for device in state.scrollOutputs.keys { state.finishScroll(device:device,cancelled:true) }
+                state.stenoScrollOwners.removeAll(keepingCapacity:true)
+                state.scrollProfiles = scrollProfiles; state.scrollSensitivities = scrollSensitivities
+                state.scrollEngines = scrollProfiles.mapValues { FourFingerScrollEngine(profile:$0) }
+                state.scrollOutputs = Dictionary(uniqueKeysWithValues:scrollProfiles.keys.map { ($0,PreciseScrollOutput()) })
+                state.momentum = Dictionary(uniqueKeysWithValues:scrollProfiles.keys.map { ($0,ScrollMomentum()) })
+            }
+        }
         // Reuse the ordinary display bounds, button observer and stale-owner timer.
         enable(devices:devices)
     }
-    func releaseStenoPointer(device:UInt64) {
+    func releaseStenoPointer(device:UInt64,scrollEnded:Bool = false,time:Double = 0) {
         lock.withLock { state in
+            // Explicit lifecycle/configuration release uses time zero. Empty
+            // input frames after a normal release must not brake a coast.
+            if state.stenoScrollOwners.remove(device) != nil || (time == 0 && state.stenoDevices.contains(device)) {
+                if scrollEnded { state.releaseScroll(device:device,time:time,hostTime:CACurrentMediaTime()) }
+                else { state.finishScroll(device:device,cancelled:true) }
+            }
             let owned = state.stenoDragOwners.remove(device) != nil
             if owned { state.drag.end(device:device)?.post(tap:.cghidEventTap) }
             if owned || state.stenoDevices.contains(device) { state.tracker.reset(device:device) }
         }
     }
     func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double) {
-        lock.withLock { state in
+        let forceFeedback = lock.withLock { state -> Bool in
             if (update.reset || !update.dragging), state.stenoDragOwners.remove(device) != nil {
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
-            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { state.reset(device:device); return }
+            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { state.reset(device:device); return false }
             let now = CACurrentMediaTime()
             state.lastReceipt[device] = now; state.lastContactTime[device] = time
-            if update.dragging { state.recognized(.stenoDrag,device:device,time:now) }
+            if update.scrolling { state.recognized(.stenoScroll,device:device,time:now) }
+            else if update.dragging { state.recognized(.stenoDrag,device:device,time:now) }
             else if update.millimetres != nil { state.recognized(.stenoMove,device:device,time:now) }
             if let click = update.click { state.recognized(click == .secondary ? .stenoRightClick:.stenoLeftClick,device:device,time:now) }
             if update.reset { state.tracker.reset(device:device) }
@@ -610,9 +631,25 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.clicks.reset(); down.post(tap:.cghidEventTap)
                 }
             }
-            if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
+            if update.scrolling {
+                guard state.scrollProfiles[device] != nil else { return false }
+                if state.stenoScrollOwners.insert(device).inserted { state.finishScroll(device:device,cancelled:true) }
+                if let mm = update.millimetres,
+                   let points = state.scrollEngines[device]?.process(time:time,millimetres:mm,sensitivity:state.scrollSensitivities[device] ?? 1) {
+                    state.momentum[device]?.observe(points:points,contactTime:time)
+                    state.scrollOutputs[device]?.event(points:points)?.post(tap:.cghidEventTap)
+                }
+            } else if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
             if let click = update.click { state.postDirectional(click.action,device:device,time:time) }
+            if update.activatesForce, now-(state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
+                state.lastForceHaptic[device] = now
+                return true
+            }
+            return false
         }
+        // Same fixed feedback as ordinary Force. This adapter is live-only;
+        // replay/recording never enters it or touches the haptic hardware.
+        if forceFeedback { _ = ForceClickHapticSettings.fixed.play(device:device) }
     }
     func cancelDisconnectedDevice(_ device: UInt64) {
         lock.withLock { state in
@@ -706,11 +743,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { $0.keyboardDevices = devices }
     }
 
-    func interruptMomentum(_ frame:OMSRawTouchFrame) {
+    func interruptMomentum(_ frame:OMSRawTouchFrame,consumeKeyboard:Bool = true) {
         lock.withLock { state in
             let device = frame.deviceIDNumeric
             if ScrollMomentumInterruption.process(device:device,contacts:frame.touches,selected:state.keyboardDevices,
-                    momentum:&state.momentum,outputs:&state.scrollOutputs,endMomentum:{$0.post(tap:.cghidEventTap)}) {
+                    momentum:&state.momentum,outputs:&state.scrollOutputs,endMomentum:{$0.post(tap:.cghidEventTap)}), consumeKeyboard {
                 state.keyboardClaimed.insert(device)
                 state.taps.cancel(device:device)
                 state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)

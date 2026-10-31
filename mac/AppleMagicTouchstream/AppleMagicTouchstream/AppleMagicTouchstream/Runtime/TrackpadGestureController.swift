@@ -264,9 +264,12 @@ final class TrackpadGestureController: ObservableObject {
                 armed:armed,takeoverEnabled:takeoverEnabled,trusted:AXIsProcessTrusted(),selected:Set(routed.keys),owned:owned)
                 .filter { pointerProfiles[$0] != nil }
             let output = InterpretedTrackpadPointer.shared
-            output.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity))
+            output.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity),
+                scrollProfiles:Dictionary(uniqueKeysWithValues:scrollProfiles.map { id,profile in (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling)) }),
+                scrollSensitivities:routed.mapValues(\.scrollSensitivity))
             let cornerEligible = NativeTwoFingerMouseGate.outputDevices(enabled:true,armed:armed,takeoverEnabled:takeoverEnabled,
                 trusted:true,selected:Set(routed.keys),owned:owned)
+            output.configureKeyboardReservations(devices:cornerEligible)
             output.configureCorners(settings:routed.mapValues { $0.singlePadCorners.stenoConfigurationOnly },eligible:cornerEligible)
             output.configureTwoHand(pads:pads,settings:settings.twoHand.stenoConfigurationOnly,
                 eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),trusted:AXIsProcessTrusted())

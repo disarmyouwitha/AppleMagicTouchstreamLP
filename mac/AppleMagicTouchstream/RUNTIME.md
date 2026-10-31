@@ -128,7 +128,7 @@ held contacts into a new stroke or ordinary key press.
 
 STENO has one fixed mouse behavior and no mode dropdown: two-finger movement,
 two-finger force left-click, three-finger force right-click, and one-finger force
-left-button hold/drag. The retired Off/1F mode values remain decodable in settings;
+left-button hold/drag, plus four-finger force scroll. The retired Off/1F mode values remain decodable in settings;
 all saved choices resolve to the fixed behavior. Existing profile and capture
 identities remain unchanged.
 
@@ -143,7 +143,7 @@ both-pad all-up; subsequent contacts cannot resurrect typing. Once activated,
 the other pad may share the cursor or join the held drag.
 
 The STENO panel exposes a Force Threshold slider with a numeric value (1–500, default 130), shared by 1F drag,
-2F left-click and 3F right-click. Higher values require more pressure. The slider previews its value during tracking
+2F left-click, 3F right-click and 4F scroll activation. Higher values require more pressure. The slider previews its value during tracking
 and commits on release so adjusting it with 1F drag cannot cancel its own drag. It is saved
 and exported under the existing Mac gesture settings; missing imported thresholds
 preserve the current value. Editing it cancels pending strokes/held output and
@@ -162,6 +162,27 @@ the last drag owner lifts. A force owner cannot fire another force action until
 all-up. Force recognition retains identity, count and validity checks, so larger
 chords cannot turn into force clicks during partial lift.
 
+Four-finger Force uses the same STENO threshold to latch scroll on its originating
+pad. After activation, pressure may drop and contacts may reduce to one or rejoin;
+the scroll owner remains until that pad's all-up. Pre-force travel is discarded.
+The shared contact-motion tracker follows matched identities, avoiding centroid
+jumps when membership changes. An invalid sample, stale gap, complete identity
+replacement, disconnect or lifecycle/configuration reset cancels, and surviving
+contacts cannot reacquire scroll before all-up. Larger pending chords cannot turn
+into force scroll during partial lift. A previous force owner stays first until
+all-up, so adding fingers to a held drag cannot change it into scroll.
+
+Scroll uses the ordinary FourFingerScrollEngine/PreciseScrollOutput with the pad's
+saved sensitivity and natural-scrolling preference and existing Apple scroll profile.
+Native selected/owned/armed/AX/profile gates remain. Normal all-up hands recent velocity to the shared ScrollMomentum engine; a pause
+before lifting produces no stale fling. Invalid input, generation changes and
+lifecycle cancellation stop its phase and momentum. A new contact on either selected
+pad brakes released momentum without reserving the new steno chord. Reserved cleanup survives queue
+reset/generation changes and cannot release another pad's drag/scroll. Gesture
+feedback reads “4F force scroll.” Replay records scrollBegin/scroll/scrollEnd under
+the existing StenoMouse system-event envelope and posts no native events. Winning
+scroll cancels the pending chord, key highlight and pending typing haptics.
+
 STENO uses the same retained drag source, button observer, stale-owner timer,
 acceleration and per-pad cleanup as ordinary drag gestures. Native button
 interference, stale/invalid input, disconnect, layout/mapping/layer changes,
@@ -177,6 +198,13 @@ output; reconfiguration/lifecycle cancellation invalidates queued commands and
 partial strokes. Replay records `StenoMouse:` intentions in the existing system
 event envelope without posting input. Other saved gestures are
 restored on leaving STENO. STENO does not change ordinary keyboard arbitration.
+
+STENO force activation uses the ordinary fixed Force haptic (waveform 6, level
+0.25) once on the originating pad for 1F drag, 2F left-click, 3F right-click and 4F
+scroll. It is independent of the typing touch/release checkboxes and Typing Tuning
+strength. The live, selected/owned/armed/AX-gated output adapter applies the same
+50 ms per-pad Force throttle; held pressure, motion and all-up never retrigger it.
+Replay records intentions only and never enters the hardware haptic adapter.
 
 Two independent STENO checkboxes enable **Haptic on touch** and **Haptic on release**,
 both off by default. They use the existing Typing Tuning strength, waveform 6 and

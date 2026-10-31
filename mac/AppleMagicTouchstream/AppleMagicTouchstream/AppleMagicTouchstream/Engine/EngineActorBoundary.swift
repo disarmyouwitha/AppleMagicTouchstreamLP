@@ -534,6 +534,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         let liveCorners = liveGestures
         let liveGestures = liveGestures && !processor.isStenoLayout
         if liveGestures { InterpretedTrackpadPointer.shared.interruptMomentum(frame) }
+        else if liveCorners && processor.isStenoLayout { InterpretedTrackpadPointer.shared.interruptMomentum(frame,consumeKeyboard:false) }
         let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) || (processor.isStenoLayout && processor.stenoPointerOwnsCycle)
         let coordinated = liveCorners && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
         let corners = liveCorners && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)

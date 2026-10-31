@@ -27,9 +27,17 @@ the architecture review and remaining work.
 STENO presets pause ordinary gestures except per-pad and Both Outer Corners Hold
 → Open Config, which retain their shared reservation, thresholds and cleanup.
 Contacts form shared two-pad steno chords with fixed 2F movement, 2F force primary
-click, 3F force secondary click and 1F force primary hold/drag. These reuse continuous
+click, 3F force secondary click, 1F force primary hold/drag and 4F force scroll. These reuse continuous
 ownership/coherence, force recognition and the shared drag ledger; they discard a
 pending stroke only on activation and keep pending two-pad chords at steno priority.
+4F scroll requires exactly four contacts crossing the shared STENO force threshold.
+It latches on that pad through pressure drop and partial lifts until all-up. Motion
+uses continuing contact IDs so membership changes cannot jump the scroll; pre-force
+travel is excluded. It uses the shared scroll profile/output phase and hands recent velocity to the
+shared momentum engine at normal all-up. A new touch brakes released coast without
+claiming its steno chord. Invalid/stale/discontinuous input cancels the scroll and
+cannot restart it before lift. The other pad retains its mouse/drag owner. Ordinary
+configurable gestures remain paused; this adds no ordinary-mode recognizer.
 Held drags survive count changes, share the cursor, and release through per-pad
 all-up and the existing invalid/stale/disconnect/lifecycle cleanup. Leaving STENO
 restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).

@@ -241,6 +241,135 @@ final class StenoMouseTests:XCTestCase {
         frame(&engine,1.06,[touch(0.33)])
         XCTAssertEqual(engine.pointerUpdate?.millimetres?.x ?? -1,1.6,accuracy:0.001)
     }
+    func testEveryStenoForceActionHasExactlyOneActivationFeedbackEdge() {
+        for count in 1...4 {
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+            let contacts = (0..<count).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:140) }
+            frame(&engine,1,contacts)
+            XCTAssertTrue(engine.pointerUpdate?.activatesForce == true,"\(count)F")
+            for i in 1...4 {
+                frame(&engine,1+Double(i)*0.02,contacts)
+                XCTAssertFalse(engine.pointerUpdate?.activatesForce == true,"Held force must not buzz repeatedly")
+            }
+            frame(&engine,1.1,[])
+            XCTAssertFalse(engine.pointerUpdate?.activatesForce == true)
+            frame(&engine,1.12,contacts)
+            XCTAssertTrue(engine.pointerUpdate?.activatesForce == true)
+        }
+        XCTAssertFalse(StenoPointerUpdate(millimetres:.init(x:1,y:1)).activatesForce)
+        XCTAssertFalse(StenoPointerUpdate(reset:true).activatesForce)
+        XCTAssertEqual(ForceClickHapticSettings.fixed.waveform,6)
+        XCTAssertEqual(ForceClickHapticSettings.fixed.level,0.25)
+    }
+    func testForceScrollFlickProducesSharedMomentumAndTouchBrakesWithoutAKeyReservation() throws {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        let profile = try ApplePointerAccelerationProfile(resolution:400,acceleration:0,
+            curves:[ApplePointerCurve(index:0,linear:1,parabolic:1)])
+        var scroll = FourFingerScrollEngine(profile:.init(horizontal:profile,vertical:profile,natural:true))
+        var momentum = ScrollMomentum(), output = PreciseScrollOutput()
+        for i in 0...7 {
+            let count = i < 3 ? 4:1
+            let contacts = (0..<count).map { touch(0.2+Float($0)*0.1+Float(i)*0.01,id:Int32($0+1),pressure:i == 0 ? 140:0) }
+            frame(&engine,1+Double(i)*0.01,contacts)
+            XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+            if let mm = engine.pointerUpdate?.millimetres {
+                let points = try XCTUnwrap(scroll.process(time:1+Double(i)*0.01,millimetres:mm,sensitivity:1))
+                momentum.observe(points:points,contactTime:1+Double(i)*0.01)
+                _ = output.event(points:points)
+            }
+        }
+        frame(&engine,1.08,[])
+        XCTAssertTrue(engine.pointerUpdate?.scrollEnded == true)
+        XCTAssertTrue(momentum.start(contactTime:1.08,hostTime:10))
+        _ = output.finish(cancelled:false,preserveForMomentum:true)
+        let step = try XCTUnwrap(momentum.advance(hostTime:10.01))
+        XCTAssertGreaterThan(step.points.x,0)
+        let event = try XCTUnwrap(output.event(points:step.points,momentum:true))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:event)).momentumPhase,.began)
+        var histories:[UInt64:ScrollMomentum] = [42:momentum], outputs:[UInt64:PreciseScrollOutput] = [42:output]
+        XCTAssertFalse(ScrollMomentumInterruption.process(device:43,contacts:[touch()],selected:[42,43],momentum:&histories,outputs:&outputs,endMomentum:{_ in}))
+        XCTAssertFalse(try XCTUnwrap(histories[42]).isCoasting)
+        // A braking touch still starts a normal steno chord, rather than a gesture reservation.
+        frame(&engine,1.1,[touch()]); XCTAssertEqual(frame(&engine,1.12,[]),StenoKey.s1.bit)
+    }
+    func testFourFingerForceScrollLatchesAcrossPressureDropPartialLiftAndRejoin() throws {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        func fingers(_ count:Int,_ delta:Float = 0,_ pressure:Float = 50) -> [OMSRawTouch] {
+            (0..<count).map { touch(0.2+Float($0)*0.1+delta,id:Int32($0+1),pressure:pressure) }
+        }
+        frame(&engine,1,fingers(4))
+        frame(&engine,1.02,fingers(4,0.05)) // Pre-force travel cannot become scroll output.
+        XCTAssertNil(engine.pointerUpdate)
+        frame(&engine,1.04,fingers(4,0.05,140))
+        XCTAssertTrue(engine.pointerUpdate?.scrollBegan == true)
+        XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+        XCTAssertNil(engine.pointerUpdate?.millimetres)
+        XCTAssertNil(engine.pointerUpdate?.click)
+        for count in stride(from:3,through:1,by:-1) {
+            let time = 1.06+Double(3-count)*0.02
+            frame(&engine,time,fingers(count,0.06+Float(3-count)*0.01,1))
+            XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+            XCTAssertFalse(engine.pointerUpdate?.dragging == true)
+            XCTAssertEqual(Double(try XCTUnwrap(engine.pointerUpdate?.millimetres).x),1.6,accuracy:0.01)
+            XCTAssertNil(engine.pointerUpdate?.click)
+        }
+        frame(&engine,1.12,[touch(0.28,pressure:0),touch(0.9,id:10,pressure:0)])
+        XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+        XCTAssertEqual(Double(try XCTUnwrap(engine.pointerUpdate?.millimetres).x),0,accuracy:0.01)
+        XCTAssertNil(frame(&engine,1.14,[]))
+        XCTAssertTrue(engine.pointerUpdate?.scrollEnded == true)
+        XCTAssertFalse(engine.pointerUpdate?.scrolling == true)
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
+        XCTAssertEqual(engine.hapticReleasePads,0)
+        frame(&engine,1.16,[touch()]); XCTAssertEqual(frame(&engine,1.18,[]),StenoKey.s1.bit)
+    }
+    func testForceScrollRequiresExactlyFourAtActivationAndUsesSharedThreshold() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger; engine.forceThreshold = 220
+        let four = (0..<4).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:219) }
+        frame(&engine,1,four); XCTAssertNil(engine.pointerUpdate)
+        frame(&engine,1.02,(0..<4).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:220) })
+        XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+        frame(&engine,1.04,[])
+        let five = (0..<5).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:240) }
+        frame(&engine,2,five); XCTAssertNil(engine.pointerUpdate)
+        frame(&engine,2.02,Array(five.prefix(4))); XCTAssertNil(engine.pointerUpdate)
+        XCTAssertEqual(frame(&engine,2.04,[]),StenoKey.s1.bit)
+    }
+    func testForceScrollCancelsOnDiscontinuityOrResetAndNeverRestartsBeforeLift() {
+        for reason in ["identity","invalid","stale","reset"] {
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+            let four = (0..<4).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:140) }
+            frame(&engine,1,four)
+            XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+            switch reason {
+            case "identity": frame(&engine,1.02,(0..<4).map { touch(0.2+Float($0)*0.1,id:Int32($0+10),pressure:140) })
+            case "invalid": frame(&engine,1.02,[touch(.nan)])
+            case "stale": frame(&engine,1.3,four)
+            default: engine.cancel()
+            }
+            XCTAssertTrue(engine.pointerUpdate?.reset == true,reason)
+            XCTAssertFalse(engine.pointerUpdate?.scrollEnded == true,reason)
+            frame(&engine,1.32,four)
+            XCTAssertFalse(engine.pointerUpdate?.scrolling == true,reason)
+            XCTAssertNil(frame(&engine,1.34,[]),reason)
+        }
+    }
+    func testOtherPadDragSurvivesForceScrollAndEachPadReleasesIndependently() {
+        var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(pressure:140)],pad:0)
+        let four = (0..<4).map { touch(0.2+Float($0)*0.1,id:Int32($0+1),pressure:140) }
+        frame(&engine,1.02,four,pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.scrolling == true)
+        frame(&engine,1.04,[touch(0.23)],pad:0)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+        frame(&engine,1.06,[],pad:1)
+        XCTAssertTrue(engine.pointerUpdate?.scrollEnded == true)
+        frame(&engine,1.08,[touch(0.25)],pad:0)
+        XCTAssertTrue(engine.pointerUpdate?.dragging == true)
+        XCTAssertNil(frame(&engine,1.1,[],pad:0))
+        XCTAssertTrue(engine.pointerUpdate?.reset == true)
+    }
     func testConfiguredThresholdAppliesToDragAndBothClicks() {
         for count in 1...3 {
             var engine = StenoChordEngine(); engine.pointerMode = .twoFinger; engine.forceThreshold = 220
@@ -475,6 +604,38 @@ final class StenoMouseTests:XCTestCase {
             XCTAssertEqual(run.output.acceptedBindings.map(\.side),[.left])
         }
     }
+    func testProductionForceScrollRecordsIntentionsWithoutTypingOrNativeOutput() {
+        let run = session(pointerMode:.twoFinger,hapticTouch:true,hapticRelease:true)
+        run.engine.updateHapticStrength(0.25)
+        let keys:[StenoKey] = [.s1,.tl,.pl,.hl]
+        let four = keys.enumerated().map { index,key -> OMSRawTouch in
+            let point = contact(key,preset:.steno,side:.left,id:Int32(index+1))
+            return .init(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:140,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        }
+        frame(run,1,4,four)
+        let one = four[0]
+        frame(run,1.02,4,[.init(id:one.id,posX:one.posX+0.01,posY:one.posY,total:1,pressure:0,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)])
+        frame(run,1.04,4,[])
+        let labels = run.output.events.compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+        XCTAssertEqual(labels,["StenoMouse:42:scrollBegin","StenoMouse:42:scroll","StenoMouse:42:scrollEnd"])
+        XCTAssertTrue(packets(run).isEmpty); XCTAssertTrue(run.output.acceptedBindings.isEmpty)
+        XCTAssertFalse(run.output.events.contains { if case .haptic = $0.kind { return true }; return false })
+        XCTAssertNil(GeminiPRPort.shared.snapshot.path); XCTAssertEqual(PloverConnection.shared.snapshot.port,0)
+    }
+    func testMappingReconfigurationCancelsReleasedScrollEvenAfterRecognitionOwnerEnds() {
+        let run = session(pointerMode:.twoFinger)
+        let four = [StenoKey.s1,.tl,.pl,.hl].enumerated().map { index,key -> OMSRawTouch in
+            let point = contact(key,preset:.steno,side:.left,id:Int32(index+1))
+            return .init(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:140,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        }
+        frame(run,1,4,four); frame(run,1.02,4,[])
+        XCTAssertFalse(run.engine.stenoPointerOwnsCycle)
+        run.engine.updateKeyMappings([:])
+        let cleanup = run.output.events.suffix(2).compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+        XCTAssertEqual(cleanup,["StenoMouse:42:reset","StenoMouse:43:reset"])
+        XCTAssertTrue(run.output.events.suffix(2).allSatisfy { $0.sourceSequence == nil })
+        XCTAssertTrue(packets(run).isEmpty)
+    }
     func testProductionForceClickReplayRecordsPrimaryAndSecondaryWithoutNativeOutput() {
         for mode in [StenoPointerMode.twoFinger] {
             for count in [mode.count,3] {
@@ -502,7 +663,10 @@ final class StenoMouseTests:XCTestCase {
             rightLayout:StenoLayoutDefinition.layout(preset:.steno,side:.right,size:size,pointerMode:.twoFinger),
             leftLabels:TrackpadLayoutPreset.steno.leftLabels,rightLabels:TrackpadLayoutPreset.steno.rightLabels,trackpadSize:size,trackpadWidthMm:160)
         frame(run,1.02,4,[point]); frame(run,1.04,4,[])
-        XCTAssertTrue(run.output.events.isEmpty)
+        let cleanup = run.output.events.compactMap { if case let .systemKey(label) = $0.kind { return label }; return nil }
+        XCTAssertEqual(cleanup,["StenoMouse:42:reset","StenoMouse:43:reset"])
+        XCTAssertEqual(run.output.events.count,cleanup.count)
+        XCTAssertTrue(run.output.acceptedBindings.isEmpty)
         frame(run,1.06,4,[point]); frame(run,1.08,4,[])
         XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
     }

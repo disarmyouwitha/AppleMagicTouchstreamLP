@@ -1158,7 +1158,7 @@ final class DispatchService: @unchecked Sendable {
         case let .stenoPointer(update,device,time,generation):
             // Reserved drag-up cleanup survives mode generations and queue reset.
             if update.reset && !update.dragging {
-                InterpretedTrackpadPointer.shared.releaseStenoPointer(device:device)
+                InterpretedTrackpadPointer.shared.releaseStenoPointer(device:device,scrollEnded:update.scrollEnded && stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoGeneration == generation },time:time)
                 emitRecordedEvent(for:command,status:.posted); return
             }
             guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
@@ -1224,7 +1224,7 @@ final class DispatchService: @unchecked Sendable {
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
         case let .stenoPointer(update,device,_,_):
-            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.dragBegan ? "dragBegin" : update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : update.dragging ? "dragMove" : "move")"),status:status,sourceSequence:command.sourceSequence)
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.scrollBegan ? "scrollBegin" : update.scrollEnded ? "scrollEnd" : update.scrolling ? "scroll" : update.dragBegan ? "dragBegin" : update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : update.dragging ? "dragMove" : "move")"),status:status,sourceSequence:command.sourceSequence)
         case let .stenoStroke(mask,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):

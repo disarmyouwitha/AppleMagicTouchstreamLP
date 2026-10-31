@@ -114,8 +114,14 @@ struct StenoConnectionPanel:View {
         TimelineView(.periodic(from:.now,by:1)) { _ in
             let status = GeminiPRPort.shared.snapshot
             VStack(alignment:.leading,spacing:8) {
-                Text("STENO Mouse").font(.callout.weight(.semibold))
-                Text("1F force drag/select · 2F mouse/left-click · 3F right-click")
+                HStack(alignment:.firstTextBaseline,spacing:12) {
+                    Text("STENO Mouse").font(.callout.weight(.semibold)).fixedSize()
+                    Spacer(minLength:0)
+                    Text("Configurable gestures are disabled in STENO.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true)
+                }
+                Text("1F force drag/select · 2F mouse/left-click · 3F right-click · 4F force scroll")
                     .font(.caption).fixedSize(horizontal:false,vertical:true)
 
                 HStack(spacing:12) {

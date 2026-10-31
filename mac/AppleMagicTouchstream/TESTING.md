@@ -272,3 +272,21 @@ per-pad completed-key masks and mouse cancellation. Gesture feedback expiry is p
 renders STENO and TouchStream accepted-key highlights using synthetic output feedback.
 `PloverConnectionTests` covers occupied-port automatic recovery, healthy-client retry,
 exclusive binding and retry-after-stop, using private loopback servers only.
+
+STENO 4F force-scroll tests cover threshold and exact-count activation, excluded
+pre-force travel, pressure drop, 4→3→2→1 continuation, non-jumping membership changes,
+normal all-up, identity/stale/invalid/reset cancellation, reacquisition exclusion,
+independent peer drag retention and recording-only production output without keys
+or haptics. Hardware acceptance: force-press four contacts, scroll, lower pressure
+and progressively lift to one finger while moving; verify scroll stays latched and
+the pointer does not move. Lift all contacts to stop, then verify a fresh chord.
+Check horizontal/vertical/natural scrolling and other-pad drag concurrently. No
+hardware input or haptics are activated by build/test verification.
+
+STENO force-feedback tests cover one activation edge for each 1–4F action, no
+repeat during pressure/motion/all-up, fixed waveform/strength, and recording-only
+execution. Force-scroll flick regression feeds actual latched movement through
+shared scroll acceleration, momentum and event-phase factories without posting;
+it checks coast start and cross-pad braking while a fresh steno chord remains
+available. Hardware acceptance verifies one Force pulse per activation with typing
+haptic checkboxes both off, flick/release coasting and either-pad touch braking.

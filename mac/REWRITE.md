@@ -1,9 +1,6 @@
 # NEXT:
 =======
-0. It seems like we were able to do 2f gesture really well can we just enable all non-tapping gestures? (Maybe a Gestures toggle?)
-> Lets force and maintain the Force gestures I decide for Mouse during STENO mode.
-> If not.. can we do 4F force scroll in steno mode? (We just need the gesture to start as force/4 fingers you can release force or fingers until all up because of latching)
-1. Can we squeeze an Asterisk-size layout (both halves) onto a single trackpad??
+2. Can we squeeze an Asterisk-size layout (both halves) onto a single trackpad??
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?

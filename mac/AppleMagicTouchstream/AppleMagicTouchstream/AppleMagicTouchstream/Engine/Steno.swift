@@ -64,6 +64,10 @@ struct StenoPointerUpdate:Sendable {
     var reset = false
     var dragBegan = false
     var dragging = false
+    var scrollBegan = false
+    var scrolling = false
+    var scrollEnded = false
+    var activatesForce:Bool { dragBegan || click != nil || scrollBegan }
 }
 
 /// Shares continuous contact ownership/coherence and force recognition with
@@ -76,11 +80,13 @@ struct StenoPointerArbiter:Sendable {
     private var excluded:UInt8 = 0
     private var forceExcluded:UInt8 = 0
     private var dragOwners:UInt8 = 0
-    mutating func reset() { movement.reset(); force.clear(); excluded = 0; forceExcluded = 0; dragOwners = 0 }
+    private var scrollOwners:UInt8 = 0
+    private var scrollMotion = GestureContactMotionTracker()
+    mutating func reset() { movement.reset(); force.clear(); excluded = 0; forceExcluded = 0; dragOwners = 0; scrollOwners = 0; scrollMotion.reset() }
     mutating func removeDevice(_ device:Int) {
         let id = UInt64(device), bit = UInt8(1)<<device
-        movement.cancel(device:id); force.clear(device:id)
-        excluded &= ~bit; forceExcluded &= ~bit; dragOwners &= ~bit
+        movement.cancel(device:id); force.clear(device:id); scrollMotion.reset(device:id)
+        excluded &= ~bit; forceExcluded &= ~bit; dragOwners &= ~bit; scrollOwners &= ~bit
     }
     mutating func process<C:Collection>(mode:StenoPointerMode,device:Int,time:Double,touches:C,mayActivate:Bool,forceThreshold:Float = 130) -> (claimed:Bool,update:StenoPointerUpdate) where C.Element == OMSRawTouch {
         guard mode != .disabled else { return (false,.init()) }
@@ -88,30 +94,52 @@ struct StenoPointerArbiter:Sendable {
         let count = touches.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1:0) }
         if (count > mode.count || !mayActivate) && movement.owner(device:id) == nil && !force.claimed(device:id) { excluded |= bit }
         let existingOwner = movement.owner(device:id) != nil || force.claimed(device:id)
-        if (count > 3 || !mayActivate) && !existingOwner { forceExcluded |= bit }
+        if (count > 4 || !mayActivate) && !existingOwner { forceExcluded |= bit }
         let allowed = excluded & bit == 0
         let forceAllowed = forceExcluded & bit == 0
         let trigger = force.recognize(device:id,time:time,contacts:touches,threshold:forceThreshold,enabled:{ trigger in
-            forceAllowed && (1...3).contains(trigger.forceCount ?? 0)
+            forceAllowed && (1...4).contains(trigger.forceCount ?? 0)
         })
         let dragBegan = trigger?.forceCount == 1
         if dragBegan {
             dragOwners |= bit
             movement.cancel(device:id) // Pre-press travel cannot jump the drag on activation.
         }
+        let scrollBegan = trigger?.forceCount == 4
+        if scrollBegan {
+            scrollOwners |= bit
+            movement.cancel(device:id); scrollMotion.reset(device:id)
+        }
+        var scrollDelta:CGPoint?
+        var scrollCancelled = false
+        var scrollEnded = false
+        let wasScrolling = scrollOwners & bit != 0
+        if wasScrolling {
+            scrollDelta = scrollMotion.millimetres(device:id,time:time,contacts:touches)
+            scrollEnded = count == 0 && scrollMotion.frameEndedNormally
+            scrollCancelled = count > 0 && (!scrollBegan && !scrollMotion.frameContinued || touches.contains {
+                ($0.state == .making || $0.state == .touching) && (!$0.pressure.isFinite || $0.pressure < 0)
+            })
+            if count == 0 || scrollCancelled { scrollOwners &= ~bit; scrollMotion.reset(device:id) }
+        }
         if count == 0 { dragOwners &= ~bit }
         let dragging = dragOwners & bit != 0
-        let click:StenoPointerClick? = trigger.flatMap { $0.forceCount == 1 ? nil:$0.forceCount == 3 ? .secondary:.primary }
+        let scrolling = scrollOwners & bit != 0
+        let click:StenoPointerClick? = trigger.flatMap {
+            $0.forceCount == 2 ? .primary:($0.forceCount == 3 ? .secondary:nil)
+        }
         let forceOwned = force.claimed(device:id)
         let motion = movement.process(device:id,time:time,touches:touches,
-            enabled:{ $0 == 1 ? dragging:allowed },requiresCoherentTranslation:true,
+            enabled:{ $0 == 1 ? dragging:(allowed && !wasScrolling) },requiresCoherentTranslation:true,
             activationFilter:{ gesture, context in gesture == 1 ? dragging:(context.coherentMovementMM ?? 0) >= 2 })
         if motion.phase == .cancelled { excluded |= bit }
         let moving = motion.phase == .began || motion.phase == .changed
         let claimed = moving || click != nil || forceOwned
         if count == 0 { excluded &= ~bit; forceExcluded &= ~bit }
-        return (claimed,.init(millimetres:moving ? motion.millimetres:nil,click:click,
-            reset:motion.phase == .cancelled || motion.phase == .ended || count == 0,dragBegan:dragBegan,dragging:dragging))
+        return (claimed,.init(millimetres:scrolling ? scrollDelta:(moving ? motion.millimetres:nil),click:click,
+            reset:motion.phase == .cancelled || motion.phase == .ended || count == 0 || scrollCancelled,
+            dragBegan:dragBegan,dragging:dragging,scrollBegan:scrollBegan,scrolling:scrolling,
+            scrollEnded:scrollEnded))
     }
 }
 
