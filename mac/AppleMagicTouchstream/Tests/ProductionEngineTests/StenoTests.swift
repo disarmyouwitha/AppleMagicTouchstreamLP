@@ -525,7 +525,7 @@ final class StenoMouseTests:XCTestCase {
         XCTAssertTrue(TrackpadLayoutPreset.steno.leftLabels[3].contains(StenoKey.a.label))
         XCTAssertTrue(TrackpadLayoutPreset.steno.rightLabels[3].contains(StenoKey.u.label))
     }
-    func testSinglePadPresetUsesRHSWithOneOneAndAHalfWidthStarAndWiderConsonants() {
+    func testSinglePadPresetUsesRHSWithWidenedStarAndEdgeAlignedBanks() {
         let preset = TrackpadLayoutPreset.stenoSingle
         XCTAssertEqual(preset.displayName,"STENO single")
         XCTAssertEqual(TrackpadLayoutPreset.resolveByName("STENO SINGLE"),preset)
@@ -547,11 +547,25 @@ final class StenoMouseTests:XCTestCase {
         }
         let upper = layout.normalizedKeyRects[1], width = upper[0].width
         XCTAssertEqual(upper[4].height,0.48)
-        XCTAssertEqual(upper[4].width,1.5*width,accuracy:0.000001)
+        XCTAssertEqual(upper[4].width,1.5*width+0.04,accuracy:0.000001)
+        XCTAssertEqual(upper[0].x,0.005,accuracy:0.000001)
+        XCTAssertEqual(upper[9].x+upper[9].width,0.995,accuracy:0.000001)
         for column in upper.indices where column != 4 { XCTAssertEqual(upper[column].width,width,accuracy:0.000001) }
         XCTAssertGreaterThan(width*160,13)
         for pair in zip(upper,upper.dropFirst()) { XCTAssertLessThan(pair.0.x+pair.0.width,pair.1.x) }
         XCTAssertEqual(StenoKey.star1.legend,StenoKey.star3.legend)
+    }
+    func testAsteriskUsesPublishedDrawingDimensionsWithoutStretchingEitherHalf() {
+        let size = CGSize(width:432,height:310.23), scale = 234.0/626.0
+        for side in [TrackpadSide.left,.right] {
+            let rects = StenoLayoutDefinition.layout(preset:.steno,side:side,size:size).normalizedKeyRects
+            let key = rects[1][side == .left ? 0:1]
+            XCTAssertEqual(key.width*ContentView.trackpadWidthMM,32.786*scale,accuracy:0.001)
+            XCTAssertEqual(key.height*ContentView.trackpadHeightMM,61.5942*scale,accuracy:0.001)
+            let star = rects[1][side == .left ? 4:0]
+            XCTAssertEqual(star.height*ContentView.trackpadHeightMM,126.5809*scale,accuracy:0.001)
+            XCTAssertEqual(rects[3][0].height*ContentView.trackpadHeightMM,56.961*scale,accuracy:0.001)
+        }
     }
     func testSinglePadBothHandChordVowelsAndStarEmitOnRHSOnly() {
         let run = session(.stenoSingle,pointerMode:.twoFinger)
@@ -610,11 +624,11 @@ final class StenoMouseTests:XCTestCase {
         }
     }
     func testSingleFingertipCanChordAdjacentUpperAndLowerRowKeys() {
-        let run = session()
-        var point = contact(.tl,preset:.steno,side:.left)
+        let run = session(.stenoSingle)
+        var point = contact(.tl,preset:.stenoSingle,side:.right)
         // T-/K- seam between upper/lower rectangles; the 1.5 mm edge region hits both.
         point = .init(id:point.id,posX:point.posX,posY:Float(1-0.42),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
-        frame(run,1,4,[point]); frame(run,1.1,4,[])
+        frame(run,1,7,[point]); frame(run,1.1,7,[])
         XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit|StenoKey.kl.bit)])
     }
     func testSwitchingLayoutsWithHeldContactsCancelsAndCannotTypeTheirOldPositions() {

@@ -278,19 +278,58 @@ enum StenoLayoutDefinition {
         }
         return keys.map { $0.map { $0?.label ?? "None" } }
     }
+    // Key bounds from the maker's published Asterisk layout drawing:
+    // https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg
+    // Its 626-unit board width is calibrated to the published 234 mm board.
+    // Keep the drawing's independent widths/heights, rather than stretching each
+    // half to fill its pad. Rounded ends use their full enclosing touch bounds.
+    @MainActor private static func asteriskRects(side:TrackpadSide) -> [[NormalizedRect]] {
+        let scale:CGFloat = 234/626
+        let left = side == .left
+        let bounds:[[CGRect]] = left ? [
+            [CGRect(x:9.13078,y:3.9384,width:177.665,height:10.3977)],
+            [CGRect(x:9.06885,y:25.1304,width:32.78585,height:61.5942),
+             CGRect(x:57.4512,y:25.1304,width:32.7859,height:61.5942),
+             CGRect(x:104.634,y:25.1304,width:32.786,height:61.5942),
+             CGRect(x:153.1,y:25.1304,width:32.786,height:61.5942),
+             CGRect(x:191.316,y:25.6381,width:39.662,height:126.5809)],
+            [9.13078,57.0502,104.97,152.89].map { CGRect(x:$0,y:97.0658,width:33.4535,height:55.1532) },
+            [151.534,194.933].map { CGRect(x:$0,y:181.603,width:32.549,height:56.961) }
+        ] : [
+            [CGRect(x:392.941,y:3.71233,width:176.761,height:9.94561)],
+            [CGRect(x:347.734,y:25.6381,width:39.662,height:126.5809)] +
+                [392.901,441.283,488.466,536.933].map { CGRect(x:$0,y:25.1304,width:32.786,height:61.5942) } +
+                [CGRect(x:577.839,y:23.83,width:40.6866,height:62.3861)],
+            [392.489,440.409,488.329,536.248].map { CGRect(x:$0,y:97.0658,width:33.4535,height:55.1532) } +
+                [CGRect(x:577.839,y:97.0658,width:40.6866,height:55.1532)],
+            [351.35,394.749].map { CGRect(x:$0,y:181.603,width:32.549,height:56.961) }
+        ]
+        let minX:CGFloat = left ? 9.06885:347.734
+        let maxX:CGFloat = left ? 230.978:618.5256
+        let offsetX = (ContentView.trackpadWidthMM-(maxX-minX)*scale)/2
+        let offsetY = (ContentView.trackpadHeightMM-90)/2
+        return bounds.map { $0.map { r in
+            .init(x:(offsetX+(r.minX-minX)*scale)/ContentView.trackpadWidthMM,
+                  y:(offsetY+r.minY*scale)/ContentView.trackpadHeightMM,
+                  width:r.width*scale/ContentView.trackpadWidthMM,
+                  height:r.height*scale/ContentView.trackpadHeightMM)
+        } }
+    }
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
                        columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .plugin,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
         if preset == .stenoSingle {
             rects = []
             if side == .right {
-                // Nine equal consonant columns plus one 1.5-width tall star.
-                // Leave fixed outer margins and 1.6 mm gaps on a 160 mm pad.
+                // Preserve letter sizes; move each bank 3.2 mm outward and give
+                // the central star the freed space. Outer margins are 0.8 mm.
                 let gap:CGFloat = 0.01, width:CGFloat = (0.95-9*gap)/10.5
-                var x:CGFloat = 0.025
+                let margin:CGFloat = 0.005
+                let starWidth = 1.5*width+2*(0.025-margin)
+                var x:CGFloat = margin
                 var upper:[NormalizedRect] = []
                 for column in 0..<10 {
-                    let w = column == 4 ? 1.5*width:width
+                    let w = column == 4 ? starWidth:width
                     upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 0.48:0.23))
                     x += w+gap
                 }
@@ -310,19 +349,9 @@ enum StenoLayoutDefinition {
                 keySpacingPercent:spacing,mirrored:side == .left)
             rects = main.normalizedKeyRects
         } else {
-            if side == .left {
-                rects = [[.init(x:0.06,y:0.1,width:0.66,height:0.05)],
-                    (0..<4).map { .init(x:0.06+CGFloat($0)*0.17,y:0.18,width:0.15,height:0.23) }
-                        + [.init(x:0.76,y:0.18,width:0.16,height:0.48)],
-                    (0..<4).map { .init(x:0.06+CGFloat($0)*0.17,y:0.43,width:0.15,height:0.23) }]
-            } else {
-                rects = [[.init(x:0.22,y:0.1,width:0.72,height:0.05)],
-                    [.init(x:0.04,y:0.18,width:0.15,height:0.48)]
-                        + (0..<5).map { .init(x:0.22+CGFloat($0)*0.145,y:0.18,width:0.13,height:0.23) },
-                    (0..<5).map { .init(x:0.22+CGFloat($0)*0.145,y:0.43,width:0.13,height:0.23) }]
-            }
+            rects = asteriskRects(side:side)
         }
-        if preset != .stenoSingle {
+        if preset == .stenoVoyager {
             rects.append(side == .left ? [.init(x:0.56,y:0.79,width:0.15,height:0.18),.init(x:0.76,y:0.79,width:0.15,height:0.18)]
                 : [.init(x:0.06,y:0.79,width:0.15,height:0.18),.init(x:0.26,y:0.79,width:0.15,height:0.18)])
         }

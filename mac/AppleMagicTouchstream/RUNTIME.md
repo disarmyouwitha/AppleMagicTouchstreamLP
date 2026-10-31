@@ -110,16 +110,21 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
 E/U thumb pairs. `STENO 6x3` uses the supplied Voyager image's staggered 6×3
 main grid plus those thumb pairs. It retains mirrored column tuning; the
-Asterisk arrangement has fixed independent geometry. `STENO single` packs both
+Asterisk arrangement has fixed independent geometry. Its key bounds follow the
+[maker’s layout drawing](https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg),
+calibrated to the published 234 mm board width and centered independently on each
+pad without stretching. These are the published drawing’s enclosing bounds; the
+maker does not publish separate v2 copper-pad dimensions in that drawing. `STENO single` packs both
 Asterisk halves on the RHS only; the LHS key surface is blank. It has two number
 bars, 10 upper keys, 9 lower keys and A/O/E/U thumbs. One tall central star spans
-both consonant rows and is exactly 1.5× a regular column's key width; the nine
+both consonant rows. Each letter bank moves 3.2 mm outward, leaving 0.8 mm outer
+margins; the star gains the freed 6.4 mm (about 26.1 mm total width). The nine
 letter columns have equal width (about 13.1 mm on a 160 mm pad). Gemini PR's star
 slots all map to the same `*` in Plover's default keymap; this layout emits star1.
 All wire identities remain supported for older profiles/captures.
 
 The main layout menu groups these under **STENO**. The STENO panel's **Layout**
-selector, directly above Connection, offers Steno Asterisk, Steno 6x3 and Steno
+selector, directly above Connection and the STENO Mouse controls, offers Steno Asterisk, Steno 6x3 and Steno
 Single. It changes the existing saved preset binding, preserving per-layout
 settings and transport behavior. Returning to STENO within the sidebar recalls
 its last selected variant. All presets retain per-key edits and separate saved

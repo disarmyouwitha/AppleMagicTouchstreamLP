@@ -17,6 +17,7 @@ Basically, Pinch gestures are not being recognized properly
 ===
 * Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
 > Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys?
+> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno)
 
 
 `AppleMagicTouchstream`:

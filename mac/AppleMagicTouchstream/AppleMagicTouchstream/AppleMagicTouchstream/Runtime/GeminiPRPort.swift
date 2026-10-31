@@ -116,33 +116,6 @@ struct StenoConnectionPanel:View {
         TimelineView(.periodic(from:.now,by:1)) { _ in
             let status = GeminiPRPort.shared.snapshot
             VStack(alignment:.leading,spacing:8) {
-                HStack(alignment:.firstTextBaseline,spacing:12) {
-                    Text("STENO Mouse").font(.callout.weight(.semibold)).fixedSize()
-                    Spacer(minLength:0)
-                    Text("Configurable gestures are disabled in STENO.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true)
-                }
-                Text("1F force drag/select · 2F mouse/left-click · 3F right-click · 4F force scroll")
-                    .font(.caption).fixedSize(horizontal:false,vertical:true)
-
-                HStack(spacing:12) {
-                    Text("Force Threshold").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
-                    HStack {
-                        Slider(value:Binding(get:{ draftThreshold },set:{ draftThreshold = $0.rounded() }),in:1...500,onEditingChanged:{ editing in
-                            isEditingThreshold = editing
-                            if !editing, forceThreshold != draftThreshold { forceThreshold = draftThreshold }
-                        })
-                            .accessibilityLabel("Force threshold")
-                        Text(draftThreshold,format:.number.precision(.fractionLength(0)))
-                            .monospacedDigit().frame(width:32,alignment:.trailing)
-                    }.frame(minWidth:0,maxWidth:.infinity)
-                }
-                HStack(spacing:12) {
-                    Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
-                    Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
-                }
-                Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
                 HStack(spacing:12) {
                     Text("Layout").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                     Picker("STENO Layout",selection:$layoutPreset) {
@@ -194,6 +167,34 @@ struct StenoConnectionPanel:View {
                     Text("Plover: Gemini PR, 9600 baud, 8N1, no flow control.").font(.caption2).foregroundStyle(.secondary)
                     Text("Sent: \(status.sent) · Dropped: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
                 }
+                Divider().padding(.vertical,4)
+                HStack(alignment:.firstTextBaseline,spacing:12) {
+                    Text("STENO Mouse").font(.callout.weight(.semibold)).fixedSize()
+                    Spacer(minLength:0)
+                    Text("Configurable gestures are disabled in STENO.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing).fixedSize(horizontal:false,vertical:true)
+                }
+                Text("1F force drag/select · 2F mouse/left-click · 3F right-click · 4F force scroll")
+                    .font(.caption).fixedSize(horizontal:false,vertical:true)
+
+                HStack(spacing:12) {
+                    Text("Force Threshold").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                    HStack {
+                        Slider(value:Binding(get:{ draftThreshold },set:{ draftThreshold = $0.rounded() }),in:1...500,onEditingChanged:{ editing in
+                            isEditingThreshold = editing
+                            if !editing, forceThreshold != draftThreshold { forceThreshold = draftThreshold }
+                        })
+                            .accessibilityLabel("Force threshold")
+                        Text(draftThreshold,format:.number.precision(.fractionLength(0)))
+                            .monospacedDigit().frame(width:32,alignment:.trailing)
+                    }.frame(minWidth:0,maxWidth:.infinity)
+                }
+                HStack(spacing:12) {
+                    Toggle("Haptic on touch",isOn:$hapticTouch).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                    Toggle("Haptic on release",isOn:$hapticRelease).toggleStyle(.checkbox).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                }
+                Text("Uses Haptic Strength in Typing Tuning.").font(.caption2).foregroundStyle(.secondary)
             }.padding(12).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                 .background(Color.primary.opacity(0.05),in:RoundedRectangle(cornerRadius:12))
                 .onAppear {
