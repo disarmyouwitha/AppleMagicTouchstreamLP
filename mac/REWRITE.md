@@ -1,6 +1,5 @@
 # NEXT:
 =======
-0. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
 1. VERY often during 3F pinch, 4F pinc and 5F pinch the gesture will be recognized as 3F,4F,5F movement or directional actions.. For an example 5F pinch it’s like it sees the 4 fingers touch down, the thumb joins the gesture, but it only takes into account the 4 fingers going down, not the thumb going in an oposite direction. <bad_pinch_atpcap>
 > Basically, Pinch gestures are not being recognized properly 
 2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 
@@ -11,6 +10,9 @@
 > Comments:
 > add/remove columns so we dont need so many different layout options?
 > > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno)
+===
+1.5. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
+2.5. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
 ===
 # Human Tasks...?
 0. Start working on TouchStream gesture defaults template!!

@@ -81,6 +81,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
     mutating func process<C: Collection>(device: UInt64, time: Double, touches: C,
         enabled: (Gesture) -> Bool,
         requiresCoherentTranslation: Bool = false,
+        requiresFullContactTranslation: Bool = false,
         activationFilter: (Gesture, GestureActivationContext) -> Bool = { _,_ in true }
     ) -> GestureSessionUpdate<Gesture> where C.Element == OMSRawTouch {
         // Count active contacts separately from validity: malformed input must
@@ -115,20 +116,23 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
             // displacement need not qualify as motion by the newly formed chord.
             session.pendingCount = activeCount; session.travel = .zero
             session.activationBaseline = requiresCoherentTranslation ? contacts.baseline(device:device) : nil
-            if rules.contains(where: { $0.activationCount == activeCount && $0.requiresFullChordMotion && enabled($0.gesture) }) {
+            if requiresFullContactTranslation || rules.contains(where: { $0.activationCount == activeCount && $0.requiresFullChordMotion && enabled($0.gesture) }) {
                 sessions[device] = session
                 return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
             }
         }
         session.travel.x += movement.x; session.travel.y += movement.y
-        let distance = hypot(session.travel.x,session.travel.y)
         var coherent:Double?
         if requiresCoherentTranslation, let current = contacts.baseline(device:device) {
             if let baseline = session.activationBaseline {
-                coherent = GestureContactMotionTracker.coherentTranslationMM(from:baseline,to:current,direction:session.travel)
+                coherent = GestureContactMotionTracker.coherentTranslationMM(from:baseline,to:current,direction:session.travel,requireAllContacts:requiresFullContactTranslation)
             }
-            if coherent == nil { session.activationBaseline = current; coherent = 0 }
+            if coherent == nil {
+                session.activationBaseline = current; coherent = 0
+                if requiresFullContactTranslation { session.travel = .zero }
+            }
         }
+        let distance = hypot(session.travel.x,session.travel.y)
         let context = GestureActivationContext(time:time,activeCount:activeCount,
             frameMovementMM:movement,pendingMovementMM:session.travel,acquisitionElapsed:time-session.started,
             coherentMovementMM:coherent)
@@ -159,10 +163,11 @@ struct GestureContactMotionTracker: Sendable {
     }
     private var sessions: [UInt64: Baseline] = Dictionary(minimumCapacity: 2)
     func baseline(device:UInt64) -> Baseline? { sessions[device] }
-    /// Translation supported by at least three quarters of the complete chord.
+    /// Translation supported by at least three quarters of the complete chord,
+    /// or every contact when a thumb-bearing shape competes with translation.
     /// Project individual displacements onto the candidate direction; one moving
     /// fingertip cannot turn stationary landing/pressure settling into translation.
-    static func coherentTranslationMM(from old:Baseline,to next:Baseline,direction:CGPoint) -> Double? {
+    static func coherentTranslationMM(from old:Baseline,to next:Baseline,direction:CGPoint,requireAllContacts:Bool = false) -> Double? {
         guard old.count == next.count, next.count > 0 else { return nil }
         let length = hypot(direction.x,direction.y)
         var projections = SIMD16<Double>(repeating:0)
@@ -176,7 +181,7 @@ struct GestureContactMotionTracker: Sendable {
             }
             projections[slot] = projection
         }
-        let required = (next.count*3+3)/4
+        let required = requireAllContacts ? next.count : (next.count*3+3)/4
         return max(0,projections[next.count-required])
     }
     private let activationCount: Int

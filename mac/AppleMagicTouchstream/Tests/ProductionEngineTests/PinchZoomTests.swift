@@ -420,3 +420,57 @@ extension PinchZoomTests {
         XCTAssertEqual(recognized.phase,.began)
     }
 }
+
+extension PinchZoomTests {
+    func testOpposedThumbAndFingertipsCannotAcquireMovementBeforePinch() throws {
+        for count in 3...5 {
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
+            let early = router.recognize(device:1,time:1.01,contacts:chord(count,spread:-0.5,translation:0.1),enabled:{_ in true})
+            XCTAssertNil(early.gesture,"Early contraction must not latch majority motion for \(count) contacts")
+            let pinch = router.recognize(device:1,time:1.02,contacts:chord(count,spread:-2,translation:0.3),enabled:{_ in true})
+            XCTAssertEqual(pinch.gesture,GestureTrigger.pinch(count:count))
+        }
+    }
+    func testThumbJoiningDoesNotCountPriorFingertipTravelAsFiveFingerMovement() {
+        var router = TrackpadGestureRouter()
+        _ = router.recognize(device:1,time:1,contacts:Array(chord(5).dropFirst()),enabled:{_ in true})
+        let join = router.recognize(device:1,time:1.01,contacts:chord(5,spread:-2,translation:0.5),enabled:{_ in true})
+        XCTAssertNil(join.gesture)
+        let pinch = router.recognize(device:1,time:1.02,contacts:chord(5,spread:-3.5,translation:1),enabled:{_ in true})
+        XCTAssertEqual(pinch.gesture,.fiveFingerPinch)
+    }
+    func testThumbBearingRigidTranslationStillActivatesMovementAndKeepsFirstOwner() {
+        for count in 4...5 {
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
+            let move = router.recognize(device:1,time:1.01,contacts:chord(count,translation:0.5),enabled:{_ in true})
+            let expected:GestureTrigger = count == 4 ? .fourFingerMove:.fiveFingerMove
+            XCTAssertEqual(move.gesture,expected)
+            XCTAssertEqual(router.recognize(device:1,time:1.02,contacts:chord(count,spread:-4,translation:1),enabled:{_ in true}).gesture,expected)
+        }
+        var router = TrackpadGestureRouter()
+        _ = router.recognize(device:1,time:1,contacts:Array(chord(4).dropFirst()),enabled:{_ in true})
+        XCTAssertEqual(router.recognize(device:1,time:1.01,contacts:Array(chord(4,translation:0.5).dropFirst()),enabled:{_ in true}).gesture,.threeFingerMove)
+        XCTAssertEqual(router.recognize(device:1,time:1.02,contacts:chord(4,spread:-4,translation:1),enabled:{_ in true}).gesture,.threeFingerMove)
+    }
+    func testRecordedStaggeredPinchesBeatCompetingMovement() throws {
+        struct Trace:Decodable { let frames:[RuntimeRawFrame] }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"bad-pinch",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Trace.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), cycle=0, wasDown=false
+        var results:[String] = []
+        for frame in frames {
+            let down = frame.rawTouches.contains { $0.state == .making || $0.state == .touching }
+            let result = router.recognize(device:frame.deviceNumericID,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0.isPinch || $0 == .twoFingerMove || $0 == .threeFingerMove || $0 == .fourFingerMove || $0 == .fiveFingerMove
+            }
+            if result.phase == .began, let gesture = result.gesture { results.append("\(cycle):\(gesture.rawValue)") }
+            if wasDown && !down { cycle += 1 }; wasDown=down
+        }
+        XCTAssertEqual(results,["0:fiveFingerPinch","1:fiveFingerPinch","2:fourFingerPinch",
+            "3:fourFingerPinch","4:fiveFingerPinch","5:fourFingerPinch","6:threeFingerPinch",
+            "7:threeFingerPinch","8:threeFingerPinch","9:threeFingerPinch","10:threeFingerPinch",
+            "11:fourFingerPinch","12:fiveFingerPinch","13:twoFingerMove","15:twoFingerMove"])
+    }
+}

@@ -394,6 +394,24 @@ is one shared per-hand gain (0.25–2×), regardless of which count/direction st
 Magnification posts balanced began/changed/ended or cancelled phases, uses a fixed
 activation location, and clamps each output delta to ±0.25.
 
+When a recognized thumb and an enabled Pinch/Spread compete at counts 3–5,
+movement activation uses the entire current chord, including the thumb, rather
+than a three-quarter majority. The thumb cannot be omitted while the fingertip
+group translates in the opposite direction. A membership change excludes the
+pre-cohort interval and starts a fresh full-chord baseline; replacing identities
+likewise discards pre-cohort travel. Once evidence identifies a disabled shape
+direction, its movement competitor retains the existing direction policy. This
+only changes pending activation: positive-thumb eligibility, shape/rotation
+priority, thresholds, output gains, existing gesture owners and all-up cleanup
+remain shared. Ordinary non-thumb rows keep their existing staggered drag/scroll
+activation, and two-finger mouse recognition keeps its existing policy.
+
+`bad_pinch.atpcap` is retained at `mac/bad_pinch.atpcap`; the
+`Tests/ProductionEngineTests/Fixtures/bad-pinch.json` regression preserves all 644 raw frames, native and
+arrival clocks, and the source SHA-256 without copying profile/Keychain metadata.
+With pinch and movement competitors enabled, all 13 recorded multi-finger pinch
+attempts must select Pinch; the subsequent ordinary pointer cycles remain Move.
+
 ## Movement and directional actions
 
 Thumb+2 additionally exposes diagonal-only movement under `thumbTwoMove`.
