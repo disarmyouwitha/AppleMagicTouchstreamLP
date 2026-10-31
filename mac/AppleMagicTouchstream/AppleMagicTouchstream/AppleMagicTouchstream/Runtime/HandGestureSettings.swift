@@ -539,6 +539,8 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     static let defaultsKey = "AppleMagicTouchstream.handGestureBindings.v1"
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
+    var stenoPointerMode:StenoPointerMode?
+    var resolvedStenoPointerMode:StenoPointerMode { stenoPointerMode ?? .twoFinger }
     var coordinated: TwoHandGestureSettings?
     var twoHand: TwoHandGestureSettings { coordinated ?? TwoHandGestureSettings() }
     init(mirrored seed: PerHandGestureSettings = PerHandGestureSettings()) { left = seed; right = seed }

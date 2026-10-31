@@ -803,7 +803,7 @@ final class ProductionReplaySession {
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
             if preset.isSteno {
-                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry)
+                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger)
             }
             if preset == .touchstream {
                 return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)

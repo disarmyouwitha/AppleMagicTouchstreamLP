@@ -1,15 +1,21 @@
 # NEXT:
 =======
-I'M LEARNING STENO BABY!!
-0. I want to implement a "STENO" layout with something similar to an astrisk v2 
-1. I want you to implement `GeminiPR protocol` when switched to this layout.
-2. Take a look at my layout on my @voyager.jpg
-> It looks like we could use the 6x3 layout for it if we add STENO keycodes?
+Yooo steno mode is so cool! It works~ Something I noticed is that 2F movement no longer works.. I'm guessing we disabled Gestures during Steno mode because most of them would get triggered while chording? 
+1. Do you think we would be able to differentiate between 2F key presses and 2F mouse? 
+2. OR do you think we should allow 1F mouse in Steno mode with 1F Force-click as click. I feel like that would be easier to differentiate? 
+> lets implement both with a dropdown to select between them so i can test!
+3. Can we call it STENO 6x3 instead of voyager?
+Thoughts?
+===
+Do you see the Plover plugin for windows_linux/AppleMagicTouchstream? Lets do something like that as an option too!
+> Lets test these on Windows first!
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
+> test??
 ===
 * * Start working on TouchStream gesture defaults template!!
+* * make 6x3 decal girl template in gimp with layers for ppl to edit
 
 
 `AppleMagicTouchstream`:
@@ -25,6 +31,7 @@ I'M LEARNING STENO BABY!!
 **LATER:** I can go through and make a touchstream default keymap!! (I will need to hand-set a bunch of default keyboard shortcuts!)
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
+> add/remove columns so we dont need so many different layout options?
 ===
 * `Landings Zones`:
 - 4F hold above homerow, on homerow, below homerow
@@ -42,7 +49,7 @@ I'M LEARNING STENO BABY!!
 ===
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
 ===
-0. Need to fix ai artwork sub legends lmao
+0. **Need to fix AI artwork sub legends lmao**
 1. Implement special "HAND" key for Touchstream layout.
 2. We will need to synthesize the keys from the legends when the hand is held. Can you create the keys and logic and map these on the RHS? 
 > Here is the list of unshifted and "hand" shifted pairs: (y,0),(u,4),(i,5),(h,left),(j,1),(k,2),(l,3),(n,_),(m,0)

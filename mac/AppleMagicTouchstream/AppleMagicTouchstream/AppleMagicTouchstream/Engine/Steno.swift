@@ -42,15 +42,64 @@ struct StenoRegion:Sendable {
     let geometry:KeyHitGeometry
 }
 
+enum StenoPointerMode:String,CaseIterable,Codable,Sendable,Identifiable {
+    case disabled, twoFinger, oneFingerForce
+    var id:String { rawValue }
+    var title:String {
+        switch self { case .disabled: return "Off"; case .twoFinger: return "2F Mouse"; case .oneFingerForce: return "1F Mouse + Force Click" }
+    }
+    var count:Int { self == .twoFinger ? 2 : 1 }
+}
+
+struct StenoPointerUpdate:Sendable {
+    var millimetres:CGPoint? = nil
+    var click = false
+    var reset = false
+}
+
+/// Shares continuous contact ownership/coherence and force recognition with
+/// ordinary gestures, while keeping the pending stroke available until a win.
+struct StenoPointerArbiter:Sendable {
+    private var movement = GestureSessionEngine<Int>(rules:[
+        .init(gesture:1,activationCount:1,minimumMovementMM:2,requiresFullChordMotion:true),
+        .init(gesture:2,activationCount:2,minimumMovementMM:2,requiresFullChordMotion:true)])
+    private var force = ForceClickRecognizer()
+    private var excluded:UInt8 = 0
+    mutating func reset() { movement.reset(); force.clear(); excluded = 0 }
+    mutating func process<C:Collection>(mode:StenoPointerMode,device:Int,time:Double,touches:C,mayActivate:Bool) -> (claimed:Bool,update:StenoPointerUpdate) where C.Element == OMSRawTouch {
+        guard mode != .disabled else { return (false,.init()) }
+        let id = UInt64(device), bit = UInt8(1)<<device
+        let count = touches.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1:0) }
+        if (count > mode.count || !mayActivate) && movement.owner(device:id) == nil && !force.claimed(device:id) { excluded |= bit }
+        let allowed = mode != .disabled && excluded & bit == 0
+        let click = force.recognize(device:id,time:time,contacts:touches,enabled:{ _ in allowed && mode == .oneFingerForce && count == 1 }) != nil
+        let forceOwned = force.claimed(device:id)
+        let motion = movement.process(device:id,time:time,touches:touches,
+            enabled:{ $0 == mode.count && allowed },requiresCoherentTranslation:true,
+            activationFilter:{ _, context in (context.coherentMovementMM ?? 0) >= 2 })
+        if motion.phase == .cancelled { excluded |= bit }
+        let moving = motion.phase == .began || motion.phase == .changed
+        let claimed = moving || click || forceOwned
+        if count == 0 { excluded &= ~bit }
+        return (claimed,.init(millimetres:moving ? motion.millimetres:nil,click:click,
+            reset:motion.phase == .cancelled || motion.phase == .ended || count == 0))
+    }
+}
+
 /// Both pads form one stroke. Keys accumulate through rolling contacts; only
 /// both-pad all-up emits. Invalid/stale/overflow/reset cancels, never completes.
 struct StenoChordEngine:Sendable {
+    var pointerMode:StenoPointerMode = .disabled
+    private(set) var pointerUpdate:StenoPointerUpdate?
+    private var pointer = StenoPointerArbiter()
+    private var pointerOwned = false
+    private var sawBothHands = false
     private var chord:UInt64 = 0
     private var down:UInt8 = 0
     private var blocked = false
     private var times = SIMD2<Double>(repeating:-1)
     mutating func cancel(blockedPads:UInt8? = nil) {
-        chord = 0
+        chord = 0; pointer.reset(); pointerOwned = false; sawBothHands = false; pointerUpdate = nil
         if let blockedPads { down = blockedPads }
         blocked = down != 0
         times = SIMD2<Double>(repeating:-1)
@@ -63,6 +112,7 @@ struct StenoChordEngine:Sendable {
     mutating func process<C:Collection>(device:Int,time:Double,touches:C,regions:[StenoRegion],size:CGSize) -> UInt64? where C.Element == OMSRawTouch {
         guard device == 0 || device == 1 else { return nil }
         let pad = UInt8(1)<<device
+        pointerUpdate = nil
         var count = 0, keys:UInt64 = 0
         var valid = time.isFinite && time >= 0 && (times[device] < 0 || time > times[device])
         if times[device] >= 0, down & pad != 0, time-times[device] > 0.25 { valid = false }
@@ -75,14 +125,23 @@ struct StenoChordEngine:Sendable {
         }
         if count > 0 { down |= pad } else { down &= ~pad }
         times[device] = time.isFinite ? time : -1
-        if !valid { chord = 0; blocked = down != 0; return nil }
+        if !valid { cancel(blockedPads:down); return nil }
         if blocked {
             if down == 0 { blocked = false }
             return nil
         }
+        if down == 3 { sawBothHands = true }
+        let mouse = pointer.process(mode:pointerMode,device:device,time:time,touches:touches,mayActivate:down == pad && !sawBothHands)
+        if mouse.claimed { pointerOwned = true; chord = 0 }
+        if pointerOwned {
+            pointerUpdate = mouse.update
+            if down == 0 { pointer.reset(); pointerOwned = false; sawBothHands = false }
+            return nil
+        }
         chord |= keys
-        guard down == 0, chord != 0 else { return nil }
-        let stroke = chord; chord = 0; return stroke
+        guard down == 0 else { return nil }
+        let stroke = chord; chord = 0; pointer.reset(); sawBothHands = false
+        return stroke == 0 ? nil:stroke
     }
 }
 
@@ -103,7 +162,7 @@ enum StenoLayoutDefinition {
         return keys.map { $0.map { $0?.label ?? "None" } }
     }
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
-                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:]) -> ContentViewModel.Layout {
+                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
         if preset == .stenoVoyager {
             // Reuse the 6×3 stagger and its mirrored, inner-to-outer column identities.
@@ -134,6 +193,6 @@ enum StenoLayoutDefinition {
                 rects[row][col] = .init(x:old.centerX-w/2,y:old.centerY-h/2,width:w,height:h,rotationDegrees:old.rotationDegrees-edit.rotationDegrees)
             }
         }
-        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true)
+        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true,stenoPointerMode:pointerMode)
     }
 }

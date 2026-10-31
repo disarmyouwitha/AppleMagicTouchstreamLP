@@ -16,7 +16,12 @@ final class TrackpadGestureController: ObservableObject {
     private var stenoMode = false
     func setStenoMode(_ enabled:Bool) {
         guard stenoMode != enabled else { return }
+        InterpretedTrackpadPointer.shared.stop()
         stenoMode = enabled; configure()
+    }
+    func setStenoPointerMode(_ mode:StenoPointerMode) {
+        if stenoMode { InterpretedTrackpadPointer.shared.resetBaseline() }
+        settings.stenoPointerMode = mode; settings.save(to:.standard); configure()
     }
     private var pointerProfiles: [UInt64: ApplePointerAccelerationProfile] = [:]
     private var scrollProfiles: [UInt64: AppleScrollProfile] = [:]
@@ -246,7 +251,12 @@ final class TrackpadGestureController: ObservableObject {
 
     private func configure() {
         if stenoMode {
-            InterpretedTrackpadPointer.shared.stop(); statusRevision &+= 1; return
+            let routed = settings.routed(to:pads)
+            let eligible = NativeTwoFingerMouseGate.outputDevices(enabled:settings.resolvedStenoPointerMode != .disabled,
+                armed:armed,takeoverEnabled:takeoverEnabled,trusted:AXIsProcessTrusted(),selected:Set(routed.keys),owned:owned)
+                .filter { pointerProfiles[$0] != nil }
+            InterpretedTrackpadPointer.shared.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity))
+            statusRevision &+= 1; return
         }
         let shortcuts = AppleShortcutPlan.load()
         let routed = settings.routed(to: pads)

@@ -750,7 +750,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         isStenoLayout = steno
         stenoChord.cancel(blockedPads:padsWithContacts)
-        dispatchService.configureStenoMode(steno)
+        stenoChord.pointerMode = leftLayout.stenoPointerMode
+        dispatchService.configureStenoMode(steno,pointerMode:leftLayout.stenoPointerMode)
         self.leftLayout = leftLayout
         self.rightLayout = rightLayout
         self.leftLabels = leftLabels
@@ -1144,6 +1145,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if suppressKeyboard { stenoChord.cancel(blockedPads:padsWithContacts) }
             else if let chord = stenoChord.process(device:isLeftDevice ? 0:1,time:now,touches:touches,regions:stenoRegions[side],size:trackpadSize) {
                 dispatchService.postStenoStroke(chord,sourceSequence:currentDispatchSourceSequence())
+            }
+            if let update = stenoChord.pointerUpdate,
+               let id = UInt64((isLeftDevice ? leftDeviceID:rightDeviceID) ?? "") {
+                dispatchService.postStenoPointer(update,device:id,time:now,sourceSequence:currentDispatchSourceSequence())
             }
             return makeFrameDiagnostic(deviceIndex:deviceIndex,touches:touches,bindings:index,now:now)
         }

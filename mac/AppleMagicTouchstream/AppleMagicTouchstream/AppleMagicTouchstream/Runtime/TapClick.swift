@@ -6,16 +6,17 @@ import OpenMultitouchSupport
 
 /// Current finger count chooses the configured force action when any contact
 /// crosses the pressure threshold. The action owns the cycle until all-up.
-struct ForceClickRecognizer {
+struct ForceClickRecognizer:Sendable {
     static let threshold: Float = 130
-    private struct Session {
+    private struct Session:Sendable {
         var ids = SIMD8<Int32>(repeating:0)
         var count = 0
         var lastTime: Double?
         var blocked = false
         var fired = false
     }
-    private var sessions: [UInt64: Session] = [:]
+    private var sessions: [UInt64: Session] = Dictionary(minimumCapacity:2)
+    mutating func clear() { sessions.removeAll(keepingCapacity:true) }
     func claimed(device: UInt64) -> Bool { sessions[device]?.fired == true }
     mutating func cancel(device: UInt64) { sessions[device] = Session(blocked:true) }
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }

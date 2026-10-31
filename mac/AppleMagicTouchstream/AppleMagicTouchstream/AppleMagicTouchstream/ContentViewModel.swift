@@ -842,15 +842,17 @@ final class ContentViewModel: ObservableObject {
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
         let isSteno: Bool
+        let stenoPointerMode:StenoPointerMode
 
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
+            self.stenoPointerMode = stenoPointerMode
             self.keyRects = normalizedKeyRects.map { row in
                 row.map { $0.boundingRect(in: trackpadSize) }
             }
@@ -859,11 +861,12 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
+            self.stenoPointerMode = stenoPointerMode
             self.normalizedKeyRects = Layout.normalize(keyRects, trackpadSize: trackpadSize)
         }
 

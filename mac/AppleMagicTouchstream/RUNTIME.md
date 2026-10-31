@@ -108,13 +108,14 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 
 `STENO` follows the [Asterisk v2](https://stenokeyboards.com/products/asterisk-v2)
 arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
-E/U thumb pairs. `STENO Voyager` uses the supplied Voyager image's staggered 6×3
-main grid plus those thumb pairs. Voyager retains mirrored column tuning; the
+E/U thumb pairs. `STENO 6x3` uses the supplied Voyager image's staggered 6×3
+main grid plus those thumb pairs. It retains mirrored column tuning; the
 Asterisk arrangement has fixed independent geometry. Both retain per-key edits
-and their own saved layout namespaces. `STN_*` catalog actions identify the 42
+and their own saved layout namespaces. The displayed `STENO 6x3` preserves the
+serialized `STENO Voyager` name; both names resolve on import. `STN_*` catalog actions identify the 42
 Gemini PR wire positions; they are inert in ordinary keyboard layouts.
 
-STENO replaces ordinary typing and pauses gesture recognition/output. Selected
+STENO replaces ordinary typing and pauses ordinary gesture recognition/output. Selected
 pads retain the normal live routing, listening and lifecycle admission.
 Making/touching non-palm contacts accumulate every intersected steno key; key edges
 expand 1.5 mm to permit upper/lower row combinations under one fingertip. Keys roll
@@ -124,6 +125,30 @@ or stale active delivery (>250 ms), overflow (>16 non-palm contacts per frame),
 device loss, reset and layout/mapping/layer changes cancel the partial stroke and
 wait for remaining contacts to lift. Switching into or out of STENO cannot turn
 held contacts into a new stroke or ordinary key press.
+
+The STENO Mouse dropdown offers Off, 2F Mouse (default), and 1F Mouse + Force
+Click, saved in `HandGestureSettings` and its existing portable Mac extension.
+An absent field selects 2F Mouse. The shared continuous session/coherence engine
+requires 2 mm of coherent translation by the selected contact count. Stationary
+contacts, small settling, and motion by only one of a two-finger chord remain
+steno. Before activation, exceeding the selected count excludes pointer activation
+through local all-up, so a larger stroke cannot turn into a mouse at partial lift.
+If both pads participate before a pointer activates, the whole cycle retains steno
+priority. An activated pointer uses the shared count-change/all-up latch; any
+contacts subsequently added to either pad cannot resurrect a discarded stroke.
+Lift both hands before starting another stroke. One-finger force at the shared
+130 pressure threshold claims one balanced primary click per cycle, including
+while stationary; it does not hold a button or start a drag. A mouse win discards
+the pending whole stroke. Motion classification is a heuristic: moving a lone
+finger or two-finger chord deliberately beyond the threshold chooses the mouse.
+
+Pointer and click commands use the shared output queue, native numeric device ID,
+Apple tracking profile/sensitivity, cursor bounds and existing discrete click
+builder. Selected/owned/armed/takeover/Accessibility and profile gates control live
+output; reconfiguration/lifecycle cancellation invalidates queued commands and
+partial strokes. Replay records `StenoMouse:` intentions in the existing system
+event envelope without posting input. Other saved gestures remain paused and are
+restored on leaving STENO. These modes do not change ordinary keyboard arbitration.
 
 The shared output queue sends six-byte packets using
 [Plover's Gemini PR wire order](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).

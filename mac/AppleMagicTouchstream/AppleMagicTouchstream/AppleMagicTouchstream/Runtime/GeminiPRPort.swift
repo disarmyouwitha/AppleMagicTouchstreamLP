@@ -100,10 +100,23 @@ final class GeminiPRPort:@unchecked Sendable {
 
 /// Visible only for a STENO preset. Snapshot polling does not open a port.
 struct StenoConnectionPanel:View {
+    @Binding var pointerMode:StenoPointerMode
     var body:some View {
         TimelineView(.periodic(from:.now,by:1)) { _ in
             let status = GeminiPRPort.shared.snapshot
             VStack(alignment:.leading,spacing:8) {
+                HStack {
+                    Text("Mouse")
+                    Picker("Mouse",selection:$pointerMode) {
+                        ForEach(StenoPointerMode.allCases) { Text($0.title).tag($0) }
+                    }.labelsHidden().frame(maxWidth:.infinity)
+                }
+                Text(pointerMode == .disabled ? "Mouse is off; all contacts form chords." : "Move 2 mm to claim the mouse. Two-pad chords keep steno priority. Lift all fingers before switching between mouse and steno.")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                if pointerMode == .oneFingerForce {
+                    Text("Press firmly with one finger for a click. A force-click discards the pending stroke.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
                 Text("Gemini PR → Plover").font(.callout.weight(.semibold))
                 Text(status.error ?? (status.path == nil ? "Preparing serial port…" : status.connected ? "Serial reader connected" : "Waiting for Plover"))
                     .font(.caption).foregroundStyle(status.error == nil ? Color.secondary:Color.red)
@@ -115,7 +128,7 @@ struct StenoConnectionPanel:View {
                 }
                 Text("Plover: Configure → Machine → Gemini PR. Paste the port path into Port; use 9600 baud, 8N1, no flow control. Enable Plover output.")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                Text("Chords send when both hands lift. Gestures pause in STENO. Enable Trackpad Takeover for the selected pads.")
+                Text("Chords send when both hands lift. Other gestures pause in STENO. Mouse requires Trackpad Takeover and Accessibility permission.")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Text("Sent: \(status.sent) · Dropped without a reader: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
             }.padding(12).frame(maxWidth:.infinity,alignment:.leading)

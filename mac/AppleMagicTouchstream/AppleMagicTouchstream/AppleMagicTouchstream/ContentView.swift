@@ -915,6 +915,9 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
+            stenoPointerMode:Binding(get:{ viewModel.gestures.settings.resolvedStenoPointerMode },set:{
+                viewModel.gestures.setStenoPointerMode($0); rebuildLayouts()
+            }),
             columnSettings: columnSettings,
             columnSelection: columnInspectorSelection,
             columnSpacingPercent: $keySpacingPercent,
@@ -1241,6 +1244,7 @@ struct ContentView: View {
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let stenoPointerMode:Binding<StenoPointerMode>
         let columnSettings: [ColumnLayoutSettings]
         let columnSelection: ColumnInspectorSelection?
         @Binding var columnSpacingPercent: Double
@@ -1355,7 +1359,7 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
-                    if layoutOption.isSteno { StenoConnectionPanel() }
+                    if layoutOption.isSteno { StenoConnectionPanel(pointerMode:stenoPointerMode) }
 
                     CollapsibleSection(
                         isExpanded: $columnTuningExpanded
@@ -3317,8 +3321,8 @@ struct ContentView: View {
 
     private func rebuildLayouts() {
         if layoutOption.isSteno {
-            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides)
-            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides)
+            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
+            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode)
             viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
                 trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
             return

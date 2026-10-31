@@ -14,8 +14,8 @@ Trackpads, with native selected-pad takeover, capture/replay and optional haptic
   instead of hold. Unreserved contacts default to typing.
 - Traced TouchStream layout, automatic reference background, per-key overrides,
   visualizers with anatomical contact colors, pressure and paths.
-- Asterisk-style STENO and staggered STENO Voyager layouts, rolling two-pad
-  chords and a Gemini PR virtual serial port for Plover.
+- Asterisk-style STENO and staggered STENO 6x3 layouts, rolling two-pad
+  chords, selectable 2F/1F mouse modes and a Gemini PR virtual serial port for Plover.
 - Import/Export Settings including gesture assignments and gains. Native device
   selection and takeover opt-in stay app-local.
 - Run at Startup through the macOS service manager, default off.

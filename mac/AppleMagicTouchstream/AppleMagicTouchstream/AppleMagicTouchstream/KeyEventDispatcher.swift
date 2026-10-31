@@ -728,6 +728,7 @@ final class DispatchService: @unchecked Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case stenoStroke(UInt64,UInt64)
+        case stenoPointer(StenoPointerUpdate,UInt64,Double,UInt64)
         case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
@@ -799,6 +800,7 @@ final class DispatchService: @unchecked Sendable {
         var drops: UInt64 = 0
         var nextCommandID: UInt64 = 1
         var stenoEnabled = false
+        var stenoPointerMode = StenoPointerMode.disabled
         var stenoGeneration:UInt64 = 0
     }
 
@@ -885,15 +887,22 @@ final class DispatchService: @unchecked Sendable {
         enqueue(.voiceToggle, sourceSequence: sourceSequence)
     }
 
-    func configureStenoMode(_ enabled:Bool) {
-        let changed = stateLock.withLockUnchecked { state in
-            guard state.stenoEnabled != enabled else { return false }
-            state.stenoEnabled = enabled; state.stenoGeneration &+= 1; return true
+    func configureStenoMode(_ enabled:Bool,pointerMode:StenoPointerMode = .disabled) {
+        let modeChanged = stateLock.withLockUnchecked { state in
+            let changed = state.stenoEnabled != enabled
+            if changed || state.stenoPointerMode != pointerMode { state.stenoGeneration &+= 1 }
+            state.stenoEnabled = enabled; state.stenoPointerMode = pointerMode
+            return changed
         }
-        guard changed, keyDispatcher != nil else { return }
+        guard modeChanged, keyDispatcher != nil else { return }
         dispatchQueue.async {
             if enabled { GeminiPRPort.shared.start() } else { GeminiPRPort.shared.stop() }
         }
+    }
+    func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double,sourceSequence:UInt64? = nil) {
+        let generation = stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoPointerMode != .disabled ? $0.stenoGeneration:nil }
+        guard let generation else { return }
+        enqueue(.stenoPointer(update,device,time,generation),sourceSequence:sourceSequence)
     }
     func postStenoStroke(_ mask:UInt64,sourceSequence:UInt64? = nil) {
         guard mask != 0, mask & ~GeminiPRPacket.keyMask == 0 else { return }
@@ -1127,6 +1136,11 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
+        case let .stenoPointer(update,device,time,generation):
+            guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
+                emitRecordedEvent(for:command,status:.cancelled); return
+            }
+            InterpretedTrackpadPointer.shared.postStenoPointer(update,device:device,time:time)
         case let .stenoStroke(mask,generation):
             guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
                 emitRecordedEvent(for:command,status:.cancelled); return
@@ -1181,6 +1195,8 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
+        case let .stenoPointer(update,device,_,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.click ? "click" : update.reset ? "reset" : "move")"),status:status,sourceSequence:command.sourceSequence)
         case let .stenoStroke(mask,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):

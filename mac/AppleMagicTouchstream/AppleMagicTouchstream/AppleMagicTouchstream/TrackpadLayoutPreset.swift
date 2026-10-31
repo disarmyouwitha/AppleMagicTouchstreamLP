@@ -20,6 +20,8 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .stenoVoyager:
+            return "STENO 6x3"
         case .blank:
             return rawValue
         case .mobileOrtho12x4:
@@ -145,6 +147,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         }
 
         switch trimmed.lowercased() {
+        case "steno 6x3": return .stenoVoyager
         case "blank", "none":
             return .blank
         case "mobile-ortho-12x4", "mobile ortho 12x4":

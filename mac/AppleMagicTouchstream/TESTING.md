@@ -8,9 +8,15 @@ satisfy the existing model/geometry dependencies; the UI model is not created.
 
 ## STENO verification
 
-`GeminiPRTests`, `StenoChordTests` and `StenoLayoutTests` check canonical Plover
+`GeminiPRTests`, `StenoChordTests`, `StenoMouseTests` and `StenoLayoutTests` check canonical Plover
 wire vectors, every wire bit, rolling two-pad all-up, arbitrary selected device
 indices, cancellation, seam combinations, mode transitions and settings round-trip.
+Mouse regressions cover stationary strokes, coherent 2F travel, one-moving-finger
+rejection, 1F movement/force deduplication, larger-count rollover, two-pad steno
+priority, pointer ownership through count changes, cancellation and fresh strokes
+after mouse all-up. Production replay checks intent-only output and mode changes
+with held contacts. Optional `STENO_MOUSE_PREVIEW_PATH=/tmp/steno-mouse.png` renders
+the Mouse dropdown panel in the same layout test filter.
 The transport test opens only its own private PTY, configures a raw reader as
 Plover does, verifies exact packets (including CR bytes), disconnect/drop behavior
 and path cleanup; it never uses the live singleton or native input. Optional

@@ -49,6 +49,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private struct State {
         var devices: Set<UInt64> = []
+        var stenoDevices:Set<UInt64> = []
         var cornerEngines:[UInt64:SinglePadCornersEngine] = [:]
         var cornerSettings:[UInt64:TwoHandGestureSettings] = [:]
         var cornerEligible:Set<UInt64> = []
@@ -170,6 +171,38 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for event in events {
                 event.post(tap:appleShortcuts[action]?.eventTap ?? .cghidEventTap); postedEvents &+= 1
             }
+        }
+        mutating func postPointerMotion(device:UInt64,time:Double,millimetres:CGPoint) {
+            // Drag destinations accumulate from our last queued destination. Reading
+            // WindowServer here can return an older cursor while posts are in flight.
+            let anchor = drag.location ?? CGEvent(source:nil)?.location
+            guard let delta = tracker.processMotion(device:device,time:time,millimetres:millimetres),
+                  let current = anchor else { reset(device:device); return }
+            guard delta.x != 0 || delta.y != 0 else { return }
+            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
+            // Clamp to the nearest actual display, including negative-origin displays.
+            var closest: CGPoint?; var distance = Double.infinity
+            for bounds in displayBounds {
+                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
+                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
+                let dx = candidate.x - location.x, dy = candidate.y - location.y
+                let d = dx * dx + dy * dy
+                if d < distance { distance = d; closest = candidate }
+            }
+            if let closest { location = closest }
+            if drag.owner != nil {
+                guard let event = drag.movePointer(location:location,delta:delta,
+                    flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) else { reset(device:device); return }
+                event.post(tap:.cghidEventTap); postedEvents &+= 1
+                return
+            }
+            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
+                                       mouseCursorPosition: location, mouseButton: .left) else { return }
+            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
+            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
+            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
+            event.post(tap: .cghidEventTap)
+            postedEvents &+= 1
         }
         var drag = PrimaryDragOutput()
         var mouseOutputTrace = GestureMouseOutputTrace()
@@ -482,12 +515,35 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
     func stop() { lock.withLock {
+        $0.stenoDevices.removeAll(keepingCapacity:true)
         $0.cornerEligible.removeAll(keepingCapacity:true)
         $0.twoHandEligible = false
         $0.devices.removeAll(keepingCapacity:true); $0.reset(); $0.keyboardArbitration.reset(); $0.keyboardDevices.removeAll(keepingCapacity:true)
         $0.momentumTimer?.cancel(); $0.momentumTimer = nil
         $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
     } }
+    /// Uses the shared acceleration, cursor bounds, button ownership and discrete
+    /// click builder. Only the controller's live selected/owned/armed/AX gate enables it.
+    func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double]) {
+        let changed = lock.withLock { $0.stenoDevices != devices || !$0.devices.isEmpty }
+        if changed { stop() }
+        configure(response:.apple,sensitivity:1,profiles:profiles,sensitivities:sensitivities)
+        var displays = [CGDirectDisplayID](repeating:0,count:16), count:UInt32 = 0
+        let valid = CGGetActiveDisplayList(16,&displays,&count) == .success
+        let bounds = valid ? displays.prefix(Int(count)).map { CGDisplayBounds($0) }:[]
+        lock.withLock { state in
+            state.stenoDevices = devices
+            state.displayBounds = bounds
+        }
+    }
+    func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double) {
+        lock.withLock { state in
+            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { return }
+            if update.reset { state.tracker.reset(device:device) }
+            if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
+            if update.click { state.postDirectional(.primaryClick,device:device,time:time) }
+        }
+    }
     func cancelDisconnectedDevice(_ device: UInt64) {
         lock.withLock { state in
             state.reset(device:device)
@@ -874,36 +930,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return nil
             }
             guard motionAction.requiresPointerProfile else { state.reset(device:device); return nil }
-            // Drag destinations accumulate from our last queued destination. Reading
-            // WindowServer here can return an older cursor while posts are in flight.
-            let anchor = state.drag.location ?? CGEvent(source:nil)?.location
-            guard let delta = state.tracker.processMotion(device:device,time:time,millimetres:motion.millimetres),
-                  let current = anchor else { state.reset(device:device); return nil }
-            guard delta.x != 0 || delta.y != 0 else { return nil }
-            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
-            // Clamp to the nearest actual display, including negative-origin displays.
-            var closest: CGPoint?; var distance = Double.infinity
-            for bounds in state.displayBounds {
-                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
-                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
-                let dx = candidate.x - location.x, dy = candidate.y - location.y
-                let d = dx * dx + dy * dy
-                if d < distance { distance = d; closest = candidate }
-            }
-            if let closest { location = closest }
-            if state.drag.owner != nil {
-                guard let event = state.drag.movePointer(location:location,delta:delta,
-                    flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) else { state.reset(device:device); return nil }
-                event.post(tap:.cghidEventTap); state.postedEvents &+= 1
-                return nil
-            }
-            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
-                                       mouseCursorPosition: location, mouseButton: .left) else { return nil }
-            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
-            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
-            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
-            event.post(tap: .cghidEventTap)
-            state.postedEvents &+= 1
+            state.postPointerMotion(device:device,time:time,millimetres:motion.millimetres)
             return nil
         }
         if let forceHaptic { _ = forceHaptic.play(device:device) }
