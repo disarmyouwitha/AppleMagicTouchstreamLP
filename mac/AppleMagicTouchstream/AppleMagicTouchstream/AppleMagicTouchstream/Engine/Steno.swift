@@ -387,7 +387,11 @@ enum StenoLayoutDefinition {
             let targetCenter = (rects[2][3].centerX+rects[2][4].centerX)/2
             let thumbCenter = (rects[3][0].centerX+rects[3][3].centerX)/2
             let shift = targetCenter-thumbCenter
-            for column in rects[3].indices { rects[3][column].x += shift }
+            let thumbTop = asteriskRects(side:.right)[3][0].y
+            for column in rects[3].indices {
+                rects[3][column].x += shift
+                rects[3][column].y = thumbTop
+            }
         }
         // Extend the bottom vowel/thumb bars down to a 0.8 mm pad-edge margin.
         // Preserve their top edges, widths and stable key identities.
