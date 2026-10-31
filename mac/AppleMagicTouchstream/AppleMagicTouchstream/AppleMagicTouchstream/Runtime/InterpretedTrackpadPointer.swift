@@ -287,6 +287,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var momentum: [UInt64:ScrollMomentum] = [:]
         var momentumTimer: (any DispatchSourceTimer)?
         var lastForceHaptic: [UInt64:Double] = [:]
+        mutating func takeForceFeedback(device:UInt64,time:Double) -> Bool {
+            guard time-(lastForceHaptic[device] ?? -.infinity) >= 0.05 else { return false }
+            lastForceHaptic[device] = time; return true
+        }
         var lastReceipt: [UInt64:Double] = Dictionary(minimumCapacity:2)
         var lastContactTime:[UInt64:Double] = Dictionary(minimumCapacity:2)
         mutating func cancelMomentum(device: UInt64) {
@@ -641,8 +645,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 }
             } else if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
             if let click = update.click { state.postDirectional(click.action,device:device,time:time) }
-            if update.activatesForce, now-(state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
-                state.lastForceHaptic[device] = now
+            if update.activatesForce, state.takeForceFeedback(device:device,time:now) {
                 return true
             }
             return false
@@ -678,16 +681,17 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     /// Runs before keyboard/local gesture dispatch, on the same serialized frame.
     func reserveCoordinated(_ frame:OMSRawTouchFrame,keyboardChord:Bool) -> Bool {
-        lock.withLock { state in
+        let outcome = lock.withLock { state -> (Bool,UInt64?,UInt64?) in
+            var leftFeedback:UInt64?, rightFeedback:UInt64?
             let device = frame.deviceIDNumeric
             guard state.twoHandEligible,
-                  device == state.twoHandPads.left || device == state.twoHandPads.right else { return false }
+                  device == state.twoHandPads.left || device == state.twoHandPads.right else { return (false,nil,nil) }
             let now = CACurrentMediaTime()
             let decision = state.twoHandEngine.process(leftHand:device == state.twoHandPads.left,now:now,
                 contacts:frame.touches,settings:state.twoHandSettings,
                 blocked:keyboardChord || !state.keyboardChordDevices.isEmpty || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil))
             if !state.twoHandEngine.maintainsHeldOutput { state.releaseShortcut(.coordinated) }
-            guard decision.reserved else { return false }
+            guard decision.reserved else { return (false,nil,nil) }
             // Cancel both independent outputs when the shared chord owns them.
             if decision.began {
                 if let left = state.twoHandPads.left { state.reset(device:left) }
@@ -697,9 +701,18 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !frame.touches.contains(where:{$0.state == .making || $0.state == .touching}) {
                 state.consumeAllUp(device:device,time:frame.timestamp,now:CACurrentMediaTime(),contacts:frame.touches)
             }
-            if let trigger = decision.trigger { state.postCoordinated(trigger,time:now) }
-            return true
+            if let trigger = decision.trigger {
+                state.postCoordinated(trigger,time:now)
+                if trigger.phase == .force, state.twoHandTrusted {
+                    if let left = state.twoHandPads.left, state.takeForceFeedback(device:left,time:now) { leftFeedback = left }
+                    if let right = state.twoHandPads.right, state.takeForceFeedback(device:right,time:now) { rightFeedback = right }
+                }
+            }
+            return (true,leftFeedback,rightFeedback)
         }
+        if let leftFeedback = outcome.1 { _ = ForceClickHapticSettings.fixed.play(device:leftFeedback) }
+        if let rightFeedback = outcome.2 { _ = ForceClickHapticSettings.fixed.play(device:rightFeedback) }
+        return outcome.0
     }
 
     func configureCorners(settings:[UInt64:TwoHandGestureSettings],eligible:Set<UInt64>) {
@@ -861,8 +874,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
                 for event in events { event.post(tap:state.appleShortcuts[forceBindings.action(for:trigger)]?.eventTap ?? .cghidEventTap) }
                 if state.appleShortcuts[forceBindings.action(for:trigger)]?.postDock() == true { state.clicks.reset() }
-                if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
-                    state.lastForceHaptic[device] = hostTime
+                if state.takeForceFeedback(device:device,time:hostTime) {
                     feedback = .fixed
                 }
             }

@@ -748,7 +748,7 @@ enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
     static let recognitionOrder:[Self] = allCases
 }
 enum TwoHandPhase:String,CaseIterable,Codable,Identifiable,Sendable {
-    case tap, hold
+    case tap, hold, force
     var id:String { rawValue }
     var title:String { rawValue.capitalized }
 }
@@ -757,6 +757,9 @@ struct TwoHandTrigger:Equatable,Sendable {
     var phase:TwoHandPhase
     var key:String {
         switch (chord,phase) {
+        case (.threeFingers,.force):return "threeFingers.force"
+        case (.fourFingers,.force):return "fourFingers.force"
+        case (_, .force):return "unsupported.force"
         case (.fourCorners,.tap):return "fourCorners.tap"
         case (.fourCorners,.hold):return "fourCorners.hold"
         case (.innerCorners,.tap):return "innerCorners.tap"
@@ -792,9 +795,10 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     }
     func enabled(_ chord:TwoHandChord) -> Bool {
         action(.init(chord:chord,phase:.tap)) != .disabled || action(.init(chord:chord,phase:.hold)) != .disabled
+            || (!chord.isCorner && action(.init(chord:chord,phase:.force)) != .disabled)
     }
     mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
-        guard (!trigger.chord.isCorner || trigger.phase == .hold), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
+        guard trigger.chord.phases.contains(trigger.phase), Self.allowedActions.acceptsGestureAction(action,held:trigger.phase == .hold) else { return }
         assignments[trigger.key] = action
     }
 }

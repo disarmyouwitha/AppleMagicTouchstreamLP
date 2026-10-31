@@ -650,7 +650,7 @@ struct GestureAssignmentWorkspace: View {
                     VStack(alignment:.leading,spacing:8) {
                         Text("COORDINATED TWO-HAND INPUT").font(.caption2).foregroundStyle(.secondary).padding(.horizontal,8)
                         ForEach(([TwoHandChord.threeFingers, .fourFingers] + TwoHandChord.allCases.filter(\.isCorner)).filter { chord in
-                            search.isEmpty || (chord.title+" "+settings.twoHand.action(.init(chord:chord,phase:.tap)).title+" "+settings.twoHand.action(.init(chord:chord,phase:.hold)).title).localizedCaseInsensitiveContains(search)
+                            search.isEmpty || (chord.title+" "+settings.twoHand.action(.init(chord:chord,phase:.tap)).title+" "+settings.twoHand.action(.init(chord:chord,phase:.hold)).title+" "+settings.twoHand.action(.init(chord:chord,phase:.force)).title).localizedCaseInsensitiveContains(search)
                         }) { chord in
                             Button {
                                 twoHandChord = chord; twoHandPhase = chord.isCorner ? .hold : .tap
@@ -721,7 +721,7 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
-                    Text(twoHandChord.isCorner ? "Coordinated Hold" : "Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
+                    Text(twoHandChord.isCorner ? "Coordinated Hold" : "Coordinated Tap, Hold and Force").font(.callout).foregroundStyle(.secondary)
                     Text(twoHandChord.placementDescription)
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true).padding(.top,10)
                 }.frame(maxWidth:.infinity,alignment:.leading)
@@ -738,9 +738,9 @@ struct GestureAssignmentWorkspace: View {
                     let selected = twoHandPhase == phase
                     Button { twoHandPhase = phase } label: {
                         VStack(alignment:.leading,spacing:12) {
-                            Label(phase.title,systemImage:phase == .tap ? "hand.tap" : "pause.circle").font(.caption).foregroundStyle(.secondary)
+                            Label(phase.title,systemImage:phase == .tap ? "hand.tap" : phase == .force ? "hand.point.up.left.fill":"pause.circle").font(.caption).foregroundStyle(.secondary)
                             Text(settings.twoHand.action(trigger).title).font(.headline)
-                            Text(phase == .tap ? "Once when both hands lift" : "Once after \(GestureHoldTiming.milliseconds(settings.twoHand.holdThreshold(for:twoHandChord))) ms")
+                            Text(phase == .force ? "Both pads at P ≥ 130" : phase == .tap ? "Once when both hands lift" : "Once after \(GestureHoldTiming.milliseconds(settings.twoHand.holdThreshold(for:twoHandChord))) ms")
                                 .font(.caption).foregroundStyle(.secondary)
                         }.frame(maxWidth:.infinity,minHeight:95,alignment:.topLeading).padding(16)
                             .background(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:10))
@@ -753,7 +753,7 @@ struct GestureAssignmentWorkspace: View {
                     "Before Hold activates, adding the remaining corners can select \($0.title). Lift every finger from both pads to rearm."
                  } ?? (twoHandChord.isCorner
                  ? "Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture."
-                 : "A hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
+                 : "Force or Hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
                  )
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
@@ -775,7 +775,9 @@ struct GestureAssignmentWorkspace: View {
                 shortcutBuilder(settings.twoHand.action(twoHandTrigger),allowsHold:twoHandPhase == .hold) { setTwoHandAction($0,twoHandTrigger) }
                 Divider()
                 Text("Recognition").font(.callout).fontWeight(.medium)
-                Text(twoHandPhase == .tap
+                Text(twoHandPhase == .force
+                     ? "Exactly \(twoHandChord.count) contacts on each pad. At least one contact per pad reaches P ≥ 130, with pressure crossings within 150 ms and both pads still above threshold. Fires once and latches until both pads lift."
+                     : twoHandPhase == .tap
                      ? "Both chords must lift within 500 ms. Lift skew: 150 ms. Movement slop: 2 mm."
                      : "Keep both chords still for \(GestureHoldTiming.milliseconds(settings.twoHand.holdThreshold(for:twoHandChord))) ms. The assigned action activates after the threshold. Shortcut Behavior chooses one shot or a key held until release.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
@@ -1322,6 +1324,9 @@ private struct TwoHandChordExample:View {
                         let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
                         contacts.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
                         contacts.stroke(dot,with:.color(color),lineWidth:1.2)
+                        if phase == .force {
+                            contacts.stroke(Path(ellipseIn:CGRect(x:x-7,y:y-7,width:14,height:14)),with:.color(.red.opacity(filled ? 0.8:0.2)),lineWidth:1.5)
+                        }
                     }
                 }
             }.frame(width:200,height:75)

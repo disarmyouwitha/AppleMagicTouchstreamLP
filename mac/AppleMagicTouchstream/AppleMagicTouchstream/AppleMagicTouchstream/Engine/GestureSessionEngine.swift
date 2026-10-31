@@ -374,10 +374,13 @@ enum CornerGestureGeometry {
 /// timers or I/O here; the live runtime supplies freshness ticks under its lock.
 struct TwoHandGestureEngine {
     static let acquisitionWindow = 1.0
+    static let forceJoinWindow = 0.15
     static let joinWindow = 0.15, staleWindow = 0.2, tapWindow = 0.5, movementSlopMM = 2.0
     private struct Sample {
         var time:Double, downAt:Double
         var count = 0, invalid = false
+        var forceValid = true, pressureHigh = false, forceBlocked = false
+        var forceSince:Double?
         var ids = SIMD8<Int32>(repeating:0)
         var points = SIMD16<Double>(repeating:0)
         func matchesCorners(mask expected:Int,allowSubset:Bool = false) -> Bool {
@@ -411,7 +414,7 @@ struct TwoHandGestureEngine {
     private struct Session {
         var chord:TwoHandChord, left:Sample, right:Sample, start:Double
         var valid = true, held = false
-        var growing = false
+        var growing = false, forceFired = false
         var firstLift:Double?
     }
     struct Decision { var reserved:Bool = false; var trigger:TwoHandTrigger?; var began:Bool = false }
@@ -428,6 +431,8 @@ struct TwoHandGestureEngine {
         if blocked { reset(); return Decision() }
         let previous = leftHand ? left : right
         var sample = Sample(time:now,downAt:(previous?.count ?? 0) > 0 ? previous!.downAt : now)
+        let forceEnabled = settings.action(.init(chord:.threeFingers,phase:.force)) != .disabled
+            || settings.action(.init(chord:.fourFingers,phase:.force)) != .disabled
         for touch in contacts where touch.state == .making || touch.state == .touching {
             let i = sample.count
             if i >= 8 { sample.invalid = true; continue }
@@ -436,28 +441,47 @@ struct TwoHandGestureEngine {
                 || (0..<i).contains(where:{sample.ids[$0] == touch.id})
             sample.ids[i] = touch.id; sample.points[i*2] = Double(touch.posX); sample.points[i*2+1] = Double(touch.posY)
             sample.count += 1
+            if forceEnabled {
+                sample.forceValid = sample.forceValid && touch.pressure.isFinite && touch.pressure >= 0
+                sample.pressureHigh = sample.pressureHigh || touch.pressure >= ForceClickRecognizer.threshold
+            }
+        }
+        if forceEnabled, sample.count > 0 {
+            sample.forceBlocked = !sample.forceValid || sample.invalid || previous.map {
+                $0.count > 0 && ($0.forceBlocked || now <= $0.time || now-$0.time > Self.staleWindow)
+            } == true
+        }
+        if forceEnabled, !sample.forceBlocked, sample.forceValid, !sample.invalid, sample.pressureHigh {
+            let stable = previous.map { old in
+                old.count == sample.count && now > old.time && now-old.time <= Self.staleWindow
+                    && (0..<sample.count).allSatisfy { i in (0..<old.count).contains { old.ids[$0] == sample.ids[i] } }
+            } ?? false
+            sample.forceSince = stable ? (previous?.forceSince ?? now):now
         }
         if leftHand { left = sample } else { right = sample }
         if var current = session, let left, let right {
             if !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
-            if current.growing && sample.count < (previous?.count ?? 0) { current.valid = false }
-            // A pending corner pair can grow into its complete inner/outer chord.
-            // Retain original identities and settling bounds; never replace an
-            // activated output or revive an invalid/lifted candidate.
-            if current.valid, !current.held, current.firstLift == nil,
-               let larger = current.chord.expandedCornerChord, settings.enabled(larger),
-               let leftMask = larger.cornerMask(leftHand:true), let rightMask = larger.cornerMask(leftHand:false),
-               left.continuesCornerExpansion(current.left,mask:leftMask),
-               right.continuesCornerExpansion(current.right,mask:rightMask) {
-                if left.count == larger.count && right.count == larger.count {
-                    current = Session(chord:larger,left:left,right:right,start:now)
-                } else if left.count > current.left.count || right.count > current.right.count {
-                    current.growing = true
+            if left.invalid || right.invalid { current.valid = false }
+            if !current.forceFired {
+                if current.growing && sample.count < (previous?.count ?? 0) { current.valid = false }
+                // A pending corner pair can grow into its complete inner/outer chord.
+                // Retain original identities and settling bounds; never replace an
+                // activated output or revive an invalid/lifted candidate.
+                if current.valid, !current.held, current.firstLift == nil,
+                   let larger = current.chord.expandedCornerChord, settings.enabled(larger),
+                   let leftMask = larger.cornerMask(leftHand:true), let rightMask = larger.cornerMask(leftHand:false),
+                   left.continuesCornerExpansion(current.left,mask:leftMask),
+                   right.continuesCornerExpansion(current.right,mask:rightMask) {
+                    if left.count == larger.count && right.count == larger.count {
+                        current = Session(chord:larger,left:left,right:right,start:now)
+                    } else if left.count > current.left.count || right.count > current.right.count {
+                        current.growing = true
+                    }
+                } else if !left.continues(current.left) || !right.continues(current.right) { current.valid = false }
+                if current.firstLift != nil && sample.count > (previous?.count ?? 0) { current.valid = false }
+                if left.count < current.left.count || right.count < current.right.count {
+                    if current.firstLift == nil { current.firstLift = now }
                 }
-            } else if !left.continues(current.left) || !right.continues(current.right) { current.valid = false }
-            if current.firstLift != nil && sample.count > (previous?.count ?? 0) { current.valid = false }
-            if left.count < current.left.count || right.count < current.right.count {
-                if current.firstLift == nil { current.firstLift = now }
             }
             session = current
             if left.count == 0 && right.count == 0 {
@@ -476,19 +500,34 @@ struct TwoHandGestureEngine {
                 if let leftMask = chord.cornerMask(leftHand:true), let rightMask = chord.cornerMask(leftHand:false) {
                     guard left.matchesCorners(mask:leftMask), right.matchesCorners(mask:rightMask) else { continue }
                 }
+                let ordinaryEnabled = settings.action(.init(chord:chord,phase:.tap)) != .disabled
+                    || settings.action(.init(chord:chord,phase:.hold)) != .disabled
+                guard ordinaryEnabled || forceReady(left:left,right:right,chord:chord,settings:settings) else { continue }
                 session = Session(chord:chord,left:left,right:right,start:now)
-                return Decision(reserved:true,began:true)
+                return Decision(reserved:true,trigger:advance(now:now,settings:settings),began:true)
             }
         }
         return Decision()
+    }
+    private func forceReady(left:Sample,right:Sample,chord:TwoHandChord,settings:TwoHandGestureSettings) -> Bool {
+        guard settings.action(.init(chord:chord,phase:.force)) != .disabled,
+              left.count == chord.count, right.count == chord.count,
+              left.forceValid, right.forceValid, !left.forceBlocked, !right.forceBlocked, left.pressureHigh, right.pressureHigh,
+              let l = left.forceSince, let r = right.forceSince else { return false }
+        return abs(l-r) <= Self.forceJoinWindow
     }
     mutating func advance(now:Double,settings:TwoHandGestureSettings) -> TwoHandTrigger? {
         guard var current = session, let left, let right else { return nil }
         if !now.isFinite || !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
         defer { session = current }
         guard current.valid, !current.held, current.firstLift == nil,
-              left.count == current.chord.count, right.count == current.chord.count,
-              now-current.start >= settings.holdThreshold(for:current.chord) else { return nil }
+              left.count == current.chord.count, right.count == current.chord.count else { return nil }
+        if forceReady(left:left,right:right,chord:current.chord,settings:settings) {
+            current.held = true; current.forceFired = true
+            return .init(chord:current.chord,phase:.force)
+        }
+        guard now-current.start >= settings.holdThreshold(for:current.chord),
+              settings.action(.init(chord:current.chord,phase:.hold)) != .disabled else { return nil }
         current.held = true
         let hold = TwoHandTrigger(chord:current.chord,phase:.hold)
         return settings.action(hold) != .disabled ? hold : nil
