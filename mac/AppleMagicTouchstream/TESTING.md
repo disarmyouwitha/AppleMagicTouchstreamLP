@@ -12,7 +12,8 @@ satisfy the existing model/geometry dependencies; the UI model is not created.
 wire vectors, every wire bit, rolling two-pad all-up, arbitrary selected device
 indices, cancellation, seam combinations, mode transitions and settings round-trip.
 Mouse regressions cover stationary strokes, coherent 2F travel, one-moving-finger
-rejection, 1F movement/force deduplication, larger-count rollover, two-pad steno
+rejection, 1F/2F movement and primary force deduplication, stationary/active-pointer
+3F right-click in both modes, larger-count rollover, two-pad steno
 priority, pointer ownership through count changes, cancellation and fresh strokes
 after mouse all-up. Production replay checks intent-only output and mode changes
 with held contacts. Optional `STENO_MOUSE_PREVIEW_PATH=/tmp/steno-mouse.png` renders

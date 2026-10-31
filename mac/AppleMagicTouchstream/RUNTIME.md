@@ -126,9 +126,9 @@ device loss, reset and layout/mapping/layer changes cancel the partial stroke an
 wait for remaining contacts to lift. Switching into or out of STENO cannot turn
 held contacts into a new stroke or ordinary key press.
 
-The STENO Mouse dropdown offers Off, 2F Mouse (default), and 1F Mouse + Force
+The STENO Mouse dropdown offers Off, 2F Mouse + Force Click (default), and 1F Mouse + Force
 Click, saved in `HandGestureSettings` and its existing portable Mac extension.
-An absent field selects 2F Mouse. The shared continuous session/coherence engine
+An absent field selects 2F Mouse + Force Click. The shared continuous session/coherence engine
 requires 2 mm of coherent translation by the selected contact count. Stationary
 contacts, small settling, and motion by only one of a two-finger chord remain
 steno. Before activation, exceeding the selected count excludes pointer activation
@@ -136,9 +136,15 @@ through local all-up, so a larger stroke cannot turn into a mouse at partial lif
 If both pads participate before a pointer activates, the whole cycle retains steno
 priority. An activated pointer uses the shared count-change/all-up latch; any
 contacts subsequently added to either pad cannot resurrect a discarded stroke.
-Lift both hands before starting another stroke. One-finger force at the shared
-130 pressure threshold claims one balanced primary click per cycle, including
-while stationary; it does not hold a button or start a drag. A mouse win discards
+Lift both hands before starting another stroke. Force at the shared 130 pressure
+threshold claims one balanced click per cycle, including while stationary: the
+mode's movement count (one or two fingers) gives primary click, and three fingers
+gives secondary/right-click in either mode. Force eligibility is independent of
+the pending movement-count exclusion; a stationary three-finger press can right-click
+without enabling three-finger mouse movement. Larger counts, invalid/substituted
+contacts and count decreases cannot become force-clicks at partial lift. After one
+force-click fires, changing count/pressure cannot fire another before all-up.
+Clicks do not hold a button or start a drag. A mouse win discards
 the pending whole stroke. Motion classification is a heuristic: moving a lone
 finger or two-finger chord deliberately beyond the threshold chooses the mouse.
 

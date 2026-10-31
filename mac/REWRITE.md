@@ -1,11 +1,6 @@
 # NEXT:
 =======
-Yooo steno mode is so cool! It works~ Something I noticed is that 2F movement no longer works.. I'm guessing we disabled Gestures during Steno mode because most of them would get triggered while chording? 
-1. Do you think we would be able to differentiate between 2F key presses and 2F mouse? 
-2. OR do you think we should allow 1F mouse in Steno mode with 1F Force-click as click. I feel like that would be easier to differentiate? 
-> lets implement both with a dropdown to select between them so i can test!
-3. Can we call it STENO 6x3 instead of voyager?
-Thoughts?
+0. Test 1F and 2F modes with force left and right clicks.
 ===
 Do you see the Plover plugin for windows_linux/AppleMagicTouchstream? Lets do something like that as an option too!
 > Lets test these on Windows first!
@@ -16,6 +11,7 @@ Do you see the Plover plugin for windows_linux/AppleMagicTouchstream? Lets do so
 ===
 * * Start working on TouchStream gesture defaults template!!
 * * make 6x3 decal girl template in gimp with layers for ppl to edit
+* Built-in small typing games for typing practice and steno practice (like lapdrill.py)
 
 
 `AppleMagicTouchstream`:

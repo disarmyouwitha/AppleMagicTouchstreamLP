@@ -1196,7 +1196,7 @@ final class DispatchService: @unchecked Sendable {
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
         case let .stenoPointer(update,device,_,_):
-            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.click ? "click" : update.reset ? "reset" : "move")"),status:status,sourceSequence:command.sourceSequence)
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : "move")"),status:status,sourceSequence:command.sourceSequence)
         case let .stenoStroke(mask,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):
