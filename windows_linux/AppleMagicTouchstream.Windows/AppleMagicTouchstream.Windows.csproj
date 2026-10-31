@@ -16,7 +16,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets\AppleMagicTouchstreamHand.ico" />
     <EmbeddedResource Include="Assets\AppleMagicTouchstreamTrayHand.ico" />
-    <Resource Include="Assets\TouchStreamReference.gif" />
+    <Resource Include="Assets\LHS_TOUCHSTREAM_layout.png" />
+    <Resource Include="Assets\RHS_TOUCHSTREAM_layout.png" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapMovingMouse.json" />
@@ -34,6 +35,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="MY_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="PloverPlugin\dist\*.whl;PloverPlugin\Install-PloverPlugin.ps1;PloverPlugin\Install-PloverPlugin.cmd;PloverPlugin\README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

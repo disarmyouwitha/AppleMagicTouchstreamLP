@@ -1,13 +1,21 @@
 # Notes:
 =======
-0. Tap recognition is a little spotty can we clean it up? Here is an atpcap @2F_taps_moving_mouse.atpcap
-1. 4-corners gesture doesn't work? 4_corners.atpcap
-2. 4-Finger latching is so bad I am always triggering 3-finger drag instead. Please use mac/AppleMagicTouchstream as a reference.
-> Check^
----
-3. Can you take a look at the latest mac/applemagictouchstream changes? I think we want to add directional behaviour options (every x ms OR repeat with motion) were there other changes I didn't catch?
-4. Pointer sensitivity sliders should  be more sensitive (allow more "clicks" in the middle between 0,1,2)
+fucking terrible. I had to control alt delete out of the app. I want to get rid of the dropdown and the code behind 1F mouse. I want to lock in on 2F
+0. I just added a bunch of changes to mac/AppleMagicTouchstream so copy how it works from there!
 ===
+0. Need a better menu for selecting keys/shortcut keys
+1. steno keys should be at the at the bottom in their own section
+===
+0. What is the thing that keeps making me switch back / turn off the program:
+> * * * OMG IT'S scrolling in the LIMS that kills me, lol. (pages it is perfect; this particular one I use every day is unusable because we implement our own scrolling logic? Maybe I would have better luck rewriting the LIMS logic. x.x but what to do about websites with bad mouse? Can we try a toggle where we turn off my scroll acceleration to see if that helps? Thoughts??)
+> Mouse is "slow to start" / laggy under computer use
+> Drag-Select issues
+1. 2F mouse move too eager to start before 4F latch <atpcap?>
+2. Pointer sensitivity sliders should  be more sensitive (allow more "clicks" in the middle between 0,1,2)
+3. The examples are like laughably bad.. Can we make them have natural finger placement and look/feel more like the Mac
+===
+0. Can you take a look at the latest mac/applemagictouchstream changes? I think we want to add directional behaviour options (every x ms OR repeat with motion) were there other changes I didn't catch?
+ examples?
 * * * Pinch and Spread animations are crazy wrong (OHH BECAUSE NO THUMB RECOGNITION!)
 * * * Need to see if we are sent finger recognition on Windows/Linux, otherwise we need to pull it out of the firmware and implement it.
 * * More Reverse is required to get a better Trackpad Takeover.. Mouse takeover is lame. =x

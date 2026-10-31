@@ -539,6 +539,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     static let defaultsKey = "AppleMagicTouchstream.handGestureBindings.v1"
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
+    var stenoConnectionMode:StenoConnectionMode?
+    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .plugin }
+    var stenoHapticOnTouch:Bool?
+    var stenoHapticOnRelease:Bool?
+    var stenoForceThreshold:Double?
+    var resolvedStenoForceThreshold:Double { StenoForceThreshold.validated(stenoForceThreshold ?? StenoForceThreshold.defaultValue) }
+    var stenoPointerMode:StenoPointerMode?
+    var resolvedStenoPointerMode:StenoPointerMode { .twoFinger }
     var coordinated: TwoHandGestureSettings?
     var twoHand: TwoHandGestureSettings { coordinated ?? TwoHandGestureSettings() }
     init(mirrored seed: PerHandGestureSettings = PerHandGestureSettings()) { left = seed; right = seed }
@@ -792,6 +800,16 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
 }
 
 
+extension TwoHandGestureSettings {
+    var stenoConfigurationOnly:Self {
+        var value = Self()
+        value.holdThresholds = holdThresholds
+        value.setAction(.openConfig,for:.init(chord:.fourCorners,phase:.hold))
+        return value
+    }
+}
+
+
 enum TwoHandGestureEligibility {
     static func enabled(pads:GestureSelectedPads,owned:Set<UInt64>,takeover:Bool,armed:Bool) -> Bool {
         guard takeover, armed, let left = pads.left, let right = pads.right, left != right else { return false }
@@ -809,7 +827,7 @@ struct GestureShortcutAssignment:Equatable,Hashable,Codable,Sendable {
     init(label:String,holdUntilRelease:Bool = false) {
         self.label = label; self.holdUntilRelease = holdUntilRelease
         let resolved = KeyActionCatalog.action(for:label)
-        self.action = resolved.flatMap { $0.kind == .key || $0.kind == .appLaunch ? $0 : nil }
+        self.action = resolved.flatMap { $0.kind == .key || $0.kind == .appLaunch || $0.kind == .textPaste ? $0 : nil }
     }
     init(from decoder:any Decoder) throws {
         let box = try decoder.container(keyedBy:CodingKeys.self)

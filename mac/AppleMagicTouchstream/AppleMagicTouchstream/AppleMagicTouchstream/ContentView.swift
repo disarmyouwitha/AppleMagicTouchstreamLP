@@ -915,6 +915,12 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
+            stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
+            stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
+            stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
+            stenoForceThreshold:Binding(get:{ viewModel.gestures.settings.resolvedStenoForceThreshold },set:{
+                viewModel.gestures.setStenoForceThreshold($0); rebuildLayouts()
+            }),
             columnSettings: columnSettings,
             columnSelection: columnInspectorSelection,
             columnSpacingPercent: $keySpacingPercent,
@@ -1241,6 +1247,10 @@ struct ContentView: View {
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let stenoConnectionMode:Binding<StenoConnectionMode>
+        let stenoHapticTouch:Binding<Bool>
+        let stenoHapticRelease:Binding<Bool>
+        let stenoForceThreshold:Binding<Double>
         let columnSettings: [ColumnLayoutSettings]
         let columnSelection: ColumnInspectorSelection?
         @Binding var columnSpacingPercent: Double
@@ -1313,6 +1323,13 @@ struct ContentView: View {
         @Binding var bottomRightForceClickGestureAction: String
         @Binding var gestureRepeatCadenceData: Data
         @Binding var systemThreeFingerDragEnabled: Bool
+        @State private var lastStenoVariant:TrackpadLayoutPreset = .steno
+        private var mainLayoutSelection:Binding<TrackpadLayoutPreset> {
+            Binding(get:{layoutOption.mainPickerValue},set:{ selection in
+                if layoutOption.isSteno { lastStenoVariant = layoutOption }
+                layoutSelection.wrappedValue = selection == .steno ? lastStenoVariant:selection
+            })
+        }
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
@@ -1339,8 +1356,8 @@ struct ContentView: View {
                     EqualSplitFormRow(alwaysHorizontal: true) {
                         Text("Layout")
                     } field: {
-                        Picker("", selection: layoutSelection) {
-                            ForEach(TrackpadLayoutPreset.selectableCases.filter { $0 != .mobile && $0 != .mobileOrtho12x4 }) { preset in
+                        Picker("", selection: mainLayoutSelection) {
+                            ForEach(TrackpadLayoutPreset.mainPickerCases.filter { $0 != .mobile && $0 != .mobileOrtho12x4 }) { preset in
                                 Text(preset.displayName).tag(preset)
                             }
                         }
@@ -1348,12 +1365,16 @@ struct ContentView: View {
                         .labelsHidden()
                         .modifier(FlexibleMenuPickerSizing())
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .onAppear { if layoutOption.isSteno { lastStenoVariant = layoutOption } }
+                        .onChange(of:layoutOption) { value in if value.isSteno { lastStenoVariant = value } }
                     }
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.05))
                     )
+
+                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
 
                     CollapsibleSection(
                         isExpanded: $columnTuningExpanded
@@ -2282,7 +2303,10 @@ struct ContentView: View {
                         Picker("",selection:$actionBuilderTarget) {
                             ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
                         }.pickerStyle(.segmented).labelsHidden()
-                        Button { managingShortcuts = true } label: { Image(systemName:"slider.horizontal.3") }
+                        Button { managingShortcuts = true } label: {
+                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
+                        }
+                            .buttonStyle(.bordered).controlSize(.large)
                             .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
                     }
                     .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
@@ -2484,6 +2508,7 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var autocorrect = AutocorrectStatus.shared
+        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
@@ -2491,15 +2516,26 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 12) {
-                    modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                    snapRadiusToggle
-                }
-                HStack(alignment: .top, spacing: 12) {
-                    autocorrectControls
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    holdRepeatToggle
+            Group {
+                if compact {
+                    VStack(alignment: .leading, spacing: 8) {
+                        modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
+                        autocorrectControls
+                        snapRadiusToggle
+                        holdRepeatToggle
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 12) {
+                            modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
+                            snapRadiusToggle
+                        }
+                        HStack(alignment: .top, spacing: 12) {
+                            autocorrectControls
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            holdRepeatToggle
+                        }
+                    }
                 }
             }
             .toggleStyle(.switch)
@@ -2630,9 +2666,9 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: trackpadSpacing) {
-                    pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure)
+                    pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure,device:viewModel.leftDevice?.deviceIDNumeric)
                         .frame(width: trackpadSize.width, alignment: .leading)
-                    pressureHeader(title: "Right Trackpad", peakPressure: rightPeakPressure)
+                    pressureHeader(title: "Right Trackpad", peakPressure: rightPeakPressure,device:viewModel.rightDevice?.deviceIDNumeric)
                         .frame(width: trackpadSize.width, alignment: .leading)
                 }
                 ZStack(alignment: .topLeading) {
@@ -2654,7 +2690,8 @@ struct ContentView: View {
                             selectedLeftKey: surfaceKeySelection(from: selectedLeftKey),
                             selectedRightKey: surfaceKeySelection(from: selectedRightKey),
                             selectedLeftButtonID: selectedButton(for: leftButtons)?.id,
-                            selectedRightButtonID: selectedButton(for: rightButtons)?.id
+                            selectedRightButtonID: selectedButton(for: rightButtons)?.id,
+                            acceptedKeyHits:viewModel.acceptedKeyHits
                         ),
                         viewModel: viewModel,
                         selectionHandler: surfaceSelectionChanged,
@@ -2664,16 +2701,7 @@ struct ContentView: View {
                         }
                     )
                     .frame(width: combinedWidth, height: trackpadSize.height)
-                    if let hit = lastHitLeft {
-                        LastHitHighlightLayer(lastHit: hit)
-                            .frame(width: trackpadSize.width, height: trackpadSize.height)
-                            .offset(x: 0, y: 0)
-                    }
-                    if let hit = lastHitRight {
-                        LastHitHighlightLayer(lastHit: hit)
-                            .frame(width: trackpadSize.width, height: trackpadSize.height)
-                            .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
-                    }
+
                 }
                 .frame(width: combinedWidth, height: trackpadSize.height)
             }
@@ -2689,13 +2717,19 @@ struct ContentView: View {
         }
 
         @ViewBuilder
-        private func pressureHeader(title: String, peakPressure: Int) -> some View {
+        private func pressureHeader(title: String, peakPressure: Int,device:UInt64?) -> some View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(title)
                     .font(.subheadline)
                 Text("Peak: \(peakPressure)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                TimelineView(.periodic(from:.now,by:0.1)) { _ in
+                    if let device, let feedback = InterpretedTrackpadPointer.shared.recentRecognition(device:device) {
+                        Text(feedback.kind.title).font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.tail).help(feedback.kind.title)
+                    }
+                }
             }
         }
 
@@ -2740,32 +2774,6 @@ struct ContentView: View {
             }
         }
 
-    }
-
-    private struct LastHitHighlightLayer: View {
-        let lastHit: ContentViewModel.DebugHit
-
-        var body: some View {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
-                let age = CACurrentMediaTime() - lastHit.timestamp
-                let fadeDuration: TimeInterval = 0.6
-                let normalized = max(0, fadeDuration - age) / fadeDuration
-                if normalized <= 0 {
-                    EmptyView()
-                } else {
-                    Canvas { context, _ in
-                        let cornerRadius = ContentView.keyCornerRadius
-                        let highlightColor = Color.green.opacity(normalized * 0.95)
-                        let strokePath = Path(roundedRect: lastHit.rect, cornerRadius: cornerRadius)
-                        context.stroke(
-                            strokePath,
-                            with: .color(highlightColor),
-                            lineWidth: 2.5
-                        )
-                    }
-                }
-            }
-        }
     }
 
     static func makeKeyLayout(
@@ -3299,6 +3307,13 @@ struct ContentView: View {
     }
 
     private func rebuildLayouts() {
+        if layoutOption.isSteno {
+            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
+                trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
+            return
+        }
         if layoutOption == .touchstream {
             leftLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
             rightLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)

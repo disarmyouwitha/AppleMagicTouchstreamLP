@@ -249,6 +249,7 @@ internal readonly record struct TouchProcessorConfig(
     bool HoldRepeatEnabled,
     IReadOnlyDictionary<string, int>? GestureRepeatCadenceMsById)
 {
+    public StenoHapticMode StenoHaptics { get; init; }
     public static TouchProcessorConfig Default => new(
         TrackpadWidthMm: 160.0,
         TrackpadHeightMm: 114.9,

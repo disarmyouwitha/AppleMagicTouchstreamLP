@@ -4,6 +4,60 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class ThreeFingerDragTests: XCTestCase {
+    func testMouseOutputTraceKeepsLatestEdgesInOrderWithoutChangingPriorSnapshot() {
+        var trace = GestureMouseOutputTrace()
+        for index in 0..<40 {
+            trace.observe(type:index.isMultiple(of:2) ? .leftMouseDown : .leftMouseUp,
+                sourceID:17,timestamp:UInt64(index),tagged:true)
+        }
+        let captured = trace.snapshot()
+        XCTAssertEqual(captured.map(\.timestamp),Array(8..<40).map(UInt64.init))
+        trace.observe(type:.rightMouseUp,sourceID:1,timestamp:40,tagged:false)
+        XCTAssertEqual(captured.last?.timestamp,39)
+        XCTAssertEqual(trace.snapshot().map(\.timestamp),Array(9...40).map(UInt64.init))
+        XCTAssertEqual(trace.snapshot().last?.sourceID,1)
+        XCTAssertEqual(trace.snapshot().last?.tagged,false)
+    }
+
+    func testCaptureButtonDiagnosticRoundTripsAndOldRecordsRemainReadable() throws {
+        let evidence = RuntimeGestureOutputDiagnostic(dragOwner:nil,dragOwnerCount:0,dragSourceID:17,
+            combinedButtons:1,hidButtons:0,dragSourceButtons:0,otherGestureSourceButtons:1,
+            observerHealthy:true,observedMouseEdges:[
+                RuntimeGestureMouseEdge(type:CGEventType.leftMouseUp.rawValue,sourceID:17,timestamp:123,tagged:true)])
+        let record = ProcessedFrameRecord(frame:RuntimeRawFrame(sequence:1,timestamp:1,deviceNumericID:42,
+            deviceIndex:0,contacts:[],rawTouches:[]),arrivalTicks:0,ingress:nil,diagnostic:nil,
+            gestureOutput:evidence)
+        let data = try JSONEncoder().encode(record)
+        XCTAssertEqual(try JSONDecoder().decode(ProcessedFrameRecord.self,from:data).gestureOutput,evidence)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
+        legacy.removeValue(forKey:"gestureOutput")
+        let oldData = try JSONSerialization.data(withJSONObject:legacy)
+        XCTAssertNil(try JSONDecoder().decode(ProcessedFrameRecord.self,from:oldData).gestureOutput)
+    }
+
+    func testClickModifierEvidenceRoundTripsAndMissingLegacyFlagsStayUnknown() throws {
+        let old = Data(#"{"type":1,"sourceID":0,"timestamp":123,"tagged":true}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(RuntimeGestureMouseEdge.self,from:old).flagsRawValue)
+        var trace = GestureMouseOutputTrace()
+        let flags = CGEventFlags([.maskAlternate,.maskCommand]).rawValue
+        trace.observe(type:.leftMouseDown,sourceID:0,timestamp:124,tagged:true,flagsRawValue:flags)
+        let edge = try XCTUnwrap(trace.snapshot().first)
+        XCTAssertEqual(edge.flagsRawValue,flags)
+        let evidence = RuntimeGestureOutputDiagnostic(dragOwner:nil,dragOwnerCount:0,dragSourceID:17,
+            combinedButtons:0,hidButtons:0,dragSourceButtons:0,otherGestureSourceButtons:0,
+            observerHealthy:true,observedMouseEdges:[edge],combinedFlagsRawValue:flags,hidFlagsRawValue:0,
+            ownedKeyboardFlagsRawValue:0,hidModifierKeys:0)
+        let restored = try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONEncoder().encode(evidence))
+        XCTAssertEqual(restored,evidence)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(evidence)) as? [String:Any])
+        for key in ["combinedFlagsRawValue","hidFlagsRawValue","ownedKeyboardFlagsRawValue","hidModifierKeys"] { legacy.removeValue(forKey:key) }
+        let decoded = try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONSerialization.data(withJSONObject:legacy))
+        XCTAssertNil(decoded.combinedFlagsRawValue)
+        XCTAssertNil(decoded.hidFlagsRawValue)
+        XCTAssertNil(decoded.ownedKeyboardFlagsRawValue)
+        XCTAssertNil(decoded.hidModifierKeys)
+    }
+
     private func touches(_ count: Int = 3, dx: Float = 0, triangular: Bool = false, thumb: Bool = false) -> [OMSRawTouch] {
         (0..<count).map { index in
             let telemetry: OMSTouchTelemetry? = thumb ? OMSTouchTelemetry(
@@ -162,6 +216,36 @@ final class ThreeFingerDragTests: XCTestCase {
         XCTAssertNotNil(drag.begin(device:2,location:.zero,flags:[]))
         XCTAssertEqual(drag.end(device:2,location:CGPoint(x:9,y:8))?.location,CGPoint(x:9,y:8))
     }
+    func testPrivateDragSourceOutlivesReturnedReleaseAndNextDrag() throws {
+        for globalRelease in [false,true] {
+            var drag = PrimaryDragOutput()
+            let down = try XCTUnwrap(drag.begin(device:1,location:.zero,flags:[]))
+            weak var source = drag.eventSource
+            let sourceID = down.getIntegerValueField(.eventSourceStateID)
+            XCTAssertNotNil(source)
+            XCTAssertTrue(drag.join(device:2))
+            let up:CGEvent
+            if globalRelease {
+                up = try XCTUnwrap(drag.end())
+            } else {
+                XCTAssertNil(drag.end(device:1))
+                XCTAssertNotNil(source)
+                up = try XCTUnwrap(drag.end(device:2))
+            }
+            XCTAssertEqual(up.type,.leftMouseUp)
+            XCTAssertEqual(up.getIntegerValueField(.eventSourceStateID),sourceID)
+            XCTAssertNil(drag.owner); XCTAssertNil(drag.eventSource)
+            withExtendedLifetime(drag) {
+                // Event metadata alone is insufficient: CGEvent does not retain this object.
+                XCTAssertNotNil(source,"The reserved mouse-up still needs its live source after end() returns")
+            }
+            let nextDown = try XCTUnwrap(drag.begin(device:3,location:.zero,flags:[]))
+            XCTAssertEqual(nextDown.getIntegerValueField(.eventSourceStateID),sourceID)
+            XCTAssertNotNil(source,"A new drag must not destroy the source of a queued old release")
+            XCTAssertNotNil(drag.end())
+        }
+    }
+
     func testHeldSyntheticButtonDoesNotReleaseOrRestartAcrossManyFrames() throws {
         var router = TrackpadGestureRouter(), drag = PrimaryDragOutput()
         var downCount = 0, dragCount = 0, upCount = 0

@@ -25,6 +25,25 @@ internal static class TrackpadReportDecoder
     private const int OfficialMaxRawX = 14720;
     private const int OfficialMaxRawY = 10240;
 
+    // A live device session selects its layout once. Never fall back to another
+    // profile/offset when a packet in that session is malformed.
+    public static bool TryDecodeLocked(ReadOnlySpan<byte> payload,in RawInputDeviceInfo deviceInfo,long timestamp,
+        in TrackpadDecodeResult format,out TrackpadDecodeResult result)
+    {
+        result=default;
+        if (payload.Length==0 || payload[0]!=format.SourceReportId) return false;
+        if (format.Kind is TrackpadReportKind.PtpNative or TrackpadReportKind.PtpEmbedded)
+            return TryParsePtpAtOffset(payload,format.PayloadOffset,in deviceInfo,timestamp,format.Profile,
+                strictLegacyValidation:false,format.Kind,out result);
+        if (format.Kind!=TrackpadReportKind.AppleNineByte || payload.Length<format.PayloadOffset+9) return false;
+        Span<ContactFrame> contacts=stackalloc ContactFrame[InputFrame.MaxContacts];
+        int slots=Math.Min(InputFrame.MaxContacts,(payload.Length-format.PayloadOffset)/9);
+        int count=DecodeAppleNineByteSlots(payload,format.PayloadOffset,slots,contacts);
+        if (count==0) return false;
+        result=AppleNineByteResult(contacts[..count],format.PayloadOffset,format.SourceReportId,timestamp);
+        return true;
+    }
+
     public static bool TryDecode(
         ReadOnlySpan<byte> payload,
         in RawInputDeviceInfo deviceInfo,
@@ -329,22 +348,27 @@ internal static class TrackpadReportDecoder
             return false;
         }
 
+        result=AppleNineByteResult(bestContacts[..bestCount],bestOffset,sourceReportId,arrivalQpcTicks);
+        return true;
+    }
+
+    private static TrackpadDecodeResult AppleNineByteResult(ReadOnlySpan<ContactFrame> contacts,int offset,byte reportId,long timestamp)
+    {
         InputFrame frame = new()
         {
-            ArrivalQpcTicks = arrivalQpcTicks,
-            ReportId = sourceReportId,
-            ContactCount = (byte)bestCount,
+            ArrivalQpcTicks = timestamp,
+            ReportId = reportId,
+            ContactCount = (byte)contacts.Length,
             ScanTime = 0,
             IsButtonClicked = 0
         };
 
-        for (int i = 0; i < bestCount; i++)
+        for (int i = 0; i < contacts.Length; i++)
         {
-            frame.SetContact(i, bestContacts[i]);
+            frame.SetContact(i, contacts[i]);
         }
 
-        result = new TrackpadDecodeResult(TrackpadReportKind.AppleNineByte, bestOffset, sourceReportId, TrackpadDecoderProfile.Official, frame);
-        return true;
+        return new TrackpadDecodeResult(TrackpadReportKind.AppleNineByte,offset,reportId,TrackpadDecoderProfile.Official,frame);
     }
 
     private static int DecodeAppleNineByteSlots(

@@ -53,6 +53,8 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
     private bool _suppressPhysicalOutput;
     private bool _disposed;
 
+    internal WindowsStenoConnection? StenoConnection { get; set; }
+
     public SendInputDispatcher()
     {
         _keyTapMinimumHoldTicks = MsToTicks(KeyTapMinimumHoldMilliseconds);
@@ -130,6 +132,12 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
 
         switch (dispatchEvent.Kind)
         {
+            case DispatchEventKind.StenoHaptic:
+                if(!_suppressPhysicalOutput) StenoConnection?.TryFeedback(in dispatchEvent,static side=> { _=MagicTrackpadActuatorHaptics.TryVibrate(side); });
+                return;
+            case DispatchEventKind.StenoStroke:
+                if(!_suppressPhysicalOutput) StenoConnection?.Send(in dispatchEvent);
+                break;
             case DispatchEventKind.ReleaseAllKeyboard:
                 GestureKeyboardSession?.ReleaseAll(); ConsumeGestureKeyboardRelease(); ReleaseAllHeldKeys(); break;
             case DispatchEventKind.GestureShortcutDown:

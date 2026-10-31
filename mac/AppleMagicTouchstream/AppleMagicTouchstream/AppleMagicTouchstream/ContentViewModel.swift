@@ -561,7 +561,7 @@ enum NamedShortcutStorage {
               let entry = try? JSONDecoder().decode(Entry.self,from:data),
               let name = normalizedName(entry.name), !entry.command.hasPrefix(prefix) else { return nil }
         guard var action = KeyActionCatalog.action(for:entry.command),
-              action.kind == .key || action.kind == .appLaunch else { return nil }
+              action.kind == .key || action.kind == .appLaunch || action.kind == .textPaste else { return nil }
         action.customName = name
         return action
     }
@@ -768,7 +768,9 @@ enum ShortcutActionHelper {
 @MainActor
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
+        case steno(StenoKey)
         case key(code: CGKeyCode, flags: CGEventFlags)
+        case textPaste(String)
         case appLaunch(String)
         case leftClick
         case doubleClick
@@ -839,14 +841,24 @@ final class ContentViewModel: ObservableObject {
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
+        let isSteno: Bool
+        let stenoConnectionMode:StenoConnectionMode
+        let stenoHapticTouch:Bool
+        let stenoHapticRelease:Bool
+        let stenoForceThreshold:Float
+        let stenoPointerMode:StenoPointerMode
 
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
+            self.isSteno = isSteno
+            self.stenoPointerMode = stenoPointerMode
+            self.stenoForceThreshold = stenoForceThreshold
+            self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.keyRects = normalizedKeyRects.map { row in
                 row.map { $0.boundingRect(in: trackpadSize) }
             }
@@ -855,10 +867,14 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
+            self.isSteno = isSteno
+            self.stenoPointerMode = stenoPointerMode
+            self.stenoForceThreshold = stenoForceThreshold
+            self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.normalizedKeyRects = Layout.normalize(keyRects, trackpadSize: trackpadSize)
         }
 
@@ -947,15 +963,19 @@ final class ContentViewModel: ObservableObject {
         let label: String
         let side: TrackpadSide
         let timestamp: TimeInterval
+        let id:UInt64
+        let normalizedRect:NormalizedRect
+        let position:GridKeyPosition?
+        let customButtonID:UUID?
     }
 
+    @Published private(set) var acceptedKeyHits:[DebugHit] = []
+    private var keyHitSequence:UInt64 = 0
     @Published private(set) var debugLastHitLeft: DebugHit?
     @Published private(set) var debugLastHitRight: DebugHit?
 
     private var keymapEditingEnabled = false
     private var debugHitPublishingEnabled = true
-    private let debugHitMinimumPublishInterval: TimeInterval = 1.0 / 20.0
-    private var lastDebugHitPublishTimeBySide = SidePair(left: 0.0, right: 0.0)
 
     private let manager = OMSManager.shared
     private let renderSnapshotService: RuntimeRenderSnapshotService
@@ -1037,15 +1057,18 @@ final class ContentViewModel: ObservableObject {
     private func recordDebugHit(_ binding: KeyBinding) {
         guard debugHitPublishingEnabled else { return }
         let now = CACurrentMediaTime()
-        let lastPublishTime = lastDebugHitPublishTimeBySide[binding.side]
-        guard now - lastPublishTime >= debugHitMinimumPublishInterval else { return }
-        lastDebugHitPublishTimeBySide[binding.side] = now
+        keyHitSequence &+= 1
         let hit = DebugHit(
             rect: binding.rect,
             label: binding.label,
             side: binding.side,
-            timestamp: now
+            timestamp: now,
+            id:keyHitSequence, normalizedRect:binding.normalizedRect,
+            position:binding.position,customButtonID:binding.customButtonID
         )
+        acceptedKeyHits.removeAll { now-$0.timestamp > KeyHitHighlightHistory.fadeDuration }
+        if acceptedKeyHits.count >= 128 { acceptedKeyHits.removeFirst() }
+        acceptedKeyHits.append(hit)
         switch binding.side {
         case .left:
             debugLastHitLeft = hit
@@ -1148,6 +1171,7 @@ final class ContentViewModel: ObservableObject {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) {
+        gestures.setStenoMode(leftLayout.isSteno && rightLayout.isSteno)
         runtimeCommandService.updateLayouts(
             leftLayout: leftLayout,
             rightLayout: rightLayout,
@@ -1252,6 +1276,7 @@ final class ContentViewModel: ObservableObject {
         keymapEditingEnabled = enabled
         debugHitPublishingEnabled = !enabled
         if enabled {
+            acceptedKeyHits.removeAll()
             debugLastHitLeft = nil
             debugLastHitRight = nil
         }
@@ -1983,7 +2008,9 @@ struct KeyGeometryOverride: Codable, Hashable {
 }
 
 enum KeyActionKind: String, Codable, Sendable {
+    case steno
     case key
+    case textPaste
     case appLaunch
     case leftClick
     case doubleClick
@@ -2029,10 +2056,14 @@ struct KeyAction: Codable, Hashable, Sendable {
         var displayText: String {
             if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
+            case .steno:
+                return StenoKey(rawValue:keyCode)?.legend ?? "None"
             case .none:
                 return KeyActionCatalog.noneLabel
             case .typingToggle:
                 return KeyActionCatalog.typingToggleDisplayLabel
+            case .textPaste:
+                return "Text (Keychain)"
             case .appLaunch:
                 return AppLaunchActionHelper.keymapDisplayLabel(for: label)
             default:
@@ -2049,8 +2080,12 @@ struct KeyAction: Codable, Hashable, Sendable {
         var pickerText: String {
             if let name = NamedShortcutStorage.normalizedName(customName) { return name }
             switch kind {
+            case .steno:
+                return "Steno "+(StenoKey(rawValue:keyCode)?.legend ?? label)+" ("+label+")"
             case .typingToggle:
                 return KeyActionCatalog.typingToggleLabel
+            case .textPaste:
+                return "Text (Keychain)"
             case .appLaunch:
                 return AppLaunchActionHelper.displayLabel(for: label)
             default:
@@ -2693,6 +2728,7 @@ enum KeyActionCatalog {
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
         }
+        groups.append(ActionGroup(title:dashedHeader("Steno keys"),actions:StenoKey.allCases.map(\.action)))
         return groups
     }
 
@@ -2709,6 +2745,8 @@ enum KeyActionCatalog {
     }
 
     static func action(for label: String) -> KeyAction? {
+        if let key = StenoKey.resolve(label) { return key.action }
+        if let id = TextShortcutReference.id(from:label) { return TextShortcutReference.action(id:id) }
         if let named = NamedShortcutStorage.resolve(label) { return named }
         // Archived GTK labels are decode-only. Never turn them into live actions.
         let removed = [typingToggleLabel, "TT", gestureInnerCornersHoldLabel, volumeUpSmallLabel,

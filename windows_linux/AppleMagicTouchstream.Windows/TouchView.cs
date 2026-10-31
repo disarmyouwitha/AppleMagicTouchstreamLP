@@ -29,10 +29,12 @@ public sealed class TouchView : FrameworkElement
     private static readonly ImageSource[] TouchStreamReference = LoadReferences();
     private static ImageSource[] LoadReferences()
     {
-        var image=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/AppleMagicTouchstream;component/Assets/TouchStreamReference.gif"));
-        int half=image.PixelWidth/2;
-        ImageSource crop(int x) { var result=new System.Windows.Media.Imaging.CroppedBitmap(image,new Int32Rect(x,0,half,image.PixelHeight)); result.Freeze(); return result; }
-        return [crop(0),crop(half)];
+        ImageSource load(string side)
+        {
+            var image=new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/AppleMagicTouchstream;component/Assets/{side}_TOUCHSTREAM_layout.png"));
+            image.Freeze(); return image;
+        }
+        return [load("LHS"),load("RHS")];
     }
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
@@ -286,7 +288,7 @@ public sealed class TouchView : FrameworkElement
 
                 if (LabelMatrix != null && row < LabelMatrix.Length && col < LabelMatrix[row].Length)
                 {
-                    string label = LabelMatrix[row][col];
+                    string label = GeminiPRPacket.Display(LabelMatrix[row][col]);
                     DrawKeyLabel(dc, rowRects[col], rect, label);
                 }
             }

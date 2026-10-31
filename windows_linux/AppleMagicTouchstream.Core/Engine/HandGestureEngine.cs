@@ -20,6 +20,7 @@ public readonly record struct HandGestureEvidence(bool Enabled,bool Reserved,boo
 internal interface IHandGestureRuntime : IDisposable
 {
     bool Process(TrackpadSide side, in InputFrame frame, ushort maxX, ushort maxY, long timestamp);
+    bool ProcessStenoPointer(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,long timestamp) => false;
     void Tick();
     bool SupportsKeyboardProposals => false;
     void SetKeyboardPriority(TrackpadSide side,bool priority) { }

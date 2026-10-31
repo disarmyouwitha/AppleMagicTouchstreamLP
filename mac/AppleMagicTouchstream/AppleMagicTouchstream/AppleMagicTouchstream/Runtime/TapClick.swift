@@ -6,24 +6,26 @@ import OpenMultitouchSupport
 
 /// Current finger count chooses the configured force action when any contact
 /// crosses the pressure threshold. The action owns the cycle until all-up.
-struct ForceClickRecognizer {
+struct ForceClickRecognizer:Sendable {
     static let threshold: Float = 130
-    private struct Session {
+    private struct Session:Sendable {
         var ids = SIMD8<Int32>(repeating:0)
         var count = 0
         var lastTime: Double?
         var blocked = false
         var fired = false
     }
-    private var sessions: [UInt64: Session] = [:]
+    private var sessions: [UInt64: Session] = Dictionary(minimumCapacity:2)
+    mutating func clear() { sessions.removeAll(keepingCapacity:true) }
+    mutating func clear(device:UInt64) { sessions[device] = nil }
     func claimed(device: UInt64) -> Bool { sessions[device]?.fired == true }
     mutating func cancel(device: UInt64) { sessions[device] = Session(blocked:true) }
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
-    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C, threshold:Float = ForceClickRecognizer.threshold,
         enabled: (GestureTrigger) -> Bool) -> GestureTrigger? where C.Element == OMSRawTouch {
         var ids = SIMD8<Int32>(repeating:0), count = 0
         var maximumPressure: Float = 0
-        var invalid = !time.isFinite
+        var invalid = !time.isFinite || !threshold.isFinite || threshold <= 0
         for touch in contacts where touch.state == .making || touch.state == .touching {
             if count < 8 {
                 for index in 0..<count where ids[index] == touch.id { invalid = true }
@@ -48,7 +50,7 @@ struct ForceClickRecognizer {
             }
         }
         session.ids = ids; session.count = count; session.lastTime = time
-        guard !session.blocked, !session.fired, enabled(trigger), maximumPressure >= Self.threshold else { return nil }
+        guard !session.blocked, !session.fired, enabled(trigger), maximumPressure >= threshold else { return nil }
         session.fired = true
         return trigger
     }
@@ -227,13 +229,18 @@ struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var owners:Set<UInt64> = Set(minimumCapacity:2)
     private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
-    private var source: CGEventSource?
+    // CGEvent stores source metadata, but does not retain the CGEventSource.
+    // Keep this private table alive for the output owner's lifetime, including
+    // after end() returns and while WindowServer is processing queued releases.
+    private let source = CGEventSource(stateID:.privateState)
+    var eventSource:CGEventSource? { owner == nil ? nil : source }
+    var diagnosticSourceID: CGEventSourceStateID? { source?.sourceStateID }
     mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
         guard owner == nil, location.x.isFinite, location.y.isFinite,
-              let source = CGEventSource(stateID:.privateState),
+              let source = self.source,
               let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
               let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        self.source = source; owner = device; owners.insert(device); self.location = location; releaseEvent = up
+        owner = device; owners.insert(device); self.location = location; releaseEvent = up
         Self.configure(down,flags:flags,pressure:1)
         Self.configure(up,flags:flags,pressure:0)
         return down
@@ -269,7 +276,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
         if let location, location.x.isFinite, location.y.isFinite { releaseEvent?.location = location }
         releaseEvent?.timestamp = DispatchTime.now().uptimeNanoseconds
         let up = releaseEvent
-        owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil; source = nil
+        owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil
         return up
     }
     private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {
@@ -377,10 +384,13 @@ struct ThreeFingerTapRecognizer {
 
 /// Balanced secondary edges are prepared together; right-click never holds.
 enum SecondaryTapClickOutput {
-    static func events(location: CGPoint, flags: CGEventFlags = []) -> PrimaryTapClickOutput.Events? {
+    static func events(location: CGPoint, flags: CGEventFlags = [], source:CGEventSource? = nil) -> PrimaryTapClickOutput.Events? {
+        // Keep secondary clicks out of the combined source's accumulated button state.
+        // During a drag, both button lifetimes belong to that same private source.
         guard location.x.isFinite, location.y.isFinite,
-              let down = CGEvent(mouseEventSource:nil,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
-              let up = CGEvent(mouseEventSource:nil,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
+              let source = source ?? SelectedTrackpadEventPolicy.secondaryEventSource,
+              let down = CGEvent(mouseEventSource:source,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
+              let up = CGEvent(mouseEventSource:source,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
         for event in [down,up] {
             event.flags = flags
             event.setIntegerValueField(.mouseEventClickState,value:1)
@@ -398,7 +408,8 @@ enum SecondaryTapClickOutput {
 /// before live code posts any edge; tests can inspect it without posting.
 enum GestureTapActionOutput {
     static func events(action: GestureAction, location: CGPoint, time: Double,
-        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput, shortcut: AppleShortcutPlan? = nil) -> [CGEvent]? {
+        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput,
+        shortcut: AppleShortcutPlan? = nil, mouseEventSource:CGEventSource? = nil) -> [CGEvent]? {
         if action.isAppleShortcut {
             clicks.reset()
             return shortcut?.events()
@@ -412,7 +423,7 @@ enum GestureTapActionOutput {
             clicks.reset()
             return [sequence.first.down,sequence.first.up,sequence.second.down,sequence.second.up]
         case .secondaryClick:
-            guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags) else { return nil }
+            guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags,source:mouseEventSource) else { return nil }
             clicks.reset()
             return [pair.down,pair.up]
         default: return nil
@@ -517,5 +528,20 @@ struct AppleShortcutPlan: Equatable, Sendable {
             event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         }
         return [down,up]
+    }
+}
+
+
+/// Fixed storage on the observer path; captures receive a separate bounded copy.
+/// Only events posted by this process are recorded, without cursor/key content.
+struct GestureMouseOutputTrace {
+    private var edges = [RuntimeGestureMouseEdge?](repeating:nil,count:32)
+    private var next = 0
+    mutating func observe(type:CGEventType,sourceID:Int64,timestamp:UInt64,tagged:Bool,flagsRawValue:UInt64? = nil) {
+        edges[next] = RuntimeGestureMouseEdge(type:type.rawValue,sourceID:sourceID,timestamp:timestamp,tagged:tagged,flagsRawValue:flagsRawValue)
+        next = (next+1) % edges.count
+    }
+    func snapshot() -> [RuntimeGestureMouseEdge] {
+        (0..<edges.count).compactMap { edges[(next+$0) % edges.count] }
     }
 }

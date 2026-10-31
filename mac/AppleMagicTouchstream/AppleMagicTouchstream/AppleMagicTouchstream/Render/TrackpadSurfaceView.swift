@@ -57,6 +57,7 @@ struct TrackpadSurfaceSnapshot {
     var selectedRightKey: TrackpadSurfaceKeySelection?
     var selectedLeftButtonID: UUID?
     var selectedRightButtonID: UUID?
+    var acceptedKeyHits:[ContentViewModel.DebugHit] = []
 }
 
 extension TrackpadSurfaceSnapshot {
@@ -108,6 +109,42 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
         leftCustomButtons = snapshot.leftCustomButtons
         rightCustomButtons = snapshot.rightCustomButtons
     }
+}
+
+/// UI-only fade history populated exclusively by accepted keyboard output.
+struct KeyHitHighlightHistory {
+    enum Key:Hashable { case grid(Int,Int), button(UUID) }
+    struct Entry {
+        var rect:NormalizedRect
+        var active:Bool
+        var releasedAt:Double
+        func opacity(at now:Double) -> Double {
+            if active { return 1 }
+            let t = min(1,max(0,(now-releasedAt)/KeyHitHighlightHistory.fadeDuration))
+            return 1-t*t*(3-2*t)
+        }
+    }
+    static let fadeDuration = 1.2
+    static let capacity = 512
+    private(set) var entries:[Key:Entry] = [:]
+    private var lastInputTime:Double?
+    var needsAnimation:Bool { entries.values.contains { !$0.active } }
+    mutating func clear() { entries.removeAll(keepingCapacity:true); lastInputTime = nil }
+    mutating func prune(now:Double) {
+        for key in Array(entries.keys) where entries[key]?.active == true {
+            if let last = entries[key]?.releasedAt, now-last > 0.25 {
+                entries[key]?.active = false; entries[key]?.releasedAt = last+0.25
+            }
+        }
+        entries = entries.filter { $0.value.active || $0.value.opacity(at:now) > 0 }
+    }
+    mutating func record(key:Key,rect:NormalizedRect,time:Double) {
+        guard time.isFinite else { return }
+        if entries[key] == nil, entries.count >= Self.capacity,
+           let oldest = entries.min(by:{$0.value.releasedAt < $1.value.releasedAt})?.key { entries.removeValue(forKey:oldest) }
+        entries[key] = .init(rect:rect,active:false,releasedAt:time)
+    }
+
 }
 
 /// UI-only history, bounded independently of engine sampling. Physical contact IDs
@@ -187,6 +224,41 @@ final class TrackpadSurfaceView: NSView {
     private var leftPaths = ContactPathHistory()
     private var rightPaths = ContactPathHistory()
     private var pathRefreshScheduled = false
+    private var leftKeyHighlights = KeyHitHighlightHistory(), rightKeyHighlights = KeyHitHighlightHistory()
+    var keyHighlightCount:Int { leftKeyHighlights.entries.count+rightKeyHighlights.entries.count }
+    private var lastKeyHitID:UInt64 = 0
+    private var highlightRefreshScheduled = false
+    private func refreshKeyHighlights() {
+        guard !highlightRefreshScheduled, !leftKeyHighlights.entries.isEmpty || !rightKeyHighlights.entries.isEmpty else { return }
+        highlightRefreshScheduled = true
+        DispatchQueue.main.asyncAfter(deadline:.now()+1.0/30) { [weak self] in
+            guard let self else { return }; self.highlightRefreshScheduled = false
+            let now = CACurrentMediaTime()
+            self.leftKeyHighlights.prune(now:now); self.rightKeyHighlights.prune(now:now)
+            self.needsDisplay = true
+            if self.window != nil { self.refreshKeyHighlights() }
+        }
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            let now = CACurrentMediaTime(); leftKeyHighlights.prune(now:now); rightKeyHighlights.prune(now:now)
+            refreshKeyHighlights()
+        }
+    }
+    private func drawKeyHighlights(_ history:KeyHitHighlightHistory,origin:CGPoint,layout:ContentViewModel.Layout) {
+        let now = CACurrentMediaTime()
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect:.init(origin:origin,size:snapshot.trackpadSize)).addClip()
+        for entry in history.entries.values {
+            let opacity = entry.opacity(at:now)
+            guard opacity > 0 else { continue }
+            let path = keyPath(for:Self.stenoDisplayRect(entry.rect,layout:layout),origin:origin,trackpadSize:snapshot.trackpadSize)
+            NSColor.systemGreen.withAlphaComponent(opacity*0.22).setFill(); path.fill()
+            NSColor.systemGreen.withAlphaComponent(opacity*0.9).setStroke(); path.lineWidth = 1.8; path.stroke()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+    }
 
     private func refreshPaths() {
         guard snapshot.showContactPaths, !pathRefreshScheduled,
@@ -236,11 +308,24 @@ final class TrackpadSurfaceView: NSView {
                 leftPaths.clear()
                 rightPaths.clear()
             }
+            if snapshot.replayModeEnabled != oldValue.replayModeEnabled {
+                leftKeyHighlights.clear(); rightKeyHighlights.clear()
+            }
             let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
             if cachedStaticRenderInput != staticRenderInput {
                 cachedStaticRenderInput = staticRenderInput
                 cachedStaticImage = nil
+                leftKeyHighlights.clear(); rightKeyHighlights.clear()
             }
+            for hit in snapshot.acceptedKeyHits where hit.id > lastKeyHitID {
+                let key:KeyHitHighlightHistory.Key
+                if let position = hit.position { key = .grid(position.row,position.column) }
+                else if let id = hit.customButtonID { key = .button(id) } else { continue }
+                if hit.side == .left { leftKeyHighlights.record(key:key,rect:hit.normalizedRect,time:hit.timestamp) }
+                else { rightKeyHighlights.record(key:key,rect:hit.normalizedRect,time:hit.timestamp) }
+            }
+            if let id = snapshot.acceptedKeyHits.last?.id { lastKeyHitID = max(lastKeyHitID,id) }
+            refreshKeyHighlights()
             needsDisplay = true
         }
     }
@@ -301,6 +386,8 @@ final class TrackpadSurfaceView: NSView {
             drawPaths(leftPaths, origin: leftOrigin)
             drawPaths(rightPaths, origin: rightOrigin)
         }
+        drawKeyHighlights(leftKeyHighlights,origin:leftOrigin,layout:snapshot.leftLayout)
+        drawKeyHighlights(rightKeyHighlights,origin:rightOrigin,layout:snapshot.rightLayout)
         drawTrackpadDynamicSide(
             origin: leftOrigin,
             layout: snapshot.leftLayout,
@@ -387,7 +474,7 @@ final class TrackpadSurfaceView: NSView {
             NSGraphicsContext.restoreGraphicsState()
         }
         drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
-        drawKeyGrid(layout.normalizedKeyRects, origin: origin, trackpadSize: trackpadSize)
+        drawKeyGrid(layout, origin: origin, trackpadSize: trackpadSize)
         drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
         drawGridLabels(
             labels,
@@ -407,7 +494,7 @@ final class TrackpadSurfaceView: NSView {
         selectedButtonID: UUID?
     ) {
         drawKeySelection(
-            normalizedKeyRects: layout.normalizedKeyRects,
+            normalizedKeyRects: layout.normalizedKeyRects.map { $0.map { Self.stenoDisplayRect($0,layout:layout) } },
             selectedKey: selectedKey,
             origin: origin,
             trackpadSize: trackpadSize
@@ -419,18 +506,7 @@ final class TrackpadSurfaceView: NSView {
             trackpadSize: trackpadSize
         )
         drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
-        if snapshot.replayModeEnabled && selectedKey == nil && selectedButtonID == nil,
-           let highlightedRect = replayHitRect(
-               layout: layout,
-               customButtons: customButtons,
-               touches: touches,
-               trackpadSize: trackpadSize
-           ) {
-            drawReplayHighlight(
-                highlightedRect,
-                origin: origin
-            )
-        }
+
     }
 
     private func selectionEvent(at point: CGPoint) -> TrackpadSurfaceSelectionEvent? {
@@ -575,15 +651,56 @@ final class TrackpadSurfaceView: NSView {
         }
     }
 
+    /// Draw the existing shared 3 mm row hit band without expanding recognition
+    /// a second time. Asterisk and Single have one/two number bars; 6x3 stays as-is.
+    static func stenoDisplayRect(_ rect:NormalizedRect,layout:ContentViewModel.Layout) -> NormalizedRect {
+        let rows = layout.normalizedKeyRects
+        guard layout.isSteno, rows.count > 2, let bars = rows.first,
+              (1...2).contains(bars.count), rect.rotationDegrees == 0 else { return rect }
+        let allowance:CGFloat = 1.5/ContentView.trackpadHeightMM
+        var displayed = rect
+        if rows[1].contains(rect), rows[2].contains(where:{
+            abs($0.centerX-rect.centerX) < 0.5/ContentView.trackpadWidthMM && abs($0.y-rect.y-rect.height) < 0.000001 && $0.rotationDegrees == 0
+        }) {
+            displayed.height += allowance
+        } else if rows[2].contains(rect), rows[1].contains(where:{
+            abs($0.centerX-rect.centerX) < 0.5/ContentView.trackpadWidthMM && abs($0.y+$0.height-rect.y) < 0.000001 && $0.rotationDegrees == 0
+        }) {
+            displayed.y -= allowance; displayed.height += allowance
+        }
+        // Split the #/consonant overlap equally across their existing seam.
+        if bars.contains(rect), rows[1].contains(where:{
+            abs($0.y-rect.y-rect.height) < 0.000001 && $0.x < rect.x+rect.width && $0.x+$0.width > rect.x && $0.rotationDegrees == 0
+        }) {
+            displayed.height += allowance
+        } else if rows[1].contains(rect), bars.contains(where:{
+            abs($0.y+$0.height-rect.y) < 0.000001 && $0.x < rect.x+rect.width && $0.x+$0.width > rect.x && $0.rotationDegrees == 0
+        }) {
+            displayed.y -= allowance; displayed.height += allowance
+        }
+        if rows.count > 3, let column = rows[3].firstIndex(of:rect) {
+            let partner = column ^ 1
+            if rows[3].indices.contains(partner), rows[3][partner].rotationDegrees == 0 {
+                let other = rows[3][partner], dx = CGFloat(1.5)/ContentView.trackpadWidthMM
+                if column % 2 == 0, abs(rect.x+rect.width-other.x) < 0.000001 {
+                    displayed.width += dx
+                } else if column % 2 == 1, abs(other.x+other.width-rect.x) < 0.000001 {
+                    displayed.x -= dx; displayed.width += dx
+                }
+            }
+        }
+        return displayed
+    }
+
     private func drawKeyGrid(
-        _ normalizedKeyRects: [[NormalizedRect]],
+        _ layout: ContentViewModel.Layout,
         origin: CGPoint,
         trackpadSize: CGSize
     ) {
         NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
-        for row in normalizedKeyRects {
+        for row in layout.normalizedKeyRects {
             for rect in row {
-                let keyPath = keyPath(for: rect, origin: origin, trackpadSize: trackpadSize)
+                let keyPath = keyPath(for: Self.stenoDisplayRect(rect,layout:layout), origin: origin, trackpadSize: trackpadSize)
                 keyPath.lineWidth = 1
                 keyPath.stroke()
             }
@@ -794,68 +911,6 @@ final class TrackpadSurfaceView: NSView {
         pressure.draw(at: CGPoint(x: center.x - pressureSize.width / 2,
                                   y: center.y - pressureSize.height / 2),
                       withAttributes: pressureAttributes)
-    }
-
-    private func drawReplayHighlight(_ rect: CGRect, origin: CGPoint) {
-        let translated = rect.offsetBy(dx: origin.x, dy: origin.y)
-        let path = NSBezierPath(roundedRect: translated, xRadius: 6, yRadius: 6)
-        NSColor.systemGreen.withAlphaComponent(0.95).setStroke()
-        path.lineWidth = 2.5
-        path.stroke()
-    }
-
-    private func replayHitRect(
-        layout: ContentViewModel.Layout,
-        customButtons: [CustomButton],
-        touches: [OMSTouchData],
-        trackpadSize: CGSize
-    ) -> CGRect? {
-        guard trackpadSize.width > 0, trackpadSize.height > 0 else { return nil }
-        guard let selectedTouch = touches.first(where: { Self.isPhysicalContactState($0.state) }) ?? touches.first else {
-            return nil
-        }
-
-        let x = CGFloat(selectedTouch.position.x) * trackpadSize.width
-        let y = (1.0 - CGFloat(selectedTouch.position.y)) * trackpadSize.height
-        let point = CGPoint(x: x, y: y)
-        let normalizedPoint = normalize(point: point, in: trackpadSize)
-
-        var bestRect: CGRect?
-        var bestScore = -CGFloat.greatestFiniteMagnitude
-        var bestArea = CGFloat.greatestFiniteMagnitude
-
-        for row in layout.normalizedKeyRects {
-            for rect in row {
-                guard rect.contains(normalizedPoint) else { continue }
-                let score = rect.distanceToEdge(from: normalizedPoint)
-                let area = rect.width * rect.height
-                if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
-                    bestRect = rect.boundingRect(in: trackpadSize)
-                    bestScore = score
-                    bestArea = area
-                }
-            }
-        }
-
-        for button in customButtons {
-            let rect = button.rect.rect(in: trackpadSize)
-            guard rect.contains(point) else { continue }
-            let score = edgeDistanceScore(point: point, rect: rect)
-            let area = rect.width * rect.height
-            if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
-                bestRect = rect
-                bestScore = score
-                bestArea = area
-            }
-        }
-
-        return bestRect
-    }
-
-    private func edgeDistanceScore(point: CGPoint, rect: CGRect) -> CGFloat {
-        let dx = min(point.x - rect.minX, rect.maxX - point.x)
-        let dy = min(point.y - rect.minY, rect.maxY - point.y)
-        return min(dx, dy)
     }
 
     private func normalize(point: CGPoint, in trackpadSize: CGSize) -> CGPoint {

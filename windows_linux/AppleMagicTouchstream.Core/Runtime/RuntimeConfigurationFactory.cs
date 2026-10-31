@@ -23,6 +23,7 @@ public static class RuntimeConfigurationFactory
             TrackpadWidthMm = TrackpadWidthMm,
             TrackpadHeightMm = TrackpadHeightMm,
             HoldDurationMs = settings.HoldDurationMs,
+            StenoHaptics = settings.StenoHaptics,
             DragCancelMm = settings.DragCancelMm,
             TypingGraceMs = settings.TypingGraceMs,
             IntentMoveMm = settings.IntentMoveMm,

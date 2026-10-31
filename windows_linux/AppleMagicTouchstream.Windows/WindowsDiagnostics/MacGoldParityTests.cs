@@ -61,6 +61,8 @@ internal static class MacGoldParityTests
                 hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.OpenConfig };
                 var (engine,output)=Create(settings); Frame(engine,[],-.01,side);
                 using var reader=new InputCaptureReader(path); long? first=null; int index=0,previouslyLegacy=0;
+                var decoderSession=new TrackpadDecoderSession();
+                var overrides=new Dictionary<string,TrackpadDecoderProfile>();
                 while (reader.TryReadNext(out var record))
                 {
                     first ??=record.ArrivalQpcTicks;
@@ -71,7 +73,9 @@ internal static class MacGoldParityTests
                     var profile=TrackpadDecoderProfileResolver.ResolveAuto(record.Payload.Span,in info);
                     Check(profile==TrackpadDecoderProfile.Official,$"edge contact changed packet layout at recorded frame {index}");
                     if (record.DecoderProfile==TrackpadDecoderProfile.Legacy) previouslyLegacy++;
-                    Check(TrackpadReportDecoder.TryDecode(record.Payload.Span,in info,record.ArrivalQpcTicks,profile,out var decoded),
+                    var device=new RawInputDeviceSnapshot("recorded-pad",info,new(0,1));
+                    Check(decoderSession.TryDecode(1,in device,record.Payload.Span,record.ArrivalQpcTicks,overrides,out profile,out var decoded)
+                        && profile==TrackpadDecoderProfile.Official,
                         $"corner recording failed to decode frame {index}");
                     var frame=decoded.Frame;
                     int count=WindowsHandGestures.ReadContacts(in frame,7612,5065,contacts,out bool fourthPending);
@@ -271,6 +275,25 @@ internal static class MacGoldParityTests
         Check(left.Rects.Sum(r=>r.Length)==43 && right.Rects.Sum(r=>r.Length)==45,"TouchStream trace lost keys");
         Check(left.Labels[0][0]=="Esc" && right.Labels[0][0]=="F8" && left.Rects[0][0].Width>right.Rects[0][0].Width,"TouchStream was mirrored instead of independently traced");
         Check(!TrackpadLayoutPreset.TouchStream.AllowsColumnSettings && TrackpadLayoutPreset.Selectable.Contains(TrackpadLayoutPreset.TouchStream),"TouchStream picker/column policy failed");
+        // Independent printed-image anchors from the Mac layout tests. These
+        // catch stale geometry even if the new background images load correctly.
+        foreach (var (isLeft,row,column,label,x,y,width,height) in new[] {
+            (true,0,0,"Esc",130.0,115.0,1320.0,940.0),
+            (true,2,2,"A",357.0,389.0,1320.0,940.0),
+            (true,4,2,"Alt",483.0,680.0,1320.0,940.0),
+            (false,0,0,"F8",56.0,82.0,1314.0,936.0),
+            (false,2,1,"H",329.0,377.0,1314.0,936.0),
+            (false,5,2,"Down",782.0,820.0,1314.0,936.0) })
+        {
+            var key=(isLeft ? TouchStreamLayoutDefinition.left : TouchStreamLayoutDefinition.right)[row][column];
+            Check(key.Label==label && Math.Abs(key.Rect.CenterX-x/width)<=.012 && Math.Abs(key.Rect.CenterY-y/height)<=.012,
+                $"TouchStream {label} no longer matches its printed reference position");
+        }
+        foreach (var (side,width,height) in new[] { ("LHS",1320,940),("RHS",1314,936) })
+        {
+            var image=new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/AppleMagicTouchstream;component/Assets/{side}_TOUCHSTREAM_layout.png"));
+            Check(image.PixelWidth==width && image.PixelHeight==height,$"TouchStream {side} reference is missing or still cropped from the old combined image");
+        }
         foreach (var row in left.Rects.Concat(right.Rects)) foreach (var rect in row)
             Check(rect.Width>0 && rect.Height>0 && rect.Contains(rect.CenterX,rect.CenterY),"invalid TouchStream rotated hit region");
         foreach (var layout in new[] {left,right})

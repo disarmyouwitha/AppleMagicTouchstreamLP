@@ -1,16 +1,22 @@
 # NEXT:
-=======
-Hm, I think we broke something I liked when adding 2-handed "Both" Gestures.. I think it's allowing a 2nd hand to latch way too late? (atpcap)
-Once a gesture has latched to 1 hand I can't use gestuers on the other hand?
-> Example: I start a 3-finger drag on RHS and now I can't 3-finger drag on LHS (incorrect) even if I wait several seconds to use the 2nd hand. In this case 3+3 gestures never fires (correct)
+======= 
+1. Can we adjust the STENO Single layer to align the LHS thumb keys with A more under R (like in their diagram) and U aligned more under R (the spacing between them seems fine!) @screenshot
 ===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
-2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
-3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
-> (Setting Default keymap back to default was a good example)
+> test?? I thought we build this but I cant find it, lol. You asked me if we should use the Apple Keychain? Am I hallucinating?
 ===
 * * Start working on TouchStream gesture defaults template!!
+* * make 6x3 decal girl template in gimp with layers for ppl to edit
+* Built-in small typing games for typing practice and steno practice (like lapdrill.py)
+===
+VERY often during 3F pinch, 4F pinc and 5F pinch the gesture will be recognized as 3F,4F,5F movement or directional actions.. For an example 5F pinch it’s like it sees the 4 fingers touch down, the thumb joins the gesture, but it only takes into account the 4 fingers going down, not the thumb going in an oposite direction. 
+
+Basically, Pinch gestures are not being recognized properly 
+===
+* Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
+> Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys?
+> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno$$)
 
 
 `AppleMagicTouchstream`:
@@ -26,6 +32,7 @@ Once a gesture has latched to 1 hand I can't use gestuers on the other hand?
 **LATER:** I can go through and make a touchstream default keymap!! (I will need to hand-set a bunch of default keyboard shortcuts!)
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
+> add/remove columns so we dont need so many different layout options?
 ===
 * `Landings Zones`:
 - 4F hold above homerow, on homerow, below homerow
@@ -41,8 +48,13 @@ Once a gesture has latched to 1 hand I can't use gestuers on the other hand?
 ===
 - Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
 ===
-666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
+===
+0. **Need to fix AI artwork sub legends lmao**
+1. Implement special "HAND" key for Touchstream layout.
+2. We will need to synthesize the keys from the legends when the hand is held. Can you create the keys and logic and map these on the RHS? 
+> Here is the list of unshifted and "hand" shifted pairs: (y,0),(u,4),(i,5),(h,left),(j,1),(k,2),(l,3),(n,_),(m,0)
+> You can see the sublegends here: @RHS_TOUCHSTREAM.png
 ===
 * Both hand gestures like 3f hold lhs right directional 3f on rhs
 > "linked gestures" ?

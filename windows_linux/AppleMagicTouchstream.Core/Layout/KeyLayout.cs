@@ -4,15 +4,17 @@ namespace AppleMagicTouchstream;
 
 public sealed class KeyLayout
 {
-    public KeyLayout(NormalizedRect[][] rects, string[][] labels)
+    public KeyLayout(NormalizedRect[][] rects, string[][] labels,bool isSteno=false)
     {
         Rects = rects;
         Labels = labels;
         HitGeometries = BuildHitGeometries(rects);
+        IsSteno=isSteno;
     }
 
     public NormalizedRect[][] Rects { get; }
     public string[][] Labels { get; }
+    public bool IsSteno { get; }
     public KeyHitGeometry[][] HitGeometries { get; }
 
     private static KeyHitGeometry[][] BuildHitGeometries(NormalizedRect[][] rects)

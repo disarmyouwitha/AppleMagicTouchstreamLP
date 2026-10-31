@@ -127,6 +127,187 @@ final class IndependentHandGestureTests:XCTestCase {
         XCTAssertTrue(drag.owners.isEmpty)
     }
 
+    func testSecondaryClickSharesPrivateDragSourceAndPreservesBothOwners() throws {
+        var drag = PrimaryDragOutput(), clicks = PrimaryTapClickOutput()
+        let down = try XCTUnwrap(drag.begin(device:1,location:.init(x:100,y:100),flags:[]))
+        XCTAssertTrue(drag.join(device:2))
+        let sourceID = down.getIntegerValueField(.eventSourceStateID)
+        let right = try XCTUnwrap(GestureTapActionOutput.events(action:.secondaryClick,location:.init(x:110,y:110),
+            time:1,doubleClickInterval:0.5,clicks:&clicks,mouseEventSource:drag.eventSource))
+        XCTAssertEqual(right.map(\.type),[.rightMouseDown,.rightMouseUp])
+        for event in right {
+            XCTAssertEqual(event.getIntegerValueField(.eventSourceStateID),sourceID)
+            XCTAssertFalse(DragButtonInterference.interrupts(type:event.type,tag:event.getIntegerValueField(.eventSourceUserData)))
+        }
+        XCTAssertEqual(drag.owners,[1,2])
+        XCTAssertNil(drag.end(device:1))
+        XCTAssertNotNil(drag.movePointer(location:.init(x:120,y:120),delta:.init(x:10,y:10),flags:[]))
+        let up = try XCTUnwrap(drag.end(device:2))
+        XCTAssertEqual(up.type,.leftMouseUp)
+        XCTAssertEqual(up.getIntegerValueField(.eventSourceStateID),sourceID)
+        XCTAssertNil(drag.eventSource)
+        XCTAssertNotNil(drag.begin(device:1,location:.zero,flags:[]))
+        XCTAssertNotNil(drag.end())
+    }
+
+    func testCapturedDragAndThumbTapKeepPrivateSourceAndLaterPointerRecognition() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:UInt64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"drag-secondary-recovery",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), taps = ThreeFingerTapRecognizer(), drag = PrimaryDragOutput(), clicks = PrimaryTapClickOutput()
+        var both = TwoHandGestureEngine(), bothSettings = TwoHandGestureSettings()
+        bothSettings.setAction(.missionControl,for:.init(chord:.threeFingers,phase:.tap))
+        var reservations = 0, downs = 0, ups = 0, secondaryDuringDrag = 0, pointerAfterClick = Set<UInt64>()
+        for record in frames {
+            let frame = record.frame, device = frame.deviceNumericID
+            let coordinated = both.process(leftHand:frame.deviceIndex == 0,now:Double(record.arrivalTicks)/1e9,
+                contacts:frame.rawTouches,settings:bothSettings)
+            if coordinated.reserved { reservations += 1; continue }
+            let update = router.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0 == .twoFingerMove || $0 == .threeFingerMove
+            }
+            if update.phase == .began && update.gesture == .threeFingerMove {
+                if drag.owner == nil {
+                    XCTAssertNotNil(drag.begin(device:device,location:.zero,flags:[])); downs += 1
+                } else { XCTAssertTrue(drag.join(device:device)) }
+            }
+            if update.phase == .ended || update.phase == .cancelled {
+                if drag.end(device:device) != nil { ups += 1 }
+            }
+            if taps.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches,
+                gestureActive:update.gesture != nil && update.millimetres != nil,ordinaryEnabled:false,thumbEnabled:true) == .thumbTwoTap {
+                let owners = drag.owners
+                let events = try XCTUnwrap(GestureTapActionOutput.events(action:.secondaryClick,location:drag.location ?? .zero,
+                    time:frame.timestamp,doubleClickInterval:0.5,clicks:&clicks,mouseEventSource:drag.eventSource))
+                XCTAssertEqual(events.map(\.type),[.rightMouseDown,.rightMouseUp])
+                XCTAssertEqual(drag.owners,owners)
+                if !owners.isEmpty { secondaryDuringDrag += 1 }
+                for event in events {
+                    let source = event.getIntegerValueField(.eventSourceStateID)
+                    XCTAssertNotEqual(source,Int64(CGEventSourceStateID.combinedSessionState.rawValue))
+                    if let dragSource = drag.eventSource { XCTAssertEqual(source,Int64(dragSource.sourceStateID.rawValue)) }
+                    XCTAssertFalse(DragButtonInterference.interrupts(type:event.type,tag:event.getIntegerValueField(.eventSourceUserData)))
+                }
+            }
+            if secondaryDuringDrag > 0, update.gesture == .twoFingerMove,
+               let delta = update.millimetres, delta != .zero {
+                pointerAfterClick.insert(device)
+                if drag.owner != nil {
+                    XCTAssertNotNil(drag.movePointer(location:.zero,delta:delta,flags:[]))
+                }
+            }
+        }
+        XCTAssertEqual(reservations,0)
+        XCTAssertEqual(secondaryDuringDrag,1)
+        XCTAssertEqual(pointerAfterClick.count,2)
+        XCTAssertEqual(downs,1); XCTAssertEqual(ups,1)
+        XCTAssertTrue(drag.owners.isEmpty)
+    }
+
+    func testCapturedTransientScrollKeepsBalancedDragAndLaterPointerRecognition() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:UInt64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"drag-scroll-button-state",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), taps = ThreeFingerTapRecognizer(), drag = PrimaryDragOutput()
+        var scrolls:[UInt64:PreciseScrollOutput] = [:], clicks = PrimaryTapClickOutput()
+        var dragDowns = 0, dragUps = 0, scrollDuringDrag = 0, rightClickDuringDrag = 0, laterPointer = Set<UInt64>()
+        func taggedOutput(_ event:CGEvent,file:StaticString = #filePath,line:UInt = #line) {
+            XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag,file:file,line:line)
+        }
+        for record in frames {
+            let frame = record.frame, device = frame.deviceNumericID
+            let update = router.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches) {
+                [.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread].contains($0)
+            }
+            if update.phase == .began && update.gesture == .threeFingerMove {
+                if drag.owner == nil { taggedOutput(try XCTUnwrap(drag.begin(device:device,location:.zero,flags:[]))); dragDowns += 1 }
+                else { XCTAssertTrue(drag.join(device:device)) }
+            }
+            if update.phase == .ended || update.phase == .cancelled {
+                if let event = drag.end(device:device) { taggedOutput(event); dragUps += 1 }
+                if let event = scrolls[device]?.finish(cancelled:update.phase == .cancelled) { taggedOutput(event) }
+            }
+            if update.gesture == .fourFingerMove, let delta = update.millimetres, delta != .zero {
+                if scrolls[device] == nil { scrolls[device] = PreciseScrollOutput() }
+                if drag.owner != nil && update.phase == .began { scrollDuringDrag += 1 }
+                taggedOutput(try XCTUnwrap(scrolls[device]?.event(points:delta)))
+            }
+            if taps.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches,
+                gestureActive:update.gesture != nil && update.millimetres != nil,ordinaryEnabled:false,thumbEnabled:true) == .thumbTwoTap {
+                let owners = drag.owners
+                let events = try XCTUnwrap(GestureTapActionOutput.events(action:.secondaryClick,location:drag.location ?? .zero,
+                    time:frame.timestamp,doubleClickInterval:0.5,clicks:&clicks,mouseEventSource:drag.eventSource))
+                for event in events { taggedOutput(event) }
+                XCTAssertEqual(drag.owners,owners)
+                if !owners.isEmpty { rightClickDuringDrag += 1 }
+            }
+            if dragUps > 0, update.gesture == .twoFingerMove, let delta = update.millimetres, delta != .zero {
+                laterPointer.insert(device)
+            }
+        }
+        XCTAssertEqual(scrollDuringDrag,1)
+        XCTAssertEqual(rightClickDuringDrag,1)
+        XCTAssertEqual(dragDowns,1); XCTAssertEqual(dragUps,1)
+        XCTAssertEqual(laterPointer.count,2)
+        XCTAssertTrue(drag.owners.isEmpty)
+    }
+
+    func testCapturedPointerHandoffRetainsDragSourceAfterOwnerLift() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:UInt64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"drag-release-source-lifetime",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), taps = ThreeFingerTapRecognizer(), drag = PrimaryDragOutput(), clicks = PrimaryTapClickOutput()
+        weak var source:CGEventSource?
+        var downCount = 0, upCount = 0, rightClicks = 0, sharedPointerFrames = 0, pointerAfterRelease = Set<UInt64>()
+        for record in frames {
+            let frame = record.frame, device = frame.deviceNumericID
+            let update = router.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches) {
+                [.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread].contains($0)
+            }
+            if update.phase == .began && update.gesture == .threeFingerMove {
+                if drag.owner == nil {
+                    XCTAssertNotNil(drag.begin(device:device,location:.zero,flags:[])); downCount += 1
+                    source = drag.eventSource
+                } else { XCTAssertTrue(drag.join(device:device)) }
+            }
+            if update.phase == .ended || update.phase == .cancelled {
+                if let up = drag.end(device:device) {
+                    upCount += 1; XCTAssertEqual(up.type,.leftMouseUp)
+                    withExtendedLifetime(drag) { XCTAssertNotNil(source,"Queued native release lost its private source") }
+                }
+            }
+            if taps.recognize(device:device,time:frame.timestamp,contacts:frame.rawTouches,
+                gestureActive:update.gesture != nil && update.millimetres != nil,ordinaryEnabled:false,thumbEnabled:true) == .thumbTwoTap {
+                let events = try XCTUnwrap(GestureTapActionOutput.events(action:.secondaryClick,location:.zero,
+                    time:frame.timestamp,doubleClickInterval:0.5,clicks:&clicks,mouseEventSource:drag.eventSource))
+                XCTAssertEqual(events.map(\.type),[.rightMouseDown,.rightMouseUp])
+                if drag.owner != nil { rightClicks += 1 }
+            }
+            if update.gesture == .twoFingerMove, let delta = update.millimetres, delta != .zero {
+                if drag.owner != nil {
+                    XCTAssertNotNil(drag.movePointer(location:.zero,delta:delta,flags:[])); sharedPointerFrames += 1
+                } else if upCount > 0 {
+                    pointerAfterRelease.insert(device)
+                    withExtendedLifetime(drag) { XCTAssertNotNil(source) }
+                }
+            }
+        }
+        XCTAssertEqual(downCount,1); XCTAssertEqual(upCount,1)
+        XCTAssertEqual(rightClicks,1)
+        XCTAssertGreaterThan(sharedPointerFrames,0)
+        XCTAssertEqual(pointerAfterRelease.count,2)
+        XCTAssertTrue(drag.owners.isEmpty)
+    }
+
     @MainActor func testIntervalDraftCanBeEmptyAndOnlyClampsWhenCommitted() {
         XCTAssertNil(GestureRepeatIntervalField.committedValue(""))
         XCTAssertNil(GestureRepeatIntervalField.committedValue(" "))

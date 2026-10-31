@@ -14,6 +14,9 @@ Trackpads, with native selected-pad takeover, capture/replay and optional haptic
   instead of hold. Unreserved contacts default to typing.
 - Traced TouchStream layout, automatic reference background, per-key overrides,
   visualizers with anatomical contact colors, pressure and paths.
+- Asterisk-style STENO, staggered STENO 6x3 and RHS-only full-keyboard STENO single layouts, rolling single/two-pad
+  chords, 2F mouse/force clicks, 1F force dragging, independent touch/release haptics,
+  and Plover plugin/serial connections with an in-app plugin installer.
 - Import/Export Settings including gesture assignments and gains. Native device
   selection and takeover opt-in stay app-local.
 - Run at Startup through the macOS service manager, default off.

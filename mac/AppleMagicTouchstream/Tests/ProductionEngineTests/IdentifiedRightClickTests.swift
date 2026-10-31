@@ -113,6 +113,8 @@ final class IdentifiedRightClickTests: XCTestCase {
         XCTAssertEqual(output.down.type,.rightMouseDown); XCTAssertEqual(output.up.type,.rightMouseUp)
         for event in [output.down,output.up] {
             XCTAssertEqual(event.location,point); XCTAssertEqual(event.flags,.maskShift)
+            XCTAssertNotEqual(event.getIntegerValueField(.eventSourceStateID),Int64(CGEventSourceStateID.combinedSessionState.rawValue))
+            XCTAssertNotEqual(event.getIntegerValueField(.eventSourceStateID),Int64(CGEventSourceStateID.hidSystemState.rawValue))
             XCTAssertEqual(event.getIntegerValueField(.mouseEventButtonNumber),1)
             XCTAssertEqual(event.getIntegerValueField(.mouseEventClickState),1)
             XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)

@@ -177,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        StenoOutputConnection.stop()
         if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
         if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
         if let takeoverSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverSleepObserver) }

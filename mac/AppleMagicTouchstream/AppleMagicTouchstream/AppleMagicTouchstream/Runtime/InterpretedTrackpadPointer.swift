@@ -9,6 +9,12 @@ import os
 
 struct SelectedTrackpadEventPolicy {
     static let interpreterTag: Int64 = 0x414D544745535455
+    // Standalone secondary clicks retain their private source through posting.
+    private final class SourceStorage: @unchecked Sendable {
+        let source = CGEventSource(stateID:.privateState)
+    }
+    private static let storage = SourceStorage()
+    static var secondaryEventSource:CGEventSource? { storage.source }
 }
 
 struct TwoFingerPointerTracker {
@@ -29,6 +35,31 @@ struct TwoFingerPointerTracker {
     }
 }
 
+/// Observational UI feedback, separate from candidate reservation/output ownership.
+struct GestureRecognitionFeedback:Equatable,Sendable {
+    enum Kind:Equatable,Sendable {
+        case gesture(GestureTrigger), direction(GestureTrigger,GestureMovementDirection), hold(Int), coordinated(TwoHandTrigger), corner(TwoHandTrigger)
+        case stenoMove, stenoDrag, stenoLeftClick, stenoRightClick, stenoScroll
+        var title:String {
+            switch self {
+            case let .gesture(trigger):return trigger.title
+            case let .direction(trigger,direction):return "\(trigger.title) \(direction.arrow)"
+            case let .hold(count):return "\(count)-finger hold"
+            case let .corner(trigger):return "\(trigger.chord.title) \(trigger.phase.title)"
+            case let .coordinated(trigger):return "Both · \(trigger.chord.title) \(trigger.phase.title)"
+            case .stenoScroll:return "4F force scroll"
+            case .stenoMove:return "2F mouse"
+            case .stenoDrag:return "1F drag/select"
+            case .stenoLeftClick:return "2F left-click"
+            case .stenoRightClick:return "3F right-click"
+            }
+        }
+    }
+    var kind:Kind
+    var time:Double
+    func visible(at now:Double) -> Bool { now >= time && now-time < 2 }
+}
+
 final class InterpretedTrackpadPointer: @unchecked Sendable {
     static let shared = InterpretedTrackpadPointer()
     /// Installed only by live enable; no observer is created by init or tests.
@@ -43,12 +74,21 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private struct State {
         var devices: Set<UInt64> = []
+        var feedback = Dictionary<UInt64,GestureRecognitionFeedback>(minimumCapacity:2)
+        mutating func recognized(_ kind:GestureRecognitionFeedback.Kind,device:UInt64,time:Double) {
+            if feedback[device] == nil && feedback.count >= 2 { feedback.removeAll(keepingCapacity:true) }
+            feedback[device] = .init(kind:kind,time:time)
+        }
+        var stenoDevices:Set<UInt64> = []
+        var stenoDragOwners:Set<UInt64> = Set(minimumCapacity:2)
+        var stenoScrollOwners:Set<UInt64> = Set(minimumCapacity:2)
         var cornerEngines:[UInt64:SinglePadCornersEngine] = [:]
         var cornerSettings:[UInt64:TwoHandGestureSettings] = [:]
         var cornerEligible:Set<UInt64> = []
         var needsCornerTimer:Bool { !cornerEligible.isEmpty && cornerSettings.values.contains { $0.enabled(.fourCorners) } }
         mutating func postCorner(_ trigger:TwoHandTrigger,device:UInt64,time:Double) {
             let action = cornerSettings[device]?.action(trigger) ?? .disabled
+            if action != .disabled { recognized(.corner(trigger),device:device,time:time) }
             if action == .openConfig { openConfiguration?() }
             else if devices.contains(device) { postDirectional(action,device:device,time:time,owner:.corners(device)) }
         }
@@ -60,6 +100,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsTwoHandTimer:Bool { twoHandEligible && TwoHandChord.allCases.contains(where:twoHandSettings.enabled) }
         mutating func postCoordinated(_ trigger:TwoHandTrigger,time:Double) {
             let action = twoHandSettings.action(trigger)
+            if action != .disabled {
+                if let device = twoHandPads.left { recognized(.coordinated(trigger),device:device,time:time) }
+                if let device = twoHandPads.right { recognized(.coordinated(trigger),device:device,time:time) }
+            }
             if action == .openConfig { openConfiguration?() }
             else if twoHandTrusted, let device = twoHandPads.left { postDirectional(action,device:device,time:time,owner:.coordinated) }
         }
@@ -78,6 +122,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var holdThresholds:[UInt64:[Int:Double]] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
+            recognized(.hold(count),device:device,time:time)
             keyboardClaimed.insert(device)
             taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
             forceClicks.cancel(device:device)
@@ -97,7 +142,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func primaryClickConflicts(_ action:GestureAction) -> Bool {
             drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
         }
-        var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
+        var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { $0.uses(.primaryDrag) } }
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool {
             bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
@@ -124,6 +169,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
+            recognized(.gesture(trigger),device:device,time:time)
             keyboardClaimed.insert(device)
             // Same discrete dispatcher as Force/Hold/directions, including native
             // Dock actions (Mission Control / App Exposé have no CGEvent sequence).
@@ -160,12 +206,45 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard let location = CGEvent(source:nil)?.location,
                   let events = GestureTapActionOutput.events(action:action,location:location,time:time,
                     doubleClickInterval:doubleClickInterval,flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),
-                    clicks:&clicks,shortcut:appleShortcuts[action]) else { return }
+                    clicks:&clicks,shortcut:appleShortcuts[action],mouseEventSource:drag.eventSource) else { return }
             for event in events {
                 event.post(tap:appleShortcuts[action]?.eventTap ?? .cghidEventTap); postedEvents &+= 1
             }
         }
+        mutating func postPointerMotion(device:UInt64,time:Double,millimetres:CGPoint) {
+            // Drag destinations accumulate from our last queued destination. Reading
+            // WindowServer here can return an older cursor while posts are in flight.
+            let anchor = drag.location ?? CGEvent(source:nil)?.location
+            guard let delta = tracker.processMotion(device:device,time:time,millimetres:millimetres),
+                  let current = anchor else { reset(device:device); return }
+            guard delta.x != 0 || delta.y != 0 else { return }
+            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
+            // Clamp to the nearest actual display, including negative-origin displays.
+            var closest: CGPoint?; var distance = Double.infinity
+            for bounds in displayBounds {
+                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
+                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
+                let dx = candidate.x - location.x, dy = candidate.y - location.y
+                let d = dx * dx + dy * dy
+                if d < distance { distance = d; closest = candidate }
+            }
+            if let closest { location = closest }
+            if drag.owner != nil {
+                guard let event = drag.movePointer(location:location,delta:delta,
+                    flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) else { reset(device:device); return }
+                event.post(tap:.cghidEventTap); postedEvents &+= 1
+                return
+            }
+            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
+                                       mouseCursorPosition: location, mouseButton: .left) else { return }
+            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
+            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
+            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
+            event.post(tap: .cghidEventTap)
+            postedEvents &+= 1
+        }
         var drag = PrimaryDragOutput()
+        var mouseOutputTrace = GestureMouseOutputTrace()
         var buttonObserver: ButtonObserver?
         var buttonObserverHealthy = false
         var threeFingerMoveDevices: Set<UInt64> = []
@@ -228,6 +307,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollEngines[device]?.reset(); directionalScrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64,preservingCorner:Bool = false) {
+            stenoScrollOwners.remove(device)
+            stenoDragOwners.remove(device)
             releaseShortcut(.pad(device))
             if !preservingCorner { releaseShortcut(.corners(device)); cornerEngines[device]?.reset() }
             holds.cancel(device:device)
@@ -240,6 +321,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
         }
         mutating func reset() {
+            feedback.removeAll(keepingCapacity:true)
+            stenoScrollOwners.removeAll(keepingCapacity:true)
+            stenoDragOwners.removeAll(keepingCapacity:true)
             keyboardEpoch &+= 1; keyboardClaimed.removeAll(keepingCapacity:true)
             for owner in Array(shortcutOwners) { releaseShortcut(owner) }
             for device in cornerEngines.keys { cornerEngines[device]?.reset() }
@@ -340,7 +424,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             state.devices = devices; state.displayBounds = bounds
             if state.needsDragObserver && state.buttonObserver == nil {
-                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown]
+                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown,.leftMouseUp,.rightMouseUp,.otherMouseUp]
                     .reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
                 let tap = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.listenOnly,
                     eventsOfInterest:mask,callback: { _,type,event,context in
@@ -424,7 +508,19 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private func observeButton(type: CGEventType, event: CGEvent) {
         let tag = event.getIntegerValueField(.eventSourceUserData)
+        let ownProcess = event.getIntegerValueField(.eventSourceUnixProcessID) == Int64(getpid())
+        let sourceID = event.getIntegerValueField(.eventSourceStateID)
+        let timestamp = event.timestamp
+        let flags = event.flags.rawValue
         lock.withLock { state in
+            if ownProcess {
+                switch type {
+                case .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp:
+                    state.mouseOutputTrace.observe(type:type,sourceID:sourceID,
+                        timestamp:timestamp,tagged:tag == SelectedTrackpadEventPolicy.interpreterTag,flagsRawValue:flags)
+                default: break
+                }
+            }
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 state.buttonObserverHealthy = false
                 state.reset() // fail closed, including the reserved up
@@ -434,15 +530,127 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
         }
     }
+    /// Called only while recording a live frame, never during replay or ordinary input.
+    func captureOutputDiagnostic() -> RuntimeGestureOutputDiagnostic {
+        lock.withLock { state in
+            func buttons(_ source:CGEventSourceStateID?) -> UInt8 {
+                guard let source else { return 0 }
+                var mask:UInt8 = 0
+                if CGEventSource.buttonState(source,button:.left) { mask |= 1 }
+                if CGEventSource.buttonState(source,button:.right) { mask |= 2 }
+                if CGEventSource.buttonState(source,button:.center) { mask |= 4 }
+                return mask
+            }
+            let dragSource = state.drag.diagnosticSourceID
+            var modifierKeys:UInt16 = 0
+            for (bit,code) in [CGKeyCode(56),60,58,61,59,62,55,54].enumerated() {
+                if CGEventSource.keyState(.hidSystemState,key:code) { modifierKeys |= UInt16(1) << bit }
+            }
+            return RuntimeGestureOutputDiagnostic(dragOwner:state.drag.owner,dragOwnerCount:state.drag.owners.count,
+                dragSourceID:dragSource?.rawValue,combinedButtons:buttons(.combinedSessionState),
+                hidButtons:buttons(.hidSystemState),dragSourceButtons:buttons(dragSource),
+                otherGestureSourceButtons:buttons(SelectedTrackpadEventPolicy.secondaryEventSource?.sourceStateID),
+                observerHealthy:state.buttonObserverHealthy,observedMouseEdges:state.mouseOutputTrace.snapshot(),
+                combinedFlagsRawValue:CGEventSource.flagsState(.combinedSessionState).rawValue,
+                hidFlagsRawValue:CGEventSource.flagsState(.hidSystemState).rawValue,
+                ownedKeyboardFlagsRawValue:DispatchService.shared.heldGestureFlags.rawValue,hidModifierKeys:modifierKeys)
+        }
+    }
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
     func stop() { lock.withLock {
+        $0.stenoDevices.removeAll(keepingCapacity:true)
         $0.cornerEligible.removeAll(keepingCapacity:true)
         $0.twoHandEligible = false
         $0.devices.removeAll(keepingCapacity:true); $0.reset(); $0.keyboardArbitration.reset(); $0.keyboardDevices.removeAll(keepingCapacity:true)
         $0.momentumTimer?.cancel(); $0.momentumTimer = nil
         $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
     } }
+    /// Reading UI feedback never enables input or output.
+    func recentRecognition(device:UInt64,now:Double = CACurrentMediaTime()) -> GestureRecognitionFeedback? {
+        lock.withLock { value in
+            guard let feedback = value.feedback[device], feedback.visible(at:now) else { return nil }
+            return feedback
+        }
+    }
+    /// Uses the shared acceleration, cursor bounds, button ownership and discrete
+    /// click builder. Only the controller's live selected/owned/armed/AX gate enables it.
+    func configureStenoPointer(devices:Set<UInt64>,profiles:[UInt64:ApplePointerAccelerationProfile],sensitivities:[UInt64:Double],scrollProfiles:[UInt64:AppleScrollProfile] = [:],scrollSensitivities:[UInt64:Double] = [:]) {
+        guard !devices.isEmpty else { stop(); return }
+        let wasOrdinary = lock.withLock { !$0.devices.isEmpty && $0.stenoDevices.isEmpty }
+        if wasOrdinary { stop() }
+        configure(response:.apple,sensitivity:1,profiles:profiles,sensitivities:sensitivities)
+        lock.withLock { state in
+            state.stenoDevices = devices
+            if state.scrollProfiles != scrollProfiles || state.scrollSensitivities != scrollSensitivities {
+                for device in state.scrollOutputs.keys { state.finishScroll(device:device,cancelled:true) }
+                state.stenoScrollOwners.removeAll(keepingCapacity:true)
+                state.scrollProfiles = scrollProfiles; state.scrollSensitivities = scrollSensitivities
+                state.scrollEngines = scrollProfiles.mapValues { FourFingerScrollEngine(profile:$0) }
+                state.scrollOutputs = Dictionary(uniqueKeysWithValues:scrollProfiles.keys.map { ($0,PreciseScrollOutput()) })
+                state.momentum = Dictionary(uniqueKeysWithValues:scrollProfiles.keys.map { ($0,ScrollMomentum()) })
+            }
+        }
+        // Reuse the ordinary display bounds, button observer and stale-owner timer.
+        enable(devices:devices)
+    }
+    func releaseStenoPointer(device:UInt64,scrollEnded:Bool = false,time:Double = 0) {
+        lock.withLock { state in
+            // Explicit lifecycle/configuration release uses time zero. Empty
+            // input frames after a normal release must not brake a coast.
+            if state.stenoScrollOwners.remove(device) != nil || (time == 0 && state.stenoDevices.contains(device)) {
+                if scrollEnded { state.releaseScroll(device:device,time:time,hostTime:CACurrentMediaTime()) }
+                else { state.finishScroll(device:device,cancelled:true) }
+            }
+            let owned = state.stenoDragOwners.remove(device) != nil
+            if owned { state.drag.end(device:device)?.post(tap:.cghidEventTap) }
+            if owned || state.stenoDevices.contains(device) { state.tracker.reset(device:device) }
+        }
+    }
+    func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double) {
+        let forceFeedback = lock.withLock { state -> Bool in
+            if (update.reset || !update.dragging), state.stenoDragOwners.remove(device) != nil {
+                state.drag.end(device:device)?.post(tap:.cghidEventTap)
+            }
+            guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { state.reset(device:device); return false }
+            let now = CACurrentMediaTime()
+            state.lastReceipt[device] = now; state.lastContactTime[device] = time
+            if update.scrolling { state.recognized(.stenoScroll,device:device,time:now) }
+            else if update.dragging { state.recognized(.stenoDrag,device:device,time:now) }
+            else if update.millimetres != nil { state.recognized(.stenoMove,device:device,time:now) }
+            if let click = update.click { state.recognized(click == .secondary ? .stenoRightClick:.stenoLeftClick,device:device,time:now) }
+            if update.reset { state.tracker.reset(device:device) }
+            if update.dragBegan, state.buttonObserverHealthy {
+                if state.drag.owner != nil {
+                    if state.drag.join(device:device) { state.stenoDragOwners.insert(device) }
+                }
+                else if let location = CGEvent(source:nil)?.location,
+                        let down = state.drag.begin(device:device,location:location,
+                            flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) {
+                    state.stenoDragOwners.insert(device)
+                    state.clicks.reset(); down.post(tap:.cghidEventTap)
+                }
+            }
+            if update.scrolling {
+                guard state.scrollProfiles[device] != nil else { return false }
+                if state.stenoScrollOwners.insert(device).inserted { state.finishScroll(device:device,cancelled:true) }
+                if let mm = update.millimetres,
+                   let points = state.scrollEngines[device]?.process(time:time,millimetres:mm,sensitivity:state.scrollSensitivities[device] ?? 1) {
+                    state.momentum[device]?.observe(points:points,contactTime:time)
+                    state.scrollOutputs[device]?.event(points:points)?.post(tap:.cghidEventTap)
+                }
+            } else if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
+            if let click = update.click { state.postDirectional(click.action,device:device,time:time) }
+            if update.activatesForce, now-(state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
+                state.lastForceHaptic[device] = now
+                return true
+            }
+            return false
+        }
+        // Same fixed feedback as ordinary Force. This adapter is live-only;
+        // replay/recording never enters it or touches the haptic hardware.
+        if forceFeedback { _ = ForceClickHapticSettings.fixed.play(device:device) }
+    }
     func cancelDisconnectedDevice(_ device: UInt64) {
         lock.withLock { state in
             state.reset(device:device)
@@ -535,11 +743,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { $0.keyboardDevices = devices }
     }
 
-    func interruptMomentum(_ frame:OMSRawTouchFrame) {
+    func interruptMomentum(_ frame:OMSRawTouchFrame,consumeKeyboard:Bool = true) {
         lock.withLock { state in
             let device = frame.deviceIDNumeric
             if ScrollMomentumInterruption.process(device:device,contacts:frame.touches,selected:state.keyboardDevices,
-                    momentum:&state.momentum,outputs:&state.scrollOutputs,endMomentum:{$0.post(tap:.cghidEventTap)}) {
+                    momentum:&state.momentum,outputs:&state.scrollOutputs,endMomentum:{$0.post(tap:.cghidEventTap)}), consumeKeyboard {
                 state.keyboardClaimed.insert(device)
                 state.taps.cancel(device:device)
                 state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
@@ -645,7 +853,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                         time:hostTime,doubleClickInterval:state.doubleClickInterval,
                         flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),clicks:&state.clicks,
-                        shortcut:state.appleShortcuts[forceBindings.action(for:trigger)]) {
+                        shortcut:state.appleShortcuts[forceBindings.action(for:trigger)],mouseEventSource:state.drag.eventSource) {
+                state.recognized(.gesture(trigger),device:device,time:hostTime)
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
@@ -684,7 +893,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 default: return false
                 }
             })
-            if update.phase == .began || update.phase == .changed { state.keyboardClaimed.insert(device) }
+            if update.phase == .began || update.phase == .changed {
+                state.keyboardClaimed.insert(device)
+                if let gesture = update.gesture { state.recognized(.gesture(gesture),device:device,time:hostTime) }
+            }
             let directionalOwner = update.gesture.flatMap { state.directionals[device]?[$0] } != nil
             if !directionalOwner, let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
                     contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
@@ -706,6 +918,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if update.phase == .began { state.directionalRepeater.reset(device:device) }
                 let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments)
                 let heldDirection = state.directionalStepper.direction(device:device)
+                if let heldDirection { state.recognized(.direction(gesture,heldDirection),device:device,time:hostTime) }
                 if let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
                     contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:true,direction:heldDirection),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
                     state.postHold(count:count,device:device,time:hostTime)
@@ -829,36 +1042,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return nil
             }
             guard motionAction.requiresPointerProfile else { state.reset(device:device); return nil }
-            // Drag destinations accumulate from our last queued destination. Reading
-            // WindowServer here can return an older cursor while posts are in flight.
-            let anchor = state.drag.location ?? CGEvent(source:nil)?.location
-            guard let delta = state.tracker.processMotion(device:device,time:time,millimetres:motion.millimetres),
-                  let current = anchor else { state.reset(device:device); return nil }
-            guard delta.x != 0 || delta.y != 0 else { return nil }
-            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
-            // Clamp to the nearest actual display, including negative-origin displays.
-            var closest: CGPoint?; var distance = Double.infinity
-            for bounds in state.displayBounds {
-                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
-                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
-                let dx = candidate.x - location.x, dy = candidate.y - location.y
-                let d = dx * dx + dy * dy
-                if d < distance { distance = d; closest = candidate }
-            }
-            if let closest { location = closest }
-            if state.drag.owner != nil {
-                guard let event = state.drag.movePointer(location:location,delta:delta,
-                    flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) else { state.reset(device:device); return nil }
-                event.post(tap:.cghidEventTap); state.postedEvents &+= 1
-                return nil
-            }
-            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
-                                       mouseCursorPosition: location, mouseButton: .left) else { return nil }
-            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
-            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
-            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
-            event.post(tap: .cghidEventTap)
-            state.postedEvents &+= 1
+            state.postPointerMotion(device:device,time:time,millimetres:motion.millimetres)
             return nil
         }
         if let forceHaptic { _ = forceHaptic.play(device:device) }

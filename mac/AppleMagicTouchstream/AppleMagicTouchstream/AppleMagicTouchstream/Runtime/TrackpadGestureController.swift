@@ -13,6 +13,19 @@ final class TrackpadGestureController: ObservableObject {
     private var owned: Set<UInt64> = []
     private var takeoverEnabled = false
     private var armed = false
+    private var stenoMode = false
+    func setStenoMode(_ enabled:Bool) {
+        guard stenoMode != enabled else { return }
+        InterpretedTrackpadPointer.shared.stop()
+        stenoMode = enabled; configure()
+    }
+    func setStenoForceThreshold(_ value:Double) {
+        settings.stenoForceThreshold = StenoForceThreshold.validated(value)
+        settings.save(to:.standard)
+    }
+    func setStenoConnectionMode(_ value:StenoConnectionMode) { settings.stenoConnectionMode = value; settings.save(to:.standard) }
+    func setStenoHapticTouch(_ value:Bool) { settings.stenoHapticOnTouch = value; settings.save(to:.standard) }
+    func setStenoHapticRelease(_ value:Bool) { settings.stenoHapticOnRelease = value; settings.save(to:.standard) }
     private var pointerProfiles: [UInt64: ApplePointerAccelerationProfile] = [:]
     private var scrollProfiles: [UInt64: AppleScrollProfile] = [:]
 
@@ -81,6 +94,7 @@ final class TrackpadGestureController: ObservableObject {
         settings.coordinated = value; settings.save(to:.standard); configure()
     }
     func holdStatus(count:Int,scope:GestureHandScope) -> String {
+        if stenoMode { return "Gestures are paused in STENO layouts." }
         guard settings.holdAvailable(count:count,in:scope) else {
             return "Unsupported contact count."
         }
@@ -168,6 +182,11 @@ final class TrackpadGestureController: ObservableObject {
     func applyImportedSettings(_ imported: HandGestureSettings) {
         InterpretedTrackpadPointer.shared.resetBaseline()
         var normalized = imported
+        if normalized.stenoConnectionMode == nil { normalized.stenoConnectionMode = settings.stenoConnectionMode }
+        if normalized.stenoHapticOnTouch == nil { normalized.stenoHapticOnTouch = settings.stenoHapticOnTouch }
+        if normalized.stenoHapticOnRelease == nil { normalized.stenoHapticOnRelease = settings.stenoHapticOnRelease }
+        if normalized.stenoForceThreshold == nil { normalized.stenoForceThreshold = settings.stenoForceThreshold }
+        if let value = normalized.stenoForceThreshold { normalized.stenoForceThreshold = StenoForceThreshold.validated(value) }
         normalized.left.normalize(); normalized.right.normalize()
         settings = normalized
         settings.save(to:.standard)
@@ -185,9 +204,10 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
     func twoHandStatus(_ trigger:TwoHandTrigger) -> String {
+        if stenoMode && (trigger.chord != .fourCorners || trigger.phase != .hold) { return "Gestures are paused in STENO layouts." }
         guard let left = pads.left, let right = pads.right, left != right else { return "Select two distinct trackpads." }
         guard takeoverEnabled, armed, owned.isSuperset(of:[left,right]) else { return "Enable Trackpad Takeover on both selected pads." }
-        let action = settings.twoHand.action(trigger)
+        let action:GestureAction = stenoMode ? .openConfig:settings.twoHand.action(trigger)
         if action == .disabled { return "Choose an action to enable this input." }
         if action != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
         if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "System action is unavailable." }
@@ -197,6 +217,7 @@ final class TrackpadGestureController: ObservableObject {
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
+        if stenoMode { return "Gestures are paused in STENO layouts." }
         func hand(_ side: GestureHandScope) -> String {
             let directional = GestureDirectionalAssignments.triggers.contains(trigger)
                 && settings.movementMode(trigger,in:side) == .directional
@@ -237,6 +258,24 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     private func configure() {
+        if stenoMode {
+            let routed = settings.routed(to:pads)
+            let eligible = NativeTwoFingerMouseGate.outputDevices(enabled:settings.resolvedStenoPointerMode != .disabled,
+                armed:armed,takeoverEnabled:takeoverEnabled,trusted:AXIsProcessTrusted(),selected:Set(routed.keys),owned:owned)
+                .filter { pointerProfiles[$0] != nil }
+            let output = InterpretedTrackpadPointer.shared
+            output.configureStenoPointer(devices:Set(eligible),profiles:pointerProfiles,sensitivities:routed.mapValues(\.pointerSensitivity),
+                scrollProfiles:Dictionary(uniqueKeysWithValues:scrollProfiles.map { id,profile in (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling)) }),
+                scrollSensitivities:routed.mapValues(\.scrollSensitivity))
+            let cornerEligible = NativeTwoFingerMouseGate.outputDevices(enabled:true,armed:armed,takeoverEnabled:takeoverEnabled,
+                trusted:true,selected:Set(routed.keys),owned:owned)
+            output.configureKeyboardReservations(devices:cornerEligible)
+            output.configureCorners(settings:routed.mapValues { $0.singlePadCorners.stenoConfigurationOnly },eligible:cornerEligible)
+            output.configureTwoHand(pads:pads,settings:settings.twoHand.stenoConfigurationOnly,
+                eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),trusted:AXIsProcessTrusted())
+            output.enable(devices:Set(eligible))
+            statusRevision &+= 1; return
+        }
         let shortcuts = AppleShortcutPlan.load()
         let routed = settings.routed(to: pads)
         let eligible = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,

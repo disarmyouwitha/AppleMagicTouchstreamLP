@@ -145,3 +145,18 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
         if (_thread.Join(1000)) _wake.Dispose();
     }
 }
+
+// Recognition remains active while Windows owns the native pointer. Do not
+// publish synthetic actions in that state, even briefly into a queue; otherwise
+// an off-to-on transition could replay an action recognized while output was off.
+internal sealed class TakeoverGestureOutput(IHandGestureOutput output,Func<bool> enabled) : IHandGestureOutput
+{
+    public void Move(double x,double y) { if(enabled()) output.Move(x,y); }
+    public void Scroll(double x,double y) { if(enabled()) output.Scroll(x,y); }
+    public void PrimaryButton(bool down) { if(!down || enabled()) output.PrimaryButton(down); }
+    public void Tap(HandGestureAction action) { if(enabled()) output.Tap(action); }
+    public void Zoom(double delta) { if(enabled()) output.Zoom(delta); }
+    public void ForceFeedback(TrackpadSide side) { if(enabled()) output.ForceFeedback(side); }
+    public void AssignedAction(string label) { if(enabled()) output.AssignedAction(label); }
+    public void HeldAssignment(int owner,string? label) { if(label==null || enabled()) output.HeldAssignment(owner,label); }
+}

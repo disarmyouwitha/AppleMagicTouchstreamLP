@@ -16,12 +16,14 @@ internal static class RawInputInterop
     public const ushort UsagePageDigitizer = 0x0D;
     public const ushort UsageTouchpad = 0x05;
     public const int WM_INPUT = 0x00FF;
+    public const int WM_INPUT_DEVICE_CHANGE = 0x00FE;
 
     private const uint RID_INPUT = 0x10000003;
     private const uint RIDI_DEVICENAME = 0x20000007;
     private const uint RIDI_DEVICEINFO = 0x2000000b;
     private const int RIM_TYPEHID = 2;
     private const uint RIDEV_INPUTSINK = 0x00000100;
+    private const uint RIDEV_DEVNOTIFY = 0x00002000;
     [ThreadStatic] private static byte[]? t_rawInputScratch;
 
     public static HidDeviceInfo[] EnumerateTrackpads()
@@ -92,7 +94,7 @@ internal static class RawInputInterop
             {
                 usUsagePage = UsagePageDigitizer,
                 usUsage = UsageTouchpad,
-                dwFlags = RIDEV_INPUTSINK,
+                dwFlags = RIDEV_INPUTSINK | RIDEV_DEVNOTIFY,
                 hwndTarget = hwnd
             }
         };
@@ -587,6 +589,8 @@ internal readonly record struct RawInputPacket(IntPtr DeviceHandle, uint ReportS
 
 internal sealed class RawInputContext
 {
+    public void RemoveDevice(IntPtr handle) => _snapshots.Remove(handle);
+    public bool TryGetCachedSnapshot(IntPtr handle,out RawInputDeviceSnapshot snapshot) => _snapshots.TryGetValue(handle,out snapshot);
     private readonly Dictionary<IntPtr, RawInputDeviceSnapshot> _snapshots = new();
     private readonly Dictionary<string, RawInputDeviceTag> _tagsByName = new(StringComparer.OrdinalIgnoreCase);
     private int _nextIndex;

@@ -320,6 +320,10 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         trackpadWidthMm: CGFloat
     ) async {
         await run {
+            if self.processor.isStenoLayout != (leftLayout.isSteno && rightLayout.isSteno) {
+                InterpretedTrackpadPointer.shared.resetBaseline()
+                for proposal in self.keyboardProposals { proposal.reset() }
+            }
             self.processor.updateLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
@@ -527,10 +531,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool,
         liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
+        let liveCorners = liveGestures
+        let liveGestures = liveGestures && !processor.isStenoLayout
         if liveGestures { InterpretedTrackpadPointer.shared.interruptMomentum(frame) }
-        let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
-        let coordinated = liveGestures && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
-        let corners = liveGestures && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)
+        else if liveCorners && processor.isStenoLayout { InterpretedTrackpadPointer.shared.interruptMomentum(frame,consumeKeyboard:false) }
+        let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) || (processor.isStenoLayout && processor.stenoPointerOwnsCycle)
+        let coordinated = liveCorners && InterpretedTrackpadPointer.shared.reserveCoordinated(frame,keyboardChord:keyboardChord)
+        let corners = liveCorners && !coordinated && InterpretedTrackpadPointer.shared.reserveCorners(frame,keyboardChord:keyboardChord)
         let pointer = InterpretedTrackpadPointer.shared
         var diagnostic:RuntimeFrameDiagnostic?
         let allUp = !frame.touches.contains { $0.state == .making || $0.state == .touching }
@@ -546,7 +553,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
             let candidate = liveGestures && !keyboardChord && !coordinated && !corners && pointer.reserveKeyboard(frame)
             if !liveGestures || keyboardChord || coordinated || corners {
                 proposal.reset()
-                diagnostic = processor.processRawFrame(frame,suppressKeyboard:liveGestures && !keyboardChord && (coordinated || corners))
+                diagnostic = processor.processRawFrame(frame,suppressKeyboard:!keyboardChord && (coordinated || corners))
                 if liveGestures && !coordinated && !corners { pointer.suspendForKeyboardChord(frame) }
             } else if proposal.mode == .typing {
                 diagnostic = processor.processRawFrame(frame)
@@ -590,7 +597,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         let processedRecord = makeProcessedRecord(
             frame: RuntimeRawFrame(sequence: frame.sequence, frame: frame),
             ingress: ingress,
-            diagnostic: diagnostic
+            diagnostic: diagnostic,
+            gestureOutput: liveGestures && captureSession != nil ? pointer.captureOutputDiagnostic() : nil
         )
         return RuntimeFrameProcessingResult(
             renderSnapshot: renderedSnapshot,
@@ -601,7 +609,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private func makeProcessedRecord(
         frame: RuntimeRawFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        diagnostic: RuntimeFrameDiagnostic?
+        diagnostic: RuntimeFrameDiagnostic?,
+        gestureOutput: RuntimeGestureOutputDiagnostic? = nil
     ) -> ProcessedFrameRecord? {
         guard var captureSession else { return nil }
 
@@ -615,7 +624,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 updatedDiagnostic.ingress = updatedDiagnostic.ingress ?? ingress
                 return updatedDiagnostic
             },
-            dispatchEvents: []
+            dispatchEvents: [],
+            gestureOutput: gestureOutput
         )
         record = captureSession.store(record)
         self.captureSession = captureSession
@@ -761,6 +771,7 @@ final class ProductionReplaySession {
     final class Output: @unchecked Sendable {
         var events: [RuntimeDispatchEvent] = []
         var voiceTransitions: [Bool] = []
+        var acceptedBindings:[ContentViewModel.KeyBinding] = []
         var intents = SidePair(left: ContentViewModel.IntentDisplay.idle,
                                right: ContentViewModel.IntentDisplay.idle)
     }
@@ -778,7 +789,7 @@ final class ProductionReplaySession {
             dispatchService: sink, scheduler: scheduler,
             voiceSessionChanged: { output.voiceTransitions.append($0) },
             onTypingEnabledChanged: { _ in }, onActiveLayerChanged: { _ in },
-            onDebugBindingDetected: { _ in },
+            onDebugBindingDetected: { output.acceptedBindings.append($0) },
             onIntentStateChanged: { output.intents = $0 }, onVoiceGestureChanged: { _ in }
         )
         engine.setCaptureFrameDiagnosticsEnabled(true)
@@ -794,6 +805,9 @@ final class ProductionReplaySession {
         let geometry = profile.keyGeometryByLayout?[name] ?? [:]
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
+            if preset.isSteno {
+                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger,forceThreshold:profile.handGestureSettings?.resolvedStenoForceThreshold ?? 130,connectionMode:profile.handGestureSettings?.resolvedStenoConnectionMode ?? .plugin,hapticTouch:profile.handGestureSettings?.stenoHapticOnTouch ?? false,hapticRelease:profile.handGestureSettings?.stenoHapticOnRelease ?? false)
+            }
             if preset == .touchstream {
                 return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)
             }

@@ -724,9 +724,12 @@ final class DispatchService: @unchecked Sendable {
 
     private static let defaultQueueCapacity = 1024
 
-    private enum CommandPayload {
+    private enum CommandPayload:Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case stenoStroke(UInt64,UInt64)
+        case stenoPointer(StenoPointerUpdate,UInt64,Double,UInt64)
+        case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
         case leftClick(clickCount: Int)
@@ -734,9 +737,10 @@ final class DispatchService: @unchecked Sendable {
         case middleClick
         case systemKey(KeyEventDispatcher.SystemKey)
         case haptic(strength: Double, deviceID: String?)
+        case stenoHaptic(Double,String?,UInt64,UInt64)
     }
 
-    private struct Command {
+    private struct Command:Sendable {
         let id: UInt64
         let payload: CommandPayload
         let sourceSequence: UInt64?
@@ -796,6 +800,13 @@ final class DispatchService: @unchecked Sendable {
         var isPumpScheduled = false
         var drops: UInt64 = 0
         var nextCommandID: UInt64 = 1
+        var stenoEnabled = false
+        var stenoConnectionMode = StenoConnectionMode.serial
+        var stenoHapticTouch = false, stenoHapticRelease = false
+        var stenoForceThreshold:Float = 130
+        var stenoPointerMode = StenoPointerMode.disabled
+        var stenoGeneration:UInt64 = 0
+        var stenoHapticGeneration:UInt64 = 0
     }
 
     private let shortcutKeys = OSAllocatedUnfairLock(initialState:GestureShortcutKeyOwnership())
@@ -865,7 +876,8 @@ final class DispatchService: @unchecked Sendable {
                     enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
                 }
             }
-        } else if action.kind == .appLaunch { postAppLaunch(action.label) }
+        } else if action.kind == .textPaste { postTextPaste(action.label) }
+        else if action.kind == .appLaunch { postAppLaunch(action.label) }
         else { postKeyStroke(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags)) }
     }
     func releaseGestureShortcut(_ owner:GestureShortcutOwner) {
@@ -878,6 +890,58 @@ final class DispatchService: @unchecked Sendable {
 
     func postVoiceToggle(sourceSequence: UInt64? = nil) {
         enqueue(.voiceToggle, sourceSequence: sourceSequence)
+    }
+
+    func configureStenoMode(_ enabled:Bool,pointerMode:StenoPointerMode = .disabled,forceThreshold:Float = 130,
+                            connectionMode:StenoConnectionMode = .serial,hapticTouch:Bool = false,hapticRelease:Bool = false) {
+        let connectionChanged = stateLock.withLockUnchecked { state in
+            let changed = state.stenoEnabled != enabled || state.stenoConnectionMode != connectionMode
+            if changed || state.stenoPointerMode != pointerMode || state.stenoForceThreshold != forceThreshold
+                || state.stenoHapticTouch != hapticTouch || state.stenoHapticRelease != hapticRelease { state.stenoGeneration &+= 1 }
+            state.stenoEnabled = enabled; state.stenoPointerMode = pointerMode; state.stenoForceThreshold = forceThreshold
+            state.stenoConnectionMode = connectionMode; state.stenoHapticTouch = hapticTouch; state.stenoHapticRelease = hapticRelease
+            return changed
+        }
+        guard connectionChanged, keyDispatcher != nil else { return }
+        dispatchQueue.async { StenoOutputConnection.configure(enabled:enabled,mode:connectionMode) }
+    }
+    func postStenoHaptic(strength:Double,deviceID:String?,sourceSequence:UInt64?) {
+        let generation = stateLock.withLockUnchecked { state in state.stenoEnabled ? (state.stenoGeneration,state.stenoHapticGeneration):nil }
+        guard let generation else { return }
+        enqueue(.stenoHaptic(strength,deviceID,generation.0,generation.1),sourceSequence:sourceSequence)
+    }
+    func cancelStenoHaptics() { stateLock.withLockUnchecked { $0.stenoHapticGeneration &+= 1 } }
+    func postStenoPointer(_ update:StenoPointerUpdate,device:UInt64,time:Double,sourceSequence:UInt64? = nil) {
+        let generation = stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoPointerMode != .disabled ? $0.stenoGeneration:nil }
+        guard let generation else { return }
+        enqueue(.stenoPointer(update,device,time,generation),sourceSequence:sourceSequence)
+    }
+    func releaseStenoPointer(device:UInt64) {
+        let generation = stateLock.withLockUnchecked { $0.stenoGeneration }
+        enqueue(.stenoPointer(.init(reset:true),device,0,generation),sourceSequence:nil)
+    }
+    func postStenoStroke(_ mask:UInt64,sourceSequence:UInt64? = nil) {
+        guard mask != 0, mask & ~GeminiPRPacket.keyMask == 0 else { return }
+        let generation = stateLock.withLockUnchecked { $0.stenoEnabled ? $0.stenoGeneration:nil }
+        guard let generation else { return }
+        enqueue(.stenoStroke(mask,generation),sourceSequence:sourceSequence)
+    }
+
+    func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
+        guard TextShortcutReference.id(from:label) != nil else { return }
+        enqueue(.textPaste(label,TextShortcutPasteOutput.shared.generation),sourceSequence:sourceSequence)
+    }
+
+    func performPreparedTextPaste(pid:pid_t,generation:UInt64,completion:@escaping @Sendable (Bool)->Void) {
+        guard keyDispatcher != nil else { completion(false); return }
+        dispatchQueue.async { [self] in
+            guard TextShortcutPasteOutput.shared.isCurrent(generation), AXIsProcessTrusted(),
+                  NSRunningApplication(processIdentifier:pid)?.isActive == true else { completion(false); return }
+            let flags = CGEventSource.flagsState(.combinedSessionState).union(heldGestureFlags)
+            keyDispatcher?.postKeyStrokeImmediate(code:CGKeyCode(kVK_ANSI_V),flags:.maskCommand,
+                altAscii:0,token:nil,heldFlags:flags)
+            completion(true)
+        }
     }
 
     func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
@@ -978,12 +1042,17 @@ final class DispatchService: @unchecked Sendable {
         if keyDispatcher != nil {
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.cancel()
+            TextShortcutPasteOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
+            state.stenoGeneration &+= 1; state.stenoHapticGeneration &+= 1
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
             // release edges so a held shortcut cannot leave a synthetic key down.
             return pending.filter { command in
+                if case let .stenoPointer(update,_,_,_) = command.payload, update.reset && !update.dragging {
+                    _ = state.queue.enqueue(command); return false
+                }
                 if case .key(_,_,false,_,_) = command.payload {
                     _ = state.queue.enqueue(command); return false
                 }
@@ -993,6 +1062,7 @@ final class DispatchService: @unchecked Sendable {
         for command in cancelledCommands {
             emitRecordedEvent(for: command, status: .cancelled)
         }
+        if keyDispatcher != nil { dispatchQueue.async { StenoOutputConnection.flush() } }
     }
 
     private func enqueue(_ payload: CommandPayload, sourceSequence: UInt64?) {
@@ -1041,6 +1111,15 @@ final class DispatchService: @unchecked Sendable {
 
     private func drainQueue() {
         while let command = popNextCommand() {
+            if case let .textPaste(label,generation) = command.payload {
+                AutocorrectEngine.shared.invalidate()
+                TextShortcutPasteOutput.shared.request(label,generation:generation) { [weak self] pasted in
+                    guard let self else { return }
+                    self.emitRecordedEvent(for:command,status:pasted ? .posted:.cancelled)
+                    self.dispatchQueue.async { self.drainQueue() }
+                }
+                return // Keep later commands ordered behind this asynchronous paste.
+            }
             dispatch(command)
         }
     }
@@ -1076,6 +1155,23 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
+        case let .stenoPointer(update,device,time,generation):
+            // Reserved drag-up cleanup survives mode generations and queue reset.
+            if update.reset && !update.dragging {
+                InterpretedTrackpadPointer.shared.releaseStenoPointer(device:device,scrollEnded:update.scrollEnded && stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoGeneration == generation },time:time)
+                emitRecordedEvent(for:command,status:.posted); return
+            }
+            guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
+                emitRecordedEvent(for:command,status:.cancelled); return
+            }
+            InterpretedTrackpadPointer.shared.postStenoPointer(update,device:device,time:time)
+        case let .stenoStroke(mask,generation):
+            guard let mode = stateLock.withLockUnchecked({ state -> StenoConnectionMode? in
+                state.stenoEnabled && state.stenoGeneration == generation ? state.stenoConnectionMode:nil
+            }) else { emitRecordedEvent(for:command,status:.cancelled); return }
+            StenoOutputConnection.send(mask,mode:mode)
+        case .textPaste:
+            return // The asynchronous path is handled by drainQueue.
         case let .appLaunch(actionLabel):
             AutocorrectEngine.shared.invalidate()
             appLaunchDispatcher.open(actionLabel)
@@ -1087,7 +1183,11 @@ final class DispatchService: @unchecked Sendable {
             keyDispatcher?.postMiddleClickImmediate()
         case let .systemKey(key):
             keyDispatcher?.postSystemKeyImmediate(key)
-        case let .haptic(strength, deviceID):
+        case let .haptic(strength, deviceID), let .stenoHaptic(strength,deviceID,_,_):
+            if case let .stenoHaptic(_,_,generation,hapticGeneration) = command.payload,
+               !stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoHapticGeneration == hapticGeneration }) {
+                emitRecordedEvent(for:command,status:.cancelled); return
+            }
             if let haptic = TypingHapticFeedback.parameters(for:strength) {
                 _ = OMSManager.shared.triggerRawHaptic(actuationID:haptic.waveform,unknown1:0,
                     unknown2:haptic.level,unknown3:0,deviceID:deviceID)
@@ -1123,6 +1223,12 @@ final class DispatchService: @unchecked Sendable {
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
+        case let .stenoPointer(update,device,_,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.scrollBegan ? "scrollBegin" : update.scrollEnded ? "scrollEnd" : update.scrolling ? "scroll" : update.dragBegan ? "dragBegin" : update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : update.dragging ? "dragMove" : "move")"),status:status,sourceSequence:command.sourceSequence)
+        case let .stenoStroke(mask,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
+        case let .textPaste(label,_):
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey(label),status:status,sourceSequence:command.sourceSequence)
         case let .appLaunch(actionLabel):
             return makeDispatchEvent(
                 commandID: command.id,
@@ -1158,7 +1264,7 @@ final class DispatchService: @unchecked Sendable {
                 status: status,
                 sourceSequence: command.sourceSequence
             )
-        case let .haptic(strength, deviceID):
+        case let .haptic(strength, deviceID), let .stenoHaptic(strength,deviceID,_,_):
             return makeDispatchEvent(
                 commandID: command.id,
                 kind: .haptic(strength: strength, deviceID: deviceID),

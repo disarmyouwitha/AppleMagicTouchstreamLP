@@ -10,6 +10,7 @@ internal sealed class TouchRuntimeService : IDisposable
 {
     private readonly ReaderOptions _options;
     private readonly RawInputContext _rawInputContext = new();
+    private readonly TrackpadDecoderSession _decoderSession = new();
     private readonly GlobalMouseInputHook _globalMouseInputHook = new();
 
     private RuntimeRoute _leftRoute = RuntimeRoute.Empty;
@@ -33,6 +34,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private WindowsHandGestures? _handGestures;
     public string HandGestureStatus => _handGestures?.Status ?? "Unavailable";
+    public WindowsStenoConnection StenoConnection { get; }=new();
     private UserSettings _settings;
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
@@ -71,13 +73,14 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchCore.UseUnifiedInputPolicy();
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.StenoConnection=StenoConnection;
             _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
                 () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason),_dispatchQueue,_sendInputDispatcher);
             _handGestures.Configure(_settings);
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
-                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures);
+                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures,stenoEligible:()=>MouseTakeover?.Enabled==true);
 
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
@@ -109,6 +112,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
             MouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedSelectedTrackpad);
             MouseTakeover.Start();
+            StenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true);
             _started = true;
             return true;
         }
@@ -153,6 +157,7 @@ internal sealed class TouchRuntimeService : IDisposable
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));
+        StenoConnection.Configure(_preset.IsSteno,_touchCore!.StenoOutput,()=>MouseTakeover?.Enabled==true);
     }
 
     public void UpdateDeviceSelections(string? leftPath, string? rightPath)
@@ -160,6 +165,12 @@ internal sealed class TouchRuntimeService : IDisposable
         _settings.LeftDevicePath = leftPath;
         _settings.RightDevicePath = rightPath;
         RefreshDeviceRoutes(leftPath, rightPath);
+    }
+
+    public void ResetDecoderSessions()
+    {
+        _touchActor?.CancelStenoCycle();
+        _decoderSession.Reset();
     }
 
     public void SetFrameObserver(IRuntimeFrameObserver? observer)
@@ -195,6 +206,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     public void Dispose()
     {
+        StenoConnection.Dispose();
         MouseTakeover?.Dispose(); MouseTakeover = null;
         _frameObserver = null;
 
@@ -241,6 +253,9 @@ internal sealed class TouchRuntimeService : IDisposable
         }
 
         _rawInputContext.SeedTags(seed);
+        _decoderSession.Reset();
+        if(!string.Equals(_leftRoute.DevicePath,leftPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Left);
+        if(!string.Equals(_rightRoute.DevicePath,rightPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
         _handGestures?.Configure(_settings);
@@ -308,8 +323,8 @@ internal sealed class TouchRuntimeService : IDisposable
             try
             {
                 long timestampTicks = Stopwatch.GetTimestamp();
-                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName, reportSpan, snapshot.Info);
-                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
+                if (!_decoderSession.TryDecode(packet.DeviceHandle,in snapshot,reportSpan,timestampTicks,_decoderProfilesByPath,
+                    out var decoderProfile,out var decoded))
                 {
                     continue;
                 }
@@ -347,14 +362,6 @@ internal sealed class TouchRuntimeService : IDisposable
                     reportSpan);
             }
         }
-    }
-
-    private TrackpadDecoderProfile ResolveDecoderProfile(
-        string deviceName,
-        ReadOnlySpan<byte> payload,
-        in RawInputDeviceInfo deviceInfo)
-    {
-        return TrackpadDecoderProfileResolver.ResolveForPacket(_decoderProfilesByPath, deviceName, payload, in deviceInfo);
     }
 
     private void TraceDecoderSelection(
@@ -500,6 +507,16 @@ internal sealed class TouchRuntimeService : IDisposable
 
         protected override void WndProc(ref WinForms.Message m)
         {
+            if (m.Msg == RawInputInterop.WM_INPUT_DEVICE_CHANGE)
+            {
+                if(_owner._rawInputContext.TryGetCachedSnapshot(m.LParam,out var device))
+                {
+                    if(_owner._leftRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Left);
+                    if(_owner._rightRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Right);
+                }
+                _owner._decoderSession.Remove(m.LParam);
+                _owner._rawInputContext.RemoveDevice(m.LParam);
+            }
             if (m.Msg == RawInputInterop.WM_INPUT)
             {
                 _owner.HandleRawInput(m.LParam);
