@@ -582,11 +582,46 @@ final class StenoMouseTests:XCTestCase {
             let top = TrackpadSurfaceView.stenoDisplayRect(upper,layout:layout)
             let bottom = TrackpadSurfaceView.stenoDisplayRect(lower,layout:layout)
             XCTAssertEqual((top.y+top.height-bottom.y)*ContentView.trackpadHeightMM,3,accuracy:0.001)
-            XCTAssertEqual(top.height*ContentView.trackpadHeightMM,26.5,accuracy:0.001)
+            XCTAssertEqual(top.height*ContentView.trackpadHeightMM,28,accuracy:0.001)
             XCTAssertEqual(bottom.height*ContentView.trackpadHeightMM,26.5,accuracy:0.001)
-            XCTAssertEqual(top.y,upper.y); XCTAssertEqual(bottom.y+bottom.height,lower.y+lower.height,accuracy:0.000001)
+            XCTAssertEqual((upper.y-top.y)*ContentView.trackpadHeightMM,1.5,accuracy:0.001); XCTAssertEqual(bottom.y+bottom.height,lower.y+lower.height,accuracy:0.000001)
             XCTAssertEqual(upper.y+upper.height,lower.y,accuracy:0.000001)
-            XCTAssertEqual(TrackpadSurfaceView.stenoDisplayRect(layout.normalizedKeyRects[0][0],layout:layout),layout.normalizedKeyRects[0][0])
+            let bar = layout.normalizedKeyRects[0].last!
+            let displayBar = TrackpadSurfaceView.stenoDisplayRect(bar,layout:layout)
+            XCTAssertEqual((displayBar.y+displayBar.height-top.y)*ContentView.trackpadHeightMM,3,accuracy:0.001)
+        }
+    }
+    func testNumberBarAndUpperConsonantChordAtTheirVisibleOverlap() {
+        for (preset,side,index,column,number,key) in [
+            (TrackpadLayoutPreset.steno,TrackpadSide.left,4,1,StenoKey.n1,StenoKey.tl),
+            (.steno,.right,7,1,.n6,.fr),(.stenoSingle,.right,7,1,.n1,.tl),(.stenoSingle,.right,7,5,.n6,.fr)
+        ] {
+            let run = session(preset,pointerMode:.twoFinger)
+            let layout = StenoLayoutDefinition.layout(preset:preset,side:side,size:.init(width:432,height:310.23))
+            let upper = layout.normalizedKeyRects[1][column]
+            let touch = OMSRawTouch(id:1,posX:Float(upper.centerX),posY:Float(1-upper.y),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+            frame(run,1,index,[touch]); frame(run,1.02,index,[])
+            XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:number.bit|key.bit)])
+        }
+    }
+    func testThumbPairsMeetAndShowThreeMillimetreOverlapWithStationaryChording() {
+        for (preset,side,index,pairs) in [
+            (TrackpadLayoutPreset.steno,TrackpadSide.left,4,[[StenoKey.a,.o]]),
+            (.steno,.right,7,[[.e,.u]]),(.stenoSingle,.right,7,[[.a,.o],[.e,.u]])
+        ] {
+            let run = session(preset,pointerMode:.twoFinger)
+            let layout = StenoLayoutDefinition.layout(preset:preset,side:side,size:.init(width:432,height:310.23))
+            for (pairIndex,keys) in pairs.enumerated() {
+                let left = layout.normalizedKeyRects[3][pairIndex*2], right = layout.normalizedKeyRects[3][pairIndex*2+1]
+                let displayedLeft = TrackpadSurfaceView.stenoDisplayRect(left,layout:layout)
+                let displayedRight = TrackpadSurfaceView.stenoDisplayRect(right,layout:layout)
+                XCTAssertEqual(left.x+left.width,right.x,accuracy:0.000001)
+                XCTAssertEqual((displayedLeft.x+displayedLeft.width-displayedRight.x)*ContentView.trackpadWidthMM,3,accuracy:0.001)
+                let touch = OMSRawTouch(id:1,posX:Float(right.x),posY:Float(1-left.centerY),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                let time = 1+Double(pairIndex)*0.1
+                frame(run,time,index,[touch]); frame(run,time+0.02,index,[])
+                XCTAssertEqual(packets(run).last,GeminiPRPacket.recordingLabel(for:keys[0].bit|keys[1].bit))
+            }
         }
     }
     func testSingleRowsAndNumberBarsMeetAndBothLayoutsExtendThumbsToBottom() {

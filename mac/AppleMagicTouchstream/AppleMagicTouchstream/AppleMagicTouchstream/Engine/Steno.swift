@@ -370,6 +370,17 @@ enum StenoLayoutDefinition {
             rects.append(side == .left ? [.init(x:0.56,y:0.79,width:0.15,height:0.18),.init(x:0.76,y:0.79,width:0.15,height:0.18)]
                 : [.init(x:0.06,y:0.79,width:0.15,height:0.18),.init(x:0.26,y:0.79,width:0.15,height:0.18)])
         }
+        // Widen each A/O and E/U pair toward its shared midpoint. The existing
+        // 1.5 mm hit allowance then supplies the same 3 mm overlap as the rows.
+        if preset != .stenoVoyager, rects.count > 3 {
+            for leftColumn in stride(from:0,to:rects[3].count-1,by:2) {
+                let left = rects[3][leftColumn], right = rects[3][leftColumn+1]
+                let seam = (left.x+left.width+right.x)/2
+                rects[3][leftColumn].width = seam-left.x
+                rects[3][leftColumn+1].x = seam
+                rects[3][leftColumn+1].width = right.x+right.width-seam
+            }
+        }
         // Extend the bottom vowel/thumb bars down to a 0.8 mm pad-edge margin.
         // Preserve their top edges, widths and stable key identities.
         if preset != .stenoVoyager, rects.count > 3 {

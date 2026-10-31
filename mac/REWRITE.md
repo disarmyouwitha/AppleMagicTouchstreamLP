@@ -1,9 +1,7 @@
 # NEXT:
 =======
-0. If I line up my asterisk to the top bar of our # I can see all of the consonant rows look a little too short. Can you try making them a little bigger in STENO Askterisk to match?
-> Can we actually have that consonant length matched on STENO Single?
-===
-0. Can we adjust the STENO Single layer to align the LHS thumb keys with A more under R (like in their diagram) and U aligned more under R (the spacing between them seems fine!) @screenshot
+0. 
+1. Can we adjust the STENO Single layer to align the LHS thumb keys with A more under R (like in their diagram) and U aligned more under R (the spacing between them seems fine!) @screenshot
 > Maybe they can be a little fatter too?
 ===
 * Shortcut editor button make a little bigger? (screenshot)

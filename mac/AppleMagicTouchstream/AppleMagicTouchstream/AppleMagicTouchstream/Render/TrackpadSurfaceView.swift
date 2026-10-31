@@ -668,6 +668,27 @@ final class TrackpadSurfaceView: NSView {
         }) {
             displayed.y -= allowance; displayed.height += allowance
         }
+        // Split the #/consonant overlap equally across their existing seam.
+        if bars.contains(rect), rows[1].contains(where:{
+            abs($0.y-rect.y-rect.height) < 0.000001 && $0.x < rect.x+rect.width && $0.x+$0.width > rect.x && $0.rotationDegrees == 0
+        }) {
+            displayed.height += allowance
+        } else if rows[1].contains(rect), bars.contains(where:{
+            abs($0.y+$0.height-rect.y) < 0.000001 && $0.x < rect.x+rect.width && $0.x+$0.width > rect.x && $0.rotationDegrees == 0
+        }) {
+            displayed.y -= allowance; displayed.height += allowance
+        }
+        if rows.count > 3, let column = rows[3].firstIndex(of:rect) {
+            let partner = column ^ 1
+            if rows[3].indices.contains(partner), rows[3][partner].rotationDegrees == 0 {
+                let other = rows[3][partner], dx = CGFloat(1.5)/ContentView.trackpadWidthMM
+                if column % 2 == 0, abs(rect.x+rect.width-other.x) < 0.000001 {
+                    displayed.width += dx
+                } else if column % 2 == 1, abs(other.x+other.width-rect.x) < 0.000001 {
+                    displayed.x -= dx; displayed.width += dx
+                }
+            }
+        }
         return displayed
     }
 
