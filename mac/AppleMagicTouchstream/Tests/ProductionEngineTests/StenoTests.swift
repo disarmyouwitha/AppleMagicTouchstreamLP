@@ -555,19 +555,36 @@ final class StenoMouseTests:XCTestCase {
         for pair in zip(upper,upper.dropFirst()) { XCTAssertLessThan(pair.0.x+pair.0.width,pair.1.x) }
         XCTAssertEqual(StenoKey.star1.legend,StenoKey.star3.legend)
     }
-    func testAsteriskKeepsPublishedWidthsAndNarrowsRowAndNumberBarSeams() {
+    func testAsteriskKeepsPublishedWidthsAndClosesRowAndNumberBarSeams() {
         let size = CGSize(width:432,height:310.23), scale = 234.0/626.0
         for side in [TrackpadSide.left,.right] {
             let rects = StenoLayoutDefinition.layout(preset:.steno,side:side,size:size).normalizedKeyRects
             let key = rects[1][side == .left ? 0:1]
             XCTAssertEqual(key.width*ContentView.trackpadWidthMM,32.786*scale,accuracy:0.001)
             let lower = rects[2][0]
-            XCTAssertEqual((lower.y-key.y-key.height)*ContentView.trackpadHeightMM,1,accuracy:0.001)
-            let top = rects[1].map(\.y).min()!
-            XCTAssertEqual((top-rects[0][0].y-rects[0][0].height)*ContentView.trackpadHeightMM,1,accuracy:0.001)
+            let originalUpperHeight = ((86.7246+97.0658)/2-25.1304)*scale
+            XCTAssertEqual(key.height*ContentView.trackpadHeightMM,originalUpperHeight*1.08,accuracy:0.001)
+            XCTAssertEqual((lower.y-key.y-key.height)*ContentView.trackpadHeightMM,0,accuracy:0.001)
+            let top = key.y
+            XCTAssertEqual((top-rects[0][0].y-rects[0][0].height)*ContentView.trackpadHeightMM,0,accuracy:0.001)
             let star = rects[1][side == .left ? 4:0]
-            XCTAssertEqual(star.height*ContentView.trackpadHeightMM,126.5809*scale,accuracy:0.001)
-            XCTAssertEqual(rects[3][0].height*ContentView.trackpadHeightMM,56.961*scale,accuracy:0.001)
+            XCTAssertEqual(star.height*ContentView.trackpadHeightMM,126.5809*scale*1.08,accuracy:0.001)
+            XCTAssertEqual((1-rects[3][0].y-rects[3][0].height)*ContentView.trackpadHeightMM,0.8,accuracy:0.001)
+        }
+    }
+    func testSingleRowsAndNumberBarsMeetAndBothLayoutsExtendThumbsToBottom() {
+        let size = CGSize(width:432,height:310.23)
+        let single = StenoLayoutDefinition.layout(preset:.stenoSingle,side:.right,size:size).normalizedKeyRects
+        for column in single[1].indices where column != 4 {
+            let upper = single[1][column], lower = single[2][column < 4 ? column:column-1]
+            XCTAssertEqual(upper.y+upper.height,lower.y,accuracy:0.000001)
+        }
+        for bar in single[0] { XCTAssertEqual(bar.y+bar.height,single[1][0].y,accuracy:0.000001) }
+        for (preset,side) in [(TrackpadLayoutPreset.steno,TrackpadSide.left),(.steno,.right),(.stenoSingle,.right)] {
+            let rects = StenoLayoutDefinition.layout(preset:preset,side:side,size:size).normalizedKeyRects
+            for thumb in rects[3] {
+                XCTAssertEqual((1-thumb.y-thumb.height)*ContentView.trackpadHeightMM,0.8,accuracy:0.001)
+            }
         }
     }
     func testStationaryAsteriskSeamChordsAreIndependentOfSnapRadiusOnBothPads() {

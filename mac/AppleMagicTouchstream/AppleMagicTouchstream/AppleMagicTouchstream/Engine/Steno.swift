@@ -304,21 +304,30 @@ enum StenoLayoutDefinition {
                 [CGRect(x:577.839,y:97.0658,width:40.6866,height:55.1532)],
             [351.35,394.749].map { CGRect(x:$0,y:181.603,width:32.549,height:56.961) }
         ]
-        // Touch surfaces need a narrow seam for a stationary fingertip to chord
+        // Touch surfaces meet at a shared seam for a stationary fingertip to chord
         // both rows. Keep the outside edges and widths from the drawing, extend
-        // only into the row gap, and bring the number bar down to the same gap.
-        let gap = CGFloat(1)/scale // 1 mm visible seam; independent of Snap Radius.
+        // only into the row gap, and bring the number bar down to the upper keys.
         let seam = (CGFloat(86.7246)+97.0658)/2
         for column in bounds[1].indices where column != (left ? 4:0) {
-            bounds[1][column].size.height = seam-gap/2-bounds[1][column].minY
+            bounds[1][column].size.height = seam-bounds[1][column].minY
         }
         for column in bounds[2].indices {
             let bottom = bounds[2][column].maxY
-            bounds[2][column].origin.y = seam+gap/2
+            bounds[2][column].origin.y = seam
             bounds[2][column].size.height = bottom-bounds[2][column].minY
         }
-        let upperEdge = bounds[1].map(\.minY).min()!
-        bounds[0][0].size.height = upperEdge-gap-bounds[0][0].minY
+        let upperEdge = bounds[1][left ? 0:1].minY
+        bounds[0][0].size.height = upperEdge-bounds[0][0].minY
+        // Hardware overlay tuning: keep the # bar and upper-row anchor fixed,
+        // and stretch both consonant rows (including the star) 8% downward.
+        // Applying one transform keeps the shared row seam closed.
+        let consonantHeightScale:CGFloat = 1.08
+        for row in 1...2 {
+            for column in bounds[row].indices {
+                bounds[row][column].origin.y = upperEdge+(bounds[row][column].minY-upperEdge)*consonantHeightScale
+                bounds[row][column].size.height *= consonantHeightScale
+            }
+        }
         let minX:CGFloat = left ? 9.06885:347.734
         let maxX:CGFloat = left ? 230.978:618.5256
         let offsetX = (ContentView.trackpadWidthMM-(maxX-minX)*scale)/2
@@ -345,15 +354,15 @@ enum StenoLayoutDefinition {
                 var upper:[NormalizedRect] = []
                 for column in 0..<10 {
                     let w = column == 4 ? starWidth:width
-                    upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 0.48:0.23))
+                    upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 0.48:0.24))
                     x += w+gap
                 }
                 let lower = upper.enumerated().filter { $0.offset != 4 }.map {
-                    NormalizedRect(x:$0.element.x,y:0.43,width:$0.element.width,height:0.23)
+                    NormalizedRect(x:$0.element.x,y:0.42,width:$0.element.width,height:0.24)
                 }
                 let vowelsWidth = 4*width+3*gap, vowelsX = (1-vowelsWidth)/2
-                rects = [[.init(x:upper[0].x,y:0.1,width:upper[3].x+width-upper[0].x,height:0.05),
-                    .init(x:upper[5].x,y:0.1,width:upper[9].x+width-upper[5].x,height:0.05)],upper,lower,
+                rects = [[.init(x:upper[0].x,y:0.1,width:upper[3].x+width-upper[0].x,height:0.08),
+                    .init(x:upper[5].x,y:0.1,width:upper[9].x+width-upper[5].x,height:0.08)],upper,lower,
                     (0..<4).map { .init(x:vowelsX+CGFloat($0)*(width+gap),y:0.79,width:width,height:0.18) }]
             }
         } else if preset == .stenoVoyager {
@@ -369,6 +378,14 @@ enum StenoLayoutDefinition {
         if preset == .stenoVoyager {
             rects.append(side == .left ? [.init(x:0.56,y:0.79,width:0.15,height:0.18),.init(x:0.76,y:0.79,width:0.15,height:0.18)]
                 : [.init(x:0.06,y:0.79,width:0.15,height:0.18),.init(x:0.26,y:0.79,width:0.15,height:0.18)])
+        }
+        // Extend the bottom vowel/thumb bars down to a 0.8 mm pad-edge margin.
+        // Preserve their top edges, widths and stable key identities.
+        if preset != .stenoVoyager, rects.count > 3 {
+            let bottom = 1-0.8/ContentView.trackpadHeightMM
+            for column in rects[3].indices {
+                rects[3][column].height = bottom-rects[3][column].y
+            }
         }
         for row in rects.indices {
             for col in rects[row].indices {

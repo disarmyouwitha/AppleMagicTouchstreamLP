@@ -114,9 +114,13 @@ Asterisk arrangement has fixed independent geometry. Its key bounds follow the
 [maker’s layout drawing](https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg),
 calibrated to the published 234 mm board width and centered independently on each
 pad without stretching. For stationary row chords, both consonant rows extend
-into their middle gap, leaving a 1 mm visible seam. Number bars extend downward
-to a 1 mm gap above the upper keys. Widths and outer row edges remain from the
-drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
+into their middle gap until they touch. Number bars extend downward
+to touch the upper keys beneath them. Steno Single uses the same touching-row
+and number-bar treatment. Both layouts’ bottom vowel/thumb bars extend downward
+to a 0.8 mm pad-edge margin, preserving their top edges and widths. Asterisk’s
+consonant rows and stars are stretched 8% vertically from the upper-row anchor
+for hardware overlay alignment; number bars stay fixed and the row seam stays
+closed. Key widths remain from the drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
 edge allowance remains independent of the keyboard toggle. The
 maker does not publish separate v2 copper-pad dimensions in that drawing. `STENO single` packs both
 Asterisk halves on the RHS only; the LHS key surface is blank. It has two number
