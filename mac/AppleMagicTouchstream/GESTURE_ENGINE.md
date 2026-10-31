@@ -25,10 +25,12 @@ the architecture review and remaining work.
    state is separate from per-pad recognition state.
 
 STENO presets pause ordinary gesture reservation, recognition and output;
-contacts form shared two-pad steno chords with an optional dedicated 2F Mouse or
+contacts form shared two-pad steno chords with an optional dedicated 2F Mouse + Force Click or
 1F Mouse + Force Click mode. Those modes reuse continuous ownership/coherence and
 discrete force recognition, discard a pending stroke only on activation, and keep
-two-pad chords at steno priority. Leaving STENO restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).
+two-pad chords at steno priority. The selected movement count force-clicks primary;
+three-finger force-click gives secondary/right-click in either mouse mode, once
+per contact cycle. Leaving STENO restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno-layouts-and-gemini-pr).
 
 ## Inputs and factory actions
 

@@ -113,8 +113,8 @@ struct StenoConnectionPanel:View {
                 }
                 Text(pointerMode == .disabled ? "Mouse is off; all contacts form chords." : "Move 2 mm to claim the mouse. Two-pad chords keep steno priority. Lift all fingers before switching between mouse and steno.")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                if pointerMode == .oneFingerForce {
-                    Text("Press firmly with one finger for a click. A force-click discards the pending stroke.")
+                if pointerMode != .disabled {
+                    Text("Press firmly with \(pointerMode.count) finger\(pointerMode.count == 1 ? "" : "s") for a left-click; three fingers for a right-click. A force-click discards the pending stroke.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 Text("Gemini PR → Plover").font(.callout.weight(.semibold))

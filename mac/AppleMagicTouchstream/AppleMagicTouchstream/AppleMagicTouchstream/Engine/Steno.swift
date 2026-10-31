@@ -46,14 +46,19 @@ enum StenoPointerMode:String,CaseIterable,Codable,Sendable,Identifiable {
     case disabled, twoFinger, oneFingerForce
     var id:String { rawValue }
     var title:String {
-        switch self { case .disabled: return "Off"; case .twoFinger: return "2F Mouse"; case .oneFingerForce: return "1F Mouse + Force Click" }
+        switch self { case .disabled: return "Off"; case .twoFinger: return "2F Mouse + Force Click"; case .oneFingerForce: return "1F Mouse + Force Click" }
     }
     var count:Int { self == .twoFinger ? 2 : 1 }
 }
 
+enum StenoPointerClick:Sendable {
+    case primary, secondary
+    var action:GestureAction { self == .primary ? .primaryClick:.secondaryClick }
+}
+
 struct StenoPointerUpdate:Sendable {
     var millimetres:CGPoint? = nil
-    var click = false
+    var click:StenoPointerClick? = nil
     var reset = false
 }
 
@@ -65,22 +70,29 @@ struct StenoPointerArbiter:Sendable {
         .init(gesture:2,activationCount:2,minimumMovementMM:2,requiresFullChordMotion:true)])
     private var force = ForceClickRecognizer()
     private var excluded:UInt8 = 0
-    mutating func reset() { movement.reset(); force.clear(); excluded = 0 }
+    private var forceExcluded:UInt8 = 0
+    mutating func reset() { movement.reset(); force.clear(); excluded = 0; forceExcluded = 0 }
     mutating func process<C:Collection>(mode:StenoPointerMode,device:Int,time:Double,touches:C,mayActivate:Bool) -> (claimed:Bool,update:StenoPointerUpdate) where C.Element == OMSRawTouch {
         guard mode != .disabled else { return (false,.init()) }
         let id = UInt64(device), bit = UInt8(1)<<device
         let count = touches.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1:0) }
         if (count > mode.count || !mayActivate) && movement.owner(device:id) == nil && !force.claimed(device:id) { excluded |= bit }
-        let allowed = mode != .disabled && excluded & bit == 0
-        let click = force.recognize(device:id,time:time,contacts:touches,enabled:{ _ in allowed && mode == .oneFingerForce && count == 1 }) != nil
+        let existingOwner = movement.owner(device:id) != nil || force.claimed(device:id)
+        if (count > 3 || !mayActivate) && !existingOwner { forceExcluded |= bit }
+        let allowed = excluded & bit == 0
+        let forceAllowed = forceExcluded & bit == 0
+        let trigger = force.recognize(device:id,time:time,contacts:touches,enabled:{ trigger in
+            forceAllowed && (trigger.forceCount == mode.count || trigger.forceCount == 3)
+        })
+        let click:StenoPointerClick? = trigger.map { $0.forceCount == 3 ? .secondary:.primary }
         let forceOwned = force.claimed(device:id)
         let motion = movement.process(device:id,time:time,touches:touches,
             enabled:{ $0 == mode.count && allowed },requiresCoherentTranslation:true,
             activationFilter:{ _, context in (context.coherentMovementMM ?? 0) >= 2 })
         if motion.phase == .cancelled { excluded |= bit }
         let moving = motion.phase == .began || motion.phase == .changed
-        let claimed = moving || click || forceOwned
-        if count == 0 { excluded &= ~bit }
+        let claimed = moving || click != nil || forceOwned
+        if count == 0 { excluded &= ~bit; forceExcluded &= ~bit }
         return (claimed,.init(millimetres:moving ? motion.millimetres:nil,click:click,
             reset:motion.phase == .cancelled || motion.phase == .ended || count == 0))
     }

@@ -155,13 +155,63 @@ final class StenoMouseTests:XCTestCase {
         frame(&engine,1,[touch()]); frame(&engine,1.02,[touch(0.22)])
         XCTAssertNotNil(engine.pointerUpdate?.millimetres)
         frame(&engine,1.04,[touch(0.23,pressure:140)])
-        XCTAssertTrue(engine.pointerUpdate?.click == true)
+        XCTAssertTrue(engine.pointerUpdate?.click == .primary)
         frame(&engine,1.06,[touch(0.23,pressure:140)])
-        XCTAssertFalse(engine.pointerUpdate?.click == true)
+        XCTAssertFalse(engine.pointerUpdate?.click == .primary)
         XCTAssertNil(frame(&engine,1.08,[]))
         frame(&engine,1.1,[touch(pressure:140)])
-        XCTAssertTrue(engine.pointerUpdate?.click == true) // Stationary force-click.
+        XCTAssertTrue(engine.pointerUpdate?.click == .primary) // Stationary force-click.
         XCTAssertNil(frame(&engine,1.12,[]))
+    }
+    func testTwoFingerForceClicksOnceStationaryAndWhileMoving() {
+        for moving in [false,true] {
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger
+            frame(&engine,1,[touch(),touch(0.4,id:2)])
+            let x:Float = moving ? 0.23:0.2
+            frame(&engine,1.02,[touch(x),touch(x+0.2,id:2)])
+            frame(&engine,1.04,[touch(x,pressure:140),touch(x+0.2,id:2)])
+            XCTAssertEqual(engine.pointerUpdate?.click,.primary)
+            frame(&engine,1.06,[touch(x,pressure:140),touch(x+0.2,id:2)])
+            XCTAssertNil(engine.pointerUpdate?.click)
+            XCTAssertNil(frame(&engine,1.08,[]))
+        }
+    }
+    func testThreeFingerForceRightClicksOnceInBothModes() {
+        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+            var engine = StenoChordEngine(); engine.pointerMode = mode
+            let fingers = [touch(),touch(0.4,id:2),touch(0.6,id:3,pressure:140)]
+            frame(&engine,1,fingers)
+            XCTAssertEqual(engine.pointerUpdate?.click,.secondary)
+            frame(&engine,1.02,fingers)
+            XCTAssertNil(engine.pointerUpdate?.click)
+            XCTAssertNil(frame(&engine,1.04,[]))
+            frame(&engine,1.06,[touch()]); XCTAssertEqual(frame(&engine,1.08,[]),StenoKey.s1.bit)
+        }
+    }
+    func testRightClickCanJoinAnActivePointerWithoutEmittingAStroke() {
+        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+            var engine = StenoChordEngine(); engine.pointerMode = mode
+            let initial = mode == .twoFinger ? [touch(),touch(0.4,id:2)]:[touch()]
+            frame(&engine,1,initial)
+            frame(&engine,1.02,mode == .twoFinger ? [touch(0.23),touch(0.43,id:2)]:[touch(0.23)])
+            XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+            frame(&engine,1.04,[touch(0.23),touch(0.43,id:2),touch(0.6,id:3,pressure:140)])
+            XCTAssertEqual(engine.pointerUpdate?.click,.secondary)
+            XCTAssertNil(frame(&engine,1.06,[]))
+        }
+    }
+    func testThreeFingerNonForceRemainsStenoAndBothHandsRejectForceClicks() {
+        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+            var engine = StenoChordEngine(); engine.pointerMode = mode
+            frame(&engine,1,[touch(),touch(0.4,id:2),touch(0.6,id:3)])
+            XCTAssertNil(engine.pointerUpdate)
+            XCTAssertEqual(frame(&engine,1.02,[]),StenoKey.s1.bit)
+            frame(&engine,1.04,[touch()]); frame(&engine,1.05,[touch()],pad:1)
+            frame(&engine,1.06,[touch(),touch(0.4,id:2),touch(0.6,id:3,pressure:140)])
+            XCTAssertNil(engine.pointerUpdate)
+            frame(&engine,1.08,[])
+            XCTAssertEqual(frame(&engine,1.09,[],pad:1),StenoKey.s1.bit)
+        }
     }
     func testBothHandsKeepStenoPriorityAndPointerNeverResurrectsTyping() {
         var engine = StenoChordEngine(); engine.pointerMode = .oneFingerForce
@@ -334,6 +384,24 @@ final class StenoMouseTests:XCTestCase {
             first = contact(.tl,preset:.steno,side:.left)
             frame(run,1.06,4,[first]); frame(run,1.08,4,[])
             XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
+        }
+    }
+    func testProductionForceClickReplayRecordsPrimaryAndSecondaryWithoutNativeOutput() {
+        for mode in [StenoPointerMode.twoFinger,.oneFingerForce] {
+            for count in [mode.count,3] {
+                let run = session(pointerMode:mode)
+                let keys:[StenoKey] = [.tl,.pl,.hl]
+                let fingers = (0..<count).map { index -> OMSRawTouch in
+                    let point = contact(keys[index],preset:.steno,side:.left,id:Int32(index+1))
+                    return .init(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:140,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                }
+                frame(run,1,4,fingers); frame(run,1.02,4,fingers); frame(run,1.04,4,[])
+                let expected = count == 3 ? "StenoMouse:42:rightClick":"StenoMouse:42:click"
+                XCTAssertEqual(run.output.events.filter { if case let .systemKey(label) = $0.kind { return label == expected }; return false }.count,1)
+                XCTAssertTrue(packets(run).isEmpty)
+                XCTAssertTrue(run.output.events.allSatisfy { if case .systemKey = $0.kind { return true }; return false })
+                XCTAssertNil(GeminiPRPort.shared.snapshot.path)
+            }
         }
     }
     func testChangingMouseModeWithHeldContactsCancelsPartialStroke() {

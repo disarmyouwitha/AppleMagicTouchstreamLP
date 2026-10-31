@@ -541,7 +541,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard state.stenoDevices.contains(device), AXIsProcessTrusted() else { return }
             if update.reset { state.tracker.reset(device:device) }
             if let mm = update.millimetres { state.postPointerMotion(device:device,time:time,millimetres:mm) }
-            if update.click { state.postDirectional(.primaryClick,device:device,time:time) }
+            if let click = update.click { state.postDirectional(click.action,device:device,time:time) }
         }
     }
     func cancelDisconnectedDevice(_ device: UInt64) {
