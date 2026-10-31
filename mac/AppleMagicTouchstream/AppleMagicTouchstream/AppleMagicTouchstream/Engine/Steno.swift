@@ -341,14 +341,15 @@ enum StenoLayoutDefinition {
                 let margin:CGFloat = 0.005
                 let starWidth = 1.5*width+2*(0.025-margin)
                 var x:CGFloat = margin
+                let rowHeight = CGFloat(25)/ContentView.trackpadHeightMM
                 var upper:[NormalizedRect] = []
                 for column in 0..<10 {
                     let w = column == 4 ? starWidth:width
-                    upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 0.48:0.24))
+                    upper.append(.init(x:x,y:0.18,width:w,height:column == 4 ? 2*rowHeight:rowHeight))
                     x += w+gap
                 }
                 let lower = upper.enumerated().filter { $0.offset != 4 }.map {
-                    NormalizedRect(x:$0.element.x,y:0.42,width:$0.element.width,height:0.24)
+                    NormalizedRect(x:$0.element.x,y:0.18+rowHeight,width:$0.element.width,height:rowHeight)
                 }
                 let vowelsWidth = 4*width+3*gap, vowelsX = (1-vowelsWidth)/2
                 rects = [[.init(x:upper[0].x,y:0.1,width:upper[3].x+width-upper[0].x,height:0.08),

@@ -546,7 +546,7 @@ final class StenoMouseTests:XCTestCase {
             XCTAssertGreaterThanOrEqual(rect.y,0); XCTAssertLessThanOrEqual(rect.y+rect.height,1)
         }
         let upper = layout.normalizedKeyRects[1], width = upper[0].width
-        XCTAssertEqual(upper[4].height,0.48)
+        XCTAssertEqual(upper[4].height*ContentView.trackpadHeightMM,50,accuracy:0.001)
         XCTAssertEqual(upper[4].width,1.5*width+0.04,accuracy:0.000001)
         XCTAssertEqual(upper[0].x,0.005,accuracy:0.000001)
         XCTAssertEqual(upper[9].x+upper[9].width,0.995,accuracy:0.000001)
@@ -570,6 +570,23 @@ final class StenoMouseTests:XCTestCase {
             let star = rects[1][side == .left ? 4:0]
             XCTAssertEqual(star.height*ContentView.trackpadHeightMM,50,accuracy:0.001)
             XCTAssertEqual((1-rects[3][0].y-rects[3][0].height)*ContentView.trackpadHeightMM,0.8,accuracy:0.001)
+        }
+    }
+    func testAsteriskAndSingleDrawExistingSharedHitBandWithoutChangingKeyGeometry() {
+        let size = CGSize(width:432,height:310.23)
+        for (preset,side,upperColumn,lowerColumn) in [
+            (TrackpadLayoutPreset.steno,TrackpadSide.left,1,1),(.steno,.right,4,3),(.stenoSingle,.right,8,7)
+        ] {
+            let layout = StenoLayoutDefinition.layout(preset:preset,side:side,size:size)
+            let upper = layout.normalizedKeyRects[1][upperColumn], lower = layout.normalizedKeyRects[2][lowerColumn]
+            let top = TrackpadSurfaceView.stenoDisplayRect(upper,layout:layout)
+            let bottom = TrackpadSurfaceView.stenoDisplayRect(lower,layout:layout)
+            XCTAssertEqual((top.y+top.height-bottom.y)*ContentView.trackpadHeightMM,3,accuracy:0.001)
+            XCTAssertEqual(top.height*ContentView.trackpadHeightMM,26.5,accuracy:0.001)
+            XCTAssertEqual(bottom.height*ContentView.trackpadHeightMM,26.5,accuracy:0.001)
+            XCTAssertEqual(top.y,upper.y); XCTAssertEqual(bottom.y+bottom.height,lower.y+lower.height,accuracy:0.000001)
+            XCTAssertEqual(upper.y+upper.height,lower.y,accuracy:0.000001)
+            XCTAssertEqual(TrackpadSurfaceView.stenoDisplayRect(layout.normalizedKeyRects[0][0],layout:layout),layout.normalizedKeyRects[0][0])
         }
     }
     func testSingleRowsAndNumberBarsMeetAndBothLayoutsExtendThumbsToBottom() {
@@ -680,7 +697,9 @@ final class StenoMouseTests:XCTestCase {
         let run = session(.stenoSingle)
         var point = contact(.tl,preset:.stenoSingle,side:.right)
         // T-/K- seam between upper/lower rectangles; the 1.5 mm edge region hits both.
-        point = .init(id:point.id,posX:point.posX,posY:Float(1-0.42),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        let rects = StenoLayoutDefinition.layout(preset:.stenoSingle,side:.right,size:.init(width:432,height:310.23)).normalizedKeyRects
+        let seam = rects[2][1].y
+        point = .init(id:point.id,posX:point.posX,posY:Float(1-seam),total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
         frame(run,1,7,[point]); frame(run,1.1,7,[])
         XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit|StenoKey.kl.bit)])
     }

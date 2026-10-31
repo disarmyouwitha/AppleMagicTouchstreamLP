@@ -246,14 +246,14 @@ final class TrackpadSurfaceView: NSView {
             refreshKeyHighlights()
         }
     }
-    private func drawKeyHighlights(_ history:KeyHitHighlightHistory,origin:CGPoint) {
+    private func drawKeyHighlights(_ history:KeyHitHighlightHistory,origin:CGPoint,layout:ContentViewModel.Layout) {
         let now = CACurrentMediaTime()
         NSGraphicsContext.saveGraphicsState()
         NSBezierPath(rect:.init(origin:origin,size:snapshot.trackpadSize)).addClip()
         for entry in history.entries.values {
             let opacity = entry.opacity(at:now)
             guard opacity > 0 else { continue }
-            let path = keyPath(for:entry.rect,origin:origin,trackpadSize:snapshot.trackpadSize)
+            let path = keyPath(for:Self.stenoDisplayRect(entry.rect,layout:layout),origin:origin,trackpadSize:snapshot.trackpadSize)
             NSColor.systemGreen.withAlphaComponent(opacity*0.22).setFill(); path.fill()
             NSColor.systemGreen.withAlphaComponent(opacity*0.9).setStroke(); path.lineWidth = 1.8; path.stroke()
         }
@@ -386,8 +386,8 @@ final class TrackpadSurfaceView: NSView {
             drawPaths(leftPaths, origin: leftOrigin)
             drawPaths(rightPaths, origin: rightOrigin)
         }
-        drawKeyHighlights(leftKeyHighlights,origin:leftOrigin)
-        drawKeyHighlights(rightKeyHighlights,origin:rightOrigin)
+        drawKeyHighlights(leftKeyHighlights,origin:leftOrigin,layout:snapshot.leftLayout)
+        drawKeyHighlights(rightKeyHighlights,origin:rightOrigin,layout:snapshot.rightLayout)
         drawTrackpadDynamicSide(
             origin: leftOrigin,
             layout: snapshot.leftLayout,
@@ -474,7 +474,7 @@ final class TrackpadSurfaceView: NSView {
             NSGraphicsContext.restoreGraphicsState()
         }
         drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
-        drawKeyGrid(layout.normalizedKeyRects, origin: origin, trackpadSize: trackpadSize)
+        drawKeyGrid(layout, origin: origin, trackpadSize: trackpadSize)
         drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
         drawGridLabels(
             labels,
@@ -494,7 +494,7 @@ final class TrackpadSurfaceView: NSView {
         selectedButtonID: UUID?
     ) {
         drawKeySelection(
-            normalizedKeyRects: layout.normalizedKeyRects,
+            normalizedKeyRects: layout.normalizedKeyRects.map { $0.map { Self.stenoDisplayRect($0,layout:layout) } },
             selectedKey: selectedKey,
             origin: origin,
             trackpadSize: trackpadSize
@@ -651,15 +651,35 @@ final class TrackpadSurfaceView: NSView {
         }
     }
 
+    /// Draw the existing shared 3 mm row hit band without expanding recognition
+    /// a second time. Asterisk and Single have one/two number bars; 6x3 stays as-is.
+    static func stenoDisplayRect(_ rect:NormalizedRect,layout:ContentViewModel.Layout) -> NormalizedRect {
+        let rows = layout.normalizedKeyRects
+        guard layout.isSteno, rows.count > 2, let bars = rows.first,
+              (1...2).contains(bars.count), rect.rotationDegrees == 0 else { return rect }
+        let allowance:CGFloat = 1.5/ContentView.trackpadHeightMM
+        var displayed = rect
+        if rows[1].contains(rect), rows[2].contains(where:{
+            abs($0.centerX-rect.centerX) < 0.5/ContentView.trackpadWidthMM && abs($0.y-rect.y-rect.height) < 0.000001 && $0.rotationDegrees == 0
+        }) {
+            displayed.height += allowance
+        } else if rows[2].contains(rect), rows[1].contains(where:{
+            abs($0.centerX-rect.centerX) < 0.5/ContentView.trackpadWidthMM && abs($0.y+$0.height-rect.y) < 0.000001 && $0.rotationDegrees == 0
+        }) {
+            displayed.y -= allowance; displayed.height += allowance
+        }
+        return displayed
+    }
+
     private func drawKeyGrid(
-        _ normalizedKeyRects: [[NormalizedRect]],
+        _ layout: ContentViewModel.Layout,
         origin: CGPoint,
         trackpadSize: CGSize
     ) {
         NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
-        for row in normalizedKeyRects {
+        for row in layout.normalizedKeyRects {
             for rect in row {
-                let keyPath = keyPath(for: rect, origin: origin, trackpadSize: trackpadSize)
+                let keyPath = keyPath(for: Self.stenoDisplayRect(rect,layout:layout), origin: origin, trackpadSize: trackpadSize)
                 keyPath.lineWidth = 1
                 keyPath.stroke()
             }
