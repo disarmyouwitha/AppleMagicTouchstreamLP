@@ -281,8 +281,8 @@ enum StenoLayoutDefinition {
     // Key bounds from the maker's published Asterisk layout drawing:
     // https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg
     // Its 626-unit board width is calibrated to the published 234 mm board.
-    // Keep the drawing's widths and outside edges, rather than stretching each
-    // half to fill its pad. Rounded ends use their full enclosing touch bounds.
+    // Keep the drawing's column widths, rather than stretching each half to fill
+    // its pad. Row heights below use the user's 25 mm hardware measurement.
     @MainActor private static func asteriskRects(side:TrackpadSide) -> [[NormalizedRect]] {
         let scale:CGFloat = 234/626
         let left = side == .left
@@ -304,30 +304,20 @@ enum StenoLayoutDefinition {
                 [CGRect(x:577.839,y:97.0658,width:40.6866,height:55.1532)],
             [351.35,394.749].map { CGRect(x:$0,y:181.603,width:32.549,height:56.961) }
         ]
-        // Touch surfaces meet at a shared seam for a stationary fingertip to chord
-        // both rows. Keep the outside edges and widths from the drawing, extend
-        // only into the row gap, and bring the number bar down to the upper keys.
-        let seam = (CGFloat(86.7246)+97.0658)/2
-        for column in bounds[1].indices where column != (left ? 4:0) {
-            bounds[1][column].size.height = seam-bounds[1][column].minY
+        // Each physical consonant row is 25 mm. Draw the rows edge-to-edge;
+        // the independent 1.5 mm hit allowance already overlaps the seam so a
+        // stationary fingertip can press both without overlapping drawn keys.
+        let upperEdge = bounds[1][left ? 0:1].minY
+        let rowHeight = CGFloat(25)/scale
+        for column in bounds[1].indices {
+            bounds[1][column].origin.y = upperEdge
+            bounds[1][column].size.height = rowHeight*(column == (left ? 4:0) ? 2:1)
         }
         for column in bounds[2].indices {
-            let bottom = bounds[2][column].maxY
-            bounds[2][column].origin.y = seam
-            bounds[2][column].size.height = bottom-bounds[2][column].minY
+            bounds[2][column].origin.y = upperEdge+rowHeight
+            bounds[2][column].size.height = rowHeight
         }
-        let upperEdge = bounds[1][left ? 0:1].minY
         bounds[0][0].size.height = upperEdge-bounds[0][0].minY
-        // Hardware overlay tuning: keep the # bar and upper-row anchor fixed,
-        // and stretch both consonant rows (including the star) 8% downward.
-        // Applying one transform keeps the shared row seam closed.
-        let consonantHeightScale:CGFloat = 1.08
-        for row in 1...2 {
-            for column in bounds[row].indices {
-                bounds[row][column].origin.y = upperEdge+(bounds[row][column].minY-upperEdge)*consonantHeightScale
-                bounds[row][column].size.height *= consonantHeightScale
-            }
-        }
         let minX:CGFloat = left ? 9.06885:347.734
         let maxX:CGFloat = left ? 230.978:618.5256
         let offsetX = (ContentView.trackpadWidthMM-(maxX-minX)*scale)/2

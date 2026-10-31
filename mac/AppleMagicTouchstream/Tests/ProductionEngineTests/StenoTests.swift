@@ -562,13 +562,13 @@ final class StenoMouseTests:XCTestCase {
             let key = rects[1][side == .left ? 0:1]
             XCTAssertEqual(key.width*ContentView.trackpadWidthMM,32.786*scale,accuracy:0.001)
             let lower = rects[2][0]
-            let originalUpperHeight = ((86.7246+97.0658)/2-25.1304)*scale
-            XCTAssertEqual(key.height*ContentView.trackpadHeightMM,originalUpperHeight*1.08,accuracy:0.001)
+            XCTAssertEqual(key.height*ContentView.trackpadHeightMM,25,accuracy:0.001)
+            XCTAssertEqual(lower.height*ContentView.trackpadHeightMM,25,accuracy:0.001)
             XCTAssertEqual((lower.y-key.y-key.height)*ContentView.trackpadHeightMM,0,accuracy:0.001)
             let top = key.y
             XCTAssertEqual((top-rects[0][0].y-rects[0][0].height)*ContentView.trackpadHeightMM,0,accuracy:0.001)
             let star = rects[1][side == .left ? 4:0]
-            XCTAssertEqual(star.height*ContentView.trackpadHeightMM,126.5809*scale*1.08,accuracy:0.001)
+            XCTAssertEqual(star.height*ContentView.trackpadHeightMM,50,accuracy:0.001)
             XCTAssertEqual((1-rects[3][0].y-rects[3][0].height)*ContentView.trackpadHeightMM,0.8,accuracy:0.001)
         }
     }

@@ -118,9 +118,9 @@ into their middle gap until they touch. Number bars extend downward
 to touch the upper keys beneath them. Steno Single uses the same touching-row
 and number-bar treatment. Both layouts’ bottom vowel/thumb bars extend downward
 to a 0.8 mm pad-edge margin, preserving their top edges and widths. Asterisk’s
-consonant rows and stars are stretched 8% vertically from the upper-row anchor
-for hardware overlay alignment; number bars stay fixed and the row seam stays
-closed. Key widths remain from the drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
+consonant keys are exactly 25 mm tall per row, placed edge-to-edge; stars span
+both rows at 50 mm. Number bars stay fixed and the row seam stays closed.
+The fixed hit allowance overlaps the seam without overlapping drawn keys. Key widths remain from the drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
 edge allowance remains independent of the keyboard toggle. The
 maker does not publish separate v2 copper-pad dimensions in that drawing. `STENO single` packs both
 Asterisk halves on the RHS only; the LHS key surface is blank. It has two number
