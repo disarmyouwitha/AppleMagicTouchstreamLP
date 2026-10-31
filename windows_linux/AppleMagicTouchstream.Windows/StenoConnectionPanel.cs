@@ -11,7 +11,16 @@ public sealed class StenoConnectionPanel : Border
     private Func<WindowsStenoConnection.Snapshot>? _snapshot;
     private readonly TextBlock _status=new() { Text="Waiting for Plover",TextWrapping=TextWrapping.Wrap };
     private readonly TextBlock _counts=new();
-    private readonly ComboBox _pointer=new() { Margin=new(0,4,0,8) };
+    private readonly ExplicitSelectionComboBox _pointer=new() { Margin=new(0,4,0,8) };
+    private readonly ExplicitSelectionComboBox _haptics=new() { Margin=new(0,4,0,8) };
+    private bool _syncHaptics;
+    public event Action<StenoHapticMode>? HapticModeChanged;
+    public void SetHapticMode(StenoHapticMode mode)
+    {
+        _syncHaptics=true;
+        try { _haptics.SelectedIndex=Enum.IsDefined(mode) ? (int)mode : 1; }
+        finally { _syncHaptics=false; }
+    }
     private bool _syncPointer;
     public event Action<int>? PointerFingerCountChanged;
     public void SetPointerFingerCount(int count)
@@ -34,6 +43,10 @@ public sealed class StenoConnectionPanel : Border
         _pointer.Items.Add("One finger"); _pointer.Items.Add("Two fingers"); SetPointerFingerCount(2);
         _pointer.SelectionChanged+=(_,_)=> { if(!_syncPointer && _pointer.SelectedIndex>=0) PointerFingerCountChanged?.Invoke(_pointer.SelectedIndex+1); };
         content.Children.Add(_pointer);
+        content.Children.Add(new TextBlock { Text="Steno haptics" });
+        _haptics.Items.Add("Off"); _haptics.Items.Add("On key contact"); _haptics.Items.Add("On chord release"); SetHapticMode(StenoHapticMode.KeyContact);
+        _haptics.SelectionChanged+=(_,_)=> { if(!_syncHaptics && _haptics.SelectedIndex>=0) HapticModeChanged?.Invoke((StenoHapticMode)_haptics.SelectedIndex); };
+        content.Children.Add(_haptics);
         var install=new Button { Content="Install / update Plover plugin",Margin=new(0,8,0,6),Padding=new(8,4,8,4) };
         install.Click+=async (_,_)=>
         {
@@ -62,7 +75,7 @@ public sealed class StenoConnectionPanel : Border
         content.Children.Add(install);
         content.Children.Add(_installation);
         content.Children.Add(new TextBlock { Text="Install the plugin once, restart Plover, then choose Configure → Machine → AppleMagicTouchstream. Enable Plover output and Mouse Takeover here.",TextWrapping=TextWrapping.Wrap,FontSize=11 });
-        content.Children.Add(new TextBlock { Text="Lift all fingers to send a chord. Pointer movement cancels the chord until both hands lift. Stationary contacts still chord, including single-finger strokes. Clicking is not assigned in this prototype.",TextWrapping=TextWrapping.Wrap,Margin=new(0,6,0,6),FontSize=11 });
+        content.Children.Add(new TextBlock { Text="Lift all fingers to send a chord. Pointer movement cancels the chord until both hands lift. Stationary contacts still chord, including single-finger strokes. Force press with one or two fingers to left-click; this cancels the chord.",TextWrapping=TextWrapping.Wrap,Margin=new(0,6,0,6),FontSize=11 });
         content.Children.Add(_counts); Child=content;
         _timer.Tick+=(_,_)=>Refresh(); Loaded+=(_,_)=> { Refresh(); _timer.Start(); }; Unloaded+=(_,_)=>_timer.Stop();
     }

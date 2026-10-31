@@ -112,7 +112,47 @@ internal static class StenoTests
         var bad=held; bad.Contact0=bad.Contact0 with { X=ushort.MaxValue };
         Frame(engine,TrackpadSide.Left,bad,2.2);
         Check(!engine.StenoOutput.IsCurrent(queued.StenoGeneration),"invalid input retained queued stroke generation");
-        RunActor(); RunConnection();
+        RunFeedback(); RunActor(); RunConnection();
+    }
+    private static void RunFeedback()
+    {
+        var preset=TrackpadLayoutPreset.Steno;
+        var left=Contact(preset,TrackpadSide.Left,StenoKey.TL); var right=Contact(preset,TrackpadSide.Right,StenoKey.FR); var up=new InputFrame();
+        foreach(var mode in Enum.GetValues<StenoHapticMode>())
+        {
+            var core=Core(preset,out _); core.Configure(TouchProcessorConfig.Default with { StenoHaptics=mode }); core.SetHapticsOnKeyDispatchEnabled(true);
+            Frame(core,TrackpadSide.Left,left,1); var landing=Drain(core);
+            Check(landing.Count(e=>e.Kind==DispatchEventKind.StenoHaptic)==(mode==StenoHapticMode.KeyContact ? 1 : 0),"steno contact feedback mode failed");
+            Frame(core,TrackpadSide.Left,left,1.02); Check(Drain(core).Length==0,"held key repeated feedback");
+            Frame(core,TrackpadSide.Right,right,1.04); Drain(core);
+            Frame(core,TrackpadSide.Left,up,1.06); Check(Drain(core).Length==0,"feedback sent before chord release");
+            Frame(core,TrackpadSide.Right,up,1.08); var released=Drain(core);
+            Check(released.Count(e=>e.Kind==DispatchEventKind.StenoStroke)==1,"feedback altered steno wire output");
+            var feedback=released.Where(e=>e.Kind==DispatchEventKind.StenoHaptic).ToArray();
+            Check(feedback.Length==(mode==StenoHapticMode.ChordRelease ? 2 : 0),"release feedback did not cover participating pads");
+            if(feedback.Length>0)
+            {
+                Check(feedback.Select(e=>e.Side).Distinct().Count()==2,"release feedback used only the last-lifted pad");
+                core.ResetState(); Check(feedback.All(e=>!core.StenoOutput.IsCurrent(e.StenoGeneration)),"feedback escaped cancellation generation");
+            }
+            core.SetHapticsOnKeyDispatchEnabled(false);
+            Frame(core,TrackpadSide.Left,left,2); Frame(core,TrackpadSide.Left,up,2.05);
+            Check(Drain(core).All(e=>e.Kind!=DispatchEventKind.StenoHaptic),"master haptic disable ignored");
+        }
+        var cancelled=Core(preset,out _); cancelled.Configure(TouchProcessorConfig.Default with { StenoHaptics=StenoHapticMode.ChordRelease }); cancelled.SetHapticsOnKeyDispatchEnabled(true);
+        Frame(cancelled,TrackpadSide.Left,left,1); cancelled.ClaimStenoPointer(); Frame(cancelled,TrackpadSide.Left,up,1.05);
+        Check(Drain(cancelled).Length==0,"pointer acquisition emitted release feedback or a stroke");
+        var settings=new UserSettings { StenoHaptics=StenoHapticMode.ChordRelease };
+        Check(settings.Clone().StenoHaptics==StenoHapticMode.ChordRelease,"haptic preference lost on clone");
+        var bundle=AppleMagicTouchstreamProfileBundle.Create(settings,KeymapStore.LoadBundledDefault());
+        Check(bundle.TryLoadPortableProfile(out var imported,out _,out _) && imported.StenoHaptics==StenoHapticMode.ChordRelease,"haptic preference lost on export/import");
+        settings.StenoHaptics=(StenoHapticMode)100; settings.NormalizeRanges(); Check(settings.StenoHaptics==StenoHapticMode.KeyContact,"invalid haptic preference accepted");
+        var combo=new ExplicitSelectionComboBox(); Check(!combo.IsTextSearchEnabled,"Plover type-search remained enabled"); combo.Items.Add("STENO"); combo.Items.Add("TouchStream"); combo.SelectedIndex=0;
+        var wheel=new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,-120) { RoutedEvent=System.Windows.Input.Mouse.PreviewMouseWheelEvent };
+        combo.RaiseEvent(wheel); Check(wheel.Handled && combo.SelectedIndex==0,"closed settings wheel changed selection");
+        var text=new System.Windows.Input.TextCompositionEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
+            new System.Windows.Input.TextComposition(System.Windows.Input.InputManager.Current,combo,"TouchStream")) { RoutedEvent=System.Windows.Input.TextCompositionManager.PreviewTextInputEvent };
+        combo.RaiseEvent(text); Check(text.Handled && combo.SelectedIndex==0,"Plover text changed closed settings selection");
     }
     private sealed class NoGestures : IHandGestureRuntime
     {
@@ -137,6 +177,10 @@ internal static class StenoTests
         Check(!connection.Status.Enabled,"creating a Steno connection opened a live port");
         connection.Configure(true,state,()=>true);
         Check(connection.Status.Enabled,"private test listener failed: "+connection.Status.Error);
+        int pulses=0;
+        var feedback=new DispatchEvent(Stopwatch.GetTimestamp(),DispatchEventKind.StenoHaptic,0,DispatchMouseButton.None,0,DispatchEventFlags.None,TrackpadSide.Left,"",StenoGeneration:state.Generation);
+        Check(connection.TryFeedback(in feedback,_=>pulses++) && pulses==1,"feedback incorrectly required a Plover connection");
+        state.Invalidate(); Check(!connection.TryFeedback(in feedback,_=>pulses++) && pulses==1,"cancelled feedback reached hardware callback");
         TcpClient connect()
         {
             var client=new TcpClient(); client.Connect("127.0.0.1",connection.BoundPort); client.ReceiveTimeout=1000;

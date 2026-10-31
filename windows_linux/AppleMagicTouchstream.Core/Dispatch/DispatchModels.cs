@@ -18,7 +18,8 @@ public enum DispatchEventKind : byte
     GestureShortcutUp = 11,
     GestureShortcutTap = 12,
     ReleaseAllKeyboard = 13,
-    StenoStroke = 14
+    StenoStroke = 14,
+    StenoHaptic = 15
 }
 
 public enum DispatchMouseButton : byte

@@ -156,6 +156,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        StenoPanel.SetHapticMode(_settings.StenoHaptics);
+        StenoPanel.HapticModeChanged+=mode=>
+        {
+            if(_settings.StenoHaptics==mode) return;
+            _settings.StenoHaptics=mode; SaveSettings(); ApplyCoreSettings();
+        };
         StenoPanel.SetPointerFingerCount(_settings.StenoPointerFingerCount);
         StenoPanel.PointerFingerCountChanged+=count=>
         {
@@ -1858,6 +1864,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyCoreSettings()
     {
+        StenoPanel.SetHapticMode(_settings.StenoHaptics);
         StenoPanel.SetPointerFingerCount(_settings.StenoPointerFingerCount);
         _handGestures?.Configure(_settings);
         _handGesturePanel?.Refresh(_settings);

@@ -55,12 +55,23 @@ internal sealed partial class TouchProcessorCore
         if(_stenoRegions==null || _stenoRegionLayer!=_activeLayer) BuildStenoRegions();
         ulong mask=_stenoChord.Process(side,in frame,maxX,maxY,timestamp/(double)Stopwatch.Frequency,_stenoRegions![(int)side]);
         if(_stenoChord.FrameInvalidated) StenoOutput.Invalidate();
-        if(mask!=0)
-            lock(StenoOutput.Sync)
+        lock(StenoOutput.Sync)
+        {
+            if(_hapticsOnKeyDispatch && _config.StenoHaptics==StenoHapticMode.KeyContact && _stenoChord.NewlyPressedKeys!=0)
+                EnqueueStenoHaptic(side,timestamp,_stenoChord.NewlyPressedKeys);
+            if(mask!=0)
+            {
                 EnqueueDispatchEvent(DispatchEventKind.StenoStroke,0,DispatchMouseButton.None,0,DispatchEventFlags.None,
                     side,timestamp,GeminiPRPacket.RecordingLabel(mask),stenoMask:mask,stenoGeneration:StenoOutput.Generation);
+                if(_hapticsOnKeyDispatch && _config.StenoHaptics==StenoHapticMode.ChordRelease)
+                    for(int i=0;i<2;i++) if((_stenoChord.StrokePads&(1<<i))!=0) EnqueueStenoHaptic((TrackpadSide)i,timestamp,mask);
+            }
+        }
         return true;
     }
+    private void EnqueueStenoHaptic(TrackpadSide side,long timestamp,ulong keys) =>
+        EnqueueDispatchEvent(DispatchEventKind.StenoHaptic,0,DispatchMouseButton.None,0,DispatchEventFlags.None,
+            side,timestamp,"Steno feedback",stenoMask:keys,stenoGeneration:StenoOutput.Generation);
     private void BuildStenoRegions()
     {
         _stenoRegions=new StenoRegion[2][]; _stenoRegionLayer=_activeLayer;

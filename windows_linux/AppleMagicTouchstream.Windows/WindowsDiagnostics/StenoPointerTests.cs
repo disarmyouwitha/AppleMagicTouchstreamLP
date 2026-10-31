@@ -6,13 +6,13 @@ internal static class StenoPointerTests
 {
     private sealed class Output : IHandGestureOutput
     {
-        public int Moves;
+        public int Moves,Clicks,Feedback;
         public void Move(double x,double y) { Check(double.IsFinite(x)&&double.IsFinite(y),"nonfinite pointer output"); Moves++; }
         public void Scroll(double x,double y)=>throw new InvalidOperationException("STENO scrolled");
         public void PrimaryButton(bool down)=>throw new InvalidOperationException("STENO clicked");
-        public void Tap(HandGestureAction action)=>throw new InvalidOperationException("STENO tapped");
+        public void Tap(HandGestureAction action) { Check(action==HandGestureAction.PrimaryClick,"STENO emitted unexpected tap"); Clicks++; }
         public void Zoom(double scale)=>throw new InvalidOperationException("STENO zoomed");
-        public void ForceFeedback(TrackpadSide side)=>throw new InvalidOperationException("STENO force clicked");
+        public void ForceFeedback(TrackpadSide side)=>Feedback++;
     }
     private static void Check(bool condition,string reason) { if(!condition) throw new InvalidOperationException(reason); }
     private static HandGestureContact[] Contacts(int count,double dx=0)=>Enumerable.Range(0,count).Select(i=>new HandGestureContact((uint)(i+1),40+20*i+dx,40)).ToArray();
@@ -54,12 +54,32 @@ internal static class StenoPointerTests
         var bundle=AppleMagicTouchstreamProfileBundle.Create(settings,KeymapStore.LoadBundledDefault());
         Check(bundle.TryLoadPortableProfile(out var imported,out _,out _) && imported.StenoPointerFingerCount==1,"pointer preference lost during export/import");
         settings.StenoPointerFingerCount=9; settings.NormalizeRanges(); Check(settings.StenoPointerFingerCount==2,"invalid pointer preference accepted");
-        RunActor(1); RunActor(2);
+        RunForceClicks(); RunActor(1); RunActor(2);
+    }
+    private static void RunForceClicks()
+    {
+        HandGestureContact[] pressed(int count,double pressure=130,bool hasPressure=true)=>Contacts(count).Select(c=>c with { Pressure=pressure,HasPressure=hasPressure }).ToArray();
+        foreach(int pointerFingers in new[] { 1,2 }) foreach(int clickFingers in new[] { 1,2 })
+        {
+            var output=new Output(); var engine=new StenoPointerEngine(output); engine.Configure(pointerFingers);
+            Process(engine,Contacts(clickFingers),1); Process(engine,pressed(clickFingers,129),1.02);
+            Check(output.Clicks==0,"light pressure clicked");
+            Check(Process(engine,pressed(clickFingers),1.04) && output.Clicks==1 && output.Feedback==1,"STENO force click failed");
+            Process(engine,pressed(clickFingers),1.06); Process(engine,pressed(clickFingers,80),1.08); Process(engine,pressed(clickFingers),1.1);
+            Check(output.Clicks==1,"held force click repeated without all-up");
+            Check(Process(engine,[],1.12),"force click did not retain chord cancellation through all-up");
+            Process(engine,pressed(clickFingers),2); Check(output.Clicks==2,"fresh force click failed"); Process(engine,[],2.02);
+            Process(engine,pressed(clickFingers,200,false),3); Check(output.Clicks==2,"missing pressure was guessed as a click"); Process(engine,[],3.02);
+            Process(engine,pressed(clickFingers),4,false); Process(engine,pressed(clickFingers),4.02); Check(output.Clicks==2,"takeover-off held press clicked"); Process(engine,[],4.04);
+            Process(engine,Contacts(3),5); Process(engine,pressed(clickFingers),5.02); Check(output.Clicks==2,"partial chord lift clicked"); Process(engine,[],5.04);
+            Process(engine,Contacts(clickFingers),6); Process(engine,pressed(clickFingers),6.3); Check(output.Clicks==2,"stale force press clicked");
+        }
     }
     private sealed class Runtime : IHandGestureRuntime
     {
         private readonly StenoPointerEngine _pointer;
-        public Runtime(int fingers) { _pointer=new(new Output()); _pointer.Configure(fingers); }
+        public readonly Output Output=new();
+        public Runtime(int fingers) { _pointer=new(Output); _pointer.Configure(fingers); }
         public bool Process(TrackpadSide side,in InputFrame frame,ushort x,ushort y,long timestamp)=>throw new InvalidOperationException("STENO entered ordinary gestures");
         public bool ProcessStenoPointer(TrackpadSide side,in InputFrame frame,ushort x,ushort y,long timestamp)
         {
@@ -75,7 +95,7 @@ internal static class StenoPointerTests
     {
         var map=KeymapStore.LoadBundledDefault(); map.SetActiveLayout(TrackpadLayoutPreset.Steno.Name);
         var core=TouchProcessorFactory.CreateDefault(map,TrackpadLayoutPreset.Steno); core.UseUnifiedInputPolicy();
-        using var queue=new DispatchEventQueue(); using var actor=new TouchProcessorActor(core,dispatchQueue:queue,handGestures:new Runtime(fingers));
+        using var queue=new DispatchEventQueue(); var runtime=new Runtime(fingers); using var actor=new TouchProcessorActor(core,dispatchQueue:queue,handGestures:runtime);
         InputFrame frame(int n,int dx=0)=>new() { ContactCount=(byte)n,
             Contact0=new() { Id=1,X=(ushort)(2300+dx),Y=1500,Flags=(byte)(n>0 ? 3 : 0) },
             Contact1=new() { Id=2,X=(ushort)(3300+dx),Y=1500,Flags=(byte)(n>1 ? 3 : 0) } };
@@ -90,5 +110,14 @@ internal static class StenoPointerTests
         post(TrackpadSide.Left,frame(1),2); post(TrackpadSide.Left,frame(0),2.05);
         Check(queue.TryDequeue(out var stroke,0) && stroke.Kind==DispatchEventKind.StenoStroke,"stationary one-finger stroke was lost");
         Check(!queue.TryDequeue(out _,0),"stationary stroke emitted twice");
+        foreach(int clickFingers in new[] { 1,2 })
+        {
+            double start=3+clickFingers;
+            post(TrackpadSide.Right,frame(1),start); post(TrackpadSide.Left,frame(clickFingers),start+.02);
+            var force=frame(clickFingers); force.Contact0=force.Contact0 with { Pressure=130,HasForceData=true };
+            post(TrackpadSide.Left,force,start+.04); post(TrackpadSide.Left,frame(0),start+.06); post(TrackpadSide.Right,frame(0),start+.08);
+            Check(runtime.Output.Clicks==clickFingers,"actor did not publish force click");
+            Check(!queue.TryDequeue(out _,0),"force click leaked a steno chord");
+        }
     }
 }

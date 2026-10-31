@@ -84,6 +84,19 @@ internal sealed class WindowsStenoConnection : IDisposable
             }
         }
     }
+    internal bool TryFeedback(in DispatchEvent feedback,Action<TrackpadSide> vibrate)
+    {
+        var output=_output; if(output==null) return false;
+        lock(output.Sync)
+        lock(_gate)
+        {
+            long age=System.Diagnostics.Stopwatch.GetTimestamp()-feedback.TimestampTicks;
+            if(!ReferenceEquals(output,_output) || feedback.Kind!=DispatchEventKind.StenoHaptic
+                || !output.IsCurrent(feedback.StenoGeneration) || _eligible?.Invoke()!=true
+                || age<0 || age>System.Diagnostics.Stopwatch.Frequency*.25) return false;
+            vibrate(feedback.Side); return true;
+        }
+    }
     public bool Send(in DispatchEvent stroke)
     {
         var output=_output; if(output==null) return false;

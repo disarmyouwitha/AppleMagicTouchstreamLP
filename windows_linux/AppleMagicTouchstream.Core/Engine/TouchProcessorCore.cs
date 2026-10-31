@@ -316,6 +316,7 @@ internal sealed partial class TouchProcessorCore
         bool rebuildBindings =
             Math.Abs(normalized.SnapRadiusPercent - _config.SnapRadiusPercent) > 0.0001 ||
             Math.Abs(normalized.SnapAmbiguityRatio - _config.SnapAmbiguityRatio) > 0.0001;
+        if(IsSteno && normalized.StenoHaptics!=_config.StenoHaptics) CancelSteno();
         _config = normalized;
         RefreshGestureActionsFromConfig();
         if (rebuildBindings)

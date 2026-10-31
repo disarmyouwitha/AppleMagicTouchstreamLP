@@ -4,6 +4,8 @@ namespace AppleMagicTouchstream;
 
 // Stable identities and wire order match the Mac implementation and Plover's
 // Gemini PR chart. These are steno actions, never native keyboard keycodes.
+public enum StenoHapticMode { Off,KeyContact,ChordRelease }
+
 public enum StenoKey : ushort
 {
     Fn,N1,N2,N3,N4,N5,N6,S1,S2,TL,KL,PL,WL,HL,RL,A,O,ST1,ST2,RES1,RES2,
@@ -48,6 +50,10 @@ public readonly record struct StenoRegion(StenoKey Key,KeyHitGeometry Geometry);
 public sealed class StenoChordEngine
 {
     private ulong _chord;
+    private readonly ulong[] _touchingKeys=new ulong[2];
+    private byte _strokePads;
+    public ulong NewlyPressedKeys { get; private set; }
+    public byte StrokePads { get; private set; }
     private byte _down;
     private bool _blocked;
     private readonly double[] _times=[-1,-1];
@@ -57,6 +63,7 @@ public sealed class StenoChordEngine
     {
         if(downPads.HasValue) _down=downPads.Value;
         _chord=0; _blocked=_down!=0; _times[0]=_times[1]=-1;
+        _touchingKeys[0]=_touchingKeys[1]=0; _strokePads=0; NewlyPressedKeys=0; StrokePads=0;
     }
     public void RemoveDevice(TrackpadSide side) { _down&=(byte)~(1<<(int)side); Cancel(); }
     public bool Tick(double now)
@@ -67,6 +74,7 @@ public sealed class StenoChordEngine
     }
     public ulong Process(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,double time,ReadOnlySpan<StenoRegion> regions)
     {
+        NewlyPressedKeys=0; StrokePads=0;
         FrameInvalidated=Tick(time);
         int index=(int)side; if((uint)index>1) return 0;
         bool valid=double.IsFinite(time) && time>=0 && maxX>0 && maxY>0 && frame.ContactCount<=InputFrame.MaxContacts
@@ -84,11 +92,13 @@ public sealed class StenoChordEngine
         if(frame.ContactCount>InputFrame.MaxContacts) count=Math.Max(count,1);
         if(count>0) _down|=(byte)(1<<index); else _down&=(byte)~(1<<index);
         _times[index]=double.IsFinite(time) ? time : -1;
-        if(!valid) { FrameInvalidated=true; _chord=0; _blocked=_down!=0; return 0; }
+        if(!valid) { FrameInvalidated=true; Cancel(); return 0; }
         if(_blocked) { if(_down==0) _blocked=false; return 0; }
+        NewlyPressedKeys=keys&~_touchingKeys[index]; _touchingKeys[index]=keys;
+        if(keys!=0) _strokePads|=(byte)(1<<index);
         _chord|=keys;
         if(_down!=0) return 0;
-        ulong stroke=_chord; _chord=0; return stroke;
+        ulong stroke=_chord; _chord=0; StrokePads=_strokePads; _strokePads=0; return stroke;
     }
 }
 

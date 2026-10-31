@@ -28,15 +28,25 @@ internal static class MacKeyboardParityTests
         public readonly HandGestureEngine Engine;
         private readonly bool[] _priority=new bool[2];
         public bool Enabled=true;
+        private bool _takeover=true;
+        private byte _downPads;
+        private double _time;
+        public bool Takeover
+        {
+            get=>_takeover;
+            set { if(value==_takeover) return; _takeover=value; WindowsHandGestures.CancelForTakeoverChange(Engine,_downPads,_time); }
+        }
         public bool SupportsKeyboardProposals=>true;
-        public Runtime(HandGestureSettings settings) { Engine=new(Output); Engine.Configure(settings,false); }
+        public Runtime(HandGestureSettings settings) { Engine=new(new TakeoverGestureOutput(Output,()=>Takeover)); Engine.Configure(settings,false); }
         public void SetKeyboardPriority(TrackpadSide side,bool priority)=>_priority[(int)side]=priority;
         public HandGestureEvidence Evidence(TrackpadSide side)=>Engine.Evidence(side);
         public bool Process(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,long time)
         {
             Span<HandGestureContact> contacts=stackalloc HandGestureContact[InputFrame.MaxContacts]; int count=0;
             for(int i=0;i<frame.GetClampedContactCount();i++) { var c=frame.GetContact(i); if(c.TipSwitch) contacts[count++]=new(c.Id,c.X*160.0/maxX,c.Y*114.9/maxY); }
-            return Engine.Process(side,contacts[..count],time/(double)Stopwatch.Frequency,time/(double)Stopwatch.Frequency,Enabled,keyboardPriority:_priority[(int)side]);
+            if(count>0) _downPads|=(byte)(1<<(int)side); else _downPads&=(byte)~(1<<(int)side);
+            _time=time/(double)Stopwatch.Frequency;
+            return Engine.Process(side,contacts[..count],_time,_time,Enabled,keyboardPriority:_priority[(int)side]);
         }
         public void Tick() { }
         public void Cancel(TrackpadSide? side=null) { if(side is {} pad) Engine.Cancel(pad); else Engine.Reset(); }
@@ -102,9 +112,29 @@ internal static class MacKeyboardParityTests
         h=new(settings); h.Frame(2,1); h.Frame(2,1.02,dx:1); h.Frame(0,1.04);
         Check(h.Runtime.Output.Moves>0 && h.Drain().Length==0,"winning movement replayed discarded keyboard proposals");
 
+        // Native mouse output may differ, but recognizer arbitration must not:
+        // a winning 2F movement cannot emit keyboard events or haptic flags.
+        h=new(settings); h.Runtime.Takeover=false;
+        h.Frame(2,1); h.Frame(2,1.02,dx:1); h.Frame(2,1.04,dx:2); h.Frame(0,1.06);
+        Check(h.Runtime.Output.Moves==0 && h.Drain().Length==0,"native 2F movement typed or published synthetic output");
+        // Unclaimed rollover still types normally with Takeover off.
+        h=new(settings); h.Runtime.Takeover=false;
+        h.Frame(2,1); h.Frame(1,1.04); h.Frame(1,1.06,dx:2); h.Frame(0,1.08);
+        Check(h.Drain().Count(e=>e.Kind==DispatchEventKind.KeyTap)==2,"native mouse protection swallowed typing rollover");
+        // No gesture recognized while off may wait for later reactivation.
+        h.Runtime.Takeover=true; h.Frame(2,2); h.Frame(2,2.02,dx:1); h.Frame(0,2.04);
+        Check(h.Runtime.Output.Moves>0 && h.Drain().Length==0,"gesture output did not resume after a fresh cycle");
+        h=new(settings); h.Runtime.Takeover=false; h.Frame(2,1); h.Frame(2,1.02,dx:1);
+        h.Runtime.Takeover=true; h.Frame(2,1.04,dx:2); h.Frame(0,1.06);
+        Check(h.Runtime.Output.Moves==0 && h.Drain().Length==0,"takeover acquired a native gesture without a clean lift");
+        h.Frame(2,2); h.Frame(2,2.02,dx:1); h.Frame(0,2.04);
+        Check(h.Runtime.Output.Moves>0 && h.Drain().Length==0,"clean lift did not restore AMT movement after takeover");
+
         settings=Empty(); settings.Left.TwoFingerTap=HandGestureAction.PrimaryClick;
         h=new(settings); h.Frame(2,1); h.Frame(0,1.04);
         Check(h.Runtime.Output.Taps==1 && h.Drain().Length==0,"terminal gesture tap also emitted keyboard taps");
+        h=new(settings); h.Runtime.Takeover=false; h.Frame(2,1); h.Frame(0,1.04);
+        Check(h.Runtime.Output.Taps==0 && h.Drain().Length==0,"native 2F tap also typed or injected a click");
 
         settings=Empty(); settings.Left.TwoFingerMove=HandGestureAction.Pointer;
         h=new(settings,"Hyper"); h.Frame(1,1); h.Frame(2,1.02); h.Frame(2,1.04,dx:1); h.Frame(0,1.06);

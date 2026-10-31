@@ -36,5 +36,14 @@ In the STENO panel, **Pointer movement** selects **One finger** or **Two fingers
 (default). Stationary contacts still chord, including single-key strokes. Deliberate
 2 mm movement acquires the pointer; two-finger mode requires both contacts to move
 together. Once acquired, the entire pending stroke is cancelled until both pads
-lift. The choice saves with settings and exports/imports. Clicking is unassigned
-in this prototype; Ctrl+Alt+R releases Takeover for normal mouse use.
+lift. The choice saves with settings and exports/imports. One- and two-finger force presses left-click; Ctrl+Alt+R releases Takeover for normal mouse use.
+
+**Steno haptics** offers Off, On key contact (default), or On chord release. It
+uses your normal haptic enable/strength settings. Held contacts do not repeat.
+Release mode pulses the participating pads when the whole chord finishes; pointer
+movement cancels that release pulse. Contact mode can pulse before movement is
+recognized. The preference saves and exports with your settings.
+
+One- and two-finger force presses left-click in either STENO pointer mode. A force
+click cancels the pending chord; lift all fingers before the next click/stroke.
+Only actual reported force is used. Ctrl+Alt+R releases Takeover if needed.

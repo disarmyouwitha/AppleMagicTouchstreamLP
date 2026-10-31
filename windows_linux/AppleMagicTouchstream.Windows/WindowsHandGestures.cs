@@ -17,6 +17,8 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     private readonly StenoPointerEngine _stenoPointer;
     private bool _disposed;
     private bool _stenoMode;
+    private bool _lastTakeover;
+    private byte _downPads;
     private long _frames, _reserved;
     private readonly bool[] _keyboardPriority=new bool[2];
     public bool SupportsKeyboardProposals => true;
@@ -30,7 +32,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         _eligible = eligible; _pointerActivity = pointerActivity; _releaseTakeover = releaseTakeover;
         var keyboard=keyboardQueue!=null && keyboardDispatcher!=null ? new WindowsGestureKeyboardSession(keyboardQueue,keyboardDispatcher,eligible,hook.PhysicalKeyboard) : null;
         _output = new WindowsGestureOutput(eligible,keyboard);
-        _engine = new(_output);
+        _engine = new(new TakeoverGestureOutput(_output,_eligible));
         _stenoPointer=new(_output);
     }
     // Hook callback only records a flag. Never acquire engine/output locks here.
@@ -46,13 +48,14 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     }
     public string Status
     {
-        get { lock (_sync) return _stenoMode ? "STENO pointer movement is enabled; lift both hands before the next chord." : $"{(_eligible() ? "Active" : "Waiting for Mouse Takeover")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
+        get { lock (_sync) return _stenoMode ? "STENO pointer movement is enabled; lift both hands before the next chord." : $"{(_eligible() ? "Active" : "Native mouse · gesture protection active")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
     }
     public void Configure(UserSettings settings)
     {
         lock (_sync)
         {
             _stenoMode=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
+            _lastTakeover=_eligible();
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
             _output.Release(); _stenoPointer.Configure(settings.StenoPointerFingerCount);
             var effective = (settings.HandGesturesV1 ?? new()).Clone();
@@ -96,13 +99,14 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             try
             {
                 _output.ObserveFrame();
+                if(count>0) _downPads|=(byte)(1<<(int)side); else _downPads&=(byte)~(1<<(int)side);
+                ObserveTakeover();
                 CheckButtonInterference();
                 _output.ThrowIfFaulted();
-                bool takeover = _eligible();
-                bool eligible = takeover && !_output.ForeignButtonDown;
+                bool eligible = !_output.ForeignButtonDown;
                 if (Stopwatch.GetTimestamp()-timestamp > Stopwatch.Frequency*.15) eligible = false;
                 bool reserved = _engine.Process(side, contacts[..count], timestamp/(double)Stopwatch.Frequency,
-                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: takeover, keyboardPriority:_keyboardPriority[(int)side],
+                    Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: true, keyboardPriority:_keyboardPriority[(int)side],
                     fourthContactPending:fourthContactPending);
                 _frames++; if (reserved) { _reserved++; _pointerActivity(); }
                 return reserved;
@@ -138,9 +142,24 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
                 catch(Exception error) { _stenoPointer.Cancel(); Fail(error); }
                 return;
             }
-            try { CheckButtonInterference(); _output.ThrowIfFaulted(); _engine.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, _eligible() && !_output.ForeignButtonDown); }
+            try { ObserveTakeover(); CheckButtonInterference(); _output.ThrowIfFaulted(); _engine.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, !_output.ForeignButtonDown); }
             catch (Exception ex) { Fail(ex); }
         }
+    }
+    private void ObserveTakeover()
+    {
+        bool takeover=_eligible();
+        if(takeover==_lastTakeover) return;
+        _lastTakeover=takeover;
+        _output.Release();
+        CancelForTakeoverChange(_engine,_downPads,Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency);
+    }
+    internal static void CancelForTakeoverChange(HandGestureEngine engine,byte downPads,double time)
+    {
+        engine.Reset();
+        // Only pads already known to be all-up can start immediately. A held
+        // gesture must lift before AMT output is allowed to acquire it again.
+        for(int i=0;i<2;i++) if((downPads&(1<<i))==0) engine.Process((TrackpadSide)i,[],time,time,true);
     }
     private void Fail(Exception ex)
     {

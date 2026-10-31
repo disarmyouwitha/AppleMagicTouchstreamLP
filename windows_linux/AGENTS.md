@@ -232,4 +232,23 @@ See AppleMagicTouchstream.Core/HYPER_MODIFIERS.md. Focused Linux validation is
   displays completion/failure, and offers a saved/exported Pointer movement selector.
   STENO pointer acquisition uses 2 mm translation; two-finger mode requires coherent
   movement from both contacts. Larger cohorts cannot become the pointer after partial
-  lift. Clicking remains unassigned. Mouse Takeover stays required. Mac is unchanged.
+  lift. One- and two-finger force presses left-click. Mouse Takeover stays required. Mac is unchanged.
+
+- Outside STENO, keep gesture recognition/arbitration active with Mouse Takeover
+  off, while gating synthetic gesture output at publication and dispatch. Native
+  gestures must not fall through into typing/haptics. Takeover changes cancel
+  existing gesture cycles; known all-up pads may acquire immediately, held pads
+  must lift. STENO still requires Takeover and retains its separate pointer policy.
+
+- STENO haptics offer Off / key contact / chord release, defaulting to key contact
+  and respecting the global haptic switch/strength. Feedback uses typed, generation-
+  gated dispatch events, never frame-thread I/O. Held keys do not repeat feedback;
+  chord-release feedback covers participating pads and is cancelled with pointer
+  acquisition or input/lifecycle faults. The choice saves/exports with settings.
+- Layout and STENO selectors disable text search, ignore closed wheel/selection
+  keys and clear focus after closing. Plover output must not change app settings.
+
+- STENO 1F and 2F force presses always map to primary click, independently of
+  the selected pointer count. Use reported pressure >=130; never infer force.
+  Emit one click/feedback per all-up cycle, cancel the whole pending steno chord,
+  and block clicks after partial lift, substitution, stale or invalid input.
