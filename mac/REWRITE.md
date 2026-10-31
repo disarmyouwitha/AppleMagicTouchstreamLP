@@ -1,7 +1,5 @@
 # NEXT:
 ======= 
-1. Can we adjust the STENO Single layer to align the LHS thumb keys with A more under R (like in their diagram) and U aligned more under R (the spacing between them seems fine!) @screenshot
-===
 * Shortcut editor button make a little bigger? (screenshot)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
 > test?? I thought we build this but I cant find it, lol. You asked me if we should use the Apple Keychain? Am I hallucinating?
