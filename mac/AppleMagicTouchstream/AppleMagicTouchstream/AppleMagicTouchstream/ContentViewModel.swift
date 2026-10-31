@@ -2734,6 +2734,14 @@ enum KeyActionCatalog {
 
     private static let sharedActionGroups: [ActionGroup] = buildActionGroups(using: action)
 
+    static func inspectorActionGroups(_ groups:[ActionGroup],isSteno:Bool) -> [ActionGroup] {
+        guard !isSteno else { return groups }
+        return groups.compactMap { group in
+            let actions = group.actions.filter { $0.kind != .steno }
+            return actions.isEmpty ? nil:ActionGroup(title:group.title,actions:actions)
+        }
+    }
+
     static let primaryActionGroups: [ActionGroup] = sharedActionGroups
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
 

@@ -7,6 +7,7 @@
 5. Lets Hide Steno keys (in Keymap Tuning Primary/Hold) menu unless you are in the Steno Layout 
 6. I think Custom Buttons should be moved above Shortcut Builder 
 7. I think the textbox is too big for Text and should be slimmer, like in my screenshot (You can have the "Apply Text" button to the right of it) and move the "Shortcut: none" label below it.
+> Maybe the eye can go to the right of the Text textbox instead of "Apply Text"? idk. Maybe once you click Apply Text it should turn into an eye / if you select a key with text filled.
 ===
 1. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
 * * Start working on TouchStream gesture defaults template!!

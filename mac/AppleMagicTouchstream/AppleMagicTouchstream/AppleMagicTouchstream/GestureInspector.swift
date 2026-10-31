@@ -1522,6 +1522,10 @@ struct ShortcutActionBuilder:View {
     @State private var held = false
     @State private var showingShortcutKeys = false
     @State private var managingBuilderShortcuts = false
+    @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var builderLibrary = Data()
+    @State private var selectedSavedAction:KeyAction?
+    @State private var protectedTextID:UUID?
+    @State private var textRevealed = true
     @State private var textSaved = false
     @State private var savedText = ""
     @State private var textError:String?
@@ -1565,14 +1569,16 @@ struct ShortcutActionBuilder:View {
                             .frame(width:26,alignment:.leading)
                         Button { showingShortcutKeys = true } label: {
                             HStack {
-                                Text(shortcutKeyLabel.isEmpty ? "None":shortcutKeyLabel).frame(maxWidth:.infinity,alignment:.leading)
+                                Text(selectedSavedAction?.pickerText ?? (shortcutKeyLabel.isEmpty ? "None":shortcutKeyLabel)).frame(maxWidth:.infinity,alignment:.leading)
                                 Image(systemName:"chevron.down").font(.caption)
                             }
                         }.buttonStyle(.bordered).frame(maxWidth:.infinity)
                             .disabled(!canEditActionBuilder).accessibilityLabel("Shortcut Key")
                             .sheet(isPresented:$showingShortcutKeys) {
-                                SearchableActionSheet(title:"Shortcut Key",groups:Self.shortcutKeyGroups,
-                                    selected:shortcutKeyLabel,label:{ $0.isEmpty ? "None":$0 }) { shortcutKeyBinding.wrappedValue = $0 }
+                                SearchableActionSheet(title:"Shortcut Key",groups:Self.shortcutKeyPickerGroups(savedLabels:ShortcutActionLibraryStorage.decode(from:builderLibrary) ?? []),
+                                    selected:selectedSavedAction?.storageLabel ?? shortcutKeyLabel,
+                                    label:{ $0.isEmpty ? "None":KeyActionCatalog.action(for:$0)?.pickerText ?? $0 },
+                                    searchLabel:{ $0+" "+(KeyActionCatalog.action(for:$0)?.pickerText ?? "") }) { selectShortcutKey($0) }
                             }
                         Button {
                             if let builtAction { apply(builtAction, allowsHold && held && builtAction.kind == .key) }
@@ -1601,27 +1607,29 @@ struct ShortcutActionBuilder:View {
                         .frame(width: shortcutBuilderActionButtonWidth)
                         .disabled(!canEditActionBuilder)
                     }
-                    Text(actionBuilderPreview)
-                        .font(.caption2).foregroundStyle(.secondary)
-                    HStack(alignment:.top,spacing:8) {
+                    HStack(spacing:8) {
                         Text("Text").font(.caption).foregroundStyle(.secondary)
-                            .frame(width:26,alignment:.leading).padding(.top,8)
-                        ZStack(alignment:.topLeading) {
-                            TextEditor(text:$savedText).font(.body).padding(4)
-                                .frame(minHeight:70,maxHeight:110)
-                                .disabled(!canEditActionBuilder || textLoading)
-                                .accessibilityLabel("Text to paste")
-                            if savedText.isEmpty {
-                                Text("Text to paste — saved encrypted in Keychain on this Mac")
-                                    .font(.body).foregroundStyle(.tertiary).padding(.horizontal,8).padding(.vertical,10)
-                                    .allowsHitTesting(false)
+                            .frame(width:26,alignment:.leading)
+                        Group {
+                            if !textRevealed {
+                                SecureField("Saved text in Keychain",text:protectedTextID == nil ? editableTextBinding:.constant("saved text"))
+                                    .disabled(protectedTextID != nil)
+                            } else {
+                                TextField("Text to paste — encrypted in Keychain",text:editableTextBinding,axis:.vertical)
+                                    .lineLimit(1...3)
                             }
-                        }.background(Color(nsColor:.textBackgroundColor),in:RoundedRectangle(cornerRadius:6))
-                            .overlay(RoundedRectangle(cornerRadius:6).stroke(Color.secondary.opacity(0.25)))
+                        }.textFieldStyle(.roundedBorder).disabled(!canEditActionBuilder || textLoading)
+                            .accessibilityLabel("Text to paste")
+                        Button { toggleTextVisibility() } label: {
+                            Image(systemName:textRevealed ? "eye.slash":"eye")
+                        }.buttonStyle(.borderless).disabled(textLoading)
+                            .help(textRevealed ? "Hide text":"Reveal saved text from Keychain")
+                            .accessibilityLabel(textRevealed ? "Hide text":"Reveal text")
                         Button("Apply Text") { applyText() }.buttonStyle(.bordered)
                             .frame(width:shortcutBuilderActionButtonWidth)
-                            .disabled(!canEditActionBuilder || textLoading || !TextShortcutReference.valid(savedText))
+                            .disabled(!canEditActionBuilder || textLoading || (!TextShortcutReference.valid(savedText) && !(protectedTextID != nil && !textRevealed)))
                     }
+                    Text(actionBuilderPreview).font(.caption2).foregroundStyle(.secondary)
                     if let textError { Text(textError).font(.caption).foregroundStyle(.red) }
                     if textLoading { ProgressView().controlSize(.small) }
                     if textSaved { Text("Text saved. Name is optional.").font(.caption).foregroundStyle(.secondary) }
@@ -1644,8 +1652,56 @@ struct ShortcutActionBuilder:View {
         if !remaining.isEmpty { groups.append(.init(title:"Other Keys",actions:remaining)) }
         return groups
     }()
+    static func shortcutKeyPickerGroups(savedLabels:[String]) -> [SearchableActionGroup<String>] {
+        let shortcuts = KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
+            .filter { [.key,.appLaunch,.textPaste,.voice].contains($0.kind) }.map(\.storageLabel)
+        return shortcutKeyGroups + (shortcuts.isEmpty ? []:[.init(title:"Shortcuts",actions:shortcuts)])
+    }
+    private func selectShortcutKey(_ label:String) {
+        if label.isEmpty || KeyActionCatalog.shortcutKeyLabels.contains(label) {
+            selectedSavedAction = nil; shortcutKeyBinding.wrappedValue = label; return
+        }
+        guard let chosen = KeyActionCatalog.action(for:label) else { return }
+        clearShortcutBuilderState(); selectedSavedAction = chosen
+        shortcutName = chosen.customName ?? ""; appLaunchTarget = ""; appLaunchArguments = ""
+        savedText = ""; protectedTextID = TextShortcutReference.id(from:chosen.label)
+        textRevealed = protectedTextID == nil; textRevision = UUID(); textLoading = false
+        if let spec = KeyActionCatalog.shortcutSpec(for:chosen) {
+            shortcutModifiers = spec.modifiers; shortcutKeyLabel = spec.keyLabel
+        } else if let spec = KeyActionCatalog.appLaunchSpec(for:chosen) {
+            appLaunchTarget = spec.fileName; appLaunchArguments = spec.arguments
+        }
+    }
+    private var editableTextBinding:Binding<String> {
+        Binding(get:{ savedText },set:{ value in
+            savedText = value; protectedTextID = nil; selectedSavedAction = nil; textSaved = false
+        })
+    }
+    private func toggleTextVisibility() {
+        if textRevealed {
+            textRevealed = false
+            if protectedTextID != nil { savedText = "" }
+            return
+        }
+        guard let id = protectedTextID else { textRevealed = true; return }
+        let store = textStore, revision = textRevision
+        textLoading = true; textError = nil
+        Task { @MainActor in
+            let text = await Task.detached { try? store.load(id) }.value
+            guard textRevision == revision else { return }
+            textLoading = false
+            if let text { savedText = text; textRevealed = true }
+            else { textError = TextShortcutStorageError.unavailable.localizedDescription }
+        }
+    }
     private func applyText() {
-        guard canEditActionBuilder, !textLoading, TextShortcutReference.valid(savedText) else { return }
+        guard canEditActionBuilder, !textLoading else { return }
+        if let id = protectedTextID, !textRevealed {
+            var existing = TextShortcutReference.action(id:id)
+            existing.customName = NamedShortcutStorage.normalizedName(shortcutName)
+            apply(existing,false); textSaved = true; return
+        }
+        guard TextShortcutReference.valid(savedText) else { return }
         let text = savedText, store = textStore, revision = textRevision
         let name = NamedShortcutStorage.normalizedName(shortcutName)
         textLoading = true; textError = nil; textSaved = false
@@ -1655,24 +1711,19 @@ struct ShortcutActionBuilder:View {
             textLoading = false
             guard let action else { textError = TextShortcutStorageError.unavailable.localizedDescription; return }
             apply(action,false)
+            protectedTextID = TextShortcutReference.id(from:action.label)
+            savedText = ""; textRevealed = false
             textSaved = true
         }
     }
     private func sync() {
-        clearShortcutBuilderState(); shortcutName = action?.customName ?? ""
+        clearShortcutBuilderState(); selectedSavedAction = nil; shortcutName = action?.customName ?? ""
         appLaunchTarget = ""; appLaunchArguments = ""; held = holdUntilRelease
-        savedText = ""; textError = nil; textLoading = false; textRevision = UUID()
+        savedText = ""; protectedTextID = nil; textRevealed = true
+        textError = nil; textLoading = false; textRevision = UUID()
         guard let action else { return }
         if action.kind == .textPaste, let id = TextShortcutReference.id(from:action.label) {
-            let store = textStore, revision = textRevision
-            textLoading = true
-            Task { @MainActor in
-                let text = await Task.detached { try? store.load(id) }.value
-                guard textRevision == revision else { return }
-                textLoading = false
-                if let text { savedText = text }
-                else { textError = TextShortcutStorageError.unavailable.localizedDescription }
-            }
+            protectedTextID = id; textRevealed = false
         } else if let spec = KeyActionCatalog.appLaunchSpec(for:action) {
             appLaunchTarget = spec.fileName; appLaunchArguments = spec.arguments
         } else if let spec = KeyActionCatalog.shortcutSpec(for:action) {
@@ -1683,6 +1734,7 @@ struct ShortcutActionBuilder:View {
             Binding(
                 get: { shortcutKeyLabel },
                 set: { newValue in
+                    selectedSavedAction = nil
                     if !newValue.isEmpty {
                         appLaunchTarget = ""
                     }
@@ -1695,6 +1747,7 @@ struct ShortcutActionBuilder:View {
             Binding(
                 get: { appLaunchTarget },
                 set: { newValue in
+                    selectedSavedAction = nil
                     let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
                         clearShortcutBuilderState(); held = false
@@ -1727,6 +1780,7 @@ struct ShortcutActionBuilder:View {
             _ modifier: ShortcutModifier,
             variant: ShortcutModifierVariant?
         ) {
+            selectedSavedAction = nil
             if let variant {
                 appLaunchTarget = ""
                 shortcutModifiers[modifier] = variant
@@ -1849,18 +1903,20 @@ struct ShortcutActionBuilder:View {
         }
 
         private var builtAction: KeyAction? {
-            guard var action = builtAppLaunchAction ?? builtShortcutAction else { return nil }
+            guard var action = selectedSavedAction ?? builtAppLaunchAction ?? builtShortcutAction else { return nil }
             action.customName = NamedShortcutStorage.normalizedName(shortcutName)
             return action
         }
 
         private var actionBuilderPreview: String {
+            if let selectedSavedAction { return "Shortcut: \(selectedSavedAction.pickerText)" }
             if let action = builtAppLaunchAction {
                 return action.pickerText
             }
             if let action = builtShortcutAction {
                 return "Shortcut: \(action.pickerText)"
             }
+            if protectedTextID != nil { return "Shortcut: Text (Keychain)" }
             return "Shortcut: none"
         }
 

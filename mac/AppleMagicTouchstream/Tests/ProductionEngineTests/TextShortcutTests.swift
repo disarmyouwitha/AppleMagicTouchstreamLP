@@ -9,6 +9,8 @@ import XCTest
 private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Sendable {
     private let lock = NSLock()
     private var values:[UUID:String] = [:]
+    private var reads = 0
+    var loadCount:Int { lock.lock(); defer { lock.unlock() }; return reads }
     func save(_ text:String) throws -> UUID {
         guard TextShortcutReference.valid(text) else { throw TextShortcutStorageError.invalidText }
         lock.lock(); defer { lock.unlock() }
@@ -16,6 +18,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
     }
     func load(_ id:UUID) throws -> String {
         lock.lock(); defer { lock.unlock() }
+        reads += 1
         guard let text = values[id] else { throw TextShortcutStorageError.unavailable }
         return text
     }
@@ -74,19 +77,55 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         }
     }
 
-    func testClipboardCleanupErasesOwnedTextAndPreservesNewCopies() {
-        let board = NSPasteboard(name:.init("AMT-test-"+UUID().uuidString))
+    func testEmptyClipboardRestorationClearsOnlyOwnedPaste() throws {
+        let board = NSPasteboard(name:.init("AMT-empty-"+UUID().uuidString))
         defer { board.releaseGlobally() }
+        board.clearContents()
+        let snapshot = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
+        board.setString("secret",forType:.string)
+        TextShortcutClipboardCleanup.restoreIfOwned(snapshot,board:board,changeCount:board.changeCount)
+        XCTAssertNil(board.string(forType:.string))
+        XCTAssertLessThanOrEqual(TextShortcutClipboardCleanup.deliveryDelay,0.2)
+    }
+
+    func testClipboardRestoresMultipleFormatsAndDoesNotRestoreOverANewCopy() throws {
+        let board = NSPasteboard(name:.init("AMT-restore-"+UUID().uuidString))
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        let item = NSPasteboardItem()
+        item.setString("previous clipboard",forType:.string)
+        item.setData(Data("{\\rtf1\\ansi previous clipboard}".utf8),forType:.rtf)
+        board.writeObjects([item])
+        let snapshot = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
+        board.clearContents(); board.setString("secret",forType:.string)
+        let count = board.changeCount
+        TextShortcutClipboardCleanup.remember(snapshot,board:board,changeCount:count)
+        // A second paste before the first cleanup must snapshot the original,
+        // never the first secret, including after generation cancellation.
+        let again = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
+        XCTAssertEqual(board.string(forType:.string),"previous clipboard")
+        XCTAssertEqual(board.data(forType:.rtf),Data("{\\rtf1\\ansi previous clipboard}".utf8))
+        board.clearContents(); board.setString("second secret",forType:.string)
+        TextShortcutClipboardCleanup.restoreIfOwned(again,board:board,changeCount:board.changeCount)
+        XCTAssertEqual(board.string(forType:.string),"previous clipboard")
         board.clearContents(); board.setString("secret",forType:.string)
         let owned = board.changeCount
-        TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:owned)
-        XCTAssertNil(board.string(forType:.string))
-        board.setString("secret",forType:.string)
-        let old = board.changeCount
-        board.clearContents(); board.setString("new user copy",forType:.string)
-        TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:old)
-        XCTAssertEqual(board.string(forType:.string),"new user copy")
-        XCTAssertLessThanOrEqual(TextShortcutClipboardCleanup.deliveryDelay,0.2)
+        board.clearContents(); board.setString("new copy",forType:.string)
+        TextShortcutClipboardCleanup.restoreIfOwned(snapshot,board:board,changeCount:owned)
+        XCTAssertEqual(board.string(forType:.string),"new copy")
+    }
+
+    func testShortcutPickerIncludesLibraryAndStenoInspectorFiltersOnlyPresentation() {
+        var shortcut = KeyActionCatalog.action(for:"Cmd+C")!
+        shortcut.customName = "Copy fixture"
+        let text = TextShortcutReference.action(id:UUID())
+        let groups = ShortcutActionBuilder.shortcutKeyPickerGroups(savedLabels:[shortcut.storageLabel,text.storageLabel])
+        XCTAssertTrue(groups.first(where:{$0.title == "Shortcuts"})?.actions.contains(shortcut.storageLabel) == true)
+        XCTAssertTrue(groups.first(where:{$0.title == "Shortcuts"})?.actions.contains(text.storageLabel) == true)
+        for original in [KeyActionCatalog.primaryActionGroups,KeyActionCatalog.holdActionGroups] {
+            XCTAssertFalse(KeyActionCatalog.inspectorActionGroups(original,isSteno:false).flatMap(\.actions).contains(where:{$0.kind == .steno}))
+            XCTAssertEqual(KeyActionCatalog.inspectorActionGroups(original,isSteno:true).flatMap(\.actions),original.flatMap(\.actions))
+        }
     }
 
     func testShortcutKeyChooserRetainsEverySupportedKeyExactlyOnce() {
@@ -125,7 +164,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         XCTAssertEqual(results.withLock { $0 },[false])
     }
 
-    func testTextEditorLoadsThroughInjectedStoreAndRendersWithoutKeychainAccess() throws {
+    func testTextEditorKeepsAssignedTextHiddenWithoutReadingKeychain() throws {
         let store = MemoryTextShortcutStore(), text = "A private multiline\nmessage 😀"
         let id = try store.save(text)
         var action = TextShortcutReference.action(id:id); action.customName = "Greeting"
@@ -134,17 +173,18 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
             XCTAssertFalse(held); applied.append(value)
         },textStore:store)
         let host = NSHostingView(rootView:root.padding(16).background(Color(nsColor:.windowBackgroundColor)))
-        host.frame = NSRect(x:0,y:0,width:550,height:520)
+        host.frame = NSRect(x:0,y:0,width:550,height:340)
         let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
         window.contentView = host
         func editors(_ view:NSView) -> [NSTextView] { (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(editors) }
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(0.2)
         repeat {
             host.layoutSubtreeIfNeeded()
             RunLoop.current.run(until:Date().addingTimeInterval(0.01))
-        } while !editors(host).contains(where:{$0.string == text}) && Date() < deadline
+        } while Date() < deadline
         XCTAssertTrue(applied.isEmpty)
-        XCTAssertTrue(editors(host).contains(where:{$0.string == text}))
+        XCTAssertFalse(editors(host).contains(where:{$0.string == text}))
+        XCTAssertEqual(store.loadCount,0)
         if let path = ProcessInfo.processInfo.environment["TEXT_SHORTCUT_PREVIEW_PATH"],
            let image = host.bitmapImageRepForCachingDisplay(in:host.bounds) {
             host.cacheDisplay(in:host.bounds,to:image)

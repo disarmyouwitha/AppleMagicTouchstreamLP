@@ -41,9 +41,15 @@ Control/Command flags on subsequent clicks or typing.
 
 Keyboard and Gesture Shortcut Builders share an inline Text box below App, with
 a brief encrypted-Keychain placeholder and a separate Apply Text button. Names
-are optional; a successful text save displays confirmation. Both builders use the
-shared searchable grouped chooser for Key, and the gesture header directly opens
-the same saved-shortcut manager as Keymap Tuning. The Text box stores content as a
+are optional; a successful text save displays confirmation. Assigned text starts
+masked and is not read from Keychain until the eye button is clicked. Hiding it
+removes the loaded plaintext from editor state; an unsaved draft remains editable
+while masked. The compact field grows to at most three lines, with Apply Text on
+its right and the action preview below. Both builders use the shared searchable
+grouped chooser for Key, including the saved Shortcuts group; the gesture header directly opens
+the same saved-shortcut manager as Keymap Tuning. Custom Buttons precedes Shortcut
+Builder, and Primary/Hold choosers omit steno keys outside STENO layouts without
+changing stored assignments. The Text box stores content as a
 generic-password item in the
 local login Keychain. A calling-app-only access list protects the item. The signed
 app reads its own unlocked items without repeated approval; authentication UI is
@@ -71,11 +77,14 @@ the input/output queues.
 
 Pasting necessarily exposes plaintext to the destination and clipboard. Clipboard
 items carry the concealed marker for supporting history tools and, while the app
-is running, clear after a 200 ms Command-V delivery window, only if the clipboard
-change count still identifies that item. Failed paste dispatch clears immediately.
-The output queue waits through delivery/cleanup, and a new user copy is preserved.
-The prior clipboard is replaced; content is not retained
-in settings, action labels or diagnostics.
+is running, restore the prior clipboard after a 200 ms Command-V delivery window,
+only if the clipboard change count still identifies our item. Failed paste dispatch
+restores immediately. All materialized formats are copied in memory (up to 64 items
+and 32 MiB); an unavailable or oversized snapshot cancels before replacing the
+clipboard. A second paste restores the prior transaction before snapshotting, so
+it cannot later restore another secret. The output queue waits through delivery
+and restoration; a new user copy is preserved. Text is not retained in settings,
+action labels or diagnostics.
 
 ## TouchStream layout
 

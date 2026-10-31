@@ -102,11 +102,52 @@ final class TextShortcutPasteRequest:@unchecked Sendable {
     }
 }
 
-/// Clear only our paste item; another app/user copy always wins.
+/// An in-memory copy of materialized clipboard formats, never stored in settings.
+struct TextShortcutClipboardSnapshot:Sendable {
+    let items:[[String:Data]]
+    let changeCount:Int
+    @MainActor static func capture(_ board:NSPasteboard) -> Self? {
+        let changeCount = board.changeCount, originals = board.pasteboardItems ?? []
+        guard originals.count <= 64 else { return nil }
+        var items:[[String:Data]] = [], bytes = 0
+        for original in originals {
+            var formats:[String:Data] = [:]
+            for type in original.types {
+                guard let data = original.data(forType:type) else { return nil }
+                bytes += data.count
+                guard bytes <= 32*1024*1024 else { return nil }
+                formats[type.rawValue] = data
+            }
+            items.append(formats)
+        }
+        guard board.changeCount == changeCount else { return nil }
+        return .init(items:items,changeCount:changeCount)
+    }
+}
+
+/// Restore only while our paste item is still current; a new copy always wins.
 @MainActor enum TextShortcutClipboardCleanup {
     static let deliveryDelay:TimeInterval = 0.2
-    static func clearIfOwned(_ board:NSPasteboard,changeCount:Int) {
-        if board.changeCount == changeCount { board.clearContents() }
+    private static var pending:[String:(snapshot:TextShortcutClipboardSnapshot,count:Int)] = [:]
+    static func preserveBeforePaste(_ board:NSPasteboard) -> TextShortcutClipboardSnapshot? {
+        if let previous = pending.removeValue(forKey:board.name.rawValue) {
+            restoreIfOwned(previous.snapshot,board:board,changeCount:previous.count)
+        }
+        return TextShortcutClipboardSnapshot.capture(board)
+    }
+    static func remember(_ snapshot:TextShortcutClipboardSnapshot,board:NSPasteboard,changeCount:Int) {
+        pending[board.name.rawValue] = (snapshot,changeCount)
+    }
+    static func restoreIfOwned(_ snapshot:TextShortcutClipboardSnapshot,board:NSPasteboard,changeCount:Int) {
+        if pending[board.name.rawValue]?.count == changeCount { pending.removeValue(forKey:board.name.rawValue) }
+        guard board.changeCount == changeCount else { return }
+        let items = snapshot.items.map { formats in
+            let item = NSPasteboardItem()
+            for (type,data) in formats { item.setData(data,forType:NSPasteboard.PasteboardType(type)) }
+            return item
+        }
+        board.clearContents()
+        if !items.isEmpty { board.writeObjects(items) }
     }
 }
 
@@ -147,12 +188,18 @@ final class TextShortcutPasteOutput:@unchecked Sendable {
                           let current = FocusedTextDestination.capture(rejectSecureInput:false),
                           destination.matches(current,rejectSecureInput:false) else { request.finish(false); return }
                     let board = NSPasteboard.general
+                    guard let previous = TextShortcutClipboardCleanup.preserveBeforePaste(board) else { request.finish(false); return }
                     let item = NSPasteboardItem()
                     item.setString(text,forType:.string)
                     item.setData(Data(),forType:NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
                     board.clearContents()
-                    guard board.writeObjects([item]) else { request.finish(false); return }
+                    let emptyCount = board.changeCount
+                    guard board.writeObjects([item]) else {
+                        TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:emptyCount)
+                        request.finish(false); return
+                    }
                     let changeCount = board.changeCount
+                    TextShortcutClipboardCleanup.remember(previous,board:board,changeCount:changeCount)
                     let boardName = board.name.rawValue
                     DispatchService.shared.performPreparedTextPaste(pid:destination.pid,generation:generation) { pasted in
                         Task { @MainActor in
@@ -161,11 +208,11 @@ final class TextShortcutPasteOutput:@unchecked Sendable {
                             // through this brief read window, then erase our item immediately.
                             if pasted {
                                 DispatchQueue.main.asyncAfter(deadline:.now()+TextShortcutClipboardCleanup.deliveryDelay) {
-                                    TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:changeCount)
+                                    TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:changeCount)
                                     request.finish(true)
                                 }
                             } else {
-                                TextShortcutClipboardCleanup.clearIfOwned(board,changeCount:changeCount)
+                                TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:changeCount)
                                 request.finish(false)
                             }
                         }

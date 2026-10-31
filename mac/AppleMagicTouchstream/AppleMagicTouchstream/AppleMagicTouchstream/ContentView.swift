@@ -1409,6 +1409,7 @@ struct ContentView: View {
                             buttonSelection: buttonSelection,
                             keySelection: keySelection,
                             selectionRevision: selectionRevision,
+                            isStenoLayout: layoutOption.isSteno,
                             primaryActionGroups: primaryActionGroups,
                             holdActionGroups: holdActionGroups,
                             layerSelection: layerSelection,
@@ -1990,6 +1991,7 @@ struct ContentView: View {
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
+        let isStenoLayout: Bool
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let layerSelection: Binding<Int>
@@ -2161,11 +2163,11 @@ struct ContentView: View {
         }
 
         private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
-            var groups = hold ? holdActionGroups : primaryActionGroups
+            var groups = KeyActionCatalog.inspectorActionGroups(hold ? holdActionGroups : primaryActionGroups,isSteno:isStenoLayout)
             let containsAction = groups.contains { group in
                 group.actions.contains(action)
             }
-            if action.kind != .none && !containsAction {
+            if action.kind != .none && (isStenoLayout || action.kind != .steno) && !containsAction {
                 groups.insert(
                     KeyActionCatalog.ActionGroup(
                         title: "Current Custom Action",
@@ -2297,23 +2299,6 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .disabled(keySelection == nil)
                 }
-                subsectionHeader("Shortcut Builder")
-                VStack(alignment:.leading,spacing:8) {
-                    HStack(spacing:8) {
-                        Picker("",selection:$actionBuilderTarget) {
-                            ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
-                        }.pickerStyle(.segmented).labelsHidden()
-                        Button { managingShortcuts = true } label: {
-                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
-                        }
-                            .buttonStyle(.bordered).controlSize(.large)
-                            .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
-                    }
-                    .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
-                    ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
-                        enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
-                        .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
-                }
                 subsectionHeader("Custom Buttons")
                 addButtonsRow
                 if let selection = buttonSelection {
@@ -2363,6 +2348,23 @@ struct ContentView: View {
                             Spacer()
                         }
                     }
+                }
+                subsectionHeader("Shortcut Builder")
+                VStack(alignment:.leading,spacing:8) {
+                    HStack(spacing:8) {
+                        Picker("",selection:$actionBuilderTarget) {
+                            ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
+                        }.pickerStyle(.segmented).labelsHidden()
+                        Button { managingShortcuts = true } label: {
+                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
+                        }
+                            .buttonStyle(.bordered).controlSize(.large)
+                            .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
+                    }
+                    .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
+                    ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
+                        enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
+                        .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
