@@ -381,6 +381,14 @@ enum StenoLayoutDefinition {
                 rects[3][leftColumn+1].width = right.x+right.width-seam
             }
         }
+        if preset == .stenoSingle, rects.count > 3 {
+            // Move all four thumbs together: center A and U beneath the two R
+            // columns as closely as possible while preserving every pair/gap.
+            let targetCenter = (rects[2][3].centerX+rects[2][4].centerX)/2
+            let thumbCenter = (rects[3][0].centerX+rects[3][3].centerX)/2
+            let shift = targetCenter-thumbCenter
+            for column in rects[3].indices { rects[3][column].x += shift }
+        }
         // Extend the bottom vowel/thumb bars down to a 0.8 mm pad-edge margin.
         // Preserve their top edges, widths and stable key identities.
         if preset != .stenoVoyager, rects.count > 3 {

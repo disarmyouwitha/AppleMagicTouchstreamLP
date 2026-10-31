@@ -125,7 +125,9 @@ the existing 3 mm shared hit band on Asterisk and Single. Highlights and selecti
 use the same display outlines. This does not expand recognition a second time;
 The same display overlap applies equally above/below the number-bar seam. A/O
 and E/U base rectangles widen toward their pair midpoint, with the same 3 mm
-shared hit/display band between each pair. Outer pair edges stay fixed. Stars
+shared hit/display band between each pair. Outer pair edges stay fixed during widening. Single then translates all four
+thumbs together to place A beneath R- and U beneath -R, preserving all thumb
+widths, heights, pair overlap and spacing. Stars
 and the 6x3 layout keep their own outlines. Key widths remain from the drawing. Snap Radius does not participate in STENO; the fixed 1.5 mm steno key
 edge allowance remains independent of the keyboard toggle. The
 maker does not publish separate v2 copper-pad dimensions in that drawing. `STENO single` packs both
