@@ -92,7 +92,7 @@ struct KeychainTextShortcutStore:TextShortcutStoring {
 
 /// Exactly-once completion lets lifecycle cancellation resume the shared output pump
 /// immediately, even if the Keychain worker is still finishing a read.
-final class TextShortcutPasteRequest:@unchecked Sendable {
+final class TextShortcutTypingRequest:@unchecked Sendable {
     private let lock:OSAllocatedUnfairLock<(@Sendable (Bool) -> Void)?>
     init(completion:@escaping @Sendable (Bool) -> Void) { lock = OSAllocatedUnfairLock(initialState:completion) }
     var isActive:Bool { lock.withLock { $0 != nil } }
@@ -102,58 +102,31 @@ final class TextShortcutPasteRequest:@unchecked Sendable {
     }
 }
 
-/// An in-memory copy of materialized clipboard formats, never stored in settings.
-struct TextShortcutClipboardSnapshot:Sendable {
-    let items:[[String:Data]]
-    let changeCount:Int
-    @MainActor static func capture(_ board:NSPasteboard) -> Self? {
-        let changeCount = board.changeCount, originals = board.pasteboardItems ?? []
-        guard originals.count <= 64 else { return nil }
-        var items:[[String:Data]] = [], bytes = 0
-        for original in originals {
-            var formats:[String:Data] = [:]
-            for type in original.types {
-                guard let data = original.data(forType:type) else { return nil }
-                bytes += data.count
-                guard bytes <= 32*1024*1024 else { return nil }
-                formats[type.rawValue] = data
+/// Pure typing plan/event construction. Creating events never posts native input.
+/// Keep legacy textPaste identities and references stable; saved text now types.
+enum TextShortcutTypingPlan {
+    static let interval:TimeInterval = 0.005
+    static func strokes(_ text:String) -> [String] {
+        text.replacingOccurrences(of:"\r\n",with:"\n").unicodeScalars.map(String.init)
+    }
+    static func events(_ stroke:String,restoringFlags:CGEventFlags,source:CGEventSource? = nil) -> KeyboardStrokeOutput.Events? {
+        let code:CGKeyCode = stroke == "\n" || stroke == "\r" ? CGKeyCode(kVK_Return):stroke == "\t" ? CGKeyCode(kVK_Tab):0
+        guard let pair = KeyboardStrokeOutput.events(code:code,flags:[],restoringFlags:restoringFlags,source:source) else { return nil }
+        if code == 0 {
+            let units = Array(stroke.utf16)
+            guard !units.isEmpty, units.count <= 2 else { return nil }
+            units.withUnsafeBufferPointer { buffer in
+                pair.down.keyboardSetUnicodeString(stringLength:buffer.count,unicodeString:buffer.baseAddress!)
+                pair.up.keyboardSetUnicodeString(stringLength:buffer.count,unicodeString:buffer.baseAddress!)
             }
-            items.append(formats)
         }
-        guard board.changeCount == changeCount else { return nil }
-        return .init(items:items,changeCount:changeCount)
+        return pair
     }
 }
 
-/// Restore only while our paste item is still current; a new copy always wins.
-@MainActor enum TextShortcutClipboardCleanup {
-    static let deliveryDelay:TimeInterval = 0.2
-    private static var pending:[String:(snapshot:TextShortcutClipboardSnapshot,count:Int)] = [:]
-    static func preserveBeforePaste(_ board:NSPasteboard) -> TextShortcutClipboardSnapshot? {
-        if let previous = pending.removeValue(forKey:board.name.rawValue) {
-            restoreIfOwned(previous.snapshot,board:board,changeCount:previous.count)
-        }
-        return TextShortcutClipboardSnapshot.capture(board)
-    }
-    static func remember(_ snapshot:TextShortcutClipboardSnapshot,board:NSPasteboard,changeCount:Int) {
-        pending[board.name.rawValue] = (snapshot,changeCount)
-    }
-    static func restoreIfOwned(_ snapshot:TextShortcutClipboardSnapshot,board:NSPasteboard,changeCount:Int) {
-        if pending[board.name.rawValue]?.count == changeCount { pending.removeValue(forKey:board.name.rawValue) }
-        guard board.changeCount == changeCount else { return }
-        let items = snapshot.items.map { formats in
-            let item = NSPasteboardItem()
-            for (type,data) in formats { item.setData(data,forType:NSPasteboard.PasteboardType(type)) }
-            return item
-        }
-        board.clearContents()
-        if !items.isEmpty { board.writeObjects(items) }
-    }
-}
-
-final class TextShortcutPasteOutput:@unchecked Sendable {
-    static let shared = TextShortcutPasteOutput()
-    private struct State { var generation:UInt64 = 0; var requests:[UUID:TextShortcutPasteRequest] = [:] }
+final class TextShortcutTypingOutput:@unchecked Sendable {
+    static let shared = TextShortcutTypingOutput()
+    private struct State { var generation:UInt64 = 0; var requests:[UUID:TextShortcutTypingRequest] = [:] }
     private let state = OSAllocatedUnfairLock(initialState:State())
     private let worker = DispatchQueue(label:"AppleMagicTouchstream.savedText",qos:.userInitiated)
     var generation:UInt64 { state.withLock { $0.generation } }
@@ -168,7 +141,7 @@ final class TextShortcutPasteOutput:@unchecked Sendable {
     func request(_ label:String,generation:UInt64,completion:@escaping @Sendable (Bool)->Void = { _ in }) {
         guard let id = TextShortcutReference.id(from:label) else { completion(false); return }
         let requestID = UUID()
-        let request = TextShortcutPasteRequest { [weak self] pasted in
+        let request = TextShortcutTypingRequest { [weak self] pasted in
             self?.state.withLock { _ = $0.requests.removeValue(forKey:requestID) }
             completion(pasted)
         }
@@ -187,38 +160,29 @@ final class TextShortcutPasteOutput:@unchecked Sendable {
                     guard request.isActive, self.isCurrent(generation),
                           let current = FocusedTextDestination.capture(rejectSecureInput:false),
                           destination.matches(current,rejectSecureInput:false) else { request.finish(false); return }
-                    let board = NSPasteboard.general
-                    guard let previous = TextShortcutClipboardCleanup.preserveBeforePaste(board) else { request.finish(false); return }
-                    let item = NSPasteboardItem()
-                    item.setString(text,forType:.string)
-                    item.setData(Data(),forType:NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
-                    board.clearContents()
-                    let emptyCount = board.changeCount
-                    guard board.writeObjects([item]) else {
-                        TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:emptyCount)
-                        request.finish(false); return
-                    }
-                    let changeCount = board.changeCount
-                    TextShortcutClipboardCleanup.remember(previous,board:board,changeCount:changeCount)
-                    let boardName = board.name.rawValue
-                    DispatchService.shared.performPreparedTextPaste(pid:destination.pid,generation:generation) { pasted in
-                        Task { @MainActor in
-                            let board = NSPasteboard(name:NSPasteboard.Name(boardName))
-                            // Cmd-V delivery is asynchronous. Keep the output queue ordered
-                            // through this brief read window, then erase our item immediately.
-                            if pasted {
-                                DispatchQueue.main.asyncAfter(deadline:.now()+TextShortcutClipboardCleanup.deliveryDelay) {
-                                    TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:changeCount)
-                                    request.finish(true)
-                                }
-                            } else {
-                                TextShortcutClipboardCleanup.restoreIfOwned(previous,board:board,changeCount:changeCount)
-                                request.finish(false)
-                            }
-                        }
-                    }
+                    self.type(TextShortcutTypingPlan.strokes(text),index:0,destination:destination,
+                        request:request,generation:generation)
+
                 }
             }
         }
     }
+
+    @MainActor private func type(_ strokes:[String],index:Int,destination:FocusedTextDestination,
+                                 request:TextShortcutTypingRequest,generation:UInt64) {
+        guard request.isActive, isCurrent(generation),
+              let current = FocusedTextDestination.capture(rejectSecureInput:false),
+              destination.matches(current,rejectSecureInput:false) else { request.finish(false); return }
+        guard index < strokes.count else { request.finish(true); return }
+        DispatchService.shared.performPreparedTextTypingStroke(strokes[index],pid:destination.pid,generation:generation) { typed in
+            Task { @MainActor in
+                guard typed else { request.finish(false); return }
+                guard index+1 < strokes.count else { request.finish(true); return }
+                DispatchQueue.main.asyncAfter(deadline:.now()+TextShortcutTypingPlan.interval) {
+                    self.type(strokes,index:index+1,destination:destination,request:request,generation:generation)
+                }
+            }
+        }
+    }
+
 }

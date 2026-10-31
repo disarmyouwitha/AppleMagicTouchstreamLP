@@ -1,14 +1,5 @@
 # NEXT:
 ======= 
-1. Is there any way for me to preserve what I had in the clipboard previously? (Is there a reason for it to be copied to the clipboard, or that's how keychain works?)
-2. How does Better Touch Tools paste during Locked screens? It shows this message when it happens, ("Secure Input Active, System Settings has enabled secure input - simulated keystrokes may not arrive")
-3. In the GUI, when you select a Gesture or Key with Text assigned can it be hidden until you click an eye icon? Is that stuff pulled from keychain as well?
-4. Shortcut "Key" Menu is still missing the Shortcuts on the list
-5. Lets Hide Steno keys (in Keymap Tuning Primary/Hold) menu unless you are in the Steno Layout 
-6. I think Custom Buttons should be moved above Shortcut Builder 
-7. I think the textbox is too big for Text and should be slimmer, like in my screenshot (You can have the "Apply Text" button to the right of it) and move the "Shortcut: none" label below it.
-> Maybe the eye can go to the right of the Text textbox instead of "Apply Text"? idk. Maybe once you click Apply Text it should turn into an eye / if you select a key with text filled.
-===
 1. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
 * * Start working on TouchStream gesture defaults template!!
 * * make 6x3 decal girl template in gimp with layers for ppl to edit

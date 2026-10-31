@@ -198,6 +198,10 @@ final class KeyEventDispatcher: @unchecked Sendable {
         dispatcher.postText(text)
     }
 
+    func postSavedTextStrokeImmediate(_ stroke:String,heldFlags:CGEventFlags) -> Bool {
+        dispatcher.postSavedTextStrokeImmediate(stroke,heldFlags:heldFlags)
+    }
+
     func postTextImmediate(_ text: String) {
         dispatcher.postTextImmediate(text)
     }
@@ -225,6 +229,7 @@ private protocol KeyDispatching: Sendable {
     func postMiddleClickImmediate()
     func postText(_ text: String)
     func postTextImmediate(_ text: String)
+    func postSavedTextStrokeImmediate(_ stroke:String,heldFlags:CGEventFlags) -> Bool
     func postSystemKey(_ key: KeyEventDispatcher.SystemKey)
     func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey)
 }
@@ -465,6 +470,15 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         queue.async { [self] in
             postTextImmediate(text)
         }
+    }
+
+    func postSavedTextStrokeImmediate(_ stroke:String,heldFlags:CGEventFlags) -> Bool {
+        guard let source = ensureEventSource(),
+              let pair = TextShortcutTypingPlan.events(stroke,
+                restoringFlags:CGEventSource.flagsState(.combinedSessionState).union(heldFlags),source:source) else { return false }
+        pair.down.post(tap:.cghidEventTap)
+        pair.up.post(tap:.cghidEventTap)
+        return true
     }
 
     func postTextImmediate(_ text: String) {
@@ -929,18 +943,15 @@ final class DispatchService: @unchecked Sendable {
 
     func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
         guard TextShortcutReference.id(from:label) != nil else { return }
-        enqueue(.textPaste(label,TextShortcutPasteOutput.shared.generation),sourceSequence:sourceSequence)
+        enqueue(.textPaste(label,TextShortcutTypingOutput.shared.generation),sourceSequence:sourceSequence)
     }
 
-    func performPreparedTextPaste(pid:pid_t,generation:UInt64,completion:@escaping @Sendable (Bool)->Void) {
+    func performPreparedTextTypingStroke(_ stroke:String,pid:pid_t,generation:UInt64,completion:@escaping @Sendable (Bool)->Void) {
         guard keyDispatcher != nil else { completion(false); return }
         dispatchQueue.async { [self] in
-            guard TextShortcutPasteOutput.shared.isCurrent(generation), AXIsProcessTrusted(),
+            guard TextShortcutTypingOutput.shared.isCurrent(generation), AXIsProcessTrusted(),
                   NSRunningApplication(processIdentifier:pid)?.isActive == true else { completion(false); return }
-            let flags = CGEventSource.flagsState(.combinedSessionState).union(heldGestureFlags)
-            keyDispatcher?.postKeyStrokeImmediate(code:CGKeyCode(kVK_ANSI_V),flags:.maskCommand,
-                altAscii:0,token:nil,heldFlags:flags)
-            completion(true)
+            completion(keyDispatcher?.postSavedTextStrokeImmediate(stroke,heldFlags:heldGestureFlags) == true)
         }
     }
 
@@ -1042,7 +1053,7 @@ final class DispatchService: @unchecked Sendable {
         if keyDispatcher != nil {
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.cancel()
-            TextShortcutPasteOutput.shared.cancel()
+            TextShortcutTypingOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
             state.stenoGeneration &+= 1; state.stenoHapticGeneration &+= 1
@@ -1113,12 +1124,12 @@ final class DispatchService: @unchecked Sendable {
         while let command = popNextCommand() {
             if case let .textPaste(label,generation) = command.payload {
                 AutocorrectEngine.shared.invalidate()
-                TextShortcutPasteOutput.shared.request(label,generation:generation) { [weak self] pasted in
+                TextShortcutTypingOutput.shared.request(label,generation:generation) { [weak self] pasted in
                     guard let self else { return }
                     self.emitRecordedEvent(for:command,status:pasted ? .posted:.cancelled)
                     self.dispatchQueue.async { self.drainQueue() }
                 }
-                return // Keep later commands ordered behind this asynchronous paste.
+                return // Keep later commands ordered behind this asynchronous text output.
             }
             dispatch(command)
         }

@@ -2299,6 +2299,23 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .disabled(keySelection == nil)
                 }
+                subsectionHeader("Shortcut Builder")
+                VStack(alignment:.leading,spacing:8) {
+                    HStack(spacing:8) {
+                        Picker("",selection:$actionBuilderTarget) {
+                            ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
+                        }.pickerStyle(.segmented).labelsHidden()
+                        Button { managingShortcuts = true } label: {
+                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
+                        }
+                            .buttonStyle(.bordered).controlSize(.large)
+                            .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
+                    }
+                    .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
+                    ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
+                        enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
+                        .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
+                }
                 subsectionHeader("Custom Buttons")
                 addButtonsRow
                 if let selection = buttonSelection {
@@ -2348,23 +2365,6 @@ struct ContentView: View {
                             Spacer()
                         }
                     }
-                }
-                subsectionHeader("Shortcut Builder")
-                VStack(alignment:.leading,spacing:8) {
-                    HStack(spacing:8) {
-                        Picker("",selection:$actionBuilderTarget) {
-                            ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
-                        }.pickerStyle(.segmented).labelsHidden()
-                        Button { managingShortcuts = true } label: {
-                            Image(systemName:"slider.horizontal.3").font(.system(size:15)).frame(width:32,height:24)
-                        }
-                            .buttonStyle(.bordered).controlSize(.large)
-                            .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
-                    }
-                    .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
-                    ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
-                        enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
-                        .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

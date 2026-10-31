@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import os
 import LocalAuthentication
 import Security
@@ -77,42 +78,25 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         }
     }
 
-    func testEmptyClipboardRestorationClearsOnlyOwnedPaste() throws {
-        let board = NSPasteboard(name:.init("AMT-empty-"+UUID().uuidString))
-        defer { board.releaseGlobally() }
-        board.clearContents()
-        let snapshot = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
-        board.setString("secret",forType:.string)
-        TextShortcutClipboardCleanup.restoreIfOwned(snapshot,board:board,changeCount:board.changeCount)
-        XCTAssertNil(board.string(forType:.string))
-        XCTAssertLessThanOrEqual(TextShortcutClipboardCleanup.deliveryDelay,0.2)
-    }
-
-    func testClipboardRestoresMultipleFormatsAndDoesNotRestoreOverANewCopy() throws {
-        let board = NSPasteboard(name:.init("AMT-restore-"+UUID().uuidString))
-        defer { board.releaseGlobally() }
-        board.clearContents()
-        let item = NSPasteboardItem()
-        item.setString("previous clipboard",forType:.string)
-        item.setData(Data("{\\rtf1\\ansi previous clipboard}".utf8),forType:.rtf)
-        board.writeObjects([item])
-        let snapshot = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
-        board.clearContents(); board.setString("secret",forType:.string)
-        let count = board.changeCount
-        TextShortcutClipboardCleanup.remember(snapshot,board:board,changeCount:count)
-        // A second paste before the first cleanup must snapshot the original,
-        // never the first secret, including after generation cancellation.
-        let again = try XCTUnwrap(TextShortcutClipboardCleanup.preserveBeforePaste(board))
-        XCTAssertEqual(board.string(forType:.string),"previous clipboard")
-        XCTAssertEqual(board.data(forType:.rtf),Data("{\\rtf1\\ansi previous clipboard}".utf8))
-        board.clearContents(); board.setString("second secret",forType:.string)
-        TextShortcutClipboardCleanup.restoreIfOwned(again,board:board,changeCount:board.changeCount)
-        XCTAssertEqual(board.string(forType:.string),"previous clipboard")
-        board.clearContents(); board.setString("secret",forType:.string)
-        let owned = board.changeCount
-        board.clearContents(); board.setString("new copy",forType:.string)
-        TextShortcutClipboardCleanup.restoreIfOwned(snapshot,board:board,changeCount:owned)
-        XCTAssertEqual(board.string(forType:.string),"new copy")
+    func testSimulatedTypingPreservesUnicodeAndBuildsBalancedModifierRestoringEdges() throws {
+        let text = "Aé😀e\u{301}\tline\r\nnext"
+        let strokes = TextShortcutTypingPlan.strokes(text)
+        XCTAssertEqual(strokes.joined(),"Aé😀e\u{301}\tline\nnext")
+        XCTAssertTrue(strokes.allSatisfy { $0.utf16.count <= 2 })
+        for stroke in strokes {
+            let pair = try XCTUnwrap(TextShortcutTypingPlan.events(stroke,restoringFlags:[.maskShift,.maskCommand]))
+            XCTAssertEqual(pair.down.type,.keyDown); XCTAssertEqual(pair.up.type,.keyUp)
+            XCTAssertEqual(pair.down.flags,[])
+            XCTAssertEqual(pair.up.flags,[.maskShift,.maskCommand])
+            if stroke == "\n" || stroke == "\t" {
+                XCTAssertEqual(pair.down.getIntegerValueField(.keyboardEventKeycode),Int64(stroke == "\n" ? kVK_Return:kVK_Tab))
+            } else {
+                var count = 0, units = [UniChar](repeating:0,count:2)
+                pair.down.keyboardGetUnicodeString(maxStringLength:2,actualStringLength:&count,unicodeString:&units)
+                XCTAssertEqual(Array(units.prefix(count)),Array(stroke.utf16))
+            }
+        }
+        XCTAssertNil(TextShortcutTypingPlan.events("",restoringFlags:[]))
     }
 
     func testShortcutPickerIncludesLibraryAndStenoInspectorFiltersOnlyPresentation() {
@@ -145,7 +129,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
     }
 
     func testLifecycleCancellationInvalidatesPendingPastesWithoutReadingKeychain() {
-        let output = TextShortcutPasteOutput()
+        let output = TextShortcutTypingOutput()
         let generation = output.generation
         XCTAssertTrue(output.isCurrent(generation))
         output.cancel()
@@ -156,7 +140,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
 
     func testPasteCompletionCanResumeTheQueueOnlyOnceAfterCancellation() {
         let results = OSAllocatedUnfairLock<[Bool]>(initialState:[])
-        let request = TextShortcutPasteRequest { value in results.withLock { $0.append(value) } }
+        let request = TextShortcutTypingRequest { value in results.withLock { $0.append(value) } }
         XCTAssertTrue(request.isActive)
         request.finish(false)
         request.finish(true) // A late Keychain/native callback cannot resume the pump again.
