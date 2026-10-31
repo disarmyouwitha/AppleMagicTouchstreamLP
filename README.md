@@ -7,7 +7,7 @@
 
 **Useful Tips:**
 - **TURN ON "Trackpad Takeover"**: 
-This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse + Gestures) this option takes full control of the Trackpad from the OS to enforce this. You can set Gestures within the app to replace your OS-level gestures.
+This app was written with specific preferences in mind (1-finger = typing, 2-finger mouse, 3+ fingers Gesture) this option takes full control of the Trackpad from the OS to enforce this. You can set Gestures within the app to replace your OS-level gestures.
 
 **You can use just 1 Trackpad!**
 - I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit to two!

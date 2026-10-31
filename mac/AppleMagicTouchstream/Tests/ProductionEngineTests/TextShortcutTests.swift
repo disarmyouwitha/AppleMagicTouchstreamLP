@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import os
 import LocalAuthentication
 import Security
@@ -9,6 +10,8 @@ import XCTest
 private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Sendable {
     private let lock = NSLock()
     private var values:[UUID:String] = [:]
+    private var reads = 0
+    var loadCount:Int { lock.lock(); defer { lock.unlock() }; return reads }
     func save(_ text:String) throws -> UUID {
         guard TextShortcutReference.valid(text) else { throw TextShortcutStorageError.invalidText }
         lock.lock(); defer { lock.unlock() }
@@ -16,6 +19,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
     }
     func load(_ id:UUID) throws -> String {
         lock.lock(); defer { lock.unlock() }
+        reads += 1
         guard let text = values[id] else { throw TextShortcutStorageError.unavailable }
         return text
     }
@@ -57,6 +61,64 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         XCTAssertThrowsError(try MemoryTextShortcutStore().load(id))
     }
 
+    func testUnnamedTextActionSurvivesGestureAndLibraryRoundTrip() throws {
+        let store = MemoryTextShortcutStore()
+        for name:String? in [nil,"","   "] {
+            let action = try TextShortcutReference.savedAction(text:"private text",name:name,using:store)
+            XCTAssertNil(action.customName)
+            let gesture = GestureAction.shortcut(.init(label:action.storageLabel))
+            var settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(gesture,for:.twoFingerTap,in:.left))
+            let restored = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+            XCTAssertEqual(restored,settings)
+            XCTAssertEqual(GestureAction(rawValue:gesture.rawValue),gesture)
+            let library = try XCTUnwrap(ShortcutActionLibraryStorage.encode([action.storageLabel]))
+            XCTAssertEqual(ShortcutActionLibraryStorage.decode(from:library),[action.storageLabel])
+            XCTAssertTrue(GestureActionChooser.shortcutActions(GestureTrigger.twoFingerTap.allowedActions,savedLabels:[action.storageLabel]).contains(gesture))
+        }
+    }
+
+    func testSimulatedTypingPreservesUnicodeAndBuildsBalancedModifierRestoringEdges() throws {
+        let text = "Aé😀e\u{301}\tline\r\nnext"
+        let strokes = TextShortcutTypingPlan.strokes(text)
+        XCTAssertEqual(strokes.joined(),"Aé😀e\u{301}\tline\nnext")
+        XCTAssertTrue(strokes.allSatisfy { $0.utf16.count <= 2 })
+        for stroke in strokes {
+            let pair = try XCTUnwrap(TextShortcutTypingPlan.events(stroke,restoringFlags:[.maskShift,.maskCommand]))
+            XCTAssertEqual(pair.down.type,.keyDown); XCTAssertEqual(pair.up.type,.keyUp)
+            XCTAssertEqual(pair.down.flags,[])
+            XCTAssertEqual(pair.up.flags,[.maskShift,.maskCommand])
+            if stroke == "\n" || stroke == "\t" {
+                XCTAssertEqual(pair.down.getIntegerValueField(.keyboardEventKeycode),Int64(stroke == "\n" ? kVK_Return:kVK_Tab))
+            } else {
+                var count = 0, units = [UniChar](repeating:0,count:2)
+                pair.down.keyboardGetUnicodeString(maxStringLength:2,actualStringLength:&count,unicodeString:&units)
+                XCTAssertEqual(Array(units.prefix(count)),Array(stroke.utf16))
+            }
+        }
+        XCTAssertNil(TextShortcutTypingPlan.events("",restoringFlags:[]))
+    }
+
+    func testShortcutPickerIncludesLibraryAndStenoInspectorFiltersOnlyPresentation() {
+        var shortcut = KeyActionCatalog.action(for:"Cmd+C")!
+        shortcut.customName = "Copy fixture"
+        let text = TextShortcutReference.action(id:UUID())
+        let groups = ShortcutActionBuilder.shortcutKeyPickerGroups(savedLabels:[shortcut.storageLabel,text.storageLabel])
+        XCTAssertTrue(groups.first(where:{$0.title == "Shortcuts"})?.actions.contains(shortcut.storageLabel) == true)
+        XCTAssertTrue(groups.first(where:{$0.title == "Shortcuts"})?.actions.contains(text.storageLabel) == true)
+        for original in [KeyActionCatalog.primaryActionGroups,KeyActionCatalog.holdActionGroups] {
+            XCTAssertFalse(KeyActionCatalog.inspectorActionGroups(original,isSteno:false).flatMap(\.actions).contains(where:{$0.kind == .steno}))
+            XCTAssertEqual(KeyActionCatalog.inspectorActionGroups(original,isSteno:true).flatMap(\.actions),original.flatMap(\.actions))
+        }
+    }
+
+    func testShortcutKeyChooserRetainsEverySupportedKeyExactlyOnce() {
+        let labels = ShortcutActionBuilder.shortcutKeyGroups.flatMap(\.actions)
+        XCTAssertEqual(labels.filter { $0.isEmpty }.count,1)
+        XCTAssertEqual(Set(labels.filter { !$0.isEmpty }),Set(KeyActionCatalog.shortcutKeyLabels))
+        XCTAssertEqual(Set(labels).count,labels.count)
+    }
+
     func testKeychainQueryProhibitsAuthenticationUIAndUsesAnAppSpecificService() {
         let id = UUID(), query = KeychainTextShortcutStore.query(id:UUID())
         XCTAssertEqual(query[kSecUseAuthenticationUI as String] as? String,kSecUseAuthenticationUIFail as String)
@@ -67,7 +129,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
     }
 
     func testLifecycleCancellationInvalidatesPendingPastesWithoutReadingKeychain() {
-        let output = TextShortcutPasteOutput()
+        let output = TextShortcutTypingOutput()
         let generation = output.generation
         XCTAssertTrue(output.isCurrent(generation))
         output.cancel()
@@ -78,7 +140,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
 
     func testPasteCompletionCanResumeTheQueueOnlyOnceAfterCancellation() {
         let results = OSAllocatedUnfairLock<[Bool]>(initialState:[])
-        let request = TextShortcutPasteRequest { value in results.withLock { $0.append(value) } }
+        let request = TextShortcutTypingRequest { value in results.withLock { $0.append(value) } }
         XCTAssertTrue(request.isActive)
         request.finish(false)
         request.finish(true) // A late Keychain/native callback cannot resume the pump again.
@@ -86,7 +148,7 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         XCTAssertEqual(results.withLock { $0 },[false])
     }
 
-    func testTextEditorLoadsThroughInjectedStoreAndRendersWithoutKeychainAccess() throws {
+    func testTextEditorKeepsAssignedTextHiddenWithoutReadingKeychain() throws {
         let store = MemoryTextShortcutStore(), text = "A private multiline\nmessage 😀"
         let id = try store.save(text)
         var action = TextShortcutReference.action(id:id); action.customName = "Greeting"
@@ -95,17 +157,18 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
             XCTAssertFalse(held); applied.append(value)
         },textStore:store)
         let host = NSHostingView(rootView:root.padding(16).background(Color(nsColor:.windowBackgroundColor)))
-        host.frame = NSRect(x:0,y:0,width:550,height:380)
+        host.frame = NSRect(x:0,y:0,width:550,height:340)
         let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
         window.contentView = host
         func editors(_ view:NSView) -> [NSTextView] { (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(editors) }
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(0.2)
         repeat {
             host.layoutSubtreeIfNeeded()
             RunLoop.current.run(until:Date().addingTimeInterval(0.01))
-        } while !editors(host).contains(where:{$0.string == text}) && Date() < deadline
+        } while Date() < deadline
         XCTAssertTrue(applied.isEmpty)
-        XCTAssertTrue(editors(host).contains(where:{$0.string == text}))
+        XCTAssertFalse(editors(host).contains(where:{$0.string == text}))
+        XCTAssertEqual(store.loadCount,0)
         if let path = ProcessInfo.processInfo.environment["TEXT_SHORTCUT_PREVIEW_PATH"],
            let image = host.bitmapImageRepForCachingDisplay(in:host.bounds) {
             host.cacheDisplay(in:host.bounds,to:image)

@@ -1409,6 +1409,7 @@ struct ContentView: View {
                             buttonSelection: buttonSelection,
                             keySelection: keySelection,
                             selectionRevision: selectionRevision,
+                            isStenoLayout: layoutOption.isSteno,
                             primaryActionGroups: primaryActionGroups,
                             holdActionGroups: holdActionGroups,
                             layerSelection: layerSelection,
@@ -1990,6 +1991,7 @@ struct ContentView: View {
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
+        let isStenoLayout: Bool
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let layerSelection: Binding<Int>
@@ -2161,11 +2163,11 @@ struct ContentView: View {
         }
 
         private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
-            var groups = hold ? holdActionGroups : primaryActionGroups
+            var groups = KeyActionCatalog.inspectorActionGroups(hold ? holdActionGroups : primaryActionGroups,isSteno:isStenoLayout)
             let containsAction = groups.contains { group in
                 group.actions.contains(action)
             }
-            if action.kind != .none && !containsAction {
+            if action.kind != .none && (isStenoLayout || action.kind != .steno) && !containsAction {
                 groups.insert(
                     KeyActionCatalog.ActionGroup(
                         title: "Current Custom Action",

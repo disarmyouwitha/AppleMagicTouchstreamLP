@@ -39,7 +39,20 @@ Control/Command flags on subsequent clicks or typing.
 
 ## Saved text shortcuts
 
-Shortcut Builder's Text tab stores the content as a generic-password item in the
+Keyboard and Gesture Shortcut Builders share an inline Text box below App, with
+the “Text Encrypted in Keychain” placeholder and the eye button on its right.
+The shared Apply button saves/assigns text when the Text field contains a draft
+or an existing protected reference; otherwise it applies the key/app shortcut. Names
+are optional; a successful text save displays confirmation. Assigned text starts
+masked and is not read from Keychain until the eye button is clicked. Hiding it
+removes the loaded plaintext from editor state; an unsaved draft remains editable
+while masked. The compact field grows to at most three lines, with the eye on
+its right and the action preview below. Both builders use the shared searchable
+grouped chooser for Key, including the saved Shortcuts group; the gesture header directly opens
+the same saved-shortcut manager as Keymap Tuning. The Custom Buttons section follows Shortcut
+Builder, and Primary/Hold choosers omit steno keys outside STENO layouts without
+changing stored assignments. The Text box stores content as a
+generic-password item in the
 local login Keychain. A calling-app-only access list protects the item. The signed
 app reads its own unlocked items without repeated approval; authentication UI is
 forbidden, so locked/unavailable items fail closed. Keychain operations run on
@@ -57,19 +70,18 @@ library entry preserves its assigned actions and their Keychain item.
 Text is one-shot, including on Hold; held-key output is unavailable for it.
 Replay records only the reference through the existing system-event envelope,
 without reading Keychain, touching the clipboard or posting native keys. Live
-pastes retain the shared dispatch order while a worker reads the item, revalidate
-the focused destination on the main actor, and send balanced Command-V through
-shared keyboard output. Explicit text pasting may target secure text fields;
-Voice retains its existing secure-input exclusion. Reset/ownership cleanup cancels
-pending reads and resumes queued release edges exactly once. No AX call runs on
-the input/output queues.
-
-Pasting necessarily exposes plaintext to the destination and clipboard. Clipboard
-items carry the concealed marker for supporting history tools and, while the app
-is running, clear after 30 seconds only if the clipboard change count still
-identifies that item. A new
-user copy is preserved. The prior clipboard is replaced; content is not retained
-in settings, action labels or diagnostics.
+text output retains the shared dispatch order while a worker reads the item, then
+revalidates the focused destination on the main actor before every character.
+It emits paced, balanced HID key-down/up pairs (5 ms between Unicode scalars),
+with Return/Tab key events and CRLF treated as one Return. Down events clear
+shortcut modifiers; up events restore existing keyboard/gesture modifiers. Saved
+text is allowed in Secure Input fields, while Voice keeps its existing exclusion.
+No lock-screen compatibility is assumed by offline tests; hardware verification
+remains required. The clipboard is never read or written by saved-text output.
+Reset/ownership cleanup cancels pending reads and the remaining typing steps,
+and resumes queued release edges exactly once. No AX call runs on input/output
+queues. Serialized `textPaste` kinds, `TEXT_SHORTCUT` references and recording
+identities remain unchanged for existing profiles/captures.
 
 ## TouchStream layout
 
