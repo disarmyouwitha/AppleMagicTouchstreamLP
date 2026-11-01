@@ -2,15 +2,15 @@
 =======
 * * Test on Macbook!
 ===
-1. I like how the buttons look when squished as far as possible (screenshot) can you make them default this size?
-2. What does Group/Ungroup do? I can't really tell from the GUI / user experience as I usually just drag/select or shift-select the keys I want? They don't stay permanently grouped and that seems fine?
-3. ALSO there are no buttons for transforming group selection size at the same time?
-> Alternatively: Can we Drag/select resize for the whole selected group when we resize 1 of the members?
+1. When we switch to Layout Editor I want the Left / Right Trackpads to max out at the same max at during Visualization (This is a good representation of the size of an actual trackpad.)
+2. Can we make the buttons like 3 columns now that there is extra room? (3x3 or 4x2 if we have room?)
+3. Lets remove Key/Group mode and just stick with Key I prefer that. We can remote the group/ungroup buttons
+4. Lets make "Mirror Edit" highlight more blue like the 1# mm snap (When you click this button can you select between 1mm and 5mm snap?)
+5. I like the "Mirror Edit" icon in Layout Editor, can we use it in Gesture Editor as well (instead of the checkbox?)
+6. On the Drag Select ALL I really like the functionality! I like Drag-selecting them all with the big box, rather than haveing each have a dragable corner. Can we keep 1 without the other?
+7. Can we remove Key and the dropdown Option under Selection?
 ===
-- Visual toolbar seems dope! (above/below trackpads, like photoshopy?)
-- When we select a group of keys, can we resize them all at once? (by dragging?)
-- We should remove "Select Key" Dropdown from Layout Editor
-- Once we get Layout Editor done really well we can take "Custom Buttons" out of Keymap Editor! 
+- 6x3 Template reset doesn't reset to the actual 6x3 default.. it's like the underlying Corne template?
 ===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
