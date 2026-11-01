@@ -1222,7 +1222,7 @@ enum WorkspaceColumnSizing {
     static let defaultGestureColumnWidth = 286.0
     static let defaultGestureInspectorWidth = defaultMenuWidth
     static let compactMenuBreakpoint = 380.0
-    static let defaultMenuWidth = 321.0
+    static let defaultMenuWidth = 333.0
     static let minimumMenu = 220.0
     static let minimumInspector = minimumMenu
     static let dividerWidth = 8.0
@@ -1611,10 +1611,10 @@ struct ShortcutActionBuilder:View {
                             .frame(width:26,alignment:.leading)
                         Group {
                             if !textRevealed {
-                                SecureField("Text Encrypted in Keychain",text:protectedTextID == nil ? editableTextBinding:.constant("saved text"))
+                                SecureField("Encrypted in Keychain",text:protectedTextID == nil ? editableTextBinding:.constant("saved text"))
                                     .disabled(protectedTextID != nil)
                             } else {
-                                TextField("Text Encrypted in Keychain",text:editableTextBinding,axis:.vertical)
+                                TextField("Encrypted in Keychain",text:editableTextBinding,axis:.vertical)
                                     .lineLimit(1...3)
                             }
                         }.textFieldStyle(.roundedBorder).disabled(!canEditActionBuilder || textLoading)

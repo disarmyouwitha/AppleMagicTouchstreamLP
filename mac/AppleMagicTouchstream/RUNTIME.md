@@ -40,7 +40,7 @@ Control/Command flags on subsequent clicks or typing.
 ## Saved text shortcuts
 
 Keyboard and Gesture Shortcut Builders share an inline Text box below App, with
-the “Text Encrypted in Keychain” placeholder and the eye button on its right.
+the “Encrypted in Keychain” placeholder and the eye button on its right.
 The shared Apply button saves/assigns text when the Text field contains a draft
 or an existing protected reference; otherwise it applies the key/app shortcut. Names
 are optional; a successful text save displays confirmation. Assigned text starts
@@ -563,7 +563,7 @@ preference and report failure; exports include it. Build/tests never register
 login items. Login launch and registration approval require a user hardware test.
 
 Keyboard settings, Layout Editor and the Gesture action inspector share a default
-sidebar width of 321 points; gesture navigation defaults to 286 points. Saved custom
+sidebar width of 333 points; gesture navigation defaults to 286 points. Saved custom
 widths take precedence over these defaults.
 
 The Gesture workspace’s Left/Right/Both selector uses equal-width native segments
