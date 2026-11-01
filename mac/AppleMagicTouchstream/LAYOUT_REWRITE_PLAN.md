@@ -70,9 +70,9 @@ Do not launch input takeover or post native events during offline verification.
 Open Layout Editor, move a column, then move/resize one key independently and Apply.
 With Mirror Edit on, check reflected movement/resizing/rotation and dashed partner
 previews. Turn it off and verify each half stays independent. Test click and box
-selection in both Keys and Columns/Groups modes. Resize a temporary selection with
-member/shared handles, exact dimensions and the 5% buttons, including mirrored and
-mixed-rotation selections. Check saved group status and Select whole group. Apply/Cancel return to the
+selection with individual keys only. Resize a temporary selection with the shared
+frame handle, exact dimensions and 5% buttons, including mirrored and mixed-rotation
+selections. Check Off/1 mm/5 mm snap, compact wrapping tools and visualizer size caps. Apply/Cancel return to the
 visualizer; Cancel must leave geometry unchanged. Check Undo/Redo/Reset and then
 check typing at the new positions and switching layers. Duplicate an assigned key,
 remove it, reset the template and add another key; an old action must not reappear.

@@ -125,33 +125,29 @@ settings column. Apply saves one geometry update and returns to the visualizer;
 Cancel returns without publishing the staged document. Undo, Redo and Reset remain
 available in the editor header. Device/takeover controls remain available above it.
 
-Keys and Columns/Groups selection modes support click/drag, Shift-add selection,
-and box selection by dragging empty space. A column/group is selected through any
-of its keys. Every selected member has a corner handle; dragging one scales the
-whole current selection about that member's opposite corner. Multi-selection also
-shows a shared frame with a square resize handle. Width/Height fields resize the
-selection in millimeters, and Smaller/Larger 5% buttons scale keys and spacing.
-Temporary box/Shift selections resize just like permanent groups: Group is optional.
-Shift or Keep proportions locks the aspect ratio. Keys with shared axes can resize
-width and height independently; mixed rotations scale uniformly to retain rectangular
-shapes and existing rotations. Each pad uses its own anchor. Fixed STENO overlap
-allowances, key identities, groups, bindings and counterpart links are retained.
+Keys support click/drag, Shift-add selection and box selection by dragging empty
+space. Every selection has one shared frame and square resize handle per pad;
+individual member handles, group selection mode and the key-selection dropdown are
+absent. Width/Height fields resize selections in millimeters, and Smaller/Larger
+5% buttons scale keys and spacing. Shift or Keep proportions locks the aspect ratio.
+Keys with shared axes can resize independently; mixed rotations scale uniformly.
+Each pad uses its own anchor. Fixed STENO overlap allowances, key identities,
+existing group metadata, bindings and counterpart links are retained.
 
-Group stores membership in the staged document and Apply persists it; Ungroup removes
-selected members. Keys mode still selects individual members. Columns/Groups mode
-selects saved groups, and a partial selection offers Select whole group. The inspector
-shows group membership or Temporary selection explicitly. Tool buttons retain the
-compact 90-point width even when the inspector is widened, with short labels and
-specific tooltips. Editing snap applies to dragging/corner resizing on a separate
-1 mm grid and has no connection to typing Snap Radius.
+Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
+displayScale) and shrink together when needed. Tool buttons retain their compact
+90-point width and wrap into as many columns as fit, including three or four.
+The editor selects individual keys regardless of saved group metadata; Group/Ungroup
+controls are removed. Editing snap offers Off, 1 mm and 5 mm for dragging and shared
+frame resizing, independently of typing Snap Radius. Mirror Edit uses a blue enabled
+button with the same split-pad icon in Layout Editor and Gesture Editor.
 
 Mirror Edit defaults on for each edit session. Existing counterpart keys are paired
 once by mirrored geometry and persist their UUID relationship through later edits.
 Movement, size and angle deltas are reflected across the pair while preserving
 existing asymmetry, each side's legends and layer assignments. Dashed outlines
 preview the affected counterparts. Added keys/columns create pairs; deletion and
-duplication include existing counterparts. Grouping keeps separate groups on each
-pad. Unmatched keys stay independent, including STENO Single's right-only geometry.
+duplication include existing counterparts. Unmatched keys stay independent, including STENO Single's right-only geometry.
 Mirror Edit off allows independent edits; turning it back on does not realign keys.
 Mirrored edits undo/redo together as one document transaction. Pair relationships
 round-trip with the document through settings and captures.

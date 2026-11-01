@@ -2,13 +2,13 @@
 =======
 * * Test on Macbook!
 ===
-1. When we switch to Layout Editor I want the Left / Right Trackpads to max out at the same max at during Visualization (This is a good representation of the size of an actual trackpad.)
-2. Can we make the buttons like 3 columns now that there is extra room? (3x3 or 4x2 if we have room?)
-3. Lets remove Key/Group mode and just stick with Key I prefer that. We can remote the group/ungroup buttons
-4. Lets make "Mirror Edit" highlight more blue like the 1# mm snap (When you click this button can you select between 1mm and 5mm snap?)
-5. I like the "Mirror Edit" icon in Layout Editor, can we use it in Gesture Editor as well (instead of the checkbox?)
-6. On the Drag Select ALL I really like the functionality! I like Drag-selecting them all with the big box, rather than haveing each have a dragable corner. Can we keep 1 without the other?
-7. Can we remove Key and the dropdown Option under Selection?
+I have a small list of edits for you (Screenshot)
+0. I absolutely hate the off/1mm/5mm selector it needs to be changed. If you cant do it how I want use something like <gesture/keyboard> selector
+1. Lets move "Mirror Edit" and the grid-snap selector onto the same row to the right of "Layout Editor"
+2. Lets default to 3 columns max and I want to swap "Rotate Right 5" with the "Align" pair, so that it sits underneath "Rotate Left 5"
+3. I was going to say Align Delete to the right, but actually leave it I like it where it is at.
+4. "3 keys per column" selector should be moved to the right of the "colunm" button"
+> Since we can add keys/columns in Layout Editor now (looks good) lets remove "Custom Button" from Keymap Tuning and if the logic is seperate for those add/remove buttons lets remove that too.
 ===
 - 6x3 Template reset doesn't reset to the actual 6x3 default.. it's like the underlying Corne template?
 ===

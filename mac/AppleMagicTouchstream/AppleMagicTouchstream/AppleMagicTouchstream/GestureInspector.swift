@@ -627,8 +627,7 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.firstTextBaseline,spacing:8) {
                 Text("Gestures").font(.title3).bold().layoutPriority(1)
                 Spacer(minLength:0)
-                Toggle("Mirror Edit", isOn:$mirrorEdits)
-                    .toggleStyle(.checkbox)
+                MirrorEditButton(isOn:$mirrorEdits)
                     .disabled(editingHand == .both)
                     .font(.caption)
                     .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")

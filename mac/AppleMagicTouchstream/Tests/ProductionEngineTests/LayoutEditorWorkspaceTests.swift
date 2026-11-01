@@ -5,9 +5,6 @@ import XCTest
 
 @MainActor
 final class LayoutEditorWorkspaceTests: XCTestCase {
-    private func popups(_ view: NSView) -> [NSPopUpButton] {
-        (view as? NSPopUpButton).map { [$0] } ?? view.subviews.flatMap { popups($0) }
-    }
     private func editableFields(_ view: NSView) -> [NSTextField] {
         let fields = (view as? NSTextField).map { [$0] } ?? []
         return fields.filter(\.isEditable)+view.subviews.flatMap { editableFields($0) }
@@ -20,38 +17,24 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
         doc.inferMirrorPairs()
         return doc
     }
-    func testInlineWorkspaceSelectsKeysFromBothPadsWithoutApplying() throws {
+    func testInlineWorkspaceRendersIndividualSelectionOnEitherPadWithoutApplying() throws {
         let doc = document()
-        var applied = false, canceled = false
-        let host = NSHostingView(rootView:LayoutEditor(document:doc,template:doc,
-            onApply:{_ in applied = true},onCancel:{canceled = true},menuWidth:.constant(381))
-            .background(Color.white).environment(\.colorScheme,.light))
-        host.frame = CGRect(x:0,y:0,width:1384,height:520)
-        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
-        window.contentView = host
-        defer { window.contentView = nil }
-        host.layoutSubtreeIfNeeded(); window.displayIfNeeded()
-        RunLoop.current.run(until:Date().addingTimeInterval(0.05))
-        XCTAssertFalse(window.isVisible)
-        let popup = try XCTUnwrap(popups(host).first { $0.itemTitles.contains(where:{$0.hasPrefix("L ·")}) })
-        for side in ["L ·","R ·"] {
-            let item = try XCTUnwrap(popup.itemArray.first {$0.title.hasPrefix(side)})
-            XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(item.action),to:item.target,from:item))
-            host.layoutSubtreeIfNeeded()
+        for side in [false,true] {
+            let key = try XCTUnwrap(doc.keys.first {$0.right == side})
+            let host = NSHostingView(rootView:LayoutEditor(document:doc,template:doc,
+                onApply:{_ in XCTFail("Selection must stay staged")},onCancel:{},menuWidth:.constant(381),initialSelection:[key.id])
+                .background(Color.white).environment(\.colorScheme,.light))
+            host.frame = CGRect(x:0,y:0,width:1384,height:520)
+            let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+            window.contentView = host
+            host.layoutSubtreeIfNeeded(); window.displayIfNeeded()
             RunLoop.current.run(until:Date().addingTimeInterval(0.05))
+            XCTAssertFalse(window.isVisible)
             XCTAssertGreaterThanOrEqual(editableFields(host).count,5)
-            XCTAssertFalse(applied,"Selection must never publish geometry")
-            XCTAssertFalse(canceled)
-        }
-        if let directory = ProcessInfo.processInfo.environment["AMT_LAYOUT_PREVIEW_DIR"] {
-            let url = URL(fileURLWithPath:directory,isDirectory:true)
-            try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
-            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
-            host.cacheDisplay(in:host.bounds,to:bitmap)
-            try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("layout-selected.png"))
+            window.contentView = nil
         }
     }
-    func testSelectionSizingAndSavedGroupRenderWithCompactTools() throws {
+    func testTemporarySelectionSizingRendersWithCompactTools() throws {
         let doc = document()
         let group = try XCTUnwrap(doc.groups.first { g in doc.keys.filter {$0.group == g.id && !$0.right}.count > 1 })
         let ids = Set(doc.keys.filter {$0.group == group.id && !$0.right}.map(\.id))

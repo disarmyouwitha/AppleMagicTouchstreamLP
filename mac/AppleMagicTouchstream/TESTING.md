@@ -70,12 +70,12 @@ started. Set `AMT_LAYOUT_PREVIEW_DIR` to save previews, for example:
 AMT_LAYOUT_PREVIEW_DIR=/tmp/amt-layout-preview ./test.sh --filter 'Layout(SelectionResize|Mirror|EditorWorkspace|Document)Tests'
 ```
 
-On hardware, check direct click/drag in Keys and Columns/Groups modes, Shift-add and
-box selection. Resize temporary selections using member circles, the shared square
-handle, Width/Height and Smaller/Larger 5%. Check Shift/Keep proportions, common-axis
-nonuniform resizing and mixed-rotation uniform resizing. Confirm Group persists after
-Apply in Columns/Groups mode, while Keys mode remains independent; grouping must not
-be required for resizing. Check Mirror Edit on/off, dashed counterpart outlines, independent
+On hardware, check individual click/drag, Shift-add and box selection. Resize temporary
+selections using only the shared square handle, Width/Height and Smaller/Larger 5%.
+Check Shift/Keep proportions, common-axis nonuniform resizing and mixed-rotation
+uniform resizing. Verify visualizer/editor trackpad size caps match; tool grids wrap
+into three/four columns at wider settings widths. Check Off/1 mm/5 mm snapping and
+blue Mirror Edit buttons in both editors, dashed counterpart outlines, independent
 per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify
 STENO overlap chords after editing and settings/capture replay with authored layouts.
