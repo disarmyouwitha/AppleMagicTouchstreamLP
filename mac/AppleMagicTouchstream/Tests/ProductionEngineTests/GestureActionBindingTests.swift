@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import OpenMultitouchSupport
@@ -5,6 +6,192 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class GestureActionBindingTests: XCTestCase {
+    func testSmartZoomCatalogAndSettingsRoundTrip() throws {
+        XCTAssertEqual(GestureAction(rawValue:"smartZoom"),.smartZoom)
+        XCTAssertEqual(GestureAction.smartZoom.title,"Smart Zoom")
+        XCTAssertTrue(GestureAction.smartZoom.isDiscreteOutput)
+        XCTAssertFalse(GestureAction.smartZoom.isAppleShortcut)
+        for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.thumbTwoTap,
+                        .fourFingerTap,.fiveFingerTap,.oneFingerForce,.twoFingerPinch,.fiveFingerRotateLeft] {
+            var settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(.smartZoom,for:trigger,in:.left))
+            let restored = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+            XCTAssertEqual(restored.action(trigger,in:.left),.smartZoom)
+            XCTAssertNotEqual(restored.action(trigger,in:.right),.smartZoom)
+        }
+        var profile = AppKeymapProfile.defaultProfile()
+        var settings = HandGestureSettings()
+        settings.setAction(.smartZoom,for:.twoFingerTap,in:.left)
+        profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(
+            from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings?.action(.twoFingerTap,in:.left),.smartZoom)
+        XCTAssertTrue(PerHandGestureSettings.holdActions(for:3).contains(.smartZoom))
+        XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(.smartZoom))
+        XCTAssertTrue(TwoHandGestureSettings.allowedActions.contains(.smartZoom))
+        XCTAssertFalse(GestureTrigger.twoFingerMove.allowedActions.contains(.smartZoom))
+    }
+    func testSmartZoomBuildsNativeEventWithoutButtonOrKeyboardEdges() throws {
+        var clicks = PrimaryTapClickOutput()
+        _ = clicks.events(location:CGPoint(x:100,y:200),time:1,doubleClickInterval:0.5)
+        let events = try XCTUnwrap(GestureTapActionOutput.events(action:.smartZoom,
+            location:CGPoint(x:100,y:200),time:1.1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+        XCTAssertEqual(events.count,1)
+        let event = try XCTUnwrap(events.first)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:event)).type,.smartMagnify)
+        XCTAssertEqual(event.location,CGPoint(x:100,y:200))
+        XCTAssertEqual(event.flags,.maskShift)
+        XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+        XCTAssertEqual(event.getIntegerValueField(MagnifyGestureOutput.phase),0)
+        XCTAssertEqual(try XCTUnwrap(clicks.events(location:CGPoint(x:100,y:200),time:1.2,
+            doubleClickInterval:0.5)).down.getIntegerValueField(.mouseEventClickState),1)
+        XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:Double.nan,y:0)))
+        XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:0,y:Double.infinity)))
+    }
+    func testLookUpAndSpacesUseConfiguredShortcutsAndHonorDisabledBindings() throws {
+        for (action,id,code,flags) in [(GestureAction.lookUp,"70",CGKeyCode(2),CGEventFlags([.maskControl,.maskCommand])),
+                                       (.previousSpace,"79",123,.maskControl),(.nextSpace,"81",124,.maskControl)] {
+            for preferences:[String:Any] in [[:],[id:["enabled":true]]] {
+                let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:preferences))
+                XCTAssertEqual(plan.keyCode,code)
+                XCTAssertEqual(plan.flags,flags)
+                let events = try XCTUnwrap(plan.events())
+                let keys = events.filter { $0.type != .flagsChanged }
+                XCTAssertEqual(keys.map(\.type),[.keyDown,.keyUp])
+                XCTAssertEqual(keys.map { $0.getIntegerValueField(.keyboardEventKeycode) },[Int64(code),Int64(code)])
+                let expectedFlags = code == 2 ? flags : flags.union([.maskSecondaryFn,.maskNumericPad])
+                XCTAssertTrue(keys.allSatisfy { $0.flags == expectedFlags })
+                XCTAssertEqual(events.first?.type,.flagsChanged)
+                XCTAssertEqual(events.last?.flags,[])
+                XCTAssertTrue(events.allSatisfy { $0.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag })
+                for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] { XCTAssertNil(plan.events(phase:phase)) }
+            }
+            let custom:[String:Any] = [id:["enabled":true,"value":["type":"standard","parameters":[65535,20,CGEventFlags.maskAlternate.rawValue]]]]
+            let configured = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:custom))
+            XCTAssertEqual(configured.keyCode,20)
+            XCTAssertEqual(configured.flags,.maskAlternate)
+            for invalid:[String:Any] in [[id:["enabled":false]],[id:["enabled":false,"value":custom[id]!]],
+                                        [id:["enabled":true,"value":["type":"standard","parameters":[0,999,0]]]],
+                                        [id:"invalid"],[id:["value":[:]]]] {
+                XCTAssertNil(AppleShortcutPlan.resolve(action,preferences:invalid))
+            }
+            var profile = AppKeymapProfile.defaultProfile(), settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(action,for:.threeFingerTap,in:.left))
+            profile.handGestureSettings = settings
+            let imported = try PortableKeymapInterop.importProfile(
+                from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.left),action)
+            XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.right),.primaryDoubleClick)
+        }
+    }
+    func testSpaceShortcutBorrowsAndRestoresOnlyItsOwnModifiers() throws {
+        let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.nextSpace,preferences:[:]))
+        let events = try XCTUnwrap(plan.events(restoringFlags:.maskShift))
+        XCTAssertEqual(events.map(\.type),[.flagsChanged,.keyDown,.keyUp,.flagsChanged])
+        XCTAssertEqual(events.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,124,124,59])
+        XCTAssertEqual(events.map(\.flags),[[.maskShift,.maskControl],[.maskShift,.maskControl,.maskSecondaryFn,.maskNumericPad],
+                                           [.maskShift,.maskControl,.maskSecondaryFn,.maskNumericPad],.maskShift])
+        let held = try XCTUnwrap(plan.events(restoringFlags:[.maskControl,.maskShift]))
+        XCTAssertEqual(held.map(\.type),[.keyDown,.keyUp])
+        XCTAssertTrue(held.allSatisfy { $0.flags == [.maskControl,.maskShift,.maskSecondaryFn,.maskNumericPad] })
+        var clicks = PrimaryTapClickOutput()
+        let dispatched = try XCTUnwrap(GestureTapActionOutput.events(action:.nextSpace,
+            location:.zero,time:1,doubleClickInterval:0.5,flags:.maskControl,clicks:&clicks,shortcut:plan))
+        XCTAssertEqual(dispatched.map(\.type),[.keyDown,.keyUp])
+        let lookup = try XCTUnwrap(AppleShortcutPlan.resolve(.lookUp,preferences:[:])?.events())
+        XCTAssertEqual(lookup.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,55,2,2,55,59])
+        XCTAssertEqual(lookup.last?.flags,[])
+    }
+    func testNativeArrowClassificationDoesNotPressGlobeOrLeakToCustomLetterBinding() throws {
+        let native = try XCTUnwrap(SystemShortcutOutput.events(code:123,
+            flags:[.maskControl,.maskSecondaryFn],restoringFlags:[]))
+        XCTAssertEqual(native.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,123,123,59])
+        XCTAssertEqual(native.map(\.type),[.flagsChanged,.keyDown,.keyUp,.flagsChanged])
+        let arrow = try XCTUnwrap(NSEvent(cgEvent:native[1]))
+        XCTAssertTrue(arrow.modifierFlags.contains([.control,.function,.numericPad]))
+        XCTAssertEqual(native.first?.flags,.maskControl)
+        XCTAssertEqual(native.last?.flags,[])
+        let letter = try XCTUnwrap(SystemShortcutOutput.events(code:20,flags:.maskAlternate,restoringFlags:[]))
+        XCTAssertEqual(letter[1].flags,.maskAlternate)
+        XCTAssertFalse(letter[1].flags.contains(.maskSecondaryFn))
+        XCTAssertFalse(letter[1].flags.contains(.maskNumericPad))
+    }
+    func testNativePageNavigationDirectionAndPortableAssignments() throws {
+        for action in [GestureAction.pageBack,.pageForward] {
+            var clicks = PrimaryTapClickOutput()
+            let events = try XCTUnwrap(GestureTapActionOutput.events(action:action,location:CGPoint(x:20,y:30),
+                time:1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+            XCTAssertEqual(events.count,1)
+            let event = try XCTUnwrap(events.first)
+            let native = try XCTUnwrap(NSEvent(cgEvent:event))
+            XCTAssertEqual(native.type,.swipe)
+            XCTAssertEqual(native.deltaX,action == .pageBack ? 1 : -1)
+            XCTAssertEqual(native.deltaY,0)
+            XCTAssertEqual(event.location,CGPoint(x:20,y:30))
+            XCTAssertEqual(event.flags,.maskShift)
+            XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            XCTAssertTrue(action.isDiscreteOutput)
+            XCTAssertTrue(GestureTrigger.twoFingerTap.allowedActions.contains(action))
+            XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
+        }
+        XCTAssertNil(PageNavigationOutput.event(forward:true,location:CGPoint(x:Double.nan,y:0)))
+        var settings = HandGestureSettings(), profile = AppKeymapProfile.defaultProfile()
+        settings.setAction(.pageBack,for:.twoFingerTap,in:.left)
+        settings.setAction(.pageForward,for:.twoFingerTap,in:.right)
+        settings.setAction(.rotate,for:.threeFingerRotateLeft,in:.left)
+        profile.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings,settings)
+        XCTAssertFalse(GestureTrigger.twoFingerTap.allowedActions.contains(.rotate))
+        XCTAssertFalse(GestureDirectionalAssignments.allowedActions.contains(.rotate))
+        XCTAssertTrue(GestureTrigger.liveRotationTriggers.allSatisfy { $0.allowedActions.contains(.rotate) })
+    }
+    func testNativeRotationPhasesDirectionAnchorAndCancellation() throws {
+        var output = RotateGestureOutput()
+        XCTAssertNil(output.update(radians:0.1,began:false,location:.zero))
+        let start = try XCTUnwrap(output.update(radians:Double.pi/6,began:true,location:CGPoint(x:20,y:30),flags:.maskShift))
+        let native = try XCTUnwrap(NSEvent(cgEvent:start))
+        XCTAssertEqual(native.type,.rotate)
+        XCTAssertEqual(native.rotation,-30,accuracy:0.001)
+        XCTAssertEqual(native.phase,.began)
+        let reverse = try XCTUnwrap(output.update(radians:-Double.pi/12,began:false,location:.zero,flags:.maskCommand))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:reverse)).rotation,15,accuracy:0.001)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:reverse)).phase,.changed)
+        XCTAssertEqual(reverse.location,start.location); XCTAssertEqual(reverse.flags,.maskShift)
+        XCTAssertEqual(reverse.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+        let end = try XCTUnwrap(output.finish(cancelled:false))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:end)).phase,.ended)
+        XCTAssertFalse(output.active); XCTAssertNil(output.finish(cancelled:true))
+        _ = output.update(radians:0,began:true,location:.zero)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:try XCTUnwrap(output.finish(cancelled:true)))).phase,.cancelled)
+        XCTAssertNil(output.update(radians:Double.nan,began:true,location:.zero))
+        XCTAssertFalse(output.active)
+        XCTAssertNil(RotateGestureOutput.event(degrees:181,phase:2,location:.zero))
+    }
+    func testPlaybackMediaKeysHaveBalancedEdgesWithoutFineAdjustmentModifiers() throws {
+        for (action,code) in [(GestureAction.playPause,16),(.previousTrack,18),(.nextTrack,17),(.mute,7)] {
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            XCTAssertEqual(plan.eventTap,.cgSessionEventTap)
+            XCTAssertEqual(plan.flags,[])
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.count,2)
+            for (event,state) in zip(events,[0xA,0xB]) {
+                let native = try XCTUnwrap(NSEvent(cgEvent:event))
+                XCTAssertEqual(native.type,.systemDefined)
+                XCTAssertEqual(native.subtype.rawValue,8)
+                XCTAssertEqual(native.data1,(code << 16) | (state << 8))
+                XCTAssertTrue(native.modifierFlags.intersection([.control,.command,.shift,.option,.function]).isEmpty)
+                XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            }
+            XCTAssertNil(plan.events(phase:.changed))
+            var profile = AppKeymapProfile.defaultProfile(), settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(action,for:.twoFingerTap,in:.left))
+            profile.handGestureSettings = settings
+            XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+            XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
+            XCTAssertTrue(TwoHandGestureSettings.allowedActions.contains(action))
+        }
+    }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
             OMSRawTouch(id:Int32(index+10),posX:Float(index)*0.11+0.3+dx,
@@ -127,7 +314,7 @@ extension GestureActionBindingTests {
             XCTAssertEqual(settings.action(left,in:.right),.disabled)
             XCTAssertEqual(settings.action(right,in:.both),.volumeUpSmall)
             var reservation = GestureKeyboardArbitration()
-            XCTAssertEqual(reservation.process(device:1,activeCount:count) { GestureTrigger.liveRotationTriggers.contains($0) },count == 3 || count == 5)
+            XCTAssertEqual(reservation.process(device:1,activeCount:count) { GestureTrigger.liveRotationTriggers.contains($0) },true)
             var router = TrackpadGestureRouter()
             _ = router.recognize(device:1,time:1,contacts:contacts(Array(1...Int32(count))),enabled:{$0.isRotation})
             XCTAssertNil(router.recognize(device:1,time:1.01,contacts:contacts(Array(1...Int32(count)),dx:0.02),enabled:{$0.isRotation}).gesture)

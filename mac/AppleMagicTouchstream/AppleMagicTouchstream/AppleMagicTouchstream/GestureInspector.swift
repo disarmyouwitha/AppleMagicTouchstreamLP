@@ -17,8 +17,9 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Force Click"
         case .fiveFingers: return "Tap and Move"
         case .twoFingers: return "Tap and Move"
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch: return "Pinch and Spread"
-        case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
+        case .threeFingerPinch: return "Pinch, Spread, Rotate"
+        case .twoFingerPinch,.fourFingerPinch: return "Pinch, Spread, Rotate"
+        case .fiveFingerPinch: return "Pinch, Spread, Rotate"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Tap and Move"
         case .fourCorners:return "Outer Corners"
@@ -30,14 +31,16 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Choose an action for a one-finger force click."
         case .fiveFingers: return "Choose actions for five-finger tapping, movement, force clicking and holding."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch:
-            return "Choose actions for pinching and spreading. Both directions require a recognized thumb to begin."
+        case .twoFingerPinch,.fourFingerPinch:
+            return "Choose pinch, spread and rotation actions. A recognized thumb is required to begin."
+        case .threeFingerPinch:
+            return "Choose pinch, spread and rotation actions for a recognized thumb and two fingertips."
         case .fiveFingerPinch:
             return "Choose actions for pinching, spreading and rotation. Pinch and Spread require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
         case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners until the configured threshold."
-        case .thumbTwo: return "Choose diagonal swipes, tap, hold and rotation actions for a spread thumb and two fingertips."
+        case .thumbTwo: return "Choose diagonal swipes, tap and hold actions for a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
@@ -46,13 +49,13 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fiveFingers: return [.fiveFingerTap,.fiveFingerForce,.fiveFingerMove]
         case .fiveFingerPinch: return [.fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
-        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
+        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
-        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
+        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread,.threeFingerRotateLeft,.threeFingerRotateRight]
         case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
         case .fourCorners:return [.fourCornersTap]
-        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
-        case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight]
+        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight]
+        case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove]
         }
     }
     var isPinchSection: Bool {
@@ -441,7 +444,7 @@ extension GestureTrigger {
         return isContinuous ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.tap"
     }
     func behavior(for action: GestureAction?) -> String {
-        if isRotation { return action == .disabled ? "No output" : "Once on activation" }
+        if isRotation { return action == .rotate ? "Follow motion" : action == .disabled ? "No output" : "Once on activation" }
         guard let action else { return "Mixed assignments" }
         if action == .disabled { return "No output" }
         if action.isDiscreteOutput { return isPinch || isContinuous ? "Once on activation" : "One step per recognition" }
@@ -451,7 +454,7 @@ extension GestureTrigger {
         }
     }
     var recognitionNote: String {
-        if isRotation { return "Turn a recognized thumb and fingertip group at least 3°. Rotation wins when angular travel dominates radial change. Fires once and remains latched until all-up." }
+        if isRotation { return "Turn a recognized thumb and fingertip group at least 3°. Rotation wins when angular travel dominates radial change. Remains latched until all-up; Rotate Content follows motion, while other actions fire once." }
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
@@ -484,6 +487,7 @@ struct GestureInspectorPanel: View {
             setHoldThreshold:{controller.setHoldThreshold($0,count:$1,scope:$2)},
             setTwoHandHoldThreshold:{controller.setTwoHandHoldThreshold($0,chord:$1)},
             holdStatus:{controller.holdStatus(count:$0,scope:$1)},
+            setShapeRepeat:{controller.setShapeRepeat($0,for:$1,scope:$2)},
             setNaturalScrolling:{controller.setNaturalScrolling($0,scope:$1)})
     }
 }
@@ -505,6 +509,7 @@ struct GestureAssignmentWorkspace: View {
     let setHoldThreshold:(Double,Int,GestureHandScope)->Void
     let setTwoHandHoldThreshold:(Double,TwoHandChord)->Void
     let holdStatus:(Int,GestureHandScope)->String
+    let setShapeRepeat:(GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void
     let setNaturalScrolling:(Bool,GestureHandScope)->Void
     @State private var twoHandChord = TwoHandChord.fourCorners
     @State private var twoHandPhase = TwoHandPhase.hold
@@ -535,7 +540,9 @@ struct GestureAssignmentWorkspace: View {
          setHoldThreshold:@escaping (Double,Int,GestureHandScope)->Void = {_,_,_ in},
          setTwoHandHoldThreshold:@escaping (Double,TwoHandChord)->Void = {_,_ in},
          holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 500 ms. Fires once until all-up."},
+         setShapeRepeat:@escaping (GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
          setNaturalScrolling:@escaping (Bool,GestureHandScope)->Void = {_,_ in}) {
+        self.setShapeRepeat = setShapeRepeat
         self.setNaturalScrolling = setNaturalScrolling
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
@@ -605,7 +612,9 @@ struct GestureAssignmentWorkspace: View {
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                         }
                     }
-                    .padding(24)
+                    .padding(.horizontal,24)
+                    .padding(.top,20)
+                    .padding(.bottom,24)
                     .frame(maxWidth:.infinity,alignment:.topLeading)
                 }
                 .frame(maxWidth:.infinity,maxHeight:.infinity)
@@ -632,14 +641,8 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption)
                     .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")
             }
-            Picker("Edit trackpad",selection:$editingHand) {
-                Text("Left").tag(GestureHandScope.left)
-                Text("Right").tag(GestureHandScope.right)
-                Text("Both").tag(GestureHandScope.both)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth:.infinity)
+            GestureHandScopePicker(selection:$editingHand)
+                .frame(maxWidth:.infinity)
             .help("Both edits coordinated two-hand gestures. Mirror Edit applies only to independent Left/Right settings.")
             TextField("Search gestures or actions",text:$search)
                 .textFieldStyle(.roundedBorder)
@@ -716,7 +719,6 @@ struct GestureAssignmentWorkspace: View {
     private var twoHandTrigger:TwoHandTrigger { .init(chord:twoHandChord,phase:twoHandPhase) }
     private var twoHandHeader:some View {
         VStack(alignment:.leading,spacing:14) {
-            Text("Gestures / Both hands").font(.caption).foregroundStyle(.secondary)
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
@@ -789,7 +791,6 @@ struct GestureAssignmentWorkspace: View {
 
     private var header: some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("Gestures / \(scopeText)").font(.caption).foregroundStyle(.secondary)
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(pane.group).font(.system(size:25,weight:.semibold))
@@ -841,7 +842,7 @@ struct GestureAssignmentWorkspace: View {
         Text(pane.isPinchSection ? "SHAPE ASSIGNMENTS" : "ASSIGNMENTS")
             .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
         if pane == .thumbTwo {
-            Text("Swipe toward a corner, or choose Tap, Hold or Rotate.")
+            Text("Swipe toward a corner, or choose Tap or Hold.")
                 .font(.caption).foregroundStyle(.secondary)
         } else if !pane.isPinchSection && pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
             Text("Use continuous movement or separate directional actions.")
@@ -851,14 +852,11 @@ struct GestureAssignmentWorkspace: View {
     private var thumbDiagonalGrid: some View {
         LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
             movementCard(.thumbTwoMove,direction:.upLeft)
-            assignmentCard(.thumbTwoTap,compact:true)
             movementCard(.thumbTwoMove,direction:.upRight)
-            assignmentCard(.threeFingerRotateLeft,compact:true)
-            Color.clear.frame(minHeight:106).accessibilityHidden(true)
-            assignmentCard(.threeFingerRotateRight,compact:true)
+            assignmentCard(.thumbTwoTap,compact:true)
             movementCard(.thumbTwoMove,direction:.downLeft)
-            holdCard
             movementCard(.thumbTwoMove,direction:.downRight)
+            holdCard
         }
     }
 
@@ -921,6 +919,13 @@ struct GestureAssignmentWorkspace: View {
         .accessibilityHint("Select to edit and switch movement mode.")
     }
 
+    private func shapeBehavior(_ trigger:GestureTrigger,action:GestureAction?) -> String {
+        guard trigger.isPinch || trigger.isRotation, let action, action != .disabled,
+              action != .zoom, action != .rotate else { return trigger.behavior(for:action) }
+        guard let config = settings.shapeRepeat(trigger,in:editingScope) else { return "Mixed behavior" }
+        return config.mode == .once ? "Once on activation" : config.mode == .motion
+            ? "Repeat with motion" : "Repeat every \(Int(config.boundedIntervalMS)) ms"
+    }
     private func assignmentCard(_ trigger:GestureTrigger,compact:Bool = false) -> some View {
         let assigned = settings.action(trigger,in:editingScope)
         return Button { selectedHold = false; selected = trigger; selectedDirection = nil } label: {
@@ -931,7 +936,7 @@ struct GestureAssignmentWorkspace: View {
                     Spacer(minLength:0)
                 }
                 Text(assigned?.title ?? "Mixed").font(.system(size:compact ? 16 : 17,weight:.medium)).fixedSize(horizontal:false,vertical:true)
-                Text(trigger.behavior(for:assigned)).font(.caption).foregroundStyle(.secondary)
+                Text(shapeBehavior(trigger,action:assigned)).font(.caption).foregroundStyle(.secondary)
             }
             .padding(compact ? 12 : 18).frame(maxWidth:.infinity,minHeight:compact ? 106 : 112,alignment:.topLeading)
             .background(!selectedHold && selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
@@ -1076,10 +1081,14 @@ struct GestureAssignmentWorkspace: View {
                             naturalScrollingToggle
                         }
                     }
-                    VStack(alignment:.leading,spacing:8) {
-                        Text("Behavior").font(.caption).foregroundStyle(.secondary)
-                        Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
-                        Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    if (selected.isPinch || selected.isRotation) && action != .zoom && action != .rotate && action != .disabled && action != nil {
+                        shapeRepeatEditor
+                    } else {
+                        VStack(alignment:.leading,spacing:8) {
+                            Text("Behavior").font(.caption).foregroundStyle(.secondary)
+                            Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
+                            Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                        }
                     }
                     if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
                     if !GestureDirectionalAssignments.triggers.contains(selected) {
@@ -1098,6 +1107,34 @@ struct GestureAssignmentWorkspace: View {
             .padding(20)
         }
         .background(Color.primary.opacity(0.025))
+    }
+    private var shapeRepeatEditor:some View {
+        let config = settings.shapeRepeat(selected,in:editingScope)
+        return VStack(alignment:.leading,spacing:12) {
+            Picker("Behavior",selection:Binding<GestureShapeRepeatMode?>(get:{config?.mode},set:{ mode in
+                guard let mode else { return }
+                var value = config ?? GestureShapeRepeat(); value.mode = mode
+                setShapeRepeat(value,selected,editingScope)
+            })) {
+                if config == nil { Text("Mixed").tag(Optional<GestureShapeRepeatMode>.none) }
+                ForEach(GestureShapeRepeatMode.allCases,id:\.self) { choice in Text(choice.title).tag(Optional(choice)) }
+            }
+            .pickerStyle(.menu).modifier(FlexibleMenuPickerSizing())
+            if config?.mode == .timed {
+                HStack {
+                    GestureRepeatIntervalField(value:config?.boundedIntervalMS,enabled:true) { interval in
+                        var value = config ?? GestureShapeRepeat(); value.intervalMS = interval
+                        setShapeRepeat(value,selected,editingScope)
+                    }.id("shape.\(selected.rawValue).\(editingScope.rawValue)")
+                    Text("ms while held").font(.callout)
+                }
+            }
+            Text(config?.mode == .motion
+                ? "Repeats with continued motion in the activated direction. Pausing stops output. Lift all fingers to rearm."
+                : config?.mode == .timed ? "20–5000 ms. Repeats while held, even when still; all-up stops output."
+                : "Fires once on activation and stays latched until all-up.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
     }
     private func directionalInspector(_ direction:GestureMovementDirection) -> some View {
         let value = settings.directionalAction(direction,for:selected,in:editingScope)
@@ -1180,10 +1217,11 @@ struct GestureAssignmentWorkspace: View {
     }
 
     private var behaviorDetail:String {
+        if selected.isRotation && action == .rotate { return "Native content rotation follows your turn, including reversals, until all fingers lift. The receiving app must support rotation." }
         if selected.isRotation { return "Fires once when rotation activates. Continuing or reversing the turn cannot fire another action until all fingers lift." }
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
         if action.shortcutAssignment != nil { return "Runs the assigned shortcut once when this gesture is recognized. The gesture keeps its existing latch until all-up." }
-        if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
+        if action.isAppleShortcut || GestureAction.nativeDiscreteActions.contains(action) { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
         switch action {
         case .primaryDrag: return "Holds the primary mouse button through the drag, using the same pointer acceleration as mouse movement."
         case .scroll: return "Precise scrolling follows motion, with momentum after release."
@@ -1228,7 +1266,7 @@ enum WorkspaceColumnSizing {
     static let defaultGestureColumnWidth = 286.0
     static let defaultGestureInspectorWidth = defaultMenuWidth
     static let compactMenuBreakpoint = 380.0
-    static let defaultMenuWidth = compactMenuBreakpoint + 1
+    static let defaultMenuWidth = 333.0
     static let minimumMenu = 220.0
     static let minimumInspector = minimumMenu
     static let dividerWidth = 8.0
@@ -1480,10 +1518,10 @@ struct GestureActionChooser:View {
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
-            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
+            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
-            ("System",GestureAction.appleShortcuts),
-            ("Sound & Display",GestureAction.smallStepActions),
+            ("System",GestureAction.appleShortcuts + GestureAction.nativeDiscreteActions),
+            ("Sound & Display",GestureAction.mediaActions + GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in
             let matches = values.filter { actions.contains($0) }
@@ -1617,10 +1655,10 @@ struct ShortcutActionBuilder:View {
                             .frame(width:26,alignment:.leading)
                         Group {
                             if !textRevealed {
-                                SecureField("Text Encrypted in Keychain",text:protectedTextID == nil ? editableTextBinding:.constant("saved text"))
+                                SecureField("Encrypted in Keychain",text:protectedTextID == nil ? editableTextBinding:.constant("saved text"))
                                     .disabled(protectedTextID != nil)
                             } else {
-                                TextField("Text Encrypted in Keychain",text:editableTextBinding,axis:.vertical)
+                                TextField("Encrypted in Keychain",text:editableTextBinding,axis:.vertical)
                                     .lineLimit(1...3)
                             }
                         }.textFieldStyle(.roundedBorder).disabled(!canEditActionBuilder || textLoading)
@@ -2066,5 +2104,33 @@ struct GestureHoldThresholdField:View {
             Text("ms").foregroundStyle(.secondary)
         }
         .help("100–5000 ms in 10 ms increments. Saves on Return or when leaving the field.")
+    }
+}
+
+/// Match the workspace picker: equal segments fill the available column width.
+private struct GestureHandScopePicker: NSViewRepresentable {
+    @Binding var selection:GestureHandScope
+    private static let options:[GestureHandScope] = [.left,.right,.both]
+    func makeCoordinator() -> Coordinator { Coordinator(selection:$selection) }
+    func makeNSView(context:Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(labels:["Left","Right","Both"],trackingMode:.selectOne,
+            target:context.coordinator,action:#selector(Coordinator.select(_:)))
+        control.segmentDistribution = .fillEqually
+        control.setContentHuggingPriority(.defaultLow,for:.horizontal)
+        control.setAccessibilityLabel("Edit trackpad")
+        return control
+    }
+    func updateNSView(_ control:NSSegmentedControl,context:Context) {
+        context.coordinator.selection = $selection
+        control.selectedSegment = Self.options.firstIndex(of:selection) ?? 0
+        control.isEnabled = context.environment.isEnabled
+    }
+    @MainActor final class Coordinator:NSObject {
+        var selection:Binding<GestureHandScope>
+        init(selection:Binding<GestureHandScope>) { self.selection = selection }
+        @objc func select(_ control:NSSegmentedControl) {
+            guard GestureHandScopePicker.options.indices.contains(control.selectedSegment) else { return }
+            selection.wrappedValue = GestureHandScopePicker.options[control.selectedSegment]
+        }
     }
 }

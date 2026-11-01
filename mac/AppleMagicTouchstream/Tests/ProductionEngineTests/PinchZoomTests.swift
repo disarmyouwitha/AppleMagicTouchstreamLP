@@ -267,18 +267,20 @@ extension PinchZoomTests {
                 continue
             }
             let events = try XCTUnwrap(plan.events())
-            XCTAssertEqual(events.count,2)
-            XCTAssertEqual(events[0].type,.keyDown); XCTAssertEqual(events[1].type,.keyUp)
-            for event in events {
+            let keys = events.filter { $0.type != .flagsChanged }
+            XCTAssertEqual(keys.count,2)
+            XCTAssertEqual(keys[0].type,.keyDown); XCTAssertEqual(keys[1].type,.keyUp)
+            for event in keys {
                 XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode),Int64(plan.keyCode))
-                XCTAssertEqual(event.flags,plan.flags)
+                let keyFlags:CGEventFlags = plan.explicitModifiers && (123...126).contains(plan.keyCode) ? [.maskSecondaryFn,.maskNumericPad] : []
+                XCTAssertEqual(event.flags,plan.flags.union(keyFlags))
                 XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
             }
             for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] {
                 XCTAssertNil(plan.events(phase:phase))
             }
             var clicks = PrimaryTapClickOutput()
-            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,2)
+            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,events.count)
             XCTAssertNil(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks))
         }
     }
@@ -353,25 +355,51 @@ extension PinchZoomTests {
         }
     }
     func testRotationUsesSharedLatchAndFiresOnceForEitherDirectionAndCount() {
-        for count in [3,5] { for sign in [-1.0,1.0] {
+        for count in 2...5 { for sign in [-1.0,1.0] {
             var router = TrackpadGestureRouter()
             let expected = GestureTrigger.rotation(count:count,right:sign > 0)!
             _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:count,angle:0),enabled:{$0.isRotation})
             let start = router.recognize(device:1,time:1.01,contacts:rotatingChord(count:count,angle:sign*0.10),enabled:{$0.isRotation})
             XCTAssertEqual(start.gesture,expected); XCTAssertEqual(start.phase,.began)
+            XCTAssertEqual(start.rotationDelta ?? 0,sign*0.10,accuracy:0.00001)
             let reversed = router.recognize(device:1,time:1.02,contacts:rotatingChord(count:count,angle:-sign*0.12),enabled:{$0.isRotation})
             XCTAssertEqual(reversed.gesture,expected); XCTAssertEqual(reversed.phase,.changed)
+            XCTAssertEqual(reversed.rotationDelta ?? 0,-sign*0.22,accuracy:0.00001)
+            let still = router.recognize(device:1,time:1.025,contacts:rotatingChord(count:count,angle:-sign*0.12),enabled:{$0.isRotation})
+            XCTAssertEqual(still.rotationDelta ?? 1,0,accuracy:0.00001)
             let lifted = router.recognize(device:1,time:1.03,contacts:Array(rotatingChord(count:count,angle:0).prefix(1)),enabled:{$0.isRotation})
             XCTAssertEqual(lifted.gesture,expected); XCTAssertEqual(lifted.phase,.changed)
             XCTAssertEqual(router.recognize(device:1,time:1.04,contacts:[OMSRawTouch](),enabled:{$0.isRotation}).phase,.ended)
         }}
     }
-    func testPureScaleAndMissingThumbCannotClaimRotation() {
-        for missingThumb in [false,true] {
+    func testThumbRotationDoesNotBlockCoherentTranslationOrWaitForeverForLanding() {
+        for count in [2,4,5] {
             var router = TrackpadGestureRouter()
-            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:3,angle:0,thumb:!missingThumb),enabled:{$0.isRotation})
-            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:3,angle:missingThumb ? 0.2 : 0,thumb:!missingThumb,scale:missingThumb ? 1 : 1.15),enabled:{$0.isRotation}).gesture)
+            _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
+            let moved = router.recognize(device:1,time:1.01,contacts:chord(count,translation:1),enabled:{_ in true})
+            let expected:GestureTrigger = count == 2 ? .twoFingerMove : count == 4 ? .fourFingerMove : .fiveFingerMove
+            XCTAssertEqual(moved.gesture,expected)
         }
+        var router = TrackpadGestureRouter()
+        func landing(_ dx:Double) -> [OMSRawTouch] {
+            let source = chord(5)[0]
+            let thumb = OMSRawTouch(id:source.id,posX:source.posX,posY:source.posY,total:source.total,
+                pressure:source.pressure,majorAxis:source.majorAxis,minorAxis:source.minorAxis,angle:source.angle,
+                density:source.density,state:.hovering,telemetry:source.telemetry)
+            return Array(chord(5,translation:dx).dropFirst()) + [thumb]
+        }
+        _ = router.recognize(device:2,time:1,contacts:landing(0),enabled:{_ in true})
+        for offset in [0.01,0.06,0.11] {
+            XCTAssertNil(router.recognize(device:2,time:1+offset,contacts:landing(offset*20),enabled:{_ in true}).gesture)
+        }
+        XCTAssertEqual(router.recognize(device:2,time:1.16,contacts:landing(3.2),enabled:{_ in true}).gesture,.fourFingerMove)
+    }
+    func testPureScaleAndMissingThumbCannotClaimRotation() {
+        for count in 2...5 { for missingThumb in [false,true] {
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:count,angle:0,thumb:!missingThumb),enabled:{$0.isRotation})
+            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:count,angle:missingThumb ? 0.2 : 0,thumb:!missingThumb,scale:missingThumb ? 1 : 1.15),enabled:{$0.isRotation}).gesture)
+        }}
     }
     func testUserRotationCaptureActivatesLeftRotationWithCompetingShapeActions() throws {
         let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -472,5 +500,85 @@ extension PinchZoomTests {
             "3:fourFingerPinch","4:fiveFingerPinch","5:fourFingerPinch","6:threeFingerPinch",
             "7:threeFingerPinch","8:threeFingerPinch","9:threeFingerPinch","10:threeFingerPinch",
             "11:fourFingerPinch","12:fiveFingerPinch","13:twoFingerMove","15:twoFingerMove"])
+    }
+}
+
+extension PinchZoomTests {
+    func testRecordedRotationsAcrossCountsWithPinchAndMovementCompetition() throws {
+        struct Trace:Decodable { let frames:[RuntimeRawFrame] }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"rotation-counts",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Trace.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), cycle=0, wasDown=false
+        var results:[String] = []
+        for frame in frames {
+            let down = frame.rawTouches.contains { $0.state == .making || $0.state == .touching }
+            let result = router.recognize(device:frame.deviceNumericID,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0.isPinch || GestureTrigger.liveRotationTriggers.contains($0) || [.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove].contains($0)
+            }
+            if result.phase == .began, let gesture = result.gesture { results.append("\(cycle):\(gesture.rawValue)") }
+            if wasDown && !down { cycle += 1 }; wasDown=down
+        }
+        let expected = [2,3,4,5].flatMap { count in
+            (0..<4).map { i in "\((count-2)*4+i):\(GestureTrigger.rotation(count:count,right:i % 2 == 0)!.rawValue)" }
+        }
+        XCTAssertEqual(Array(results.prefix(16)),expected)
+        XCTAssertTrue(results.dropFirst(16).allSatisfy { $0.hasSuffix(":twoFingerMove") })
+    }
+}
+
+extension PinchZoomTests {
+    private func shapeUpdate(_ trigger:GestureTrigger,_ phase:GestureSessionPhase,delta:Double = 0) -> GestureSessionUpdate<GestureTrigger> {
+        var update = GestureSessionUpdate(gesture:trigger,phase:phase,millimetres:nil,cancellation:nil)
+        if trigger.isRotation { update.rotationDelta = delta } else { update.scaleDelta = delta }
+        return update
+    }
+    func testShapeRepeatsOnceMotionTimerIsolationAndCleanup() {
+        var repeatOutput = GestureShapeRepeater()
+        let timed = GestureShapeRepeat(mode:.timed,intervalMS:50)
+        XCTAssertTrue(repeatOutput.process(device:1,update:shapeUpdate(.threeFingerPinch,.began),config:timed,now:1))
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.049))
+        XCTAssertEqual(repeatOutput.tick(device:1,now:1.051),.threeFingerPinch)
+        XCTAssertFalse(repeatOutput.process(device:1,update:shapeUpdate(.threeFingerPinch,.changed),config:timed,now:1.10))
+        XCTAssertEqual(repeatOutput.tick(device:1,now:1.15),.threeFingerPinch)
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.151))
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.5)) // stale frames cancel
+        XCTAssertFalse(repeatOutput.active(device:1))
+        let motion = GestureShapeRepeat(mode:.motion)
+        XCTAssertTrue(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.began,delta:0.3),config:motion,now:2))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed),config:motion,now:2.01))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed,delta:-0.3),config:motion,now:2.02))
+        XCTAssertTrue(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed,delta:Double.pi/30),config:motion,now:2.03))
+        XCTAssertNil(repeatOutput.tick(device:2,now:2.04))
+        XCTAssertTrue(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.began),config:motion,now:2))
+        XCTAssertFalse(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.changed,delta:0.03),config:motion,now:2.01))
+        XCTAssertTrue(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.changed,delta:0.04),config:motion,now:2.02))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.ended),config:motion,now:2.05))
+        XCTAssertFalse(repeatOutput.active(device:2)); XCTAssertTrue(repeatOutput.active(device:3))
+        repeatOutput.reset(); XCTAssertFalse(repeatOutput.active(device:3))
+        let once = GestureShapeRepeat()
+        XCTAssertTrue(repeatOutput.process(device:4,update:shapeUpdate(.twoFingerPinch,.began),config:once,now:3))
+        XCTAssertFalse(repeatOutput.process(device:4,update:shapeUpdate(.twoFingerPinch,.changed,delta:-0.5),config:once,now:3.01))
+        XCTAssertFalse(repeatOutput.active(device:4))
+        XCTAssertTrue(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.began),config:motion,now:4))
+        XCTAssertTrue(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.changed,delta:-0.08),config:motion,now:4.01))
+        XCTAssertFalse(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.cancelled),config:motion,now:4.02))
+        XCTAssertFalse(repeatOutput.active(device:5))
+    }
+    func testShapeRepeatSettingsRoundTripMirrorAndMissingImport() throws {
+        var settings = HandGestureSettings()
+        let value = GestureShapeRepeat(mode:.timed,intervalMS:75)
+        settings.setShapeRepeat(value,for:.threeFingerPinch,in:.left)
+        XCTAssertNil(settings.shapeRepeat(.threeFingerPinch,in:.both))
+        XCTAssertEqual(settings.shapeRepeat(.threeFingerPinch,in:.right),GestureShapeRepeat())
+        settings.setShapeRepeat(value,for:.threeFingerPinch,in:.both)
+        XCTAssertEqual(settings.shapeRepeat(.threeFingerPinch,in:.both),value)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let roundtrip = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(roundtrip.handGestureSettings,settings)
+        var old = PerHandGestureSettings(); old.preserveMissingRepeatBehaviors(from:settings.left)
+        XCTAssertEqual(old.bindings.shapeRepeat(.threeFingerPinch),value)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:1).boundedIntervalMS,20)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:9000).boundedIntervalMS,5000)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:Double.nan).boundedIntervalMS,80)
     }
 }

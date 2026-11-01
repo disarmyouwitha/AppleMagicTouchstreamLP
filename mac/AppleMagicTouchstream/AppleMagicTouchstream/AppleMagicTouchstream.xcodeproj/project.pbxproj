@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AC9200000000000000000102 /* TOUCHSTERAM_KEYMAP.json in Resources */ = {isa = PBXBuildFile; fileRef = AC9200000000000000000101; };
+        AC9100000000000000000102 /* TypingPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9100000000000000000101; };
         AC8100000000000000000202 /* LayoutEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8100000000000000000201; };
         AC8100000000000000000102 /* LayoutDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8100000000000000000101; };
         AC7400000000000000000102 /* PloverConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7400000000000000000101; };
@@ -52,6 +54,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AC9200000000000000000101 /* TOUCHSTERAM_KEYMAP.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TOUCHSTERAM_KEYMAP.json; sourceTree = "<group>"; };
+        AC9100000000000000000101 /* TypingPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingPractice.swift; sourceTree = "<group>"; };
         AC8100000000000000000201 /* LayoutEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEditor.swift; sourceTree = "<group>"; };
         AC8100000000000000000101 /* LayoutDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutDocument.swift; sourceTree = "<group>"; };
         AC7400000000000000000101 /* PloverConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/PloverConnection.swift; sourceTree = "<group>"; };
@@ -144,6 +148,7 @@
                     77292A8B2B931954001CA3F6 /* Assets.xcassets */,
 					B1C2D3E4F5A60718293A4B5C /* DEFAULT_KEYMAP.json */,
 					B1C2D3E4F5A60718293A4B60 /* MY_KEYMAP.json */,
+                    AC9200000000000000000101 /* TOUCHSTERAM_KEYMAP.json */,
 					77292A872B931953001CA3F6 /* AppleMagicTouchstreamApp.swift */,
 					A1B2C3D4E5F6A7B8C9D0E1F2 /* AppleMagicTouchstreamController.swift */,
 					77292A892B931953001CA3F6 /* ContentView.swift */,
@@ -159,6 +164,7 @@
                 AC7100000000000000000901 /* AutocorrectEngine.swift */,
                 AC7100000000000000000A01 /* VoiceDictationManager.swift */,
                 AC7200000000000000000B01 /* TextShortcuts.swift */,
+                AC9100000000000000000101 /* TypingPractice.swift */,
                 AC8100000000000000000201 /* LayoutEditor.swift */,
                 AC8100000000000000000101 /* LayoutDocument.swift */,
                 AC7300000000000000000C01 /* Steno.swift */,
@@ -276,6 +282,7 @@
                 77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
 				B1C2D3E4F5A60718293A4B5D /* DEFAULT_KEYMAP.json in Resources */,
 				B1C2D3E4F5A60718293A4B61 /* MY_KEYMAP.json in Resources */,
+                AC9200000000000000000102 /* TOUCHSTERAM_KEYMAP.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -306,6 +313,7 @@
                 AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */,
                 AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */,
                 AC7200000000000000000B02 /* TextShortcuts.swift in Sources */,
+                AC9100000000000000000102 /* TypingPractice.swift in Sources */,
                 AC8100000000000000000202 /* LayoutEditor.swift in Sources */,
                 AC8100000000000000000102 /* LayoutDocument.swift in Sources */,
                 AC7300000000000000000C02 /* Steno.swift in Sources */,

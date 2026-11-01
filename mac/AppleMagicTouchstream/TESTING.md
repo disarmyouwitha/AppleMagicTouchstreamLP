@@ -85,6 +85,10 @@ per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Can
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify
 STENO overlap chords after editing and settings/capture replay with authored layouts.
 
+Window sizing checks include 1280-point laptop visible frames, titlebar height and
+outer margins. On the MacBook, verify initial opening stays within the usable screen
+and that both workspaces remain reachable when resizing down to 1120 × 540 points.
+
 ## Run
 
 Start with `./test.sh`: it runs native takeover lifecycle checks, then Swift tests.
@@ -333,3 +337,16 @@ recording-only tests chord left/right consonants, the merged star and all four v
 all-up. `STENO_PREVIEW_DIR=/tmp ./test.sh --filter StenoLayoutTests` also renders
 the single-pad preset. Hardware acceptance: select STENO → Layout → Steno Single, select the right pad,
 and test full two-hand chords, thumb vowels and the retained mouse/force controls.
+
+Verify STENO Keymap Tuning Primary/Hold choosers contain only STENO codes and None,
+including when a selected key has an older non-STENO assignment. Outside STENO,
+STENO codes stay hidden. The filter must not change saved assignments or output.
+
+TypingPracticeTests cover generated pool/count limits, empty/single custom lists,
+clock start/freeze, positional accuracy, corrections, Plover-style replacement,
+case/whitespace matching and bounded input. Native prompt-input checks insert
+Unicode, backspace and replacement text directly into an isolated hidden NSTextView
+without posting system input. Hardware: use Practice below the pads,
+complete a round with normal typing and Plover, correct a word using backspace, then
+start a new round. Verify Free type retains its own text and practice does not alter
+keyboard/gesture/STENO recognition or create an external connection.

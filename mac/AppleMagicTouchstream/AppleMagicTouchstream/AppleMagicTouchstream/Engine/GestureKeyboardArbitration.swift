@@ -14,9 +14,9 @@ struct GestureKeyboardArbitration {
         let candidate: Bool
         switch activeCount {
         case 1: candidate = false
-        case 2: candidate = enabled(.twoFingerMove) || enabled(.twoFingerTap) || enabled(.twoFingerPinch) || enabled(.twoFingerSpread)
+        case 2: candidate = enabled(.twoFingerRotateLeft) || enabled(.twoFingerRotateRight) || enabled(.twoFingerMove) || enabled(.twoFingerTap) || enabled(.twoFingerPinch) || enabled(.twoFingerSpread)
         case 3: candidate = enabled(.thumbTwoMove) || enabled(.threeFingerMove) || enabled(.threeFingerTap) || enabled(.thumbTwoTap) || enabled(.threeFingerRotateLeft) || enabled(.threeFingerRotateRight) || enabled(.threeFingerPinch) || enabled(.threeFingerSpread)
-        case 4: candidate = enabled(.fourFingerTap) || enabled(.fourFingerMove) || enabled(.fourFingerPinch) || enabled(.fourFingerSpread)
+        case 4: candidate = enabled(.fourFingerRotateLeft) || enabled(.fourFingerRotateRight) || enabled(.fourFingerTap) || enabled(.fourFingerMove) || enabled(.fourFingerPinch) || enabled(.fourFingerSpread)
         case 5: candidate = enabled(.fiveFingerTap) || enabled(.fiveFingerMove) || enabled(.fiveFingerPinch) || enabled(.fiveFingerSpread) || enabled(.fiveFingerRotateLeft) || enabled(.fiveFingerRotateRight)
         default: candidate = false
         }

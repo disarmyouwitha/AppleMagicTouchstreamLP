@@ -217,13 +217,47 @@ struct MagnifyGestureOutput {
     }
 }
 
+/// Native rotation uses the same phase/anchor lifecycle as magnification.
+struct RotateGestureOutput {
+    private(set) var active = false
+    private var anchor = CGPoint.zero
+    private var flags = CGEventFlags()
+    static func event(degrees:Double,phase:Int64,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        guard degrees.isFinite, abs(degrees) <= 180, location.x.isFinite, location.y.isFinite,
+              [1,2,4,8].contains(phase), let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location; event.flags = flags
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:5)
+        event.setIntegerValueField(MagnifyGestureOutput.phase,value:phase)
+        // Rotation's private payload stores IEEE Float bits, not a CG double.
+        event.setIntegerValueField(CGEventField(rawValue:115)!,value:Int64(Float(degrees).bitPattern))
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+    mutating func update(radians:Double,began:Bool,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        let target = began ? location : anchor
+        let modifiers = began ? flags : self.flags
+        // Input uses screen coordinates (clockwise positive); AppKit is CCW positive.
+        guard began || active, let event = Self.event(degrees:-radians*180/Double.pi,
+            phase:began ? 1 : 2,location:target,flags:modifiers) else { return nil }
+        if began { anchor = location; self.flags = flags }
+        active = true
+        return event
+    }
+    mutating func finish(cancelled:Bool) -> CGEvent? {
+        guard active else { return nil }; active = false
+        return Self.event(degrees:0,phase:cancelled ? 8 : 4,location:anchor,flags:flags)
+    }
+}
+
 /// Angular evidence around a tracked thumb; output and ownership remain in the router.
 struct ThumbRotationTracker {
-    struct Evidence { var angle:Double; var arc:Double; var radial:Double }
+    struct Evidence { var angle:Double; var arc:Double; var radial:Double; var frameAngle:Double }
     private struct Sample {
         var ids = SIMD8<Int32>(repeating:0)
         var x = SIMD8<Double>(repeating:0), y = SIMD8<Double>(repeating:0)
         var count=0, time:Double
+        var lastAngle = 0.0
         func vector(thumb:Int32) -> CGPoint? {
             guard let pivot = (0..<count).first(where:{ids[$0] == thumb}) else { return nil }
             var dx=0.0, dy=0.0
@@ -248,7 +282,7 @@ struct ThumbRotationTracker {
                 guard thumb == nil else { reset(device:device); return nil }; thumb=touch.id
             }
         }
-        guard next.count == 3 || next.count == 5 else { reset(device:device); return nil }
+        guard (2...5).contains(next.count) else { reset(device:device); return nil }
         guard var old=samples[device], time > old.time, time-old.time < 0.15,
               next.count == old.count,
               (0..<next.count).allSatisfy({ i in (0..<old.count).contains { old.ids[$0] == next.ids[i] } }) else {
@@ -261,7 +295,9 @@ struct ThumbRotationTracker {
         let radius=hypot(after.x,after.y), initialRadius=hypot(before.x,before.y)
         guard min(radius,initialRadius) >= 15 else { return nil }
         let angle=atan2(before.x*after.y-before.y*after.x,before.x*after.x+before.y*after.y)
-        return Evidence(angle:angle,arc:abs(angle)*min(radius,initialRadius),radial:abs(radius-initialRadius))
+        let frameAngle = atan2(sin(angle-old.lastAngle),cos(angle-old.lastAngle))
+        old.lastAngle = angle; samples[device] = old
+        return Evidence(angle:angle,arc:abs(angle)*min(radius,initialRadius),radial:abs(radius-initialRadius),frameAngle:frameAngle)
     }
 }
 
@@ -275,6 +311,10 @@ struct TrackpadGestureRouter {
     private var rotation = ThumbRotationTracker()
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
+            GestureActivationRule(gesture:.twoFingerRotateLeft,activationCount:2,minimumMovementMM:0),
+            GestureActivationRule(gesture:.twoFingerRotateRight,activationCount:2,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fourFingerRotateLeft,activationCount:4,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fourFingerRotateRight,activationCount:4,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerRotateLeft,activationCount:3,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerRotateRight,activationCount:3,minimumMovementMM:0),
             GestureActivationRule(gesture:.fiveFingerRotateLeft,activationCount:5,minimumMovementMM:0),
@@ -324,6 +364,9 @@ struct TrackpadGestureRouter {
             && ((GestureTrigger.pinch(count:activeCount).map(enabled) ?? false)
                 || (GestureTrigger.spread(count:activeCount).map(enabled) ?? false))
         let pinchTranslationCompetes = thumbShapeEnabled && (pinchEnabled || pair == nil)
+        let thumbRotationEnabled = hasThumb && GestureTrigger.rotation(count:activeCount,right:false).map(enabled) == true
+            || hasThumb && GestureTrigger.rotation(count:activeCount,right:true).map(enabled) == true
+        let fullChordTranslation = thumbShapeEnabled || thumbRotationEnabled
 
         let rotationDirection = GestureTrigger.rotation(count:activeCount,right:(turn?.angle ?? 0) > 0)
         // Rotation is angular evidence, not the spread-tap arrangement scorer.
@@ -334,13 +377,20 @@ struct TrackpadGestureRouter {
         // Native pre-contact phases can reveal a fourth finger before it counts
         // as touching. Do not latch a drag in that short, evidenced landing gap.
         // A resting hover cannot postpone a real three-finger drag indefinitely.
-        let fourthLanding = activeCount == 3 && enabled(.fourFingerMove) && contacts.contains {
+        let additionalLanding = ((activeCount == 3 && enabled(.fourFingerMove))
+            || (activeCount == 4 && (enabled(.fiveFingerRotateLeft) || enabled(.fiveFingerRotateRight)))) && contacts.contains {
             ($0.state == .starting || $0.state == .hovering) && $0.telemetry?.fingerID != 6
                 && $0.posX.isFinite && $0.posY.isFinite
         }
+        // An identified thumb can briefly hover/break while joining a five-contact
+        // shape. Reserve that bounded landing interval, never an activated owner.
+        let thumbLanding = activeCount == 4 && (enabled(.fiveFingerRotateLeft) || enabled(.fiveFingerRotateRight))
+            && contacts.contains { $0.telemetry?.fingerID == 1
+                && ($0.state == .starting || $0.state == .hovering || $0.state == .breaking || $0.state == .lingering)
+                && $0.posX.isFinite && $0.posY.isFinite }
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
-            requiresCoherentTranslation:thumbShapeEnabled || (stationaryFourFingerHold && activeCount == 4) || (enabled(.thumbTwoMove) && activeCount == 3),
-            requiresFullContactTranslation:thumbShapeEnabled,
+            requiresCoherentTranslation:fullChordTranslation || (stationaryFourFingerHold && activeCount == 4) || (enabled(.thumbTwoMove) && activeCount == 3),
+            requiresFullContactTranslation:fullChordTranslation,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
                 let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
@@ -351,7 +401,7 @@ struct TrackpadGestureRouter {
                 if rotationWins { return false }
                 if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
-                if trigger.isContinuous && !trigger.isPinch && !trigger.isRotation && pinchTranslationCompetes {
+                if trigger.isContinuous && !trigger.isPinch && !trigger.isRotation && (pinchTranslationCompetes || thumbRotationEnabled) {
                     let minimum = trigger == .threeFingerMove ? 0.35:0.2
                     guard (context.coherentMovementMM ?? 0) >= minimum else { return false }
                 }
@@ -361,17 +411,22 @@ struct TrackpadGestureRouter {
                         && direction.projection(context.pendingMovementMM) >= GestureDirectionalStepper.activationMM
                         && (context.coherentMovementMM ?? 0) >= GestureDirectionalStepper.activationMM
                 }
+                if trigger == .fourFingerMove && ((additionalLanding && context.acquisitionElapsed <= Self.chordLandingWindow)
+                    || (thumbLanding && context.acquisitionElapsed <= 0.15)) { return false }
                 if trigger == .fourFingerMove && stationaryFourFingerHold {
                     return (context.coherentMovementMM ?? 0) >= 0.2
                 }
                 if trigger == .threeFingerMove {
-                    if fourthLanding && context.acquisitionElapsed <= Self.chordLandingWindow { return false }
+                    if additionalLanding && context.acquisitionElapsed <= Self.chordLandingWindow { return false }
                     return ThreeFingerRowChord.accepts(contacts)
                 }
                 return true
             })
         if update.gesture?.isPinch == true, let pair {
             update.scaleDelta = update.phase == .began ? pair.initialRatio : pair.frameRatio
+        }
+        if update.gesture?.isRotation == true, let turn {
+            update.rotationDelta = update.phase == .began ? turn.angle : turn.frameAngle
         }
         return update
     }

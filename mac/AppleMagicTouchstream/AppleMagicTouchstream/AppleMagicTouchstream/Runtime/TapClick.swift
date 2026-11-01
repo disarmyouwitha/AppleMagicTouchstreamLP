@@ -412,9 +412,17 @@ enum GestureTapActionOutput {
         shortcut: AppleShortcutPlan? = nil, mouseEventSource:CGEventSource? = nil) -> [CGEvent]? {
         if action.isAppleShortcut {
             clicks.reset()
-            return shortcut?.events()
+            return shortcut?.events(restoringFlags:flags)
         }
         switch action {
+        case .pageBack,.pageForward:
+            guard let event = PageNavigationOutput.event(forward:action == .pageForward,location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [event]
+        case .smartZoom:
+            guard let event = SmartZoomGestureOutput.event(location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [event]
         case .primaryClick:
             guard let pair = clicks.events(location:location,time:time,doubleClickInterval:doubleClickInterval,flags:flags) else { return nil }
             return [pair.down,pair.up]
@@ -434,6 +442,35 @@ enum GestureTapActionOutput {
 // Historical diagnostic name for the same compact-row input geometry.
 typealias ThreeFingerDragChord = ThreeFingerRowChord
 
+/// A single native swipe, handled by the view under the pointer; no key/button edges.
+enum PageNavigationOutput {
+    static func event(forward:Bool,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        guard location.x.isFinite, location.y.isFinite, let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location; event.flags = flags
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:16)
+        // AppKit deltaX +1 goes back; -1 goes forward (WebKit swipeWithEvent).
+        event.setIntegerValueField(CGEventField(rawValue:115)!,value:forward ? 8 : 4)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+}
+
+/// Discrete native Smart Magnify, distinct from continuous pinch magnification.
+/// Keep the private Quartz gesture encoding here; construction never posts input.
+enum SmartZoomGestureOutput {
+    static func event(location:CGPoint, flags:CGEventFlags = []) -> CGEvent? {
+        guard location.x.isFinite, location.y.isFinite, let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location
+        event.flags = flags
+        // ZoomToggle (22) maps to NSEvent.EventType.smartMagnify.
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:22)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+}
+
 /// Read symbolic-shortcut preferences only during configuration, never in input callbacks.
 /// No preferences are changed. Missing entries use Apple's documented keyboard shortcuts.
 struct AppleShortcutPlan: Equatable, Sendable {
@@ -441,6 +478,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
     let flags: CGEventFlags
     var dockMessage: String? = nil
     var mediaKeyType: Int32? = nil
+    var explicitModifiers = false
     var eventTap: CGEventTapLocation { mediaKeyType == nil ? .cghidEventTap : .cgSessionEventTap }
     private typealias DockSender = @convention(c) (CFString, Int32) -> Void
     // Loaded by configuration, never first loaded in a contact callback. Keep handle resident.
@@ -454,10 +492,23 @@ struct AppleShortcutPlan: Equatable, Sendable {
         switch action {
         case .missionControl: return "32"; case .appExpose: return "33"
         case .showDesktop: return "36"; case .launchpad: return "160"
-        case .notificationCenter: return "163"; default: return nil
+        case .notificationCenter: return "163"
+        case .lookUp: return "70"
+        case .previousSpace: return "79"
+        case .nextSpace: return "81"
+        default: return nil
         }
     }
     static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
+        let playbackCode:Int32?
+        switch action {
+        case .playPause: playbackCode = 16
+        case .nextTrack: playbackCode = 17
+        case .previousTrack: playbackCode = 18
+        case .mute: playbackCode = 7
+        default: playbackCode = nil
+        }
+        if let playbackCode { return Self(keyCode:0,flags:[],mediaKeyType:playbackCode) }
         // Same media codes and Option–Shift encoding as GlassToKey's fine controls.
         let mediaCode: Int32?
         switch action {
@@ -474,13 +525,31 @@ struct AppleShortcutPlan: Equatable, Sendable {
                 ? "com.apple.expose.awake" : "com.apple.expose.front.awake")
         }
         guard let id = symbolicID(action) else { return nil }
+        // These system shortcuts can be disabled by the user. Never leak their
+        // fallback keystrokes into the foreground app when explicitly disabled.
+        let defaultShortcut: Self?
+        switch action {
+        case .lookUp: defaultShortcut = Self(keyCode:2,flags:[.maskControl,.maskCommand],explicitModifiers:true)
+        case .previousSpace: defaultShortcut = Self(keyCode:123,flags:.maskControl,explicitModifiers:true)
+        case .nextSpace: defaultShortcut = Self(keyCode:124,flags:.maskControl,explicitModifiers:true)
+        default: defaultShortcut = nil
+        }
+        if let defaultShortcut {
+            guard let entry = preferences[id] as? [String:Any] else {
+                return preferences[id] == nil ? defaultShortcut : nil
+            }
+            guard (entry["enabled"] as? NSNumber)?.boolValue == true else { return nil }
+            // macOS saves an enabled-only entry when the default binding is used.
+            if entry["value"] == nil { return defaultShortcut }
+        }
         if let entry = preferences[id] as? [String:Any], (entry["enabled"] as? NSNumber)?.boolValue == true {
             guard let value = entry["value"] as? [String:Any], value["type"] as? String == "standard",
                   let parameters = value["parameters"] as? [NSNumber], parameters.count == 3 else { return nil }
             let code = parameters[1].intValue, modifiers = parameters[2].int64Value
             let allowed: CGEventFlags = [.maskShift,.maskControl,.maskAlternate,.maskCommand,.maskSecondaryFn]
             guard (0...127).contains(code), modifiers >= 0, UInt64(modifiers) & ~allowed.rawValue == 0 else { return nil }
-            return Self(keyCode:CGKeyCode(code),flags:CGEventFlags(rawValue:UInt64(modifiers)))
+            return Self(keyCode:CGKeyCode(code),flags:CGEventFlags(rawValue:UInt64(modifiers)),
+                        explicitModifiers:defaultShortcut?.explicitModifiers ?? false)
         }
         // Globe shortcuts remain available independently of configurable symbolic shortcuts.
         switch action {
@@ -505,13 +574,13 @@ struct AppleShortcutPlan: Equatable, Sendable {
         sender(dockMessage as CFString,0)
         return true
     }
-    func events(phase: GestureSessionPhase = .began) -> [CGEvent]? {
+    func events(phase: GestureSessionPhase = .began, restoringFlags:CGEventFlags = []) -> [CGEvent]? {
         guard phase == .began, dockMessage == nil else { return nil }
         if let mediaKeyType {
             var events: [CGEvent] = []
             for state: Int32 in [0xA,0xB] {
                 var modifiers = NSEvent.ModifierFlags(rawValue:UInt(state << 8))
-                modifiers.formUnion([.shift,.option])
+                modifiers.formUnion(NSEvent.ModifierFlags(rawValue:UInt(flags.rawValue)))
                 guard let event = NSEvent.otherEvent(with:.systemDefined,location:.zero,
                     modifierFlags:modifiers,timestamp:ProcessInfo.processInfo.systemUptime,
                     windowNumber:0,context:nil,subtype:8,
@@ -521,13 +590,55 @@ struct AppleShortcutPlan: Equatable, Sendable {
             }
             return events
         }
+        if explicitModifiers {
+            return SystemShortcutOutput.events(code:keyCode,flags:flags,restoringFlags:restoringFlags)
+        }
         guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
               let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
         for event in [down,up] {
-            event.flags = flags
+            event.flags = KeyboardEventFlags.applying(to:keyCode,flags:flags)
             event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         }
         return [down,up]
+    }
+}
+
+
+/// System hotkeys need modifier transitions as well as flags on the arrow/key.
+/// Build the entire balanced sequence before posting. Borrow only modifiers not
+/// already held by the physical keyboard, keyboard output, or another gesture.
+enum SystemShortcutOutput {
+    static func events(code:CGKeyCode,flags:CGEventFlags,restoringFlags:CGEventFlags) -> [CGEvent]? {
+        let modifiers:[(CGEventFlags,CGKeyCode)] = [(.maskControl,59),(.maskAlternate,58),
+            (.maskShift,56),(.maskCommand,55),(.maskSecondaryFn,63)]
+        // Arrow events carry function/keypad classification even without a
+        // physical Fn press. Carbon's Space shortcuts include that function bit.
+        // Keep classification on the arrow pair, never synthesize a Globe press.
+        let keyFlags = KeyboardEventFlags.intrinsic(for:code)
+        let requestedModifiers = flags.subtracting(keyFlags)
+        let borrowed = modifiers.filter { requestedModifiers.contains($0.0) && !restoringFlags.contains($0.0) }
+        var active = restoringFlags, result:[CGEvent] = []
+        func make(_ code:CGKeyCode,_ down:Bool,_ flags:CGEventFlags,_ modifier:Bool = false) -> CGEvent? {
+            guard let event = CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:down) else { return nil }
+            if modifier { event.type = .flagsChanged }
+            event.flags = flags
+            event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+            return event
+        }
+        for (flag,key) in borrowed {
+            active.insert(flag)
+            guard let event = make(key,true,active,true) else { return nil }
+            result.append(event)
+        }
+        let strokeFlags = active.union(flags).union(keyFlags)
+        guard let down = make(code,true,strokeFlags), let up = make(code,false,strokeFlags) else { return nil }
+        result.append(down); result.append(up)
+        for (flag,key) in borrowed.reversed() {
+            active.remove(flag)
+            guard let event = make(key,false,active,true) else { return nil }
+            result.append(event)
+        }
+        return result
     }
 }
 

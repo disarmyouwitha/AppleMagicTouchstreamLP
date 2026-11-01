@@ -137,6 +137,12 @@ final class TrackpadGestureController: ObservableObject {
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
     }
 
+    func setShapeRepeat(_ value:GestureShapeRepeat,for trigger:GestureTrigger,scope:GestureHandScope) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setShapeRepeat(value,for:trigger,in:scope)
+        settings.save(to:.standard)
+        configure()
+    }
     func setDirectionalRepeatBehavior(_ behavior:GestureDirectionalRepeatBehavior,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.setDirectionalRepeatBehavior(behavior,direction:direction,for:trigger,in:scope)

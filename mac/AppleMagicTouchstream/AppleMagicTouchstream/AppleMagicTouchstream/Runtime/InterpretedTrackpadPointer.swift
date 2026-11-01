@@ -127,12 +127,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
             forceClicks.cancel(device:device)
             router.reset(device:device); directionalStepper.reset(device:device)
-            directionalRepeater.reset(device:device); tracker.reset(device:device)
+            directionalRepeater.reset(device:device); shapeRepeater.reset(device:device); tracker.reset(device:device)
             finishScroll(device:device,cancelled:true)
             if let action = holdBindings[device]?[count] { postDirectional(action,device:device,time:time) }
         }
         var directionalStepper = GestureDirectionalStepper()
         var directionalRepeater = GestureDirectionalRepeater()
+        var shapeRepeater = GestureShapeRepeater()
         var needsDirectionalTimer:Bool { !directionals.isEmpty }
         var bindings: [UInt64:GestureActionBindings] = [:]
         var appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]
@@ -143,7 +144,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
         }
         var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { $0.uses(.primaryDrag) } }
-        var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
+        var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) || $0.uses(.rotate) || ($0.shapeRepeats?.values.contains { $0.mode == .timed } ?? false) } }
         var needsScrollTimer: Bool {
             bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
                 inputs.values.contains { config in GestureMovementDirection.allCases.contains { config.action($0).isDirectionalScroll } }
@@ -251,6 +252,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var twoFingerMoveDevices: Set<UInt64> = []
         var pinchDevices: Set<UInt64> = []
         var zoomOutputs: [UInt64:MagnifyGestureOutput] = [:]
+        var rotateOutputs: [UInt64:RotateGestureOutput] = [:]
         var zoomSensitivities: [UInt64:Double] = [:]
         var fourFingerMoveDevices: Set<UInt64> = []
         var fiveFingerMoveDevices:Set<UInt64> = []
@@ -318,11 +320,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             holds.cancel(device:device)
             keyboardChordDevices.remove(device)
             zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
+            rotateOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
             if drag.owners.contains(device) { drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device); fourFingerTaps.invalidate(device:device); fiveFingerTaps.invalidate(device:device)
-            router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
+            router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); shapeRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil; lastContactTime[device] = nil
         }
         mutating func reset() {
             feedback.removeAll(keepingCapacity:true)
@@ -335,10 +338,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             twoHandEngine.reset()
             keyboardChordDevices.removeAll(keepingCapacity:true)
             for device in zoomOutputs.keys { zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
+            for device in rotateOutputs.keys { rotateOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
             if drag.owner != nil { drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
             forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); fourFingerTaps.reset(); fiveFingerTaps.reset(); clicks.reset()
-            router.reset(); directionalStepper.reset(); directionalRepeater.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true); lastContactTime.removeAll(keepingCapacity:true)
+            router.reset(); directionalStepper.reset(); directionalRepeater.reset(); shapeRepeater.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true); lastContactTime.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
         var postedEvents: UInt64 = 0
@@ -394,6 +398,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.pinchDevices = pinchDevices
             state.zoomSensitivities = zoomSensitivities
             state.zoomOutputs = Dictionary(uniqueKeysWithValues: bindings.keys.map { ($0, state.zoomOutputs[$0] ?? MagnifyGestureOutput()) })
+            state.rotateOutputs = Dictionary(uniqueKeysWithValues: bindings.keys.map { ($0, state.rotateOutputs[$0] ?? RotateGestureOutput()) })
             state.threeFingerMoveDevices = threeFingerMoveDevices
             state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
             state.thumbTwoTapDevices = thumbTwoTapDevices
@@ -482,8 +487,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for owner in state.drag.owners where GestureOutputLifecycle.isStale(receipt:state.lastReceipt[owner],now:now) {
                 state.reset(device:owner)
             }
-            for device in state.devices where state.zoomOutputs[device]?.active == true || state.scrollOutputs[device]?.active == true {
+            for device in state.devices where state.zoomOutputs[device]?.active == true || state.rotateOutputs[device]?.active == true || state.shapeRepeater.active(device:device) || state.scrollOutputs[device]?.active == true {
                 if GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device) }
+            }
+            for device in state.devices where state.shapeRepeater.active(device:device) {
+                if let trigger = state.shapeRepeater.tick(device:device,now:now) {
+                    state.postDirectional(state.action(trigger,device:device),device:device,time:now)
+                }
             }
             for device in state.devices where state.directionalStepper.direction(device:device) != nil {
                 if GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device); continue }
@@ -869,6 +879,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                         shortcut:state.appleShortcuts[forceBindings.action(for:trigger)],mouseEventSource:state.drag.eventSource) {
                 state.recognized(.gesture(trigger),device:device,time:hostTime)
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
+                state.rotateOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
                 if forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
@@ -882,7 +893,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.keyboardClaimed.insert(device)
                 state.holds.cancel(device:device)
                 state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
-                state.router.reset(device:device); state.directionalStepper.reset(device:device); state.directionalRepeater.reset(device:device); state.tracker.reset(device:device)
+                state.router.reset(device:device); state.directionalStepper.reset(device:device); state.directionalRepeater.reset(device:device); state.shapeRepeater.reset(device:device); state.tracker.reset(device:device)
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
@@ -916,7 +927,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return nil
             }
             if update.phase == .ended || update.phase == .cancelled {
+                state.shapeRepeater.reset(device:device)
                 state.zoomOutputs[device]?.finish(cancelled:update.phase == .cancelled)?.post(tap:.cghidEventTap)
+                state.rotateOutputs[device]?.finish(cancelled:update.phase == .cancelled)?.post(tap:.cghidEventTap)
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
@@ -969,6 +982,22 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             // A different owner/discontinuity cannot retain directional progress.
             state.directionalRepeater.reset(device:device)
             state.directionalStepper.reset(device:device)
+            if let gesture = update.gesture, gesture.isRotation, state.action(gesture,device:device) == .rotate {
+                if allUp { state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts) }
+                else {
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                    state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
+                }
+                state.finishScroll(device:device,cancelled:true)
+                if update.phase == .began || update.phase == .changed {
+                    if let radians = update.rotationDelta, let location = CGEvent(source:nil)?.location,
+                       let event = state.rotateOutputs[device]?.update(radians:radians,began:update.phase == .began,
+                         location:location,flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) {
+                        event.post(tap:.cghidEventTap); state.postedEvents &+= 1
+                    }
+                }
+                return nil
+            }
             if let gesture = update.gesture, gesture.isRotation || state.action(gesture,device:device).isDiscreteOutput {
                 if allUp {
                     state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
@@ -976,7 +1005,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 }
                 state.finishScroll(device:device,cancelled:true)
-                if update.phase == .began {
+                let config = (state.bindings[device] ?? GestureActionBindings()).shapeRepeat(gesture)
+                if state.shapeRepeater.process(device:device,update:update,config:config,now:hostTime) {
                     state.postDirectional(state.action(gesture,device:device),device:device,time:hostTime)
                 }
                 return nil
@@ -998,6 +1028,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                         }
                     } else {
                         state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
+                        state.rotateOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                     }
                 }
                 return nil

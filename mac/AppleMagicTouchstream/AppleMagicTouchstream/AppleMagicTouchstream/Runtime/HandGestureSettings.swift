@@ -21,7 +21,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     private static let leftRotations:[Self] = [.twoFingerRotateLeft,.threeFingerRotateLeft,.fourFingerRotateLeft,.fiveFingerRotateLeft]
     private static let rightRotations:[Self] = [.twoFingerRotateRight,.threeFingerRotateRight,.fourFingerRotateRight,.fiveFingerRotateRight]
     static let rotationTriggers = leftRotations + rightRotations
-    static let liveRotationTriggers:[Self] = [.threeFingerRotateLeft,.threeFingerRotateRight,.fiveFingerRotateLeft,.fiveFingerRotateRight]
+    static let liveRotationTriggers:[Self] = rotationTriggers
     var rotationCount:Int? { (Self.leftRotations.firstIndex(of:self) ?? Self.rightRotations.firstIndex(of:self)).map { $0+2 } }
     var isRotation:Bool { rotationCount != nil }
     var rotatesRight:Bool { Self.rightRotations.contains(self) }
@@ -64,9 +64,9 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var allowedActions: [GestureAction] {
         if self == .fourCornersTap || self == .thumbTwoMove { return [.disabled] }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
-        if isRotation { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
+        if isRotation { return [.disabled,.rotate,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.voice] + GestureAction.smallStepActions
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.smartZoom,.pageBack,.pageForward,.lookUp,.previousSpace,.nextSpace,.voice] + GestureAction.smallStepActions + GestureAction.mediaActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -90,11 +90,12 @@ typealias GestureFeature = GestureTrigger
 enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresentable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
-    case openConfig, voice
+    case openConfig, voice, smartZoom, lookUp, previousSpace, nextSpace, pageBack, pageForward, rotate
     case scrollUp, scrollDown, panLeft, panRight
+    case playPause, previousTrack, nextTrack, mute
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
     case shortcut(GestureShortcutAssignment)
-    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.lookUp,.previousSpace,.nextSpace,.pageBack,.pageForward,.rotate,.playPause,.previousTrack,.nextTrack,.mute,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     var rawValue: String {
         switch self {
         case .disabled: return "disabled"
@@ -102,6 +103,17 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .primaryDrag: return "primaryDrag"
         case .scroll: return "scroll"
         case .zoom: return "zoom"
+        case .smartZoom: return "smartZoom"
+        case .pageBack: return "pageBack"
+        case .pageForward: return "pageForward"
+        case .rotate: return "rotate"
+        case .playPause: return "playPause"
+        case .previousTrack: return "previousTrack"
+        case .nextTrack: return "nextTrack"
+        case .mute: return "mute"
+        case .lookUp: return "lookUp"
+        case .previousSpace: return "previousSpace"
+        case .nextSpace: return "nextSpace"
         case .primaryClick: return "primaryClick"
         case .primaryDoubleClick: return "primaryDoubleClick"
         case .secondaryClick: return "secondaryClick"
@@ -141,12 +153,14 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     func encode(to encoder:any Encoder) throws { var box = encoder.singleValueContainer(); try box.encode(rawValue) }
     var shortcutAssignment:GestureShortcutAssignment? { if case let .shortcut(value) = self { return value }; return nil }
     var isHeldShortcut:Bool { shortcutAssignment?.holdUntilRelease == true }
-    var isDiscreteOutput:Bool { isAppleShortcut || self == .voice || shortcutAssignment != nil }
+    var isDiscreteOutput:Bool { isAppleShortcut || Self.nativeDiscreteActions.contains(self) || self == .voice || shortcutAssignment != nil }
     static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
+    static let mediaActions:[Self] = [.playPause,.previousTrack,.nextTrack,.mute]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
-    static var oneShotActions: [Self] { appleShortcuts + smallStepActions + [.voice] }
-    static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
-    var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) || Self.smallStepActions.contains(self) }
+    static var oneShotActions: [Self] { appleShortcuts + nativeDiscreteActions + mediaActions + smallStepActions + [.voice] }
+    static let nativeDiscreteActions:[Self] = [.smartZoom,.pageBack,.pageForward]
+    static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.lookUp,.previousSpace,.nextSpace]
+    var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) || Self.smallStepActions.contains(self) || Self.mediaActions.contains(self) }
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -170,6 +184,17 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .primaryDrag: return "Drag / Select"; case .scroll: return "Scroll / Pan"
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"
         case .zoom: return "Zoom"
+        case .smartZoom: return "Smart Zoom"
+        case .pageBack: return "Back (Page Navigation)"
+        case .pageForward: return "Forward (Page Navigation)"
+        case .rotate: return "Rotate Content"
+        case .playPause: return "Play / Pause"
+        case .previousTrack: return "Previous Track"
+        case .nextTrack: return "Next Track"
+        case .mute: return "Mute"
+        case .lookUp: return "Look Up"
+        case .previousSpace: return "Previous Space"
+        case .nextSpace: return "Next Space"
         case .secondaryClick: return "Secondary Click"
         }
     }
@@ -178,6 +203,16 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     var requiresPointerProfile: Bool { self == .pointer || self == .primaryDrag }
 }
 enum GestureSensitivity: Sendable { case pointer, scroll, zoom }
+
+enum GestureShapeRepeatMode:String,CaseIterable,Codable,Sendable {
+    case once, timed, motion
+    var title:String { switch self { case .once:return "Once"; case .timed:return "Repeat every ms"; case .motion:return "Repeat with motion" } }
+}
+struct GestureShapeRepeat:Equatable,Codable,Sendable {
+    var mode:GestureShapeRepeatMode = .once
+    var intervalMS:Double = 80
+    var boundedIntervalMS:Double { intervalMS.isFinite ? min(5000,max(20,intervalMS.rounded())) : 80 }
+}
 
 struct GestureActionBindings: Equatable, Codable, Sendable {
     var twoFingerMove: GestureAction = .pointer, twoFingerTap: GestureAction = .primaryClick
@@ -191,7 +226,14 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var twoFingerPinch: GestureAction?
     var pinchActions: [String:GestureAction]?
     var spreadActions: [String:GestureAction]?
-    var rotationActions:[String:GestureAction]? // Saved assignments; recognition is not active yet.
+    var rotationActions:[String:GestureAction]?
+    var shapeRepeats:[String:GestureShapeRepeat]?
+    func shapeRepeat(_ trigger:GestureTrigger) -> GestureShapeRepeat { shapeRepeats?[trigger.rawValue] ?? GestureShapeRepeat() }
+    mutating func setShapeRepeat(_ value:GestureShapeRepeat,for trigger:GestureTrigger) {
+        guard trigger.isPinch || trigger.isRotation else { return }
+        if shapeRepeats == nil { shapeRepeats = [:] }
+        shapeRepeats?[trigger.rawValue] = GestureShapeRepeat(mode:value.mode,intervalMS:value.boundedIntervalMS)
+    }
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             if trigger.isRotation { return rotationActions?[trigger.rawValue] ?? .disabled }
@@ -469,6 +511,9 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         directionalMovement?[trigger.rawValue] = editor
     }
     mutating func preserveMissingRepeatBehaviors(from current:Self) {
+        if let saved = current.bindings.shapeRepeats {
+            bindings.shapeRepeats = saved.merging(bindings.shapeRepeats ?? [:]) { _,supplied in supplied }
+        }
         for (trigger,saved) in current.directionalMovement ?? [:] {
             guard let behaviors = saved.repeatBehaviors, !behaviors.isEmpty else { continue }
             var imported = directionalMovement?[trigger] ?? GestureDirectionalAssignments()
@@ -604,6 +649,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     mutating func setDirectionalRepeatInterval(_ milliseconds:Double,direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) {
         if scope != .right { left.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
         if scope != .left { right.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
+    }
+    func shapeRepeat(_ trigger:GestureTrigger,in scope:GestureHandScope) -> GestureShapeRepeat? {
+        let a = left.bindings.shapeRepeat(trigger), b = right.bindings.shapeRepeat(trigger)
+        switch scope { case .left:return a; case .right:return b; case .both:return a == b ? a : nil }
+    }
+    mutating func setShapeRepeat(_ value:GestureShapeRepeat,for trigger:GestureTrigger,in scope:GestureHandScope) {
+        if scope != .right { left.bindings.setShapeRepeat(value,for:trigger) }
+        if scope != .left { right.bindings.setShapeRepeat(value,for:trigger) }
     }
     func directionalRepeatBehavior(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> GestureDirectionalRepeatBehavior? {
         let a = left.movement(trigger).repeatBehavior(direction), b = right.movement(trigger).repeatBehavior(direction)

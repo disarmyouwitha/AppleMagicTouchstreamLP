@@ -33,6 +33,12 @@ remain down until that contact ends, and never repeat. Missing terminal records,
 cancellation and reset release ownership. Gesture Hold can fire once or keep a
 shortcut down until release, using the same shared output ledger.
 
+All native arrow key events (codes 123–126) carry function/keypad classification,
+including keyboard down/up, held-key repeats, saved shortcuts and symbolic system
+shortcuts. `KeyboardEventFlags` adds these bits only to the emitted event; it does
+not change saved shortcut flags, modifier ownership, or send Globe/Fn transitions.
+Other keys keep their existing flags.
+
 Balanced keystrokes restore pre-shortcut modifier flags on key-up. Emoji maps
 Globe to Control–Command–Space through that factory; it must not leave borrowed
 Control/Command flags on subsequent clicks or typing.
@@ -40,7 +46,7 @@ Control/Command flags on subsequent clicks or typing.
 ## Saved text shortcuts
 
 Keyboard and Gesture Shortcut Builders share an inline Text box below App, with
-the “Text Encrypted in Keychain” placeholder and the eye button on its right.
+the “Encrypted in Keychain” placeholder and the eye button on its right.
 The shared Apply button saves/assigns text when the Text field contains a draft
 or an existing protected reference; otherwise it applies the key/app shortcut. Names
 are optional; a successful text save displays confirmation. Assigned text starts
@@ -103,11 +109,13 @@ rectangular bounds around oval artwork. Saved per-key overrides still apply.
 The traced geometry is the editable template seed; Layout Editor can author independent
 positions, sizes and groups without changing the reference image.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
-narrow sidebar widths. Layout Editor replaces the old Column Tuning panel.
-At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
-Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
-row instead of wrapping labels into narrow columns. Switches align at the right
-edge of their row or half-column; Autocorrect status stays below its own control.
+narrow sidebar widths. Layout Editor sits below the layout dropdown within the same
+card and replaces the old Column Tuning panel.
+Typing Tuning starts expanded and contains Hold Duration, Haptic Strength and a
+Mode Toggles subsection styled like Shortcut Builder. Its switches always use one
+full-width row in this order: Hold Repeat, Run at Startup, Snap Radius, Autocorrect.
+Switches align at the right edge; Autocorrect status stays below its own control.
+The old Restore Defaults button and separate Mode Toggles disclosure are removed.
 Layout and Layer selectors fill the right half of their rows beside their labels,
 including at narrow sidebar widths. Shortcut Builder aligns its Key and App fields
 and the Apply/Browse buttons in shared columns.
@@ -118,6 +126,12 @@ Unsupported hand-logo/PC-only legends remain editable inactive placeholders unti
 assigned a supported action. Changing layouts does not replace saved mappings.
 
 ## Layout authoring
+
+The configuration window starts at 1280 × 720 points, capped to the main screen’s
+visible frame with room for the titlebar and 16-point margins. Its minimum content
+size is 1120 × 540 points, allowing laptop screen resolutions without the previous
+1384-point minimum width. Existing workspace scroll areas handle constrained space;
+trackpad visualization retains its existing maximum size.
 
 Layout Editor replaces the keyboard visualizer in the same workspace while editing.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
@@ -424,7 +438,7 @@ and disconnected strokes are dropped rather than buffered.
 
 ## Snap radius
 
-Keyboard → Mode Toggles uses `GlassToKey.snapRadiusPercent`, also retained in
+Keyboard → Typing Tuning → Mode Toggles uses `GlassToKey.snapRadiusPercent`, also retained in
 settings exports. Direct hits win. A near miss selects the nearest eligible key
 on the same pad/layer/current binding index. Radius is the smaller key dimension
 times the saved percentage, bounded 0–100%. Toggling on sets 100%, off sets zero;
@@ -438,7 +452,7 @@ activated gesture cycle, and does not change mouse/scroll activation or latches.
 
 ## Autocorrect
 
-Keyboard → Mode Toggles uses `GlassToKey.autocorrectEnabled`, retained in exports.
+Keyboard → Typing Tuning → Mode Toggles uses `GlassToKey.autocorrectEnabled`, retained in exports.
 Only posted live keys feed correction. Raw contacts, pending typing proposals,
 cancelled output and replay do not. ASCII words are limited to 64 bytes with a
 1,024-byte context. Exclude unambiguous two-letter words, all-caps and identifiers
@@ -486,7 +500,7 @@ correction removes that focus observer. Fallback cannot verify unexposed text,
 caret or password state; detected secure fields/Secure Event Input are excluded.
 Physical input can still race OS delivery. No new restricted entitlement is needed.
 
-Keyboard → Mode Toggles shows the last original word → replacement beneath the
+Keyboard → Typing Tuning → Mode Toggles shows the last original word → replacement beneath the
 Autocorrect switch, with actionable validation/output errors when present. Routine
 statuses (waiting, no suggestion, sent, ordinary input/focus cancellation) and the
 output method remain in session diagnostics but are hidden in the compact readout.
@@ -554,3 +568,39 @@ Default off; reconcile the saved preference at launch and reflect actual service
 status on config load, changes and errors. Imports may apply an included startup
 preference and report failure; exports include it. Build/tests never register
 login items. Login launch and registration approval require a user hardware test.
+
+Keyboard settings, Layout Editor and the Gesture action inspector share a default
+sidebar width of 333 points; gesture navigation defaults to 286 points. Saved custom
+widths take precedence over these defaults.
+
+The Gesture workspace’s Left/Right/Both selector uses equal-width native segments
+that fill its navigation column.
+
+In STENO layouts, Keymap Tuning’s Primary/Hold choosers contain only STENO keys
+and None; other layouts omit STENO keys. Existing non-STENO assignments are not
+added back through the Current Custom Action group. This is a presentation filter
+only; STENO output remains restricted to the existing chord protocol and mouse
+controls, without ordinary shortcut dispatch.
+
+## Typing practice
+
+The typing area below the keyboard visualizer has Free type and Practice tabs.
+Practice mode keeps its mode/word-count selectors beside the Typing area control
+and New drill. The separate input box is hidden: a transparent native text input
+over the highlighted prompt handles typing, backspace, Unicode and Plover/AX text
+replacement. Clicking the prompt focuses input; Free type keeps its visible box.
+Practice generates local 10/25/50/100-word rounds from common words, short English
+STENO drills, or a custom whitespace-separated word list. It uses only text entered
+into the focused practice field; there are no global input observers, external
+services or protocol changes. STENO practice accepts Plover's translated text using
+the user's existing dictionary/theory and ignores capitalization. It measures text,
+not stroke count or theory-specific correctness. No lapdrill integration is required.
+
+Timing starts on the first input and freezes when the normalized prompt matches.
+Whitespace runs normalize to a single space; letter case matters outside STENO.
+WPM is current correct characters / 5 / elapsed minutes. Accuracy compares current
+characters against the same positions in the prompt, including extra characters as
+errors, and permits correction; it is not historical uncorrected accuracy. New drill
+resets all metrics. Free text is retained separately. Input and custom lists stay in
+view memory and are not exported, captured or stored in preferences. Input/custom
+list bounds keep scoring and prompt work off the recognition/output paths.

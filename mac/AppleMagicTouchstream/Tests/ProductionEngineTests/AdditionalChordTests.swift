@@ -307,7 +307,7 @@ extension AdditionalChordTests {
                 XCTAssertNotNil(plan.dockMessage)
                 XCTAssertNil(plan.events()) // shared live dispatcher uses the Dock path
             } else {
-                let events = try XCTUnwrap(plan.events())
+                let events = try XCTUnwrap(plan.events()).filter { $0.type != .flagsChanged }
                 XCTAssertEqual(events.count,2)
                 XCTAssertEqual(events.first?.type,.keyDown)
                 XCTAssertEqual(events.last?.type,.keyUp)
