@@ -632,14 +632,8 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption)
                     .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")
             }
-            Picker("Edit trackpad",selection:$editingHand) {
-                Text("Left").tag(GestureHandScope.left)
-                Text("Right").tag(GestureHandScope.right)
-                Text("Both").tag(GestureHandScope.both)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth:.infinity)
+            GestureHandScopePicker(selection:$editingHand)
+                .frame(maxWidth:.infinity)
             .help("Both edits coordinated two-hand gestures. Mirror Edit applies only to independent Left/Right settings.")
             TextField("Search gestures or actions",text:$search)
                 .textFieldStyle(.roundedBorder)
@@ -2066,5 +2060,33 @@ struct GestureHoldThresholdField:View {
             Text("ms").foregroundStyle(.secondary)
         }
         .help("100–5000 ms in 10 ms increments. Saves on Return or when leaving the field.")
+    }
+}
+
+/// Match the workspace picker: equal segments fill the available column width.
+private struct GestureHandScopePicker: NSViewRepresentable {
+    @Binding var selection:GestureHandScope
+    private static let options:[GestureHandScope] = [.left,.right,.both]
+    func makeCoordinator() -> Coordinator { Coordinator(selection:$selection) }
+    func makeNSView(context:Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(labels:["Left","Right","Both"],trackingMode:.selectOne,
+            target:context.coordinator,action:#selector(Coordinator.select(_:)))
+        control.segmentDistribution = .fillEqually
+        control.setContentHuggingPriority(.defaultLow,for:.horizontal)
+        control.setAccessibilityLabel("Edit trackpad")
+        return control
+    }
+    func updateNSView(_ control:NSSegmentedControl,context:Context) {
+        context.coordinator.selection = $selection
+        control.selectedSegment = Self.options.firstIndex(of:selection) ?? 0
+        control.isEnabled = context.environment.isEnabled
+    }
+    @MainActor final class Coordinator:NSObject {
+        var selection:Binding<GestureHandScope>
+        init(selection:Binding<GestureHandScope>) { self.selection = selection }
+        @objc func select(_ control:NSSegmentedControl) {
+            guard GestureHandScopePicker.options.indices.contains(control.selectedSegment) else { return }
+            selection.wrappedValue = GestureHandScopePicker.options[control.selectedSegment]
+        }
     }
 }

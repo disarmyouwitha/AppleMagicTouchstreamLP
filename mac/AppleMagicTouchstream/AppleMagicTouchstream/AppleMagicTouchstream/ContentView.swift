@@ -1371,6 +1371,7 @@ struct ContentView: View {
         var body: some View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment:.leading,spacing:12) {
                     EqualSplitFormRow(alwaysHorizontal: true) {
                         Text("Layout")
                     } field: {
@@ -1386,19 +1387,15 @@ struct ContentView: View {
                         .onAppear { if layoutOption.isSteno { lastStenoVariant = layoutOption } }
                         .onChange(of:layoutOption) { value in if value.isSteno { lastStenoVariant = value } }
                     }
+                        Button(action:onEditLayout) {
+                            Label("Layout Editor",systemImage:"square.grid.3x3")
+                                .frame(maxWidth:.infinity,alignment:.leading)
+                        }
+                    }
                     .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
+                    .background(RoundedRectangle(cornerRadius:12).fill(Color.primary.opacity(0.05)))
 
                     if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
-
-                    Button(action: onEditLayout) {
-                        Label("Layout Editor", systemImage: "square.grid.3x3")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }.padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.05)))
 
                     CollapsibleSection(
                         isExpanded: $keymapTuningExpanded

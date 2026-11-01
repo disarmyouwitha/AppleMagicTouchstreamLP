@@ -103,7 +103,8 @@ rectangular bounds around oval artwork. Saved per-key overrides still apply.
 The traced geometry is the editable template seed; Layout Editor can author independent
 positions, sizes and groups without changing the reference image.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
-narrow sidebar widths. Layout Editor replaces the old Column Tuning panel.
+narrow sidebar widths. Layout Editor sits below the layout dropdown within the same
+card and replaces the old Column Tuning panel.
 At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
 Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
 row instead of wrapping labels into narrow columns. Switches align at the right
@@ -554,3 +555,6 @@ Default off; reconcile the saved preference at launch and reflect actual service
 status on config load, changes and errors. Imports may apply an included startup
 preference and report failure; exports include it. Build/tests never register
 login items. Login launch and registration approval require a user hardware test.
+
+The Gesture workspace’s Left/Right/Both selector uses equal-width native segments
+that fill its navigation column.
