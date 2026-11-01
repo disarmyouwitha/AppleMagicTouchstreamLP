@@ -143,7 +143,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
         }
         var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { $0.uses(.primaryDrag) } }
-        var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
+        var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) || $0.uses(.rotate) } }
         var needsScrollTimer: Bool {
             bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
                 inputs.values.contains { config in GestureMovementDirection.allCases.contains { config.action($0).isDirectionalScroll } }

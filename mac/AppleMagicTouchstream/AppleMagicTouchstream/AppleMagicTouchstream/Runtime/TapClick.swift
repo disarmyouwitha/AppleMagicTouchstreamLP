@@ -500,6 +500,15 @@ struct AppleShortcutPlan: Equatable, Sendable {
         }
     }
     static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
+        let playbackCode:Int32?
+        switch action {
+        case .playPause: playbackCode = 16
+        case .nextTrack: playbackCode = 17
+        case .previousTrack: playbackCode = 18
+        case .mute: playbackCode = 7
+        default: playbackCode = nil
+        }
+        if let playbackCode { return Self(keyCode:0,flags:[],mediaKeyType:playbackCode) }
         // Same media codes and Option–Shift encoding as GlassToKey's fine controls.
         let mediaCode: Int32?
         switch action {
@@ -571,7 +580,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
             var events: [CGEvent] = []
             for state: Int32 in [0xA,0xB] {
                 var modifiers = NSEvent.ModifierFlags(rawValue:UInt(state << 8))
-                modifiers.formUnion([.shift,.option])
+                modifiers.formUnion(NSEvent.ModifierFlags(rawValue:UInt(flags.rawValue)))
                 guard let event = NSEvent.otherEvent(with:.systemDefined,location:.zero,
                     modifierFlags:modifiers,timestamp:ProcessInfo.processInfo.systemUptime,
                     windowNumber:0,context:nil,subtype:8,

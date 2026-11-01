@@ -168,6 +168,30 @@ final class GestureActionBindingTests: XCTestCase {
         XCTAssertFalse(output.active)
         XCTAssertNil(RotateGestureOutput.event(degrees:181,phase:2,location:.zero))
     }
+    func testPlaybackMediaKeysHaveBalancedEdgesWithoutFineAdjustmentModifiers() throws {
+        for (action,code) in [(GestureAction.playPause,16),(.previousTrack,18),(.nextTrack,17),(.mute,7)] {
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            XCTAssertEqual(plan.eventTap,.cgSessionEventTap)
+            XCTAssertEqual(plan.flags,[])
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.count,2)
+            for (event,state) in zip(events,[0xA,0xB]) {
+                let native = try XCTUnwrap(NSEvent(cgEvent:event))
+                XCTAssertEqual(native.type,.systemDefined)
+                XCTAssertEqual(native.subtype.rawValue,8)
+                XCTAssertEqual(native.data1,(code << 16) | (state << 8))
+                XCTAssertTrue(native.modifierFlags.intersection([.control,.command,.shift,.option,.function]).isEmpty)
+                XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            }
+            XCTAssertNil(plan.events(phase:.changed))
+            var profile = AppKeymapProfile.defaultProfile(), settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(action,for:.twoFingerTap,in:.left))
+            profile.handGestureSettings = settings
+            XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+            XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
+            XCTAssertTrue(TwoHandGestureSettings.allowedActions.contains(action))
+        }
+    }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
             OMSRawTouch(id:Int32(index+10),posX:Float(index)*0.11+0.3+dx,

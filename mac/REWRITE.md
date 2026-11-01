@@ -1,8 +1,14 @@
 # NEXT:
 =======
-1. Implement actions: Missing Apple actions:
-> Play/Pause, Previous/Next Track, and Mute— Apple media controls
-2. Experiment time! Let's try adding Rotate to 2F Pinch/Zoom page!
+0. Experiment time! Would it be a big deal to do something like a minimal Javelin where we run the state machine in our app instead of plover? (So you wouldn't need to install plover / plugin?) https://github.com/jthlim/javelin-steno
+===
+2. Implement actions: Missing TouchStream actions:
+> Missing capability	    Command/output
+> Middle click and drag	    Mouse3 click or held drag
+> Secondary drag	        Mouse2 down → movement → release
+> Caps Word	                Capitalize the next word, then automatically stop
+> Sequential macros:        Ctrl+X, (then) V, then =
+3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
 # Human Tasks...?
 0. make 6x3 decal girl template in gimp with layers for ppl to edit
@@ -12,14 +18,6 @@
 
 
 `AppleMagicTouchstream`:
-===
-2. Implement actions: Missing TouchStream actions:
-> Missing capability	    Command/output
-> Middle click and drag	    Mouse3 click or held drag
-> Secondary drag	        Mouse2 down → movement → release
-> Caps Word	                Capitalize the next word, then automatically stop
-> Sequential macros:        Ctrl+X, (then) V, then =
-3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
 # 1Finger `Custom/Drawings`:
 - `Record Gesture` custom gestures in the future would be awesome!

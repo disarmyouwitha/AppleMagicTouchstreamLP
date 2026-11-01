@@ -1478,7 +1478,7 @@ struct GestureActionChooser:View {
             ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
             ("System",GestureAction.appleShortcuts + GestureAction.nativeDiscreteActions),
-            ("Sound & Display",GestureAction.smallStepActions),
+            ("Sound & Display",GestureAction.mediaActions + GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in
             let matches = values.filter { actions.contains($0) }

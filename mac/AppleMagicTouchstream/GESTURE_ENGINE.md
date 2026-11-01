@@ -660,8 +660,7 @@ and four-contact fields remain readable for compatibility without visible cards.
 Rotation assignments are independent per hand/direction, default None, and support
 Mirror Edit and settings import/export. Assigned Thumb+2 and five-contact rotations
 reserve their corresponding input family. Rotate Content follows angular motion;
-other actions dispatch once on activation. Two/four-
-contact rotation fields remain inactive.
+other actions dispatch once on activation. Two/four-contact rotation fields remain inactive.
 
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
 and Force Click across the top; Left / Movement / Right in the middle; Hold beside
@@ -756,7 +755,7 @@ and directional assignments; directional repeats retain their chosen behavior.
 The receiving app/view decides whether navigation is supported. Existing bindings
 and defaults are unchanged; there is no keyboard fallback or duplicate dispatch.
 
-Rotate Content is a continuous action offered only in the existing Thumb+2 and
+Rotate Content is a continuous action offered only in the Thumb+2 and
 five-contact rotation slots. Activation and arbitration retain the existing thumb,
 angular/radial thresholds and first-owner latch. Initial angular travel is emitted
 once at activation; subsequent output uses signed frame deltas, including reversal.
@@ -770,3 +769,15 @@ Other assigned rotation actions remain one-shot. Native output retains live,
 selected/owned/armed/AX gates; replay posts nothing. Tests inspect AppKit event
 conversion, direction, phases, settings round trips and latched incremental angles
 without posting events. App acceptance requires hardware testing.
+
+## Playback controls
+
+Play / Pause, Previous Track, Next Track and Mute use balanced system-defined
+media edges (NX 16, 18, 17 and 7) via the session event tap. They carry no fine-step
+Option/Shift flags; the existing small-step volume/brightness actions retain those
+flags. They share discrete action menus, settings, directional repeat and live
+output gates. Replay never posts playback events or changes sound.
+
+Two- and four-contact rotation fields remain decode-only and inert. Two-finger
+Pinch and Spread has no rotation cards or rotation keyboard reservation. Existing
+Thumb+2 and five-contact native/shortcut rotation keep their behavior.

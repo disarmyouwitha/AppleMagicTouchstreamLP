@@ -372,6 +372,15 @@ extension PinchZoomTests {
             XCTAssertEqual(router.recognize(device:1,time:1.04,contacts:[OMSRawTouch](),enabled:{$0.isRotation}).phase,.ended)
         }}
     }
+    func testRetiredTwoFingerRotationCannotActivateEvenWithSavedAssignments() {
+        for sign in [-1.0,1.0] {
+            var router = TrackpadGestureRouter()
+            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:2,angle:0),enabled:{$0.isRotation})
+            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:2,angle:sign*0.2),enabled:{$0.isRotation}).gesture)
+            XCTAssertFalse(GestureTrigger.liveRotationTriggers.contains(.twoFingerRotateLeft))
+            XCTAssertFalse(GestureTrigger.liveRotationTriggers.contains(.twoFingerRotateRight))
+        }
+    }
     func testPureScaleAndMissingThumbCannotClaimRotation() {
         for missingThumb in [false,true] {
             var router = TrackpadGestureRouter()
