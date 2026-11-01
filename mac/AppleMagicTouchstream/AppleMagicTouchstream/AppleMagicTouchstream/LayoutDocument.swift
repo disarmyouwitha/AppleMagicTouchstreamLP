@@ -180,6 +180,7 @@ struct LayoutDocument: Codable, Equatable {
         for edited in edits {
             guard let old = oldByID[edited.id], let partnerID = old.mirrorID,
                   !sources.contains(partnerID), let partner = oldByID[partnerID], let i = indices[partnerID] else { continue }
+            guard edited.rect != old.rect || edited.edges != old.edges else { continue }
             let a = old.rect, b = edited.rect
             var r = partner.rect
             let newWidth = min(1, max(0.005,r.width+b.width-a.width))
@@ -222,6 +223,93 @@ struct LayoutDocument: Codable, Equatable {
         }
         let surviving = Set(keys.map { address($0, row: $0.row, column: $0.column) })
         return result.mapValues { $0.filter { surviving.contains($0.key) } }
+    }
+
+    struct SelectionFrame: Equatable {
+        let rect: NormalizedRect
+        let allowsIndependentAxes: Bool
+    }
+
+    /// Use the keys' shared axes when possible. Mixed rotations use a world-axis
+    /// frame and uniform scaling, since rotated rectangles cannot represent shear.
+    func selectionFrame(_ ids: Set<UUID>, right: Bool, pad: CGSize) -> SelectionFrame? {
+        guard pad.width > 0, pad.height > 0 else { return nil }
+        let selected = keys.filter { ids.contains($0.id) && $0.right == right }
+        guard let first = selected.first else { return nil }
+        let shared = selected.allSatisfy {
+            let delta = ($0.rect.rotationDegrees-first.rect.rotationDegrees).truncatingRemainder(dividingBy:180)
+            return abs(delta) < 0.00001 || abs(abs(delta)-180) < 0.00001
+        }
+        let angle = shared ? first.rect.rotationDegrees : 0
+        let a: CGFloat = CGFloat(angle * .pi/180)
+        let c: CGFloat = cos(a), sn: CGFloat = sin(a)
+        var minX = CGFloat.infinity, minY = CGFloat.infinity
+        var maxX = -CGFloat.infinity, maxY = -CGFloat.infinity
+        for key in selected {
+            for point in key.rect.corners(in:pad) {
+                let x: CGFloat = point.x*c+point.y*sn
+                let y: CGFloat = (-point.x)*sn+point.y*c
+                minX = min(minX,x); maxX = max(maxX,x)
+                minY = min(minY,y); maxY = max(maxY,y)
+            }
+        }
+        guard minX.isFinite, maxX.isFinite, minY.isFinite, maxY.isFinite else { return nil }
+        let localCenter = CGPoint(x:(minX+maxX)/2,y:(minY+maxY)/2)
+        let center = CGPoint(x:localCenter.x*c-localCenter.y*sn,y:localCenter.x*sn+localCenter.y*c)
+        let width = (maxX-minX)/pad.width, height = (maxY-minY)/pad.height
+        return SelectionFrame(rect:NormalizedRect(x:center.x/pad.width-width/2,y:center.y/pad.height-height/2,
+            width:width,height:height,rotationDegrees:angle),allowsIndependentAxes:shared)
+    }
+
+    func selectionAllowsIndependentAxes(_ ids: Set<UUID>, pad: CGSize) -> Bool {
+        [false,true].allSatisfy { selectionFrame(ids,right:$0,pad:pad)?.allowsIndependentAxes ?? true }
+    }
+
+    /// Transform each pad in its own coordinate system. A member handle fixes that
+    /// member's opposite corner; the shared frame fixes the selection's opposite corner.
+    /// Scale positions and key sizes together, retaining rotations, identities, actions,
+    /// groups, counterpart links and the fixed STENO overlap allowances.
+    @discardableResult
+    mutating func resizeSelection(_ ids: Set<UUID>, scaleX: CGFloat, scaleY: CGFloat,
+                                 pad: CGSize, referenceKey: UUID? = nil) -> Bool {
+        guard scaleX.isFinite, scaleY.isFinite, scaleX > 0, scaleY > 0,
+              pad.width > 0, pad.height > 0 else { return false }
+        let selected = keys.filter { ids.contains($0.id) }
+        guard !selected.isEmpty else { return false }
+        guard abs(scaleX-1) > 1e-12 || abs(scaleY-1) > 1e-12 else { return false }
+        let uniform = abs(scaleX-scaleY) < 0.0000001
+        guard uniform || selectionAllowsIndependentAxes(ids,pad:pad) else { return false }
+        // Match the editor's existing per-key size limits; clamp one shared factor
+        // rather than clamping keys separately and distorting spacing.
+        let minX = selected.map { 0.005/$0.rect.width }.max()!, minY = selected.map { 0.005/$0.rect.height }.max()!
+        let maxX = selected.map { 1/$0.rect.width }.min()!, maxY = selected.map { 1/$0.rect.height }.min()!
+        let sx: CGFloat, sy: CGFloat
+        if uniform {
+            sx = min(min(maxX,maxY),max(max(minX,minY),scaleX)); sy = sx
+        } else {
+            sx = min(maxX,max(minX,scaleX)); sy = min(maxY,max(minY,scaleY))
+        }
+        let before = self
+        let indices = Dictionary(uniqueKeysWithValues:keys.enumerated().map { ($0.element.id,$0.offset) })
+        for side in [false,true] {
+            let members = selected.filter { $0.right == side }
+            guard let frame = before.selectionFrame(ids,right:side,pad:pad) else { continue }
+            let reference = members.first { $0.id == referenceKey }
+            let axes = reference?.rect ?? frame.rect
+            guard let anchor = axes.corners(in:pad).first else { continue }
+            let a = CGFloat(axes.rotationDegrees * .pi/180), c = cos(a), sn = sin(a)
+            for key in members {
+                guard let i = indices[key.id] else { continue }
+                let dx = key.rect.centerX*pad.width-anchor.x, dy = key.rect.centerY*pad.height-anchor.y
+                let x = (dx*c+dy*sn)*sx, y = (-dx*sn+dy*c)*sy
+                var r = key.rect
+                r.width *= sx; r.height *= sy
+                r.x = (anchor.x+x*c-y*sn)/pad.width-r.width/2
+                r.y = (anchor.y+x*sn+y*c)/pad.height-r.height/2
+                keys[i].rect = r
+            }
+        }
+        return before != self
     }
 
     mutating func rotate(_ ids: Set<UUID>, degrees: Double, pad: CGSize) {

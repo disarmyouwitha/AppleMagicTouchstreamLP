@@ -57,17 +57,25 @@ Hardware acceptance still includes Outer Corners opening Config, haptic feel,
 history and settings/capture profile round-trips. `LayoutMirrorTests` cover reflected
 geometry deltas, asymmetric/persistent counterparts, paired duplication/deletion,
 independent single-pad geometry, rotated hit testing and box/group selection.
-`LayoutEditorWorkspaceTests` render both pads at narrow/wide sizes and select keys
+`LayoutSelectionResizeTests` cover temporary and saved selections, shared axes,
+mixed-rotation proportional scaling, member anchors, size limits, independent pad
+anchors, mirrored undo/redo and exact no-op handling. `LayoutEditorWorkspaceTests`
+render compact tools and multi-selection sizing at minimum/wide inspector widths,
+render both pads at narrow/wide sizes and select keys
 on each side through the native picker without publishing a layout. These tests use
 private, hidden AppKit windows and local callbacks; no input clients or output are
 started. Set `AMT_LAYOUT_PREVIEW_DIR` to save previews, for example:
 
 ```sh
-AMT_LAYOUT_PREVIEW_DIR=/tmp/amt-layout-preview ./test.sh --filter 'Layout(Mirror|EditorWorkspace|Document)Tests'
+AMT_LAYOUT_PREVIEW_DIR=/tmp/amt-layout-preview ./test.sh --filter 'Layout(SelectionResize|Mirror|EditorWorkspace|Document)Tests'
 ```
 
 On hardware, check direct click/drag in Keys and Columns/Groups modes, Shift-add and
-box selection. Check Mirror Edit on/off, dashed counterpart outlines, independent
+box selection. Resize temporary selections using member circles, the shared square
+handle, Width/Height and Smaller/Larger 5%. Check Shift/Keep proportions, common-axis
+nonuniform resizing and mixed-rotation uniform resizing. Confirm Group persists after
+Apply in Columns/Groups mode, while Keys mode remains independent; grouping must not
+be required for resizing. Check Mirror Edit on/off, dashed counterpart outlines, independent
 per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify
 STENO overlap chords after editing and settings/capture replay with authored layouts.

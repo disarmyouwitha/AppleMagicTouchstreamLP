@@ -21,11 +21,25 @@ struct LayoutEditor: View {
     @State private var marqueeRight = true
     @State private var marqueeBase = Set<UUID>()
     @State private var columnCount = 3
+    @State private var keepProportions = false
     @State private var documentValid = true
     @State private var legends: [UUID: String] = [:]
     private let width = ContentView.trackpadWidthMM
     private let height = ContentView.trackpadHeightMM
-    private enum DragKind { case move, resize(UUID), marquee }
+    private enum DragKind { case move, resizeMember(UUID), resizeFrame(Bool), marquee }
+    private var padMM: CGSize { CGSize(width:width,height:height) }
+    private var supportsIndependentResize: Bool { document.selectionAllowsIndependentAxes(selection,pad:padMM) }
+    private var activeSelectionFrame: LayoutDocument.SelectionFrame? {
+        document.selectionFrame(selection,right:right,pad:padMM) ?? document.selectionFrame(selection,right:!right,pad:padMM)
+    }
+
+    init(document: LayoutDocument, template: LayoutDocument, onApply: @escaping (LayoutDocument?) -> Void,
+         onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = []) {
+        _document = State(initialValue:document)
+        self.template = template; self.onApply = onApply; self.onCancel = onCancel; _menuWidth = menuWidth
+        _selection = State(initialValue:initialSelection)
+        _right = State(initialValue:document.keys.first { initialSelection.contains($0.id) }?.right ?? true)
+    }
     private var affected: Set<UUID> { mirror ? document.pairedSelection(selection) : selection }
 
     var body: some View {
@@ -45,6 +59,10 @@ struct LayoutEditor: View {
                         selectionCaption
                         Text("Click to select · drag to move · drag empty space to box-select · Shift adds to selection")
                             .font(.caption).foregroundStyle(.secondary)
+                        if selection.count > 1 {
+                            Text("Drag any selected corner to resize the whole selection. Shift keeps proportions.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }.padding(20).frame(maxWidth: .infinity,alignment: .topLeading)
                 }.frame(maxWidth: .infinity)
                 WorkspaceColumnDivider(width:Binding(get:{inspectorWidth},set:{menuWidth = $0}),
@@ -102,7 +120,7 @@ struct LayoutEditor: View {
     }
     private var snapToggle: some View {
         Toggle(isOn: $snap) { Label("1 mm",systemImage: "grid") }
-            .toggleStyle(.button).help("Snap editing to a 1 mm grid. Independent of typing Snap Radius.")
+            .toggleStyle(.button).help("Snap dragging and corner resizing to a 1 mm grid. Independent of typing Snap Radius.")
     }
     private var selectionCaption: some View {
         HStack(spacing: 12) {
@@ -110,7 +128,7 @@ struct LayoutEditor: View {
             if mirror {
                 Label("Mirror Edit on",systemImage: "rectangle.split.2x1").foregroundStyle(Color.accentColor)
                 if !selection.isEmpty {
-                    Text("\(affected.count-selection.count) paired keys").foregroundStyle(.secondary)
+                    Text("\(affected.count-selection.count) paired \(affected.count-selection.count == 1 ? "key":"keys")").foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
@@ -165,9 +183,18 @@ struct LayoutEditor: View {
             let text = Text(legends[key.id] ?? key.label).font(.system(size:fontSize,weight:.semibold)).foregroundColor(.primary)
             local.draw(text,at:.zero)
         }
-        if let key = singleKey, key.right == isRight {
+        let members = document.keys.filter { selection.contains($0.id) && $0.right == isRight }
+        for key in members {
             let p = resizePoint(key.rect,size:size)
-            context.fill(Path(ellipseIn:CGRect(x:p.x-4,y:p.y-4,width:8,height:8)),with:.color(.accentColor))
+            context.fill(Path(ellipseIn:CGRect(x:p.x-3.5,y:p.y-3.5,width:7,height:7)),with:.color(.accentColor))
+        }
+        if members.count > 1, let frame = document.selectionFrame(selection,right:isRight,pad:padMM) {
+            let rect = frame.rect.rect(in:size)
+            var local = context
+            local.translateBy(x:rect.midX,y:rect.midY); local.rotate(by:.degrees(frame.rect.rotationDegrees))
+            local.stroke(Path(CGRect(x:-rect.width/2,y:-rect.height/2,width:rect.width,height:rect.height)),with:.color(.accentColor),lineWidth:1)
+            let p = resizePoint(frame.rect,size:size)
+            context.fill(Path(CGRect(x:p.x-4,y:p.y-4,width:8,height:8)),with:.color(.accentColor))
         }
         if let marquee, marqueeRight == isRight {
             let rect = CGRect(x:marquee.minX*size.width,y:marquee.minY*size.height,width:marquee.width*size.width,height:marquee.height*size.height)
@@ -192,9 +219,16 @@ struct LayoutEditor: View {
         if dragStart == nil {
             let p = CGPoint(x:value.startLocation.x/size.width,y:value.startLocation.y/size.height)
             let adding = NSEvent.modifierFlags.contains(.shift)
-            if let key = singleKey, key.right == isRight,
-               hypot(value.startLocation.x-resizePoint(key.rect,size:size).x,value.startLocation.y-resizePoint(key.rect,size:size).y) < 10 {
-                right = isRight; dragKind = .resize(key.id); dragIDs = [key.id]
+            let members = document.keys.filter { selection.contains($0.id) && $0.right == isRight }
+            let frame = members.count > 1 ? document.selectionFrame(selection,right:isRight,pad:padMM) : nil
+            let frameHandle = frame.map { resizePoint($0.rect,size:size) }
+            if let frameHandle, hypot(value.startLocation.x-frameHandle.x,value.startLocation.y-frameHandle.y) < 10 {
+                right = isRight; dragKind = .resizeFrame(isRight); dragIDs = selection
+            } else if let key = members.first(where:{ key in
+                let point = resizePoint(key.rect,size:size)
+                return hypot(value.startLocation.x-point.x,value.startLocation.y-point.y) < 9
+            }) {
+                right = isRight; dragKind = .resizeMember(key.id); dragIDs = selection
             } else if let id = document.editorHit(at:p,right:isRight,pad:CGSize(width:width,height:height)) {
                 var ids: Set<UUID> = [id]
                 if groupSelection { ids = document.expandedGroups(ids) }
@@ -216,21 +250,12 @@ struct LayoutEditor: View {
             if snap { dx = (dx*width).rounded()/width; dy = (dy*height).rounded()/height }
             document = start; document.translate(dragIDs,dx:dx,dy:dy)
             if mirror { document.mirrorGeometryChanges(from:start,sources:dragIDs) }
-        case .resize(let id):
-            guard let i = start.keys.firstIndex(where: { $0.id == id }) else { return }
-            let original = start.keys[i].rect
-            let a: CGFloat = CGFloat(original.rotationDegrees) * .pi/180
-            let x = value.translation.width/size.width*width, y = value.translation.height/size.height*height
-            var dw: CGFloat = x*cos(a)+y*sin(a), dh: CGFloat = -x*sin(a)+y*cos(a)
-            if snap { dw = dw.rounded(); dh = dh.rounded() }
-            dw = min(width-original.width*width,max(CGFloat(1)-original.width*width,dw))
-            dh = min(height-original.height*height,max(CGFloat(1)-original.height*height,dh))
-            var rect = original
-            rect.width += dw/width; rect.height += dh/height
-            rect.x += (dw*cos(a)-dh*sin(a)-dw)/2/width
-            rect.y += (dw*sin(a)+dh*cos(a)-dh)/2/height
-            document = start; document.keys[i].rect = rect
-            if mirror { document.mirrorGeometryChanges(from:start,sources:[id]) }
+        case .resizeMember(let id):
+            guard let reference = start.keys.first(where:{$0.id == id}) else { return }
+            resizeDrag(value,size:size,start:start,reference:reference.rect,referenceKey:id)
+        case .resizeFrame(let side):
+            guard let frame = start.selectionFrame(dragIDs,right:side,pad:padMM) else { return }
+            resizeDrag(value,size:size,start:start,reference:frame.rect,referenceKey:nil)
         case .marquee:
             let x = min(max(value.location.x/size.width,0),1), y = min(max(value.location.y/size.height,0),1)
             let sx = min(max(value.startLocation.x/size.width,0),1), sy = min(max(value.startLocation.y/size.height,0),1)
@@ -239,6 +264,25 @@ struct LayoutEditor: View {
             selection = marqueeBase.union(document.editorMarquee(rect,right:isRight,groups:groupSelection,pad:CGSize(width:width,height:height)))
         }
     }
+    private func resizeDrag(_ value: DragGesture.Value, size: CGSize, start: LayoutDocument,
+                            reference: NormalizedRect, referenceKey: UUID?) {
+        let a = CGFloat(reference.rotationDegrees * .pi/180), c = cos(a), sn = sin(a)
+        let dx = value.translation.width/size.width*width, dy = value.translation.height/size.height*height
+        var x = dx*c+dy*sn, y = -dx*sn+dy*c
+        if snap { x = x.rounded(); y = y.rounded() }
+        let w = reference.width*width, h = reference.height*height
+        guard w > 0, h > 0 else { return }
+        var sx = max(0.001,1+x/w), sy = max(0.001,1+y/h)
+        let proportional = keepProportions || NSEvent.modifierFlags.contains(.shift) || !start.selectionAllowsIndependentAxes(dragIDs,pad:padMM)
+        if proportional {
+            let scale = max(0.001,(w*(w+x)+h*(h+y))/(w*w+h*h))
+            sx = scale; sy = scale
+        }
+        document = start
+        document.resizeSelection(dragIDs,scaleX:sx,scaleY:sy,pad:padMM,referenceKey:referenceKey)
+        if mirror { document.mirrorGeometryChanges(from:start,sources:dragIDs) }
+    }
+
     private func finishDrag() {
         if let start = dragStart, start != document { history.record(start) }
         documentValid = document.isValid
@@ -270,12 +314,19 @@ struct LayoutEditor: View {
             } else {
                 Text(selection.isEmpty ? "Click a key, or drag a box around keys." : "\(selection.count) keys · \(right ? "Right":"Left") trackpad")
                     .font(.subheadline).foregroundStyle(.secondary)
+                if selection.count > 1 { selectionDimensions }
             }
             if mirror && selection.contains(where: { id in document.keys.first(where:{$0.id == id})?.mirrorID == nil }) {
                 Text("Unpaired keys stay independent.").font(.caption).foregroundStyle(.secondary)
             }
             Divider()
             Text("Arrange").font(.subheadline.bold())
+            HStack {
+                tool("Smaller 5%","arrow.down.right.and.arrow.up.left",disabled:selection.isEmpty,
+                     hint:"Scale selected keys and spacing down by 5%.") { scaleSelection(0.95) }
+                tool("Larger 5%","arrow.up.left.and.arrow.down.right",disabled:selection.isEmpty,
+                     hint:"Scale selected keys and spacing up by 5%.") { scaleSelection(1.05) }
+            }
             HStack {
                 tool("Rotate left 5°","arrow.counterclockwise",disabled:selection.isEmpty) { rotate(-5) }
                 tool("Rotate right 5°","arrow.clockwise",disabled:selection.isEmpty) { rotate(5) }
@@ -289,10 +340,14 @@ struct LayoutEditor: View {
                 tool("Space vertically","distribute.vertical.center",disabled:selection.count < 3) { distribute(horizontal:false) }
             }
             Divider()
-            HStack {
-                tool("Group","square.on.square.dashed",disabled:selection.isEmpty,action:group)
-                tool("Ungroup","square.dashed",disabled:selection.isEmpty,action:ungroup)
+            groupingStatus
+            HStack(spacing:8) {
+                tool("Group","square.on.square.dashed",disabled:selection.count < 2 || isWholeSavedGroup,
+                     hint:"Save this selection as a group. Columns/Groups mode selects it together; Apply keeps the group.",action:group)
+                tool("Ungroup","square.dashed",disabled:!hasGroupedMembers,
+                     hint:"Remove selected keys from their saved groups. The current temporary selection stays selected.",action:ungroup)
             }
+            Text("Grouping is optional. Temporary selections resize together too.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 tool("Duplicate","square.on.square",disabled:selection.isEmpty,action:duplicate)
                 tool("Delete","trash",disabled:selection.isEmpty,action:delete)
@@ -312,6 +367,66 @@ struct LayoutEditor: View {
                 .font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth:.infinity,alignment:.leading).textFieldStyle(.roundedBorder)
     }
+    private var sharedSavedGroup: (group: LayoutDocument.Group, members: Set<UUID>)? {
+        let keys = document.keys.filter { selection.contains($0.id) }
+        guard let first = keys.first, let id = first.group,
+              keys.allSatisfy({$0.group == id && $0.right == first.right}),
+              let group = document.groups.first(where:{$0.id == id}) else { return nil }
+        let members = Set(document.keys.filter {$0.group == id && $0.right == first.right}.map(\.id))
+        return members.count > 1 ? (group,members) : nil
+    }
+    private var isWholeSavedGroup: Bool { sharedSavedGroup?.members == selection }
+    private var hasGroupedMembers: Bool {
+        let grouped = Set(document.keys.filter { selection.contains($0.id) }.compactMap(\.group))
+        return grouped.contains { group in document.keys.filter {$0.group == group}.count > 1 }
+    }
+    @ViewBuilder private var groupingStatus: some View {
+        if !selection.isEmpty {
+            if let saved = sharedSavedGroup {
+                Label("Group · \(saved.members.count) keys",systemImage:"square.on.square.dashed").font(.subheadline.bold())
+                Text(saved.group.name).font(.caption).foregroundStyle(.secondary)
+                Text("Apply keeps this group. Columns/Groups mode selects all its keys.").font(.caption).foregroundStyle(.secondary)
+                if saved.members != selection {
+                    Button("Select whole group") { select(saved.members,onRight:document.keys.first(where:{saved.members.contains($0.id)})?.right ?? right,adding:false) }
+                        .controlSize(.small)
+                }
+            } else {
+                Label(selection.count > 1 ? "Temporary selection":"Individual key",systemImage:"cursorarrow")
+                    .font(.subheadline.bold())
+            }
+        }
+    }
+    @ViewBuilder private var selectionDimensions: some View {
+        if let frame = activeSelectionFrame {
+            VStack(alignment:.leading,spacing:8) {
+                Text("Selection size · mm").font(.subheadline.bold())
+                HStack {
+                    selectionSizeField("Width",axisX:true,frame:frame)
+                    selectionSizeField("Height",axisX:false,frame:frame)
+                }
+                Toggle("Keep proportions",isOn:Binding(get:{keepProportions || !supportsIndependentResize},set:{keepProportions = $0}))
+                    .toggleStyle(.checkbox).disabled(!supportsIndependentResize).font(.caption)
+                Text(supportsIndependentResize ? "Scales keys and spacing together." : "Mixed key angles resize proportionally.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+    private func selectionSizeField(_ title: String,axisX: Bool,frame: LayoutDocument.SelectionFrame) -> some View {
+        let size = axisX ? frame.rect.width*width : frame.rect.height*height
+        return VStack(alignment:.leading,spacing:4) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            TextField(title,value:Binding<Double>(get:{Double(size)},set:{value in
+                guard value.isFinite, value > 0, size > 0 else { return }
+                let scale = CGFloat(value)/size
+                let linked = keepProportions || !supportsIndependentResize
+                let sx = axisX || linked ? scale : 1
+                let sy = !axisX || linked ? scale : 1
+                change { document.resizeSelection(selection,scaleX:sx,scaleY:sy,pad:padMM) }
+            }),format:.number.precision(.fractionLength(2)))
+                .accessibilityLabel("Selection \(title.lowercased())")
+        }
+    }
+
     private func dimensions(_ key: LayoutDocument.Key) -> some View {
         VStack(spacing: 8) {
             HStack { field("X",key:key,path: \.x,scale:width); field("Y",key:key,path: \.y,scale:height) }
@@ -348,13 +463,13 @@ struct LayoutEditor: View {
         Button(action:action) { Image(systemName:symbol).frame(width:22,height:20) }
             .disabled(disabled).help(title).accessibilityLabel(title)
     }
-    private func tool(_ title: String,_ symbol: String,disabled: Bool = false,action: @escaping () -> Void) -> some View {
+    private func tool(_ title: String,_ symbol: String,disabled: Bool = false,hint: String? = nil,action: @escaping () -> Void) -> some View {
         Button(action:action) {
             VStack(spacing:5) {
                 Image(systemName:symbol).font(.system(size:18)).frame(height:22)
                 Text(title).font(.caption).lineLimit(2).multilineTextAlignment(.center)
             }.frame(maxWidth:.infinity,minHeight:48)
-        }.disabled(disabled).help(title).accessibilityLabel(title)
+        }.frame(width:90).disabled(disabled).help(hint ?? title).accessibilityLabel(title)
     }
     private func refreshLegends() {
         legends = Dictionary(uniqueKeysWithValues:document.keys.map { ($0.id,KeyActionCatalog.action(for:$0.label)?.displayText ?? $0.label) })
@@ -367,6 +482,9 @@ struct LayoutEditor: View {
     }
     private func undo() { if let old = history.undo(document) { document = old; selection = []; documentValid = document.isValid; refreshLegends() } }
     private func redo() { if let next = history.redo(document) { document = next; selection = []; documentValid = document.isValid; refreshLegends() } }
+    private func scaleSelection(_ factor: CGFloat) {
+        change { document.resizeSelection(selection,scaleX:factor,scaleY:factor,pad:padMM) }
+    }
     private func rotate(_ degrees: Double) {
         change { document.rotate(selection,degrees:degrees,pad:CGSize(width:width,height:height)) }
     }

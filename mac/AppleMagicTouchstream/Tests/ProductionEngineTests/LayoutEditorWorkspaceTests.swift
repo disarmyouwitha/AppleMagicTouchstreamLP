@@ -51,6 +51,30 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
             try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("layout-selected.png"))
         }
     }
+    func testSelectionSizingAndSavedGroupRenderWithCompactTools() throws {
+        let doc = document()
+        let group = try XCTUnwrap(doc.groups.first { g in doc.keys.filter {$0.group == g.id && !$0.right}.count > 1 })
+        let ids = Set(doc.keys.filter {$0.group == group.id && !$0.right}.map(\.id))
+        for menu in [220.0,450.0] {
+            let host = NSHostingView(rootView:LayoutEditor(document:doc,template:doc,
+                onApply:{_ in XCTFail("Preview must stay staged")},onCancel:{},menuWidth:.constant(menu),initialSelection:ids)
+                .background(Color.white).environment(\.colorScheme,.light))
+            host.frame = CGRect(x:0,y:0,width:1440,height:800)
+            let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+            window.contentView = host
+            host.layoutSubtreeIfNeeded(); window.displayIfNeeded()
+            RunLoop.current.run(until:Date().addingTimeInterval(0.05))
+            XCTAssertGreaterThanOrEqual(editableFields(host).count,2)
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+            host.cacheDisplay(in:host.bounds,to:bitmap)
+            if let directory = ProcessInfo.processInfo.environment["AMT_LAYOUT_PREVIEW_DIR"] {
+                let path = URL(fileURLWithPath:directory,isDirectory:true)
+                try FileManager.default.createDirectory(at:path,withIntermediateDirectories:true)
+                try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:path.appendingPathComponent("selection-sizing-\(Int(menu)).png"))
+            }
+            window.contentView = nil
+        }
+    }
     func testInlineWorkspaceFitsNarrowAndWideCanvasWithoutNativeInput() throws {
         let doc = document()
         for (name,size,menu) in [("narrow",CGSize(width:1140,height:460),300.0),("wide",CGSize(width:1600,height:720),381.0)] {

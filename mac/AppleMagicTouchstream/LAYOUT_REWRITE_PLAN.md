@@ -50,11 +50,14 @@ Do not launch input takeover or post native events during offline verification.
 
 ## Delivered validation
 
-- `./test.sh`: 508 tests executed, seven hardware-dependent skips, zero failures;
+- `./test.sh`: 518 tests executed, seven hardware-dependent skips, zero failures;
   native takeover offline checks also passed.
 - Offscreen AppKit/SwiftUI rendering inspected at 1140 × 460, 1384 × 520 and
   1600 × 720 without launching the app or native input. Both pads fit beside the
   resizable inspector; key selection exposes exact geometry without applying it.
+  Compact tools and shared selection resizing also render at 220/450-point inspector
+  widths. Temporary selections, member pivots, rotated frames, constraints, mirrored
+  resizing and no-op edits have offline regression coverage.
 - Universal arm64/x86_64 Release built, Developer ID signature verified, and
   `./release.sh --check` confirmed bundle identity.
 - Assignment reconciliation is part of Apply: removed keys lose their saved
@@ -67,7 +70,9 @@ Do not launch input takeover or post native events during offline verification.
 Open Layout Editor, move a column, then move/resize one key independently and Apply.
 With Mirror Edit on, check reflected movement/resizing/rotation and dashed partner
 previews. Turn it off and verify each half stays independent. Test click and box
-selection in both Keys and Columns/Groups modes. Apply/Cancel return to the
+selection in both Keys and Columns/Groups modes. Resize a temporary selection with
+member/shared handles, exact dimensions and the 5% buttons, including mirrored and
+mixed-rotation selections. Check saved group status and Select whole group. Apply/Cancel return to the
 visualizer; Cancel must leave geometry unchanged. Check Undo/Redo/Reset and then
 check typing at the new positions and switching layers. Duplicate an assigned key,
 remove it, reset the template and add another key; an old action must not reappear.

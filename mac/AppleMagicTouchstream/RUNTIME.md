@@ -127,10 +127,23 @@ available in the editor header. Device/takeover controls remain available above 
 
 Keys and Columns/Groups selection modes support click/drag, Shift-add selection,
 and box selection by dragging empty space. A column/group is selected through any
-of its keys. Corner handles resize individual keys; exact positions and dimensions
-use millimeters, with numeric angles. Icon tools with labels/tooltips provide
-rotation, alignment/distribution, grouping, duplication and deletion. Editing snap
-is a separate 1 mm grid and has no connection to typing Snap Radius.
+of its keys. Every selected member has a corner handle; dragging one scales the
+whole current selection about that member's opposite corner. Multi-selection also
+shows a shared frame with a square resize handle. Width/Height fields resize the
+selection in millimeters, and Smaller/Larger 5% buttons scale keys and spacing.
+Temporary box/Shift selections resize just like permanent groups: Group is optional.
+Shift or Keep proportions locks the aspect ratio. Keys with shared axes can resize
+width and height independently; mixed rotations scale uniformly to retain rectangular
+shapes and existing rotations. Each pad uses its own anchor. Fixed STENO overlap
+allowances, key identities, groups, bindings and counterpart links are retained.
+
+Group stores membership in the staged document and Apply persists it; Ungroup removes
+selected members. Keys mode still selects individual members. Columns/Groups mode
+selects saved groups, and a partial selection offers Select whole group. The inspector
+shows group membership or Temporary selection explicitly. Tool buttons retain the
+compact 90-point width even when the inspector is widened, with short labels and
+specific tooltips. Editing snap applies to dragging/corner resizing on a separate
+1 mm grid and has no connection to typing Snap Radius.
 
 Mirror Edit defaults on for each edit session. Existing counterpart keys are paired
 once by mirrored geometry and persist their UUID relationship through later edits.
