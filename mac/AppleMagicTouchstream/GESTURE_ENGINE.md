@@ -398,6 +398,12 @@ Look Up, Previous Space and Next Space are discrete System actions using macOS
 symbolic shortcuts (70, 79, 81). Custom enabled bindings take precedence; missing
 or enabled-only entries use Control-Command-D and Control-Left/Right. Explicitly
 disabled or malformed entries remain unavailable, without emitting fallback keys.
+These three actions emit balanced modifier transitions around their key pair,
+borrowing only modifiers absent from the pre-action session/held-output flags and
+restoring those flags afterward. Arrow key pairs additionally carry their native
+function/keypad classification; this is not a held Globe/Fn modifier and never
+creates an Fn key edge. Custom letter bindings retain their configured flags.
+The whole sequence is built before any event posts.
 They use the existing gated one-shot output, directional repeat, and portable
 settings paths. No assignments or recognition thresholds change.
 

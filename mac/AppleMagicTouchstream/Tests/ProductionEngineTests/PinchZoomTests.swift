@@ -267,18 +267,20 @@ extension PinchZoomTests {
                 continue
             }
             let events = try XCTUnwrap(plan.events())
-            XCTAssertEqual(events.count,2)
-            XCTAssertEqual(events[0].type,.keyDown); XCTAssertEqual(events[1].type,.keyUp)
-            for event in events {
+            let keys = events.filter { $0.type != .flagsChanged }
+            XCTAssertEqual(keys.count,2)
+            XCTAssertEqual(keys[0].type,.keyDown); XCTAssertEqual(keys[1].type,.keyUp)
+            for event in keys {
                 XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode),Int64(plan.keyCode))
-                XCTAssertEqual(event.flags,plan.flags)
+                let keyFlags:CGEventFlags = plan.explicitModifiers && (123...126).contains(plan.keyCode) ? [.maskSecondaryFn,.maskNumericPad] : []
+                XCTAssertEqual(event.flags,plan.flags.union(keyFlags))
                 XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
             }
             for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] {
                 XCTAssertNil(plan.events(phase:phase))
             }
             var clicks = PrimaryTapClickOutput()
-            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,2)
+            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,events.count)
             XCTAssertNil(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks))
         }
     }

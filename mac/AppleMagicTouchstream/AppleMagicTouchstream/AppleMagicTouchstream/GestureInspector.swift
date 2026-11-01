@@ -605,7 +605,9 @@ struct GestureAssignmentWorkspace: View {
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                         }
                     }
-                    .padding(24)
+                    .padding(.horizontal,24)
+                    .padding(.top,20)
+                    .padding(.bottom,24)
                     .frame(maxWidth:.infinity,alignment:.topLeading)
                 }
                 .frame(maxWidth:.infinity,maxHeight:.infinity)

@@ -412,7 +412,7 @@ enum GestureTapActionOutput {
         shortcut: AppleShortcutPlan? = nil, mouseEventSource:CGEventSource? = nil) -> [CGEvent]? {
         if action.isAppleShortcut {
             clicks.reset()
-            return shortcut?.events()
+            return shortcut?.events(restoringFlags:flags)
         }
         switch action {
         case .smartZoom:
@@ -460,6 +460,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
     let flags: CGEventFlags
     var dockMessage: String? = nil
     var mediaKeyType: Int32? = nil
+    var explicitModifiers = false
     var eventTap: CGEventTapLocation { mediaKeyType == nil ? .cghidEventTap : .cgSessionEventTap }
     private typealias DockSender = @convention(c) (CFString, Int32) -> Void
     // Loaded by configuration, never first loaded in a contact callback. Keep handle resident.
@@ -501,9 +502,9 @@ struct AppleShortcutPlan: Equatable, Sendable {
         // fallback keystrokes into the foreground app when explicitly disabled.
         let defaultShortcut: Self?
         switch action {
-        case .lookUp: defaultShortcut = Self(keyCode:2,flags:[.maskControl,.maskCommand])
-        case .previousSpace: defaultShortcut = Self(keyCode:123,flags:.maskControl)
-        case .nextSpace: defaultShortcut = Self(keyCode:124,flags:.maskControl)
+        case .lookUp: defaultShortcut = Self(keyCode:2,flags:[.maskControl,.maskCommand],explicitModifiers:true)
+        case .previousSpace: defaultShortcut = Self(keyCode:123,flags:.maskControl,explicitModifiers:true)
+        case .nextSpace: defaultShortcut = Self(keyCode:124,flags:.maskControl,explicitModifiers:true)
         default: defaultShortcut = nil
         }
         if let defaultShortcut {
@@ -520,7 +521,8 @@ struct AppleShortcutPlan: Equatable, Sendable {
             let code = parameters[1].intValue, modifiers = parameters[2].int64Value
             let allowed: CGEventFlags = [.maskShift,.maskControl,.maskAlternate,.maskCommand,.maskSecondaryFn]
             guard (0...127).contains(code), modifiers >= 0, UInt64(modifiers) & ~allowed.rawValue == 0 else { return nil }
-            return Self(keyCode:CGKeyCode(code),flags:CGEventFlags(rawValue:UInt64(modifiers)))
+            return Self(keyCode:CGKeyCode(code),flags:CGEventFlags(rawValue:UInt64(modifiers)),
+                        explicitModifiers:defaultShortcut?.explicitModifiers ?? false)
         }
         // Globe shortcuts remain available independently of configurable symbolic shortcuts.
         switch action {
@@ -545,7 +547,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
         sender(dockMessage as CFString,0)
         return true
     }
-    func events(phase: GestureSessionPhase = .began) -> [CGEvent]? {
+    func events(phase: GestureSessionPhase = .began, restoringFlags:CGEventFlags = []) -> [CGEvent]? {
         guard phase == .began, dockMessage == nil else { return nil }
         if let mediaKeyType {
             var events: [CGEvent] = []
@@ -561,6 +563,9 @@ struct AppleShortcutPlan: Equatable, Sendable {
             }
             return events
         }
+        if explicitModifiers {
+            return SystemShortcutOutput.events(code:keyCode,flags:flags,restoringFlags:restoringFlags)
+        }
         guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
               let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
         for event in [down,up] {
@@ -568,6 +573,45 @@ struct AppleShortcutPlan: Equatable, Sendable {
             event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         }
         return [down,up]
+    }
+}
+
+
+/// System hotkeys need modifier transitions as well as flags on the arrow/key.
+/// Build the entire balanced sequence before posting. Borrow only modifiers not
+/// already held by the physical keyboard, keyboard output, or another gesture.
+enum SystemShortcutOutput {
+    static func events(code:CGKeyCode,flags:CGEventFlags,restoringFlags:CGEventFlags) -> [CGEvent]? {
+        let modifiers:[(CGEventFlags,CGKeyCode)] = [(.maskControl,59),(.maskAlternate,58),
+            (.maskShift,56),(.maskCommand,55),(.maskSecondaryFn,63)]
+        // Arrow events carry function/keypad classification even without a
+        // physical Fn press. Carbon's Space shortcuts include that function bit.
+        // Keep classification on the arrow pair, never synthesize a Globe press.
+        let keyFlags:CGEventFlags = (123...126).contains(code) ? [.maskSecondaryFn,.maskNumericPad] : []
+        let requestedModifiers = flags.subtracting(keyFlags)
+        let borrowed = modifiers.filter { requestedModifiers.contains($0.0) && !restoringFlags.contains($0.0) }
+        var active = restoringFlags, result:[CGEvent] = []
+        func make(_ code:CGKeyCode,_ down:Bool,_ flags:CGEventFlags,_ modifier:Bool = false) -> CGEvent? {
+            guard let event = CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:down) else { return nil }
+            if modifier { event.type = .flagsChanged }
+            event.flags = flags
+            event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+            return event
+        }
+        for (flag,key) in borrowed {
+            active.insert(flag)
+            guard let event = make(key,true,active,true) else { return nil }
+            result.append(event)
+        }
+        let strokeFlags = active.union(flags).union(keyFlags)
+        guard let down = make(code,true,strokeFlags), let up = make(code,false,strokeFlags) else { return nil }
+        result.append(down); result.append(up)
+        for (flag,key) in borrowed.reversed() {
+            active.remove(flag)
+            guard let event = make(key,false,active,true) else { return nil }
+            result.append(event)
+        }
+        return result
     }
 }
 

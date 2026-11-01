@@ -1,5 +1,12 @@
 # NEXT:
 =======
+1. Implement actions: Missing Apple actions:
+> Smart-zoom 
+> Look Up under the cursor
+> Back / Forward page navigation
+> Previous / Next Space
+> Native content rotation, rather than rotation triggering a shortcut
+===
 # Human Tasks...?
 0. make 6x3 decal girl template in gimp with layers for ppl to edit
 > Layers for: Center legends vs top-right legends / sublegend layer
@@ -9,8 +16,6 @@
 
 `AppleMagicTouchstream`:
 ===
-1. Implement actions: Missing Apple actions:
-> Smart-zoom 
 2. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
 > Middle click and drag	    Mouse3 click or held drag

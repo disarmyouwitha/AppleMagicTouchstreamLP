@@ -56,9 +56,14 @@ final class GestureActionBindingTests: XCTestCase {
                 XCTAssertEqual(plan.keyCode,code)
                 XCTAssertEqual(plan.flags,flags)
                 let events = try XCTUnwrap(plan.events())
-                XCTAssertEqual(events.map(\.type),[.keyDown,.keyUp])
-                XCTAssertEqual(events.map { $0.getIntegerValueField(.keyboardEventKeycode) },[Int64(code),Int64(code)])
-                XCTAssertTrue(events.allSatisfy { $0.flags == flags && $0.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag })
+                let keys = events.filter { $0.type != .flagsChanged }
+                XCTAssertEqual(keys.map(\.type),[.keyDown,.keyUp])
+                XCTAssertEqual(keys.map { $0.getIntegerValueField(.keyboardEventKeycode) },[Int64(code),Int64(code)])
+                let expectedFlags = code == 2 ? flags : flags.union([.maskSecondaryFn,.maskNumericPad])
+                XCTAssertTrue(keys.allSatisfy { $0.flags == expectedFlags })
+                XCTAssertEqual(events.first?.type,.flagsChanged)
+                XCTAssertEqual(events.last?.flags,[])
+                XCTAssertTrue(events.allSatisfy { $0.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag })
                 for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] { XCTAssertNil(plan.events(phase:phase)) }
             }
             let custom:[String:Any] = [id:["enabled":true,"value":["type":"standard","parameters":[65535,20,CGEventFlags.maskAlternate.rawValue]]]]
@@ -78,6 +83,38 @@ final class GestureActionBindingTests: XCTestCase {
             XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.left),action)
             XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.right),.primaryDoubleClick)
         }
+    }
+    func testSpaceShortcutBorrowsAndRestoresOnlyItsOwnModifiers() throws {
+        let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.nextSpace,preferences:[:]))
+        let events = try XCTUnwrap(plan.events(restoringFlags:.maskShift))
+        XCTAssertEqual(events.map(\.type),[.flagsChanged,.keyDown,.keyUp,.flagsChanged])
+        XCTAssertEqual(events.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,124,124,59])
+        XCTAssertEqual(events.map(\.flags),[[.maskShift,.maskControl],[.maskShift,.maskControl,.maskSecondaryFn,.maskNumericPad],
+                                           [.maskShift,.maskControl,.maskSecondaryFn,.maskNumericPad],.maskShift])
+        let held = try XCTUnwrap(plan.events(restoringFlags:[.maskControl,.maskShift]))
+        XCTAssertEqual(held.map(\.type),[.keyDown,.keyUp])
+        XCTAssertTrue(held.allSatisfy { $0.flags == [.maskControl,.maskShift,.maskSecondaryFn,.maskNumericPad] })
+        var clicks = PrimaryTapClickOutput()
+        let dispatched = try XCTUnwrap(GestureTapActionOutput.events(action:.nextSpace,
+            location:.zero,time:1,doubleClickInterval:0.5,flags:.maskControl,clicks:&clicks,shortcut:plan))
+        XCTAssertEqual(dispatched.map(\.type),[.keyDown,.keyUp])
+        let lookup = try XCTUnwrap(AppleShortcutPlan.resolve(.lookUp,preferences:[:])?.events())
+        XCTAssertEqual(lookup.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,55,2,2,55,59])
+        XCTAssertEqual(lookup.last?.flags,[])
+    }
+    func testNativeArrowClassificationDoesNotPressGlobeOrLeakToCustomLetterBinding() throws {
+        let native = try XCTUnwrap(SystemShortcutOutput.events(code:123,
+            flags:[.maskControl,.maskSecondaryFn],restoringFlags:[]))
+        XCTAssertEqual(native.map { $0.getIntegerValueField(.keyboardEventKeycode) },[59,123,123,59])
+        XCTAssertEqual(native.map(\.type),[.flagsChanged,.keyDown,.keyUp,.flagsChanged])
+        let arrow = try XCTUnwrap(NSEvent(cgEvent:native[1]))
+        XCTAssertTrue(arrow.modifierFlags.contains([.control,.function,.numericPad]))
+        XCTAssertEqual(native.first?.flags,.maskControl)
+        XCTAssertEqual(native.last?.flags,[])
+        let letter = try XCTUnwrap(SystemShortcutOutput.events(code:20,flags:.maskAlternate,restoringFlags:[]))
+        XCTAssertEqual(letter[1].flags,.maskAlternate)
+        XCTAssertFalse(letter[1].flags.contains(.maskSecondaryFn))
+        XCTAssertFalse(letter[1].flags.contains(.maskNumericPad))
     }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
