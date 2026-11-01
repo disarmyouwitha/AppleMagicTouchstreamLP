@@ -20,6 +20,18 @@ enum TypingHapticFeedback {
     }
 }
 
+/// Event-local classification, never part of modifier ownership or a Globe press.
+enum KeyboardEventFlags {
+    @inline(__always)
+    static func intrinsic(for code:CGKeyCode) -> CGEventFlags {
+        (123...126).contains(code) ? [.maskSecondaryFn,.maskNumericPad] : []
+    }
+    @inline(__always)
+    static func applying(to code:CGKeyCode,flags:CGEventFlags) -> CGEventFlags {
+        flags.union(intrinsic(for:code))
+    }
+}
+
 /// Build both edges before posting. A shortcut borrows modifiers for its down;
 /// its up restores the pre-shortcut state instead of leaving those flags behind.
 /// This factory is also used offline: constructing events never posts input.
@@ -31,8 +43,8 @@ enum KeyboardStrokeOutput {
         let key = emoji ? CGKeyCode(kVK_Space) : code
         guard let down = CGEvent(keyboardEventSource:source,virtualKey:key,keyDown:true),
               let up = CGEvent(keyboardEventSource:source,virtualKey:key,keyDown:false) else { return nil }
-        down.flags = emoji ? [.maskCommand,.maskControl] : flags
-        up.flags = restoringFlags
+        down.flags = KeyboardEventFlags.applying(to:key,flags:emoji ? [.maskCommand,.maskControl] : flags)
+        up.flags = KeyboardEventFlags.applying(to:key,flags:restoringFlags)
         return Events(down:down,up:up)
     }
 }
@@ -348,7 +360,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         flags: CGEventFlags,
         keyDown: Bool
     ) -> CGEventFlags {
-        guard code == Self.globeKeyCode else { return flags }
+        guard code == Self.globeKeyCode else { return KeyboardEventFlags.applying(to:code,flags:flags) }
         var resolved = flags
         if keyDown {
             resolved.insert(Self.globeModifierFlag)

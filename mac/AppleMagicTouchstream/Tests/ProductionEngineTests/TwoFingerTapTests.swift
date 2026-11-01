@@ -5,6 +5,39 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class TwoFingerTapTests: XCTestCase {
+    func testAllArrowStrokesCarryNativeFlagsAndRestoreBorrowedModifiers() throws {
+        let intrinsic:CGEventFlags = [.maskSecondaryFn,.maskNumericPad]
+        for code:CGKeyCode in [123,124,125,126] {
+            for held:CGEventFlags in [[],.maskShift,.maskCommand,[.maskControl,.maskAlternate]] {
+                let shortcut = held.union(.maskControl)
+                let pair = try XCTUnwrap(KeyboardStrokeOutput.events(code:code,flags:shortcut,restoringFlags:held))
+                XCTAssertEqual(pair.down.type,.keyDown)
+                XCTAssertEqual(pair.up.type,.keyUp)
+                XCTAssertEqual(pair.down.flags,shortcut.union(intrinsic))
+                XCTAssertEqual(pair.up.flags,held.union(intrinsic))
+                XCTAssertEqual(pair.down.getIntegerValueField(.keyboardEventKeycode),Int64(code))
+                XCTAssertEqual(pair.up.getIntegerValueField(.keyboardEventKeycode),Int64(code))
+                // The same normalizer serves individual down/up and repeated keys.
+                XCTAssertEqual(KeyboardEventFlags.applying(to:code,flags:held),held.union(intrinsic))
+                XCTAssertEqual(KeyboardEventFlags.applying(to:code,flags:pair.down.flags),pair.down.flags)
+            }
+        }
+        for code:CGKeyCode in [0,1,49,55,59,63,122] {
+            XCTAssertEqual(KeyboardEventFlags.intrinsic(for:code),[])
+            XCTAssertEqual(KeyboardEventFlags.applying(to:code,flags:.maskShift),.maskShift)
+        }
+    }
+    func testRemappedSymbolicShortcutArrowsUseSharedNativeClassification() throws {
+        for code in [123,124,125,126] {
+            let prefs:[String:Any] = ["163":["enabled":true,"value":["type":"standard",
+                "parameters":[65535,code,CGEventFlags.maskCommand.rawValue]]]]
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.notificationCenter,preferences:prefs))
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.map(\.type),[.keyDown,.keyUp])
+            XCTAssertTrue(events.allSatisfy { $0.flags == [.maskCommand,.maskSecondaryFn,.maskNumericPad] })
+            XCTAssertEqual(plan.flags,.maskCommand) // Classification isn't a saved modifier.
+        }
+    }
     private func touch(_ id: Int32, _ x: Float = 0.3) -> OMSRawTouch {
         OMSRawTouch(id:id,posX:x,posY:0.5,total:1,pressure:100,majorAxis:5,minorAxis:3,
             angle:0,density:1,state:.touching)

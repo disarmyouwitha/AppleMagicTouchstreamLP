@@ -569,7 +569,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
         guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
               let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
         for event in [down,up] {
-            event.flags = flags
+            event.flags = KeyboardEventFlags.applying(to:keyCode,flags:flags)
             event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         }
         return [down,up]
@@ -587,7 +587,7 @@ enum SystemShortcutOutput {
         // Arrow events carry function/keypad classification even without a
         // physical Fn press. Carbon's Space shortcuts include that function bit.
         // Keep classification on the arrow pair, never synthesize a Globe press.
-        let keyFlags:CGEventFlags = (123...126).contains(code) ? [.maskSecondaryFn,.maskNumericPad] : []
+        let keyFlags = KeyboardEventFlags.intrinsic(for:code)
         let requestedModifiers = flags.subtracting(keyFlags)
         let borrowed = modifiers.filter { requestedModifiers.contains($0.0) && !restoringFlags.contains($0.0) }
         var active = restoringFlags, result:[CGEvent] = []

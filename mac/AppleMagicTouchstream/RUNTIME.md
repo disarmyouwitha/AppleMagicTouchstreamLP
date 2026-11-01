@@ -33,6 +33,12 @@ remain down until that contact ends, and never repeat. Missing terminal records,
 cancellation and reset release ownership. Gesture Hold can fire once or keep a
 shortcut down until release, using the same shared output ledger.
 
+All native arrow key events (codes 123–126) carry function/keypad classification,
+including keyboard down/up, held-key repeats, saved shortcuts and symbolic system
+shortcuts. `KeyboardEventFlags` adds these bits only to the emitted event; it does
+not change saved shortcut flags, modifier ownership, or send Globe/Fn transitions.
+Other keys keep their existing flags.
+
 Balanced keystrokes restore pre-shortcut modifier flags on key-up. Emoji maps
 Globe to Control–Command–Space through that factory; it must not leave borrowed
 Control/Command flags on subsequent clicks or typing.
