@@ -434,7 +434,8 @@ and MIT/PolyForm Noncommercial notices ship under `Resources/Javelin`.
 profile has an independently saved, ordered dictionary list; higher enabled rows
 win. Load accepts local JSON dictionaries; New/Edit support searchable outline and
 translation rows; Export writes portable JSON. Removing a user dictionary removes
-only the reference, never the file. Batch imports validate all files before
+only the reference, never the file. Removing a dictionary preserves all remaining
+checkbox states, including when the last custom dictionary is removed. Batch imports validate all files before
 changing the list. Imported files remain at the selected paths and can be reloaded
 after external edits. The local catalog lives at Application Support/
 AppleMagicTouchstream/StenoDictionaries/catalog.json; it contains paths and enabled

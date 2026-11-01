@@ -5,8 +5,6 @@
 ^ Needs more testing
 # I GOT A PCAP!! It was stuck when trying to 2F click apps in my docked menu (it would open the app in finder instead) I tried clicking shift on physical keyboard but it didnt fix I had to do command on physical keyboard and then 2F click started working correctly. (It is not currently stuck)
 ===
-0. Dictionary editor more like shortcut editor (?)
-===
 2. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
 > Middle click and drag	    Mouse3 click or held drag

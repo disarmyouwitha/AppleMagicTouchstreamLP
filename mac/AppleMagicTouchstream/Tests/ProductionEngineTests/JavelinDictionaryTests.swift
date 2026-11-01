@@ -76,6 +76,31 @@ final class JavelinDictionaryTests:XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath:first.path))
         XCTAssertFalse(store.records(.plover).contains { $0.id == a.id })
     }
+    func testRemovingCustomDictionariesPreservesBundledCheckboxStatesAndPersists() throws {
+        let root = try temporary(), folder = root.appendingPathComponent("config")
+        let store = JavelinDictionaryStore(folder:folder,bundleFolder:nil,protectedFolders:[])
+        for profile in JavelinDictionaryProfile.allCases {
+            for row in store.records(profile) { try store.setEnabled(row.id,false,profile:profile) }
+        }
+        let first = root.appendingPathComponent("first.json"), second = root.appendingPathComponent("second.json")
+        try json(["KAT":"first"],first); try json(["KAT":"second"],second)
+        try store.load([first,second],profile:.lapwing)
+        let customs = store.records(.lapwing).filter { !$0.isBundled }
+        // Removing custom dictionaries must not change the remaining enabled states.
+        try store.setEnabled(customs[1].id,false,profile:.lapwing)
+        try store.remove(customs[0].id,profile:.lapwing)
+        XCTAssertTrue(store.records(.lapwing).filter(\.isBundled).allSatisfy { !$0.enabled })
+        try store.remove("missing",profile:.lapwing)
+        try store.remove(store.records(.lapwing).first(where: \.isBundled)!.id,profile:.lapwing)
+        XCTAssertTrue(store.records(.lapwing).filter(\.isBundled).allSatisfy { !$0.enabled })
+        try store.remove(customs[1].id,profile:.lapwing)
+        XCTAssertTrue(store.records(.lapwing).allSatisfy { $0.isBundled && !$0.enabled })
+        XCTAssertTrue(store.records(.plover).allSatisfy { !$0.enabled })
+        XCTAssertTrue(FileManager.default.fileExists(atPath:first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath:second.path))
+        let reopened = JavelinDictionaryStore(folder:folder,bundleFolder:nil,protectedFolders:[])
+        XCTAssertEqual(reopened.records(.lapwing),store.records(.lapwing))
+    }
     func testFailedCatalogSaveRestoresExistingDictionaryAndRemovesUncommittedCopy() throws {
         let root = try temporary(), blocked = root.appendingPathComponent("blocked")
         try Data("not a directory".utf8).write(to:blocked)
