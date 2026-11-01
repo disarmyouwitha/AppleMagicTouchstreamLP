@@ -105,10 +105,11 @@ positions, sizes and groups without changing the reference image.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
 narrow sidebar widths. Layout Editor sits below the layout dropdown within the same
 card and replaces the old Column Tuning panel.
-At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
-Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
-row instead of wrapping labels into narrow columns. Switches align at the right
-edge of their row or half-column; Autocorrect status stays below its own control.
+Typing Tuning starts expanded and contains Hold Duration, Haptic Strength and a
+Mode Toggles subsection styled like Shortcut Builder. Its switches always use one
+full-width row in this order: Hold Repeat, Run at Startup, Snap Radius, Autocorrect.
+Switches align at the right edge; Autocorrect status stays below its own control.
+The old Restore Defaults button and separate Mode Toggles disclosure are removed.
 Layout and Layer selectors fill the right half of their rows beside their labels,
 including at narrow sidebar widths. Shortcut Builder aligns its Key and App fields
 and the Apply/Browse buttons in shared columns.
@@ -431,7 +432,7 @@ and disconnected strokes are dropped rather than buffered.
 
 ## Snap radius
 
-Keyboard → Mode Toggles uses `GlassToKey.snapRadiusPercent`, also retained in
+Keyboard → Typing Tuning → Mode Toggles uses `GlassToKey.snapRadiusPercent`, also retained in
 settings exports. Direct hits win. A near miss selects the nearest eligible key
 on the same pad/layer/current binding index. Radius is the smaller key dimension
 times the saved percentage, bounded 0–100%. Toggling on sets 100%, off sets zero;
@@ -445,7 +446,7 @@ activated gesture cycle, and does not change mouse/scroll activation or latches.
 
 ## Autocorrect
 
-Keyboard → Mode Toggles uses `GlassToKey.autocorrectEnabled`, retained in exports.
+Keyboard → Typing Tuning → Mode Toggles uses `GlassToKey.autocorrectEnabled`, retained in exports.
 Only posted live keys feed correction. Raw contacts, pending typing proposals,
 cancelled output and replay do not. ASCII words are limited to 64 bytes with a
 1,024-byte context. Exclude unambiguous two-letter words, all-caps and identifiers
@@ -493,7 +494,7 @@ correction removes that focus observer. Fallback cannot verify unexposed text,
 caret or password state; detected secure fields/Secure Event Input are excluded.
 Physical input can still race OS delivery. No new restricted entitlement is needed.
 
-Keyboard → Mode Toggles shows the last original word → replacement beneath the
+Keyboard → Typing Tuning → Mode Toggles shows the last original word → replacement beneath the
 Autocorrect switch, with actionable validation/output errors when present. Routine
 statuses (waiting, no suggestion, sent, ordinary input/focus cancellation) and the
 output method remain in session diagnostics but are hidden in the compact readout.

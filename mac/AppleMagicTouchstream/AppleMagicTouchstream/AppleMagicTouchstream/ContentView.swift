@@ -1070,8 +1070,7 @@ struct ContentView: View {
             onUpdateKeyRotation: { key, rotationDegrees in
                 updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
             },
-            onSaveShortcutLibraryAction: saveShortcutLibraryAction,
-            onRestoreDefaults: restoreTypingTuningDefaults
+            onSaveShortcutLibraryAction: saveShortcutLibraryAction
         )
     }
 
@@ -1360,8 +1359,7 @@ struct ContentView: View {
                 layoutSelection.wrappedValue = selection == .steno ? lastStenoVariant:selection
             })
         }
-        @State private var modeTogglesExpanded = true
-        @State private var typingTuningExpanded = false
+        @State private var typingTuningExpanded = true
         @State private var gestureTuningExpanded = false
         @State private var keymapTuningExpanded = false
         let onClearTouchState: () -> Void
@@ -1370,7 +1368,6 @@ struct ContentView: View {
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
-        let onRestoreDefaults: () -> Void
 
         var body: some View {
             ScrollView(.vertical) {
@@ -1433,17 +1430,16 @@ struct ContentView: View {
                     CollapsibleSection(
                         isExpanded: $typingTuningExpanded
                     ) {
-                        TypingTuningSectionView(
-                            tapHoldDurationMs: $tapHoldDurationMs,
-                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
-                            forceClickMinSetting: $forceClickMinSetting,
-                            forceClickCapSetting: $forceClickCapSetting,
-                            hapticStrengthSetting: $hapticStrengthSetting,
-                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
-                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                            onRestoreDefaults: onRestoreDefaults
-                        )
+                        VStack(alignment:.leading,spacing:12) {
+                            TypingTuningSectionView(tapHoldDurationMs:$tapHoldDurationMs,hapticStrengthSetting:$hapticStrengthSetting)
+                            HStack(spacing:8) {
+                                Text("Mode Toggles").font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
+                                Rectangle().fill(Color.secondary.opacity(0.18)).frame(height:1)
+                            }.padding(.top,10).padding(.bottom,6)
+                            ModeTogglesSectionView(autocorrectEnabled:$autocorrectEnabled,
+                                snapRadiusPercentSetting:$snapRadiusPercentSetting,
+                                holdRepeatEnabled:$holdRepeatEnabled,runAtStartupEnabled:$runAtStartupEnabled)
+                        }
                     } label: {
                         Text("Typing Tuning")
                             .font(.subheadline)
@@ -1455,27 +1451,6 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
-                    CollapsibleSection(
-                        isExpanded: $modeTogglesExpanded
-                    ) {
-                        ModeTogglesSectionView(
-                            autocorrectEnabled: $autocorrectEnabled,
-                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                            keyboardModeEnabled: $keyboardModeEnabled,
-                            holdRepeatEnabled: $holdRepeatEnabled,
-                            runAtStartupEnabled: $runAtStartupEnabled,
-                            systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled
-                        )
-                    } label: {
-                        Text("Mode Toggles")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
                     HStack(spacing: 8) {
                         Button(action: onImportKeymap) {
                             Text("Import Settings").frame(maxWidth: .infinity)
@@ -2134,38 +2109,17 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @ObservedObject private var autocorrect = AutocorrectStatus.shared
-        @Environment(\.compactAssignmentMenu) private var compact
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
-        @Binding var keyboardModeEnabled: Bool
         @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
-        @Binding var systemThreeFingerDragEnabled: Bool
         var body: some View {
-            Group {
-                if compact {
-                    VStack(alignment: .leading, spacing: 8) {
-                        modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                        autocorrectControls
-                        snapRadiusToggle
-                        holdRepeatToggle
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .top, spacing: 12) {
-                            modeToggle("Run at Startup", isOn: $runAtStartupEnabled)
-                            snapRadiusToggle
-                        }
-                        HStack(alignment: .top, spacing: 12) {
-                            autocorrectControls
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            holdRepeatToggle
-                        }
-                    }
-                }
-            }
-            .toggleStyle(.switch)
-
+            VStack(alignment:.leading,spacing:8) {
+                holdRepeatToggle
+                modeToggle("Run at Startup",isOn:$runAtStartupEnabled)
+                snapRadiusToggle
+                autocorrectControls
+            }.toggleStyle(.switch)
         }
 
         private var autocorrectControls: some View {
@@ -2217,16 +2171,8 @@ struct ContentView: View {
 
     private struct TypingTuningSectionView: View {
         @Binding var tapHoldDurationMs: Double
-        @Binding var dragCancelDistanceSetting: Double
-        @Binding var forceClickMinSetting: Double
-        @Binding var forceClickCapSetting: Double
         @Binding var hapticStrengthSetting: Double
-        @Binding var intentMoveThresholdMmSetting: Double
-        @Binding var intentVelocityThresholdMmPerSecSetting: Double
-        @Binding var tapClickCadenceMsSetting: Double
-        let onRestoreDefaults: () -> Void
 
-        private let labelWidth: CGFloat = 140
         private let valueFieldWidth: CGFloat = 50
 
         private var hapticLevelBinding: Binding<Double> {
@@ -2252,8 +2198,6 @@ struct ContentView: View {
                     Text(String(format: "%.2f", hapticLevelBinding.wrappedValue))
                 }
                 Slider(value: hapticLevelBinding, in: 0...2, step: 0.01)
-                Button("Restore Defaults", action: onRestoreDefaults)
-                    .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -3146,68 +3090,6 @@ struct ContentView: View {
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.setTouchSnapshotRecordingEnabled(true)
-    }
-
-    private func restoreTypingTuningDefaults() {
-        tapHoldDurationMs = GlassToKeySettings.tapHoldDurationMs
-        dragCancelDistanceSetting = GlassToKeySettings.dragCancelDistanceMm
-        forceClickMinSetting = GlassToKeySettings.forceClickMin
-        forceClickCapSetting = GlassToKeySettings.forceClickCap
-        forceClickThresholdSetting = GlassToKeySettings.forceClickThreshold
-        hapticStrengthSetting = GlassToKeySettings.hapticStrengthPercent
-        intentMoveThresholdMmSetting = GlassToKeySettings.intentMoveThresholdMm
-        intentVelocityThresholdMmPerSecSetting = GlassToKeySettings.intentVelocityThresholdMmPerSec
-        autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
-        tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
-        snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
-        keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
-        holdRepeatEnabled = GlassToKeySettings.holdRepeatEnabled
-        twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
-        threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureActionLabel
-        twoFingerHoldGestureAction = GlassToKeySettings.twoFingerHoldGestureActionLabel
-        threeFingerHoldGestureAction = GlassToKeySettings.threeFingerHoldGestureActionLabel
-        fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureActionLabel
-        outerCornersHoldGestureAction = GlassToKeySettings.outerCornersHoldGestureActionLabel
-        innerCornersHoldGestureAction = GlassToKeySettings.innerCornersHoldGestureActionLabel
-        leftEdgeUpGestureAction = GlassToKeySettings.leftEdgeUpGestureActionLabel
-        leftEdgeDownGestureAction = GlassToKeySettings.leftEdgeDownGestureActionLabel
-        rightEdgeUpGestureAction = GlassToKeySettings.rightEdgeUpGestureActionLabel
-        rightEdgeDownGestureAction = GlassToKeySettings.rightEdgeDownGestureActionLabel
-        topEdgeLeftGestureAction = GlassToKeySettings.topEdgeLeftGestureActionLabel
-        topEdgeRightGestureAction = GlassToKeySettings.topEdgeRightGestureActionLabel
-        bottomEdgeLeftGestureAction = GlassToKeySettings.bottomEdgeLeftGestureActionLabel
-        bottomEdgeRightGestureAction = GlassToKeySettings.bottomEdgeRightGestureActionLabel
-        threeFingerSwipeLeftGestureAction = GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel
-        threeFingerSwipeRightGestureAction = GlassToKeySettings.threeFingerSwipeRightGestureActionLabel
-        threeFingerSwipeUpGestureAction = GlassToKeySettings.threeFingerSwipeUpGestureActionLabel
-        threeFingerSwipeDownGestureAction = GlassToKeySettings.threeFingerSwipeDownGestureActionLabel
-        fourFingerSwipeLeftGestureAction = GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel
-        fourFingerSwipeRightGestureAction = GlassToKeySettings.fourFingerSwipeRightGestureActionLabel
-        fourFingerSwipeUpGestureAction = GlassToKeySettings.fourFingerSwipeUpGestureActionLabel
-        fourFingerSwipeDownGestureAction = GlassToKeySettings.fourFingerSwipeDownGestureActionLabel
-        fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-        fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-        fiveFingerSwipeUpGestureAction = GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel
-        fiveFingerSwipeDownGestureAction = GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel
-        topLeftCornerSwipeGestureAction = GlassToKeySettings.topLeftCornerSwipeGestureActionLabel
-        topRightCornerSwipeGestureAction = GlassToKeySettings.topRightCornerSwipeGestureActionLabel
-        bottomLeftCornerSwipeGestureAction = GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel
-        bottomRightCornerSwipeGestureAction = GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel
-        topLeftTriangleGestureAction = GlassToKeySettings.topLeftTriangleGestureActionLabel
-        topRightTriangleGestureAction = GlassToKeySettings.topRightTriangleGestureActionLabel
-        bottomLeftTriangleGestureAction = GlassToKeySettings.bottomLeftTriangleGestureActionLabel
-        bottomRightTriangleGestureAction = GlassToKeySettings.bottomRightTriangleGestureActionLabel
-        upperLeftCornerClickGestureAction = GlassToKeySettings.upperLeftCornerClickGestureActionLabel
-        upperRightCornerClickGestureAction = GlassToKeySettings.upperRightCornerClickGestureActionLabel
-        lowerLeftCornerClickGestureAction = GlassToKeySettings.lowerLeftCornerClickGestureActionLabel
-        lowerRightCornerClickGestureAction = GlassToKeySettings.lowerRightCornerClickGestureActionLabel
-        threeFingerClickGestureAction = GlassToKeySettings.threeFingerClickGestureActionLabel
-        fourFingerClickGestureAction = GlassToKeySettings.fourFingerClickGestureActionLabel
-        topLeftForceClickGestureAction = GlassToKeySettings.topLeftForceClickGestureActionLabel
-        topRightForceClickGestureAction = GlassToKeySettings.topRightForceClickGestureActionLabel
-        bottomLeftForceClickGestureAction = GlassToKeySettings.bottomLeftForceClickGestureActionLabel
-        bottomRightForceClickGestureAction = GlassToKeySettings.bottomRightForceClickGestureActionLabel
-        storedGestureRepeatCadenceData = Data()
     }
 
     private func normalizeGestureSettings() {
