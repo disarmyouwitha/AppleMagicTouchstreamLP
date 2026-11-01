@@ -65,7 +65,7 @@ restores saved gesture configuration. See [STENO runtime rules](RUNTIME.md#steno
 | Both Outer Corners Hold | Open Config | Outer two corners on each pad; 500 ms default |
 | Both Inner Corners Hold | None | Inner two corners on each pad; 500 ms default |
 | Both Top/Bottom Outer/Inner Corners Hold | None | One finger per pad in the mirrored corner pair; 500 ms default |
-| Both-pad 3 or 4 fingers per hand, Tap / Hold | None | Tap at all-up; Hold after 500 ms |
+| Both-pad 3 or 4 fingers per hand, Tap / Hold / Force | None | Tap at all-up; Hold after 500 ms; Force when both pads qualify |
 
 One-finger gesture Hold is unavailable. Its gray lifecycle card reads “No
 separate gesture is available for this.” Keyboard key holds remain supported.
@@ -169,6 +169,24 @@ owns both pads until both lift; pending keyboard layer/modifier ownership blocks
 acquisition. This landing limit applies equally to count and corner chords; corner
 pair expansion after acquisition retains its existing identity/settling rules.
 
+Both 3-finger and Both 4-finger pages also offer Force, default None. Activation
+requires the exact count on each selected pad, fresh valid samples, and at least
+one contact per pad at the ordinary P ≥ 130 threshold. Both pressure crossings
+must be within 150 ms and both pads must still be above threshold; the shared
+one-second initial landing stagger still applies. A force-only assignment does
+not reserve either pad before qualification. It uses ordinary Both handoff at
+acquisition, so independent output already dispatched before the second crossing
+cannot be undone. A winning Force consumes pending Tap/Hold and fires once;
+a previously fired Hold cannot be replaced. After Force wins, count/identity,
+pressure and motion changes keep its shared reservation until both pads reach
+all-up. Invalid/stale samples and lifecycle/configuration changes retain shared
+cancellation/cleanup rules. Force accepts the existing discrete action catalog,
+including one-shot shortcuts, but never held shortcut output. Posting uses the
+same selected/owned/armed/Accessibility/live gates, shared output and per-pad
+feedback. Force pulses both pads with the existing fixed waveform 6 / 0.25 and
+shared 50 ms per-pad throttle, outside the state lock. Replay stays output-free.
+STENO keeps these configurable gestures off.
+
 `bad_latch.atpcap` (SHA-256
 `7b6cb0eb5c124403138e3fa3c9fa3e63806640537527788acb127451edaa9c0b`)
 contains second-hand 3-contact landings about 2.9–5.1 seconds after the first hand.
@@ -264,6 +282,7 @@ finger labels have separate roles.
 | Force freshness | Up to 200 ms between native samples |
 | Both initial landing stagger (all chords) | At most 1 second |
 | Both Tap maximum / overlap / lift skew | 500 ms / 20 ms / 150 ms |
+| Both Force pressure crossing skew | At most 150 ms; both pads P ≥ 130 |
 | Both and corner settling | 2 app mm |
 | Corner regions | Outer 25% of each axis, shared by single-pad and Both corners |
 | Direction commit / turn threshold | 0.75 app mm |
@@ -374,6 +393,24 @@ Pinch and Spread have independent actions for each count and hand. Zoom sensitiv
 is one shared per-hand gain (0.25–2×), regardless of which count/direction starts it.
 Magnification posts balanced began/changed/ended or cancelled phases, uses a fixed
 activation location, and clamps each output delta to ±0.25.
+
+When a recognized thumb and an enabled Pinch/Spread compete at counts 3–5,
+movement activation uses the entire current chord, including the thumb, rather
+than a three-quarter majority. The thumb cannot be omitted while the fingertip
+group translates in the opposite direction. A membership change excludes the
+pre-cohort interval and starts a fresh full-chord baseline; replacing identities
+likewise discards pre-cohort travel. Once evidence identifies a disabled shape
+direction, its movement competitor retains the existing direction policy. This
+only changes pending activation: positive-thumb eligibility, shape/rotation
+priority, thresholds, output gains, existing gesture owners and all-up cleanup
+remain shared. Ordinary non-thumb rows keep their existing staggered drag/scroll
+activation, and two-finger mouse recognition keeps its existing policy.
+
+`bad_pinch.atpcap` is retained at `mac/bad_pinch.atpcap`; the
+`Tests/ProductionEngineTests/Fixtures/bad-pinch.json` regression preserves all 644 raw frames, native and
+arrival clocks, and the source SHA-256 without copying profile/Keychain metadata.
+With pinch and movement competitors enabled, all 13 recorded multi-finger pinch
+attempts must select Pinch; the subsequent ordinary pointer cycles remain Move.
 
 ## Movement and directional actions
 

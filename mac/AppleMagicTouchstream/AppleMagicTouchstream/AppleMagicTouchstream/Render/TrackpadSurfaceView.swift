@@ -606,7 +606,7 @@ final class TrackpadSurfaceView: NSView {
             for columnIndex in normalizedKeyRects[rowIndex].indices {
                 guard columnIndex < labels[rowIndex].count else { continue }
                 let rect = normalizedKeyRects[rowIndex][columnIndex]
-                guard rect.contains(normalizedPoint) else { continue }
+                guard rect.width > 0, rect.height > 0, rect.contains(normalizedPoint) else { continue }
                 let score = rect.distanceToEdge(from: normalizedPoint)
                 let area = rect.width * rect.height
                 if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
@@ -654,6 +654,7 @@ final class TrackpadSurfaceView: NSView {
     /// Draw the existing shared 3 mm row hit band without expanding recognition
     /// a second time. Asterisk and Single have one/two number bars; 6x3 stays as-is.
     static func stenoDisplayRect(_ rect:NormalizedRect,layout:ContentViewModel.Layout) -> NormalizedRect {
+        if let authored = layout.authoredDisplayRects[rect] { return authored }
         let rows = layout.normalizedKeyRects
         guard layout.isSteno, rows.count > 2, let bars = rows.first,
               (1...2).contains(bars.count), rect.rotationDegrees == 0 else { return rect }
@@ -699,7 +700,7 @@ final class TrackpadSurfaceView: NSView {
     ) {
         NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
         for row in layout.normalizedKeyRects {
-            for rect in row {
+            for rect in row where rect.width > 0 && rect.height > 0 {
                 let keyPath = keyPath(for: Self.stenoDisplayRect(rect,layout:layout), origin: origin, trackpadSize: trackpadSize)
                 keyPath.lineWidth = 1
                 keyPath.stroke()
@@ -752,6 +753,7 @@ final class TrackpadSurfaceView: NSView {
             for columnIndex in normalizedKeyRects[rowIndex].indices {
                 guard rowIndex < labels.count, columnIndex < labels[rowIndex].count else { continue }
                 let rect = normalizedKeyRects[rowIndex][columnIndex]
+                guard rect.width > 0, rect.height > 0 else { continue }
                 let baseRect = rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
                 let label = labels[rowIndex][columnIndex]
                 let primary = ["Caps Lock": "Caps\nLock", "Scroll Lock": "Scroll\nLock",

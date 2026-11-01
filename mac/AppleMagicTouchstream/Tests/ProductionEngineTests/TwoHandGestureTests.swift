@@ -5,9 +5,9 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class TwoHandGestureTests:XCTestCase {
-    private func contacts(_ count:Int,dx:Float = 0,idBase:Int32 = 1) -> [OMSRawTouch] {
+    private func contacts(_ count:Int,dx:Float = 0,idBase:Int32 = 1,pressure:Float = 40) -> [OMSRawTouch] {
         (0..<count).map { i in OMSRawTouch(id:idBase+Int32(i),posX:0.3+Float(i)*0.1+dx,posY:0.5,
-            total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }
+            total:1,pressure:pressure,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }
     }
     private func corners(left:Bool,inner:Bool = false) -> [OMSRawTouch] {
         (0..<2).map { i in OMSRawTouch(id:Int32(i+1),posX:left != inner ? 0.08 : 0.92,posY:i == 0 ? 0.08 : 0.92,
@@ -36,6 +36,115 @@ final class TwoHandGestureTests:XCTestCase {
         settings.setAction(.primaryClick,for:.init(chord:chord,phase:.tap))
         settings.setAction(.missionControl,for:.init(chord:chord,phase:.hold))
         return settings
+    }
+    func testBothForceRequiresConcurrentPressureAndLatchesUntilBothAllUp() {
+        for chord in [TwoHandChord.threeFingers,.fourFingers] {
+            var engine = TwoHandGestureEngine(), settings = TwoHandGestureSettings()
+            let force = TwoHandTrigger(chord:chord,phase:.force)
+            settings.setAction(.secondaryClick,for:force)
+            let low = contacts(chord.count), high = [contacts(chord.count,pressure:130)[0]]+Array(contacts(chord.count).dropFirst())
+            XCTAssertFalse(engine.process(leftHand:true,now:1,contacts:low,settings:settings).reserved)
+            XCTAssertFalse(engine.process(leftHand:false,now:1.01,contacts:low,settings:settings).reserved)
+            XCTAssertFalse(engine.process(leftHand:true,now:1.02,contacts:high,settings:settings).reserved)
+            let win = engine.process(leftHand:false,now:1.04,contacts:high,settings:settings)
+            XCTAssertTrue(win.began); XCTAssertEqual(win.trigger,force)
+            for i in 1...3 {
+                let event = engine.process(leftHand:i % 2 == 0,now:1.04+Double(i)*0.01,
+                    contacts:contacts(1,dx:0.1,idBase:70,pressure:40),settings:settings)
+                XCTAssertTrue(event.reserved); XCTAssertNil(event.trigger)
+            }
+            XCTAssertNil(engine.advance(now:1.08,settings:settings))
+            XCTAssertTrue(engine.process(leftHand:true,now:1.09,contacts:[],settings:settings).reserved)
+            XCTAssertTrue(engine.process(leftHand:false,now:1.1,contacts:[],settings:settings).reserved)
+            XCTAssertFalse(engine.ownsCycle)
+            _ = engine.process(leftHand:true,now:1.2,contacts:high,settings:settings)
+            XCTAssertEqual(engine.process(leftHand:false,now:1.21,contacts:high,settings:settings).trigger,force)
+        }
+    }
+    func testBothForceRejectsLatePressureAndCanRearmPressureBeforeAcquisition() {
+        var engine = TwoHandGestureEngine(), settings = TwoHandGestureSettings()
+        let force = TwoHandTrigger(chord:.threeFingers,phase:.force)
+        settings.setAction(.primaryClick,for:force)
+        let low = contacts(3), high = contacts(3,pressure:130)
+        _ = engine.process(leftHand:true,now:1,contacts:low,settings:settings)
+        _ = engine.process(leftHand:false,now:1.01,contacts:low,settings:settings)
+        _ = engine.process(leftHand:true,now:1.02,contacts:high,settings:settings)
+        _ = engine.process(leftHand:false,now:1.1,contacts:low,settings:settings)
+        _ = engine.process(leftHand:true,now:1.19,contacts:high,settings:settings)
+        XCTAssertFalse(engine.process(leftHand:false,now:1.2,contacts:high,settings:settings).reserved)
+        _ = engine.process(leftHand:true,now:1.21,contacts:low,settings:settings)
+        _ = engine.process(leftHand:false,now:1.22,contacts:low,settings:settings)
+        _ = engine.process(leftHand:true,now:1.23,contacts:high,settings:settings)
+        XCTAssertEqual(engine.process(leftHand:false,now:1.24,contacts:high,settings:settings).trigger,force)
+    }
+    func testBothForceCannotReplaceFiredHoldAndConsumesPendingTap() {
+        for holdFirst in [false,true] {
+            var engine = TwoHandGestureEngine(), value = settings(.fourFingers)
+            value.setAction(.secondaryClick,for:.init(chord:.fourFingers,phase:.force))
+            value.setHoldThreshold(0.1,for:.fourFingers)
+            let low = contacts(4), high = contacts(4,pressure:130)
+            _ = engine.process(leftHand:true,now:1,contacts:low,settings:value)
+            _ = engine.process(leftHand:false,now:1.01,contacts:low,settings:value)
+            if holdFirst {
+                XCTAssertEqual(engine.advance(now:1.12,settings:value)?.phase,.hold)
+                XCTAssertNil(engine.process(leftHand:true,now:1.13,contacts:high,settings:value).trigger)
+                XCTAssertNil(engine.process(leftHand:false,now:1.14,contacts:high,settings:value).trigger)
+            } else {
+                _ = engine.process(leftHand:true,now:1.04,contacts:high,settings:value)
+                XCTAssertEqual(engine.process(leftHand:false,now:1.05,contacts:high,settings:value).trigger?.phase,.force)
+                XCTAssertNil(engine.advance(now:1.12,settings:value))
+            }
+            _ = engine.process(leftHand:true,now:1.15,contacts:[],settings:value)
+            XCTAssertNil(engine.process(leftHand:false,now:1.16,contacts:[],settings:value).trigger)
+        }
+    }
+    func testBothForceNoneWrongCountStaleAndInvalidPressureNeverAcquire() {
+        for enabled in [false,true] {
+            for pressure in [Float(129),.nan,.infinity,-1] {
+                var engine = TwoHandGestureEngine(), value = TwoHandGestureSettings()
+                if enabled { value.setAction(.primaryClick,for:.init(chord:.threeFingers,phase:.force)) }
+                _ = engine.process(leftHand:true,now:1,contacts:contacts(3,pressure:pressure),settings:value)
+                XCTAssertFalse(engine.process(leftHand:false,now:1.01,contacts:contacts(3,pressure:130),settings:value).reserved)
+            }
+        }
+        var engine = TwoHandGestureEngine(), value = TwoHandGestureSettings()
+        value.setAction(.primaryClick,for:.init(chord:.threeFingers,phase:.force))
+        _ = engine.process(leftHand:true,now:1,contacts:contacts(3,pressure:130),settings:value)
+        XCTAssertFalse(engine.process(leftHand:false,now:1.01,contacts:contacts(4,pressure:130),settings:value).reserved)
+        XCTAssertFalse(engine.process(leftHand:false,now:1.3,contacts:contacts(3,pressure:130),settings:value).reserved)
+    }
+    func testBothForceStaleOrInvalidPressureCannotReviveUntilLift() {
+        for invalid in [false,true] {
+            var engine = TwoHandGestureEngine(), value = TwoHandGestureSettings()
+            let trigger = TwoHandTrigger(chord:.threeFingers,phase:.force)
+            value.setAction(.primaryClick,for:trigger)
+            _ = engine.process(leftHand:true,now:1,contacts:contacts(3,pressure:invalid ? .nan:40),settings:value)
+            _ = engine.process(leftHand:false,now:1.01,contacts:contacts(3),settings:value)
+            let now = invalid ? 1.02:1.3
+            _ = engine.process(leftHand:true,now:now,contacts:contacts(3,pressure:130),settings:value)
+            XCTAssertFalse(engine.process(leftHand:false,now:now+0.01,contacts:contacts(3,pressure:130),settings:value).reserved)
+            _ = engine.process(leftHand:true,now:now+0.02,contacts:[],settings:value)
+            _ = engine.process(leftHand:false,now:now+0.03,contacts:[],settings:value)
+            _ = engine.process(leftHand:true,now:now+0.04,contacts:contacts(3,pressure:130),settings:value)
+            XCTAssertEqual(engine.process(leftHand:false,now:now+0.05,contacts:contacts(3,pressure:130),settings:value).trigger,trigger)
+        }
+    }
+    func testBothForceSettingsRoundTripAndStayDisabledInSteno() throws {
+        var profile = AppKeymapProfile.defaultProfile(), value = HandGestureSettings()
+        for chord in [TwoHandChord.threeFingers,.fourFingers] {
+            let trigger = TwoHandTrigger(chord:chord,phase:.force)
+            XCTAssertEqual(value.twoHand.action(trigger),.disabled)
+            value.coordinated = value.twoHand
+            var both = value.twoHand; both.setAction(.secondaryClick,for:trigger); value.coordinated = both
+            XCTAssertEqual(value.twoHand.stenoConfigurationOnly.action(trigger),.disabled)
+        }
+        profile.handGestureSettings = value
+        let data = try PortableKeymapInterop.exportBundle(from:profile)
+        let imported = try PortableKeymapInterop.importProfile(from:data,currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,value)
+        var both = value.twoHand
+        both.setAction(.shortcut(.init(label:"Cmd+C",holdUntilRelease:true)),for:.init(chord:.threeFingers,phase:.force))
+        XCTAssertEqual(both.action(.init(chord:.threeFingers,phase:.force)),.secondaryClick)
     }
     func testTapRequiresBothHandsAndRearmsAfterBothLift() {
         for chord in [TwoHandChord.threeFingers,.fourFingers] {

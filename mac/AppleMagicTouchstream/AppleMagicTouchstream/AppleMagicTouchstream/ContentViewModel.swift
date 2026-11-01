@@ -838,6 +838,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     struct Layout {
+        var authoredDisplayRects: [NormalizedRect: NormalizedRect] = [:]
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
@@ -1494,7 +1495,9 @@ final class ContentViewModel: ObservableObject {
             customButtonsByLayout: customButtonsByLayout,
             keyMappingsByLayout: keyMappingsByLayout,
             keyGeometryByLayout: keyGeometryByLayout,
-            gestureRecognitionEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled) as? Bool ?? false
+            gestureRecognitionEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled) as? Bool ?? false,
+            handGestureSettings: gestures.settings,
+            layoutDocuments: LayoutDocumentStorage.decode(defaults.data(forKey: GlassToKeyDefaultsKeys.layoutDocuments) ?? Data())
         )
     }
 

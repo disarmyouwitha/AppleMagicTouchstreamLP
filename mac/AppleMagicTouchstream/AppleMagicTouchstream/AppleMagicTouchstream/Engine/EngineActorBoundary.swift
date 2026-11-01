@@ -825,8 +825,13 @@ final class ProductionReplaySession {
                 keySpacingPercent: spacing, keyGeometryOverrides: geometry, mirrored: mirrored
             )
         }
-        engine.updateLayouts(leftLayout: layout(mirrored: true), rightLayout: layout(mirrored: false),
-                             leftLabels: preset.leftLabels, rightLabels: preset.rightLabels,
+        let candidate = profile.layoutDocuments?[name]
+        let document = candidate?.isValid == true ? candidate : nil
+        let leftBase = layout(mirrored: true), rightBase = layout(mirrored: false)
+        engine.updateLayouts(leftLayout: document?.compile(right: false, base: leftBase, size: size) ?? leftBase,
+                             rightLayout: document?.compile(right: true, base: rightBase, size: size) ?? rightBase,
+                             leftLabels: document?.labels(right: false) ?? preset.leftLabels,
+                             rightLabels: document?.labels(right: true) ?? preset.rightLabels,
                              trackpadSize: size, trackpadWidthMm: ContentView.trackpadWidthMM)
         engine.updateActiveDevices(leftIndex: leftIndex, rightIndex: rightIndex,
                                    leftDeviceID: profile.leftDeviceID, rightDeviceID: profile.rightDeviceID)

@@ -274,6 +274,7 @@ struct AppKeymapProfile: Codable {
 
     var gestureRecognitionEnabled: Bool? = nil
     var handGestureSettings: HandGestureSettings? = nil
+    var layoutDocuments: [String: LayoutDocument]? = nil
 
     static func defaultProfile() -> AppKeymapProfile {
         AppKeymapProfile(
@@ -620,6 +621,7 @@ enum PortableKeymapInterop {
             )
         }
 
+        profile.layoutDocuments = bundle.hostExtensions?["mac"]?.layoutDocuments ?? currentProfile.layoutDocuments
         profile.handGestureSettings = bundle.hostExtensions?["mac"]?.handGestureSettings ?? currentProfile.handGestureSettings
         if let current = currentProfile.handGestureSettings {
             if profile.handGestureSettings?.stenoConnectionMode == nil { profile.handGestureSettings?.stenoConnectionMode = current.stenoConnectionMode }
@@ -802,6 +804,7 @@ enum PortableKeymapInterop {
             keyMappingsByLayout: mappingsByLayout,
             keyGeometryByLayout: geometryByLayout
         )
+        result.layoutDocuments = profile.layoutDocuments
         result.handGestureSettings = profile.handGestureSettings
         return result
     }
@@ -936,6 +939,7 @@ enum PortableKeymapInterop {
         var forceClickThreshold: Double?
         var hapticStrength: Double?
         var handGestureSettings: HandGestureSettings?
+        var layoutDocuments: [String: LayoutDocument]?
 
         init(profile: AppKeymapProfile) {
             leftDeviceID = profile.leftDeviceID
@@ -947,6 +951,7 @@ enum PortableKeymapInterop {
             tapClickCadenceMs = profile.tapClickCadenceMs
             forceClickThreshold = profile.forceClickThreshold
             hapticStrength = profile.hapticStrength
+            layoutDocuments = profile.layoutDocuments
             handGestureSettings = profile.handGestureSettings
         }
 
@@ -960,6 +965,7 @@ enum PortableKeymapInterop {
             case tapClickCadenceMs = "TapClickCadenceMs"
             case forceClickThreshold = "ForceClickThreshold"
             case hapticStrength = "HapticStrength"
+            case layoutDocuments = "LayoutDocuments"
             case handGestureSettings = "GestureBindings"
         }
     }

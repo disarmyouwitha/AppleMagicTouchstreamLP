@@ -100,9 +100,10 @@ The 88 regions are traced independently from the 1320×940 left image and
 trackpad surface. Centers, sizes and rotations follow the printed borders, not
 physical sensor calibration. Thumb regions use rotated
 rectangular bounds around oval artwork. Saved per-key overrides still apply.
-Column tuning stays disabled for this fixed independent geometry.
+The traced geometry is the editable template seed; Layout Editor can author independent
+positions, sizes and groups without changing the reference image.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
-narrow sidebar widths. Column Tuning uses the same 50/50 label/control split.
+narrow sidebar widths. Layout Editor replaces the old Column Tuning panel.
 At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
 Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
 row instead of wrapping labels into narrow columns. Switches align at the right
@@ -116,13 +117,95 @@ Letters, numbers, modifiers, navigation and function keys use the action catalog
 Unsupported hand-logo/PC-only legends remain editable inactive placeholders until
 assigned a supported action. Changing layouts does not replace saved mappings.
 
+## Layout authoring
+
+Layout Editor replaces the keyboard visualizer in the same workspace while editing.
+Both trackpads remain visible side by side. Its inspector uses the normal resizable
+settings column. Apply saves one geometry update and returns to the visualizer;
+Cancel returns without publishing the staged document. Undo, Redo and Reset remain
+available in the editor header. Device/takeover controls remain available above it.
+
+Keys support click/drag, Shift-add selection and box selection by dragging empty
+space. Every selection has one shared frame and square resize handle per pad;
+individual member handles, group selection mode and the key-selection dropdown are
+absent. Width/Height fields resize selections in millimeters, and Smaller/Larger
+5% buttons scale keys and spacing. Selection spacing X/Y sets gaps between aligned
+bands of keys in the selection’s shared axes, translating keys without resizing them.
+Negative gaps allow overlap. The first band anchors each pad; Mirror Edit reflects
+these translations. A single band or mixed-angle selection has no editable gap on
+that axis. Numeric geometry fields retain incomplete drafts and validate on Return
+or focus loss, producing one undo transaction per committed field edit.
+Shift or Keep proportions locks the aspect ratio.
+Keys with shared axes can resize independently; mixed rotations scale uniformly.
+Each pad uses its own anchor. Fixed STENO overlap allowances, key identities,
+existing group metadata, bindings and counterpart links are retained.
+
+Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
+displayScale) and shrink together when needed. Tool buttons retain their compact
+90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
+The editor selects individual keys regardless of saved group metadata; Group/Ungroup
+controls are removed. Mirror Edit sits beside the Layout Editor title. The column count sits beside Add
+Column. Dragging and shared frame resizing always use a 1 mm grid, independently of
+typing Snap Radius; no grid selector is shown.
+
+Editor legends resolve the active layer’s actual per-hand mappings, including staged
+duplicate sources, without rewriting the document’s fallback labels. Reset seeds
+geometry from bundled DEFAULT_KEYMAP.json, including per-layout column dimensions,
+row spacing, padding, key overrides, base-layer fallback labels and any authored
+default documents. Current
+action assignments remain independent of geometry reset. Mirror Edit uses a blue enabled
+button with the same split-pad icon in Layout Editor and Gesture Editor.
+
+Tool buttons visibly press blue and shrink while clicked, then pulse a blue border
+for about 0.8 seconds. Spacing −5%/+5% precede Delete in Arrange; they scale the
+selected center-to-center pitch while preserving key dimensions, so touching keys
+can gain a gap. The first band anchors each pad, with Mirror Edit and undo retained. While editing a STENO
+layout, the live runtime is temporarily configured with empty non-STENO key regions
+and no custom buttons. This uses normal gesture recognition without steno chords or
+force-mouse interception. Apply/Cancel restores the selected STENO runtime through
+the shared reconfiguration/cleanup path; no gesture or STENO preferences are changed.
+
+Keymap Tuning no longer offers the separate Custom Buttons creation, deletion or
+geometry editor. New keys and columns are authored in Layout Editor. Existing saved
+custom buttons still load, render and dispatch their assigned actions; their
+serialized representation remains supported.
+
+Mirror Edit defaults on for each edit session. Existing counterpart keys are paired
+once by mirrored geometry and persist their UUID relationship through later edits.
+Movement, size and angle deltas are reflected across the pair while preserving
+existing asymmetry, each side's legends and layer assignments. Dashed outlines
+preview the affected counterparts. Added keys/columns create pairs; deletion and
+duplication include existing counterparts. Unmatched keys stay independent, including STENO Single's right-only geometry.
+Mirror Edit off allows independent edits; turning it back on does not realign keys.
+Mirrored edits undo/redo together as one document transaction. Pair relationships
+round-trip with the document through settings and captures.
+
+The editor snapshots the seed/template only when opened and draws staged geometry
+with Canvas instead of the live contact visualizer. Labels are cached and validity
+is checked at transaction boundaries, not on every drag frame. Dragging never
+reconfigures recognition or posts output; only Apply compiles/publishes geometry.
+
+Documents use UUID identities with immutable opaque binding slots. Physical position
+never depends on that slot; deletion never renumbers neighboring keys. Added keys
+receive fresh slots, and duplicated keys copy each layer's assignments at Apply.
+Per-template documents are saved under `AMT.LayoutDocuments`, exported in the Mac
+host extension and recorded in capture profiles. Production replay compiles those
+same documents. Invalid geometry is rejected. The spatial index chooses bucket
+density from physical key count, independent of sparse binding addresses.
+
+STENO documents explicitly store the template's visible edge extensions. Moving
+keys preserves that authored shape instead of inferring new overlaps from row
+neighbors. Existing STENO hit allowances, chord accumulation, force/mouse behavior
+and output transport remain unchanged. Normal keyboard hit testing retains its
+single-winner overlap rule. Structural editing does not add work to live frames.
+
 ## STENO layouts and Gemini PR
 
 `STENO` follows the [Asterisk v2](https://stenokeyboards.com/products/asterisk-v2)
 arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
 E/U thumb pairs. `STENO 6x3` uses the supplied Voyager image's staggered 6×3
-main grid plus those thumb pairs. It retains mirrored column tuning; the
-Asterisk arrangement has fixed independent geometry. Its key bounds follow the
+main grid plus those thumb pairs. All STENO variants are editable in Layout Editor.
+The Asterisk template key bounds follow the
 [maker’s layout drawing](https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg),
 calibrated to the published 234 mm board width and centered independently on each
 pad without stretching. For stationary row chords, both consonant rows extend

@@ -339,7 +339,7 @@ extension AdditionalChordTests {
         both.assignments["fourCorners.tap"] = .primaryClick
         XCTAssertEqual(both.action(.init(chord:.fourCorners,phase:.tap)),.disabled)
         XCTAssertEqual(TwoHandChord.fourCorners.phases,[.hold])
-        XCTAssertEqual(TwoHandChord.threeFingers.phases,[.tap,.hold])
+        XCTAssertEqual(TwoHandChord.threeFingers.phases,[.tap,.hold,.force])
         let decoded = try JSONDecoder().decode(PerHandGestureSettings.self,from:JSONEncoder().encode(hand))
         XCTAssertEqual(decoded.holdAction(count:1),.disabled)
         XCTAssertEqual(decoded.bindings.action(for:.fourCornersTap),.disabled)

@@ -1,17 +1,18 @@
 # NEXT:
-======= 
-1. Can I add some new "Both" gestures? I want to add 3 and 4 finger force for when both pads simultaniously exceed force threshold.
-* * Start working on TouchStream gesture defaults template!!
-* * make 6x3 decal girl template in gimp with layers for ppl to edit
-* Built-in small typing games for typing practice and steno practice (like lapdrill.py)
+=======
+* Test on Macbook!
 ===
-VERY often during 3F pinch, 4F pinc and 5F pinch the gesture will be recognized as 3F,4F,5F movement or directional actions.. For an example 5F pinch it’s like it sees the 4 fingers touch down, the thumb joins the gesture, but it only takes into account the 4 fingers going down, not the thumb going in an oposite direction. 
-
-Basically, Pinch gestures are not being recognized properly 
+0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
+1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
+2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 
 ===
-* Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
-> Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys?
-> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno$$)
+# Human Tasks...?
+0. Start working on TouchStream gesture defaults template!!
+> Can Codex look at the Fingerworks gesture XML and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
+1. make 6x3 decal girl template in gimp with layers for ppl to edit
+> Layers for: Center legends vs top-right legends / sublegend layer
+> Outline of where to line up for Decal Girl template
+===
 
 
 `AppleMagicTouchstream`:
@@ -24,24 +25,15 @@ Basically, Pinch gestures are not being recognized properly
 > Secondary drag	        Mouse2 down → movement → release
 > Caps Word	                Capitalize the next word, then automatically stop
 > Sequential macros:        Ctrl+X, (then) V, then =
-**LATER:** I can go through and make a touchstream default keymap!! (I will need to hand-set a bunch of default keyboard shortcuts!)
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
-4. Please god can we finally fix Column tuning? (Drag to move??)
-> add/remove columns so we dont need so many different layout options?
 ===
-* `Landings Zones`:
+# `Landings Zones`:
 - 4F hold above homerow, on homerow, below homerow
 - 3F tap above homerow, on homerow, below homerow
-* 1Finger `Drawings`:
-- Sides up/down left/right sides; left/right top/bottom sides
-- Triangles?
-===
-* Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
-* Maybe add under "1 Finger" called `Drawing` > `Triangles`, `Sides` and we have some presets (Expand to offer `Custom` tomorrow)
-- "Record Gesture" custom gestures in the future would be awesome!
-* Gestures Finger changes during movement
-===
-- Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
+# 1Finger `Custom/Drawings`:
+- `Record Gesture` custom gestures in the future would be awesome!
+- `Sides` up/down left/right sides; left/right top/bottom sides
+- `Triangles`? (we can finally demonstrate how to do them, lol.)
 ===
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
 ===
@@ -51,19 +43,12 @@ Basically, Pinch gestures are not being recognized properly
 > Here is the list of unshifted and "hand" shifted pairs: (y,0),(u,4),(i,5),(h,left),(j,1),(k,2),(l,3),(n,_),(m,0)
 > You can see the sublegends here: @RHS_TOUCHSTREAM.png
 ===
+# Linked Gestures:
 * Both hand gestures like 3f hold lhs right directional 3f on rhs
-> "linked gestures" ?
 
 
-
-===
-# WINDOWS: 
-0. Can you look at both mac/AppleMagicTouchstream and windows/GlassToKey.windows (and core) and plan an extensive re-write for ONLY `windows_linux` you will use `mac/AppleMagicTouchstream` as the GOLDEN REFERENCE. We are recreating the look, feel, and functionality of each one of it's features. 
 =======
 ## TELL CODEX:
-> `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
-> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far.
-> I also have all of the templates for all of the gestures in the SDK.. do you think you could start implementing them in Gesturepad? Or should we start using AppleMagicTouchstream for implementation? I have the entire keyboard implemented there already. 
-
-> I really want to get the spellchecker logic out of the touchstream. 
+> `?` Can you use AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
+> I want to see if you can confirm any of the assumptions we made about what we have implemented so far.
 ===

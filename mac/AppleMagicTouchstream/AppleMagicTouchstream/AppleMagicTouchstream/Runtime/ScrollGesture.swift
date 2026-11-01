@@ -318,6 +318,13 @@ struct TrackpadGestureRouter {
         }
         let directionEligible = direction != nil && hasThumb
         let pinchEnabled = directionEligible && (direction.map(enabled) ?? false)
+        // With a thumb-based shape available, translation must include the thumb,
+        // not merely the majority fingertip group. Rebase at a joining contact.
+        let thumbShapeEnabled = activeCount >= 3 && hasThumb
+            && ((GestureTrigger.pinch(count:activeCount).map(enabled) ?? false)
+                || (GestureTrigger.spread(count:activeCount).map(enabled) ?? false))
+        let pinchTranslationCompetes = thumbShapeEnabled && (pinchEnabled || pair == nil)
+
         let rotationDirection = GestureTrigger.rotation(count:activeCount,right:(turn?.angle ?? 0) > 0)
         // Rotation is angular evidence, not the spread-tap arrangement scorer.
         // The tracker already validates count, identity, radius and positive thumb.
@@ -332,7 +339,8 @@ struct TrackpadGestureRouter {
                 && $0.posX.isFinite && $0.posY.isFinite
         }
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
-            requiresCoherentTranslation:(stationaryFourFingerHold && activeCount == 4) || (enabled(.thumbTwoMove) && activeCount == 3),
+            requiresCoherentTranslation:thumbShapeEnabled || (stationaryFourFingerHold && activeCount == 4) || (enabled(.thumbTwoMove) && activeCount == 3),
+            requiresFullContactTranslation:thumbShapeEnabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
                 let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
@@ -343,6 +351,10 @@ struct TrackpadGestureRouter {
                 if rotationWins { return false }
                 if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
+                if trigger.isContinuous && !trigger.isPinch && !trigger.isRotation && pinchTranslationCompetes {
+                    let minimum = trigger == .threeFingerMove ? 0.35:0.2
+                    guard (context.coherentMovementMM ?? 0) >= minimum else { return false }
+                }
                 if trigger == .thumbTwoMove {
                     guard let direction = GestureMovementDirection.diagonal(for:context.pendingMovementMM) else { return false }
                     return ThumbTwoChord.matches(contacts)

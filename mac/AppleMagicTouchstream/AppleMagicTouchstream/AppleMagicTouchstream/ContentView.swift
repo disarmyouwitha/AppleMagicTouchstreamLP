@@ -78,6 +78,15 @@ struct ContentView: View {
     }
 
     @StateObject private var viewModel: ContentViewModel
+    @State private var editingLayout = false
+    @State private var layoutEditorDocument: LayoutDocument?
+    @State private var layoutEditorTemplate: LayoutDocument?
+    @AppStorage(GlassToKeyDefaultsKeys.layoutDocuments) private var storedLayoutDocuments = Data()
+    @State private var layoutDocuments: [String: LayoutDocument] = [:]
+    private var authoredLayout: LayoutDocument? { layoutDocuments[layoutOption.rawValue] }
+    private var editorSeed: LayoutDocument {
+        LayoutDocument.seed(left: leftLayout, right: rightLayout, leftLabels: leftGridLabels, rightLabels: rightGridLabels, groupByBindingColumn: layoutOption.allowsColumnSettings && !layoutOption.isSteno)
+    }
     @State private var testText = ""
     @State private var autocorrectCurrentBufferText = "<empty>"
     @State private var autocorrectLastCorrectedText = "none"
@@ -241,7 +250,6 @@ struct ContentView: View {
     private static let mobileKeySpacingMM: CGFloat = 1.5
     private static let mobileRowSpacingMM: CGFloat = 5.0
     private static let mobileTopInsetMM: CGFloat = 12.0
-    static let minCustomButtonSize = CGSize(width: 0.05, height: 0.05)
     private static let editableLayers = KeyLayerConfig.editableLayers
     fileprivate static let columnScaleRange: ClosedRange<Double> = ColumnLayoutDefaults.scaleRange
     fileprivate static let columnScalePercentRange: ClosedRange<Double> =
@@ -293,15 +301,6 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 1
         formatter.minimum = NSNumber(value: ContentView.rotationDegreesRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.rotationDegreesRange.upperBound)
-        return formatter
-    }()
-    fileprivate static let buttonGeometryPercentFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 1
-        formatter.minimum = 0
-        formatter.maximum = 100
         return formatter
     }()
     fileprivate static let snapRadiusPercentFormatter: NumberFormatter = {
@@ -377,8 +376,8 @@ struct ContentView: View {
     private var layoutColumns: Int { layoutOption.columns }
     private var layoutRows: Int { layoutOption.rows }
     private var layoutColumnAnchors: [CGPoint] { layoutOption.columnAnchors }
-    private var leftGridLabels: [[String]] { layoutOption.leftLabels }
-    private var rightGridLabels: [[String]] { layoutOption.rightLabels }
+    private var leftGridLabels: [[String]] { authoredLayout?.labels(right: false) ?? layoutOption.leftLabels }
+    private var rightGridLabels: [[String]] { authoredLayout?.labels(right: true) ?? layoutOption.rightLabels }
     private var layoutSelectionBinding: Binding<TrackpadLayoutPreset> {
         Binding(
             get: { layoutOption },
@@ -563,6 +562,53 @@ struct ContentView: View {
         lifecycleContent(styledMainLayout)
     }
 
+    private func beginLayoutEditing() {
+        // Snapshot once at entry. Telemetry refreshes must not rebuild template geometry
+        // or decode documents while the local canvas is dragging.
+        var document = authoredLayout ?? editorSeed
+        var template = templateSeed
+        document.inferMirrorPairs(); template.inferMirrorPairs()
+        layoutEditorDocument = document; layoutEditorTemplate = template
+        editingLayout = true
+        if layoutOption.isSteno {
+            let empty = ContentViewModel.Layout(keyRects:[],trackpadSize:trackpadSize)
+            viewModel.configureLayouts(leftLayout:empty,rightLayout:empty,leftLabels:[],rightLabels:[],
+                trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
+            viewModel.updateCustomButtons([])
+        }
+    }
+
+    private func finishLayoutEditing() {
+        editingLayout = false
+        layoutEditorDocument = nil; layoutEditorTemplate = nil
+        if layoutOption.isSteno { rebuildLayouts(); viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons) }
+    }
+
+    private func applyEditedLayout(_ document: LayoutDocument?) {
+        var documents = layoutDocuments
+        var authored = document
+        if var edited = authored {
+            guard edited.isValid else { return }
+            keyMappingsByLayer = edited.updatedMappings(keyMappingsByLayer)
+            for i in edited.keys.indices { edited.keys[i].copySourceRow = nil; edited.keys[i].copySourceColumn = nil }
+            authored = edited
+        }
+        documents[layoutOption.rawValue] = authored
+        layoutDocuments = documents
+        storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
+        selectedGridKey = nil
+        if !layoutOption.isSteno { rebuildLayouts() }
+        updateGridLabelInfo()
+        finishLayoutEditing()
+    }
+
+    @ViewBuilder private var layoutEditorWorkspace: some View {
+        if let document = layoutEditorDocument, let template = layoutEditorTemplate {
+            LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
+                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer())
+        }
+    }
+
     private var styledMainLayout: some View {
         mainLayout
             .background(backgroundGradient)
@@ -591,6 +637,13 @@ struct ContentView: View {
                 viewModel.startTrackpadConnectionRecovery()
 
             }
+            .onChange(of: storedLayoutDocuments) { data in
+                let decoded = LayoutDocumentStorage.decode(data)
+                if decoded != layoutDocuments {
+                    layoutDocuments = decoded
+                    rebuildLayouts(); updateGridLabelInfo()
+                }
+            }
             .onDisappear {
                 persistConfig()
             }
@@ -612,7 +665,7 @@ struct ContentView: View {
             }
             .onChange(of: customButtons) { newValue in
                 saveCustomButtons(newValue)
-                viewModel.updateCustomButtons(newValue)
+                viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:newValue)
                 refreshButtonInspectorSelection()
                 refreshActionGroupCaches()
             }
@@ -741,7 +794,7 @@ struct ContentView: View {
             HStack {
                 Text("AppleMagicTouchstream").font(.headline)
                 Spacer()
-                EqualWidthInspectorPicker(selection:$inspectorTab).frame(width:260)
+                EqualWidthInspectorPicker(selection:$inspectorTab).frame(width:260).disabled(editingLayout)
             }
             .padding(.horizontal,20).padding(.vertical,12)
             Divider()
@@ -749,6 +802,8 @@ struct ContentView: View {
             Divider()
             if inspectorTab == "Gestures" {
                 GestureInspectorPanel(controller:viewModel.gestures,takeover:nativeTakeover)
+            } else if editingLayout {
+                layoutEditorWorkspace
             } else {
                 GeometryReader { viewport in
                     let width = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:0)
@@ -915,19 +970,16 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
+            onEditLayout: beginLayoutEditing,
             stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
             stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
             stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
             stenoForceThreshold:Binding(get:{ viewModel.gestures.settings.resolvedStenoForceThreshold },set:{
                 viewModel.gestures.setStenoForceThreshold($0); rebuildLayouts()
             }),
-            columnSettings: columnSettings,
-            columnSelection: columnInspectorSelection,
-            columnSpacingPercent: $keySpacingPercent,
             primaryActionGroups: primaryActionGroups,
             holdActionGroups: holdActionGroups,
             gestureActionGroups: gestureActionGroups,
-            editColumnIndex: $editColumnIndex,
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
             selectionRevision: inspectorSelectionRevision,
@@ -993,17 +1045,8 @@ struct ContentView: View {
             bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
             gestureRepeatCadenceData: $storedGestureRepeatCadenceData,
             systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled,
-            onAddCustomButton: { side in
-                addCustomButton(side: side)
-            },
-            onRemoveCustomButton: { id in
-                removeCustomButton(id: id)
-            },
             onClearTouchState: {
                 viewModel.clearTouchState()
-            },
-            onUpdateColumn: { index, update in
-                updateColumnSettingAndSelection(index: index, update: update)
             },
             onUpdateButton: { id, update in
                 updateCustomButtonAndSelection(id: id, update: update)
@@ -1018,21 +1061,7 @@ struct ContentView: View {
                 updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
             },
             onSaveShortcutLibraryAction: saveShortcutLibraryAction,
-            onRestoreDefaults: restoreTypingTuningDefaults,
-            onApplyMxSpacing: {
-                applyKeySizePreset(
-                    targetKeyWidthMm: LayoutKeySizePresetTuning.mxKeyWidthMm,
-                    targetKeyHeightMm: LayoutKeySizePresetTuning.mxKeyHeightMm
-                )
-            },
-            onApplyChocSpacing: {
-                applyKeySizePreset(
-                    targetKeyWidthMm: Self.baseKeyWidthMM,
-                    targetKeyHeightMm: Self.baseKeyHeightMM
-                )
-            },
-            onAutoSplayColumns: applyAutoSplay,
-            onEvenSpaceColumns: applyEvenColumnSpacing
+            onRestoreDefaults: restoreTypingTuningDefaults
         )
     }
 
@@ -1247,17 +1276,14 @@ struct ContentView: View {
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let onEditLayout: () -> Void
         let stenoConnectionMode:Binding<StenoConnectionMode>
         let stenoHapticTouch:Binding<Bool>
         let stenoHapticRelease:Binding<Bool>
         let stenoForceThreshold:Binding<Double>
-        let columnSettings: [ColumnLayoutSettings]
-        let columnSelection: ColumnInspectorSelection?
-        @Binding var columnSpacingPercent: Double
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let gestureActionGroups: [KeyActionCatalog.ActionGroup]
-        @Binding var editColumnIndex: Int
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
@@ -1333,22 +1359,14 @@ struct ContentView: View {
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
-        @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = false
-        let onAddCustomButton: (TrackpadSide) -> Void
-        let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
-        let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
         let onRestoreDefaults: () -> Void
-        let onApplyMxSpacing: () -> Void
-        let onApplyChocSpacing: () -> Void
-        let onAutoSplayColumns: () -> Void
-        let onEvenSpaceColumns: () -> Void
 
         var body: some View {
             ScrollView(.vertical) {
@@ -1376,31 +1394,11 @@ struct ContentView: View {
 
                     if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
 
-                    CollapsibleSection(
-                        isExpanded: $columnTuningExpanded
-                    ) {
-                        ColumnTuningSectionView(
-                            layoutOption: layoutOption,
-                            columnSettings: columnSettings,
-                            selection: columnSelection,
-                            columnSpacingPercent: $columnSpacingPercent,
-                            editColumnIndex: $editColumnIndex,
-                            onUpdateColumn: onUpdateColumn,
-                            onApplyMxSpacing: onApplyMxSpacing,
-                            onApplyChocSpacing: onApplyChocSpacing,
-                            onAutoSplay: onAutoSplayColumns,
-                            onEvenSpacing: onEvenSpaceColumns
-                        )
-                    } label: {
-                        Text("Column Tuning")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
+                    Button(action: onEditLayout) {
+                        Label("Layout Editor", systemImage: "square.grid.3x3")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }.padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.05)))
 
                     CollapsibleSection(
                         isExpanded: $keymapTuningExpanded
@@ -1413,8 +1411,6 @@ struct ContentView: View {
                             primaryActionGroups: primaryActionGroups,
                             holdActionGroups: holdActionGroups,
                             layerSelection: layerSelection,
-                            onAddCustomButton: onAddCustomButton,
-                            onRemoveCustomButton: onRemoveCustomButton,
                             onClearTouchState: onClearTouchState,
                             onUpdateButton: onUpdateButton,
                             onUpdateKeyMapping: onUpdateKeyMapping,
@@ -1763,205 +1759,6 @@ struct ContentView: View {
         }
     }
 
-    private struct ColumnTuningSectionView: View {
-        let layoutOption: TrackpadLayoutPreset
-        let columnSettings: [ColumnLayoutSettings]
-        let selection: ColumnInspectorSelection?
-        @Binding var columnSpacingPercent: Double
-        @Binding var editColumnIndex: Int
-        let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
-        let onApplyMxSpacing: () -> Void
-        let onApplyChocSpacing: () -> Void
-        let onAutoSplay: () -> Void
-        let onEvenSpacing: () -> Void
-
-        private var editColumnBinding: Binding<Int> {
-            Binding(
-                get: {
-                    guard !columnSettings.isEmpty else { return 0 }
-                    return min(max(editColumnIndex, 0), columnSettings.count - 1)
-                },
-                set: { newValue in
-                    guard !columnSettings.isEmpty else { return }
-                    editColumnIndex = min(max(newValue, 0), columnSettings.count - 1)
-                }
-            )
-        }
-
-        private var activeColumnIndex: Int? {
-            guard !columnSettings.isEmpty else { return nil }
-            return editColumnBinding.wrappedValue
-        }
-
-        private var activeColumnSettings: ColumnLayoutSettings? {
-            guard let index = activeColumnIndex else { return nil }
-            return columnSettings[index]
-        }
-
-        private var isAutoSplaySupportedPreset: Bool {
-            layoutOption.columns == 6 || layoutOption == .fiveByThree || layoutOption == .fiveByFour
-        }
-
-        private var isEvenSpacingAvailable: Bool {
-            layoutOption.allowsColumnSettings &&
-            layoutOption.columns >= 3 &&
-            columnSettings.count >= layoutOption.columns
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
-                    if let index = activeColumnIndex,
-                       let settings = activeColumnSettings {
-                        EqualSplitFormRow(alwaysHorizontal: true) {
-                            Text("Edit Column")
-                        } field: {
-                            Picker("", selection: editColumnBinding) {
-                                ForEach(columnSettings.indices, id: \.self) { columnIndex in
-                                    Text("Column \(columnIndex + 1)").tag(columnIndex)
-                                }
-                            }
-                            .pickerStyle(MenuPickerStyle())
-                            .labelsHidden()
-                            .modifier(FlexibleMenuPickerSizing())
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        VStack(alignment: .leading, spacing: 14) {
-                            ColumnTuningRow(
-                                title: "Column Spacing (%)",
-                                value: Binding(
-                                    get: { columnSpacingPercent },
-                                    set: { newValue in
-                                        columnSpacingPercent = LayoutKeySpacingDefaults.normalized(newValue)
-                                    }
-                                ),
-                                formatter: ContentView.columnSpacingFormatter,
-                                range: ContentView.columnSpacingPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Scale X (%)",
-                                value: Binding(
-                                    get: { settings.scaleX * 100.0 },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.scaleX = ContentView.normalizedColumnScale(newValue / 100.0)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnScalePercentFormatter,
-                                range: ContentView.columnScalePercentRange,
-                                sliderStep: 5.0,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Scale Y (%)",
-                                value: Binding(
-                                    get: { settings.scaleY * 100.0 },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.scaleY = ContentView.normalizedColumnScale(newValue / 100.0)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnScalePercentFormatter,
-                                range: ContentView.columnScalePercentRange,
-                                sliderStep: 5.0,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column X (%)",
-                                value: Binding(
-                                    get: { settings.offsetXPercent },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.offsetXPercent = ContentView.normalizedColumnOffsetPercent(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnOffsetFormatter,
-                                range: ContentView.columnOffsetPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Y (%)",
-                                value: Binding(
-                                    get: { settings.offsetYPercent },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.offsetYPercent = ContentView.normalizedColumnOffsetPercent(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnOffsetFormatter,
-                                range: ContentView.columnOffsetPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Rotation (0-360 deg)",
-                                value: Binding(
-                                    get: { settings.rotationDegrees },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.rotationDegrees = ContentView.normalizedRotationDegrees(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.rotationDegreesFormatter,
-                                range: ContentView.rotationDegreesRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                        }
-                        HStack(spacing: 8) {
-
-                            Button {
-                                onEvenSpacing()
-                            } label: {
-                                Text("e v e n s p a c i n g")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(!isEvenSpacingAvailable)
-                        }
-                    } else {
-                        Text("No columns available for this layout.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text(layoutOption.hasGrid
-                        ? (layoutOption == .touchstream
-                            ? "TouchStream uses traced left/right key positions. Select a key to edit its size, rotation, and action."
-                            : "This preset uses a fixed right-side layout; column tuning is disabled.")
-                        : "Layout has no grid. Pick one of the presets to show keys.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
     private struct ButtonTuningSectionView: View {
         private enum ActionBuilderTarget: String, CaseIterable, Identifiable {
             case primary = "Primary"
@@ -1995,8 +1792,6 @@ struct ContentView: View {
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let layerSelection: Binding<Int>
-        let onAddCustomButton: (TrackpadSide) -> Void
-        let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
@@ -2316,56 +2111,7 @@ struct ContentView: View {
                         enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
                         .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
-                subsectionHeader("Custom Buttons")
-                addButtonsRow
-                if let selection = buttonSelection {
-                    VStack(alignment: .leading, spacing: 6) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            ColumnTuningRow(
-                                title: "X (%)",
-                                value: positionBinding(for: selection.button, axis: .x),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: positionRange(for: selection.button, axis: .x),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Y (%)",
-                                value: positionBinding(for: selection.button, axis: .y),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: positionRange(for: selection.button, axis: .y),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Width (%)",
-                                value: sizeBinding(for: selection.button, dimension: .width),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: sizeRange(for: selection.button, dimension: .width),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Height (%)",
-                                value: sizeBinding(for: selection.button, dimension: .height),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: sizeRange(for: selection.button, dimension: .height),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                        }
-                        HStack {
-                            Button("Deleted Selected Button") {
-                                onRemoveCustomButton(selection.button.id)
-                            }
-                            Spacer()
-                        }
-                    }
-                }
+
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -2383,129 +2129,6 @@ struct ContentView: View {
             }
         }
 
-        private var addButtonsRow: some View {
-            HStack(spacing: 8) {
-                Button {
-                    onAddCustomButton(.left)
-                } label: {
-                    Text("Add Left")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                Button {
-                    onAddCustomButton(.right)
-                } label: {
-                    Text("Add Right")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-
-        private enum CustomButtonAxis {
-            case x
-            case y
-        }
-
-        private enum CustomButtonDimension {
-            case width
-            case height
-        }
-
-        private func positionBinding(
-            for button: CustomButton,
-            axis: CustomButtonAxis
-        ) -> Binding<Double> {
-            Binding(
-                get: {
-                    let value = axis == .x ? button.rect.x : button.rect.y
-                    return Double(value * 100.0)
-                },
-                set: { newValue in
-                    onUpdateButton(button.id) { updated in
-                        let rect = updated.rect
-                        let maxNormalized = axis == .x
-                            ? (1.0 - rect.width)
-                            : (1.0 - rect.height)
-                        let upper = max(0.0, Double(maxNormalized))
-                        let normalized = min(max(newValue / 100.0, 0.0), upper)
-                        var next = rect
-                        if axis == .x {
-                            next.x = CGFloat(normalized)
-                        } else {
-                            next.y = CGFloat(normalized)
-                        }
-                        updated.rect = next.clamped(
-                            minWidth: ContentView.minCustomButtonSize.width,
-                            minHeight: ContentView.minCustomButtonSize.height
-                        )
-                    }
-                }
-            )
-        }
-
-        private func positionRange(
-            for button: CustomButton,
-            axis: CustomButtonAxis
-        ) -> ClosedRange<Double> {
-            let rect = button.rect
-            let maxNormalized = axis == .x
-                ? (1.0 - rect.width)
-                : (1.0 - rect.height)
-            let upper = max(0.0, Double(maxNormalized)) * 100.0
-            return 0.0...upper
-        }
-
-        private func sizeBinding(
-            for button: CustomButton,
-            dimension: CustomButtonDimension
-        ) -> Binding<Double> {
-            Binding(
-                get: {
-                    let value = dimension == .width ? button.rect.width : button.rect.height
-                    return Double(value * 100.0)
-                },
-                set: { newValue in
-                    onUpdateButton(button.id) { updated in
-                        let rect = updated.rect
-                        let maxNormalized = dimension == .width
-                            ? (1.0 - rect.x)
-                            : (1.0 - rect.y)
-                        let minNormalized = dimension == .width
-                            ? ContentView.minCustomButtonSize.width
-                            : ContentView.minCustomButtonSize.height
-                        let upper = max(minNormalized, maxNormalized)
-                        let normalized = min(max(newValue / 100.0, minNormalized), upper)
-                        var next = rect
-                        if dimension == .width {
-                            next.width = CGFloat(normalized)
-                        } else {
-                            next.height = CGFloat(normalized)
-                        }
-                        updated.rect = next.clamped(
-                            minWidth: ContentView.minCustomButtonSize.width,
-                            minHeight: ContentView.minCustomButtonSize.height
-                        )
-                    }
-                }
-            )
-        }
-
-        private func sizeRange(
-            for button: CustomButton,
-            dimension: CustomButtonDimension
-        ) -> ClosedRange<Double> {
-            let rect = button.rect
-            let maxNormalized = dimension == .width
-                ? (1.0 - rect.x)
-                : (1.0 - rect.y)
-            let minNormalized = dimension == .width
-                ? ContentView.minCustomButtonSize.width
-                : ContentView.minCustomButtonSize.height
-            let upper = max(minNormalized, maxNormalized) * 100.0
-            let lower = minNormalized * 100.0
-            return lower...upper
-        }
     }
 
     private struct ModeTogglesSectionView: View {
@@ -3303,23 +2926,75 @@ struct ContentView: View {
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: newLayout)
         keyMappingsByLayer = keyMappings(for: newLayout)
-        viewModel.updateCustomButtons(customButtons)
+        viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
+    }
+
+    private func publishAuthoredLayouts(leftLayout: ContentViewModel.Layout, rightLayout: ContentViewModel.Layout,
+        leftLabels: [[String]], rightLabels: [[String]], trackpadSize: CGSize, trackpadWidthMm: CGFloat) {
+        let document = authoredLayout
+        let left = document?.compile(right: false, base: leftLayout, size: trackpadSize) ?? leftLayout
+        let right = document?.compile(right: true, base: rightLayout, size: trackpadSize) ?? rightLayout
+        self.leftLayout = left; self.rightLayout = right
+        if editingLayout && layoutOption.isSteno {
+            let empty = ContentViewModel.Layout(keyRects:[],trackpadSize:trackpadSize)
+            viewModel.configureLayouts(leftLayout:empty,rightLayout:empty,leftLabels:[],rightLabels:[],
+                trackpadSize:trackpadSize,trackpadWidthMm:trackpadWidthMm)
+        } else {
+            viewModel.configureLayouts(leftLayout:left,rightLayout:right,
+                leftLabels:document?.labels(right:false) ?? leftLabels,
+                rightLabels:document?.labels(right:true) ?? rightLabels,
+                trackpadSize:trackpadSize,trackpadWidthMm:trackpadWidthMm)
+        }
+    }
+
+    private var templateSeed: LayoutDocument {
+        let profile = Bundle.main.url(forResource:"DEFAULT_KEYMAP",withExtension:"json")
+            .flatMap { try? Data(contentsOf:$0) }
+            .flatMap { PortableKeymapInterop.decodeBundledDefaultProfile(from:$0) }
+        return Self.editorTemplate(preset:layoutOption,size:trackpadSize,profile:profile)
+    }
+
+    /// Reset uses the same imported geometry fields as loading the bundled keymap.
+    /// It deliberately leaves current per-layer action assignments to Keymap Tuning.
+    static func editorTemplate(preset:TrackpadLayoutPreset,size:CGSize,profile:AppKeymapProfile?) -> LayoutDocument {
+        if let saved = profile?.layoutDocuments?[preset.rawValue], saved.isValid { return saved }
+        let columns = profile?.columnSettingsByLayout[preset.rawValue] ?? ColumnLayoutDefaults.defaultSettings(columns:preset.columns)
+        let spacing = profile?.keySpacingPercentByLayout?[preset.rawValue] ?? LayoutKeySpacingDefaults.defaultPercent
+        let overrides = profile?.keyGeometryByLayout?[preset.rawValue] ?? [:]
+        func base(_ right:Bool) -> ContentViewModel.Layout {
+            if preset.isSteno { return StenoLayoutDefinition.layout(preset:preset,side:right ? .right:.left,size:size,columns:columns,spacing:spacing,overrides:overrides) }
+            if preset == .touchstream { return makeTouchStreamKeyLayout(size:size,side:right ? .right:.left,keyGeometryOverrides:overrides) }
+            if !right && preset.blankLeftSide { return ContentViewModel.Layout(keyRects:[],trackpadSize:size) }
+            return makeKeyLayout(size:size,keyWidth:baseKeyWidthMM,keyHeight:baseKeyHeightMM,
+                columns:preset.columns,rows:preset.rows,trackpadWidth:trackpadWidthMM,trackpadHeight:trackpadHeightMM,
+                columnAnchorsMM:preset.columnAnchors,columnSettings:columns,keySpacingPercent:spacing,
+                keyGeometryOverrides:overrides,mirrored:!right)
+        }
+        var document = LayoutDocument.seed(left:base(false),right:base(true),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
+            groupByBindingColumn:preset.allowsColumnSettings && !preset.isSteno)
+        let mappings = profile?.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]
+        for i in document.keys.indices {
+            let key = document.keys[i]
+            let address = GridKeyPosition(side:key.right ? .right:.left,row:key.row,column:key.column).storageKey
+            if let action = mappings[address]?.primary { document.keys[i].label = action.label }
+        }
+        return document
     }
 
     private func rebuildLayouts() {
         if layoutOption.isSteno {
             leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
             rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
-            viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
+            publishAuthoredLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
                 trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
             return
         }
         if layoutOption == .touchstream {
             leftLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
             rightLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)
-            viewModel.configureLayouts(leftLayout: leftLayout, rightLayout: rightLayout,
+            publishAuthoredLayouts(leftLayout: leftLayout, rightLayout: rightLayout,
                 leftLabels: leftGridLabels, rightLabels: rightGridLabels,
                 trackpadSize: trackpadSize, trackpadWidthMm: Self.trackpadWidthMM)
             return
@@ -3330,7 +3005,7 @@ struct ContentView: View {
               layoutColumnAnchors.count == layoutColumns else {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3346,7 +3021,7 @@ struct ContentView: View {
                 size: trackpadSize,
                 keyGeometryOverrides: keyGeometryOverrides
             )
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3371,7 +3046,7 @@ struct ContentView: View {
                 keySpacingPercent: keySpacingPercent,
                 keyGeometryOverrides: keyGeometryOverrides
             )
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3408,7 +3083,7 @@ struct ContentView: View {
             keySpacingPercent: keySpacingPercent,
             keyGeometryOverrides: keyGeometryOverrides
         )
-        viewModel.configureLayouts(
+        publishAuthoredLayouts(
             leftLayout: leftLayout,
             rightLayout: rightLayout,
             leftLabels: leftGridLabels,
@@ -3419,6 +3094,7 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
+        layoutDocuments = LayoutDocumentStorage.decode(storedLayoutDocuments)
         normalizeStoredShortcutActions()
         let storedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(storedLayoutPreset)
         let resolvedLayout: TrackpadLayoutPreset = (storedLayout == .mobile || storedLayout == .mobileOrtho12x4) ? .sixByThree : storedLayout
@@ -3432,7 +3108,7 @@ struct ContentView: View {
         customButtons = loadCustomButtons(for: resolvedLayout)
         loadKeyMappings()
         keyMappingsByLayer = keyMappings(for: resolvedLayout)
-        viewModel.updateCustomButtons(customButtons)
+        viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
         if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.leftDeviceID) != nil {
@@ -3717,11 +3393,16 @@ struct ContentView: View {
             keyMappingsByLayout: mappings,
             keyGeometryByLayout: keyGeometryByLayout,
             gestureRecognitionEnabled: gestureRecognitionEnabled,
-            handGestureSettings: viewModel.gestures.settings
+            handGestureSettings: viewModel.gestures.settings,
+            layoutDocuments: layoutDocuments
         )
     }
 
     private func applyKeymapProfile(_ profile: AppKeymapProfile) {
+        if let documents = profile.layoutDocuments {
+            layoutDocuments = documents.filter { $0.value.isValid }
+            storedLayoutDocuments = (try? JSONEncoder().encode(layoutDocuments)) ?? Data()
+        }
         if let gestures = profile.handGestureSettings { viewModel.gestures.applyImportedSettings(gestures) }
         gestureRecognitionEnabled = profile.gestureRecognitionEnabled ?? false
         storedLeftDeviceID = profile.leftDeviceID
@@ -4077,29 +3758,6 @@ struct ContentView: View {
         }
     }
 
-    private func addCustomButton(side: TrackpadSide) {
-        let action = KeyActionCatalog.action(for: "Space") ?? KeyActionCatalog.presets.first
-        guard let action else { return }
-        let newButton = CustomButton(
-            id: UUID(),
-            side: side,
-            rect: defaultNewButtonRect(),
-            action: action
-            ,
-            hold: nil,
-            layer: viewModel.activeLayer
-        )
-        customButtons.append(newButton)
-        selectedButtonID = newButton.id
-    }
-
-    private func removeCustomButton(id: UUID) {
-        customButtons.removeAll { $0.id == id }
-        if selectedButtonID == id {
-            selectedButtonID = nil
-        }
-    }
-
     private func updateCustomButton(id: UUID, update: (inout CustomButton) -> Void) {
         guard let index = customButtons.firstIndex(where: { $0.id == id }) else { return }
         update(&customButtons[index])
@@ -4111,21 +3769,6 @@ struct ContentView: View {
     ) {
         updateCustomButton(id: id, update: update)
         refreshButtonInspectorSelection()
-    }
-
-    private func defaultNewButtonRect() -> NormalizedRect {
-        let width: CGFloat = 0.18
-        let height: CGFloat = 0.14
-        let rect = NormalizedRect(
-            x: 0.5 - width / 2.0,
-            y: 0.5 - height / 2.0,
-            width: width,
-            height: height
-        )
-        return rect.clamped(
-            minWidth: Self.minCustomButtonSize.width,
-            minHeight: Self.minCustomButtonSize.height
-        )
     }
 
     private struct ColumnTuningRow: View {
@@ -4382,7 +4025,8 @@ struct ContentView: View {
     }
 
     private func keyRotationDegrees(for key: SelectedGridKey) -> Double {
-        keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
+        if let authored = authoredLayout?.keys.first(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) { return authored.rect.rotationDegrees }
+        return keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
     }
 
     private func updateKeyRotation(
@@ -4390,6 +4034,14 @@ struct ContentView: View {
         rotationDegrees: Double
     ) {
         let normalized = Self.normalizedRotationDegrees(rotationDegrees)
+        if var document = authoredLayout,
+           let i = document.keys.firstIndex(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) {
+            document.keys[i].rect.rotationDegrees = normalized
+            var documents = layoutDocuments; documents[layoutOption.rawValue] = document
+            layoutDocuments = documents
+            storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
+            rebuildLayouts(); return
+        }
         if normalized <= 0.000_01 {
             let existing = keyGeometryOverrides[key.storageKey]
             let widthScale = existing?.widthScale ?? 1.0
