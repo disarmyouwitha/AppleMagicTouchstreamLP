@@ -1,8 +1,7 @@
 # NEXT:
 =======
-0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
-1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
-2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 
+0. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. A random monkeytype like generator? probably easier to roll you own. 
+> Should we use the textarea under the trackpad visualizer?
 ===
 # Human Tasks...?
 0. Start working on TouchStream gesture defaults template!!

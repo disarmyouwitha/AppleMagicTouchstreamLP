@@ -1249,13 +1249,7 @@ struct ContentView: View {
                             selectedGridKey: $selectedGridKey,
                             onSelectionInteraction: onSelectionInteraction
                         )
-                    TextEditor(text: $testText)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(height: 100)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
-                        )
+                    TypingPracticePanel(freeText:$testText)
 
                 }
                 .padding(12)

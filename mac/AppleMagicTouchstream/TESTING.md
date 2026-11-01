@@ -341,3 +341,10 @@ and test full two-hand chords, thumb vowels and the retained mouse/force control
 Verify STENO Keymap Tuning Primary/Hold choosers contain only STENO codes and None,
 including when a selected key has an older non-STENO assignment. Outside STENO,
 STENO codes stay hidden. The filter must not change saved assignments or output.
+
+TypingPracticeTests cover generated pool/count limits, empty/single custom lists,
+clock start/freeze, positional accuracy, corrections, Plover-style replacement,
+case/whitespace matching and bounded input. Hardware: use Practice below the pads,
+complete a round with normal typing and Plover, correct a word using backspace, then
+start a new round. Verify Free type retains its own text and practice does not alter
+keyboard/gesture/STENO recognition or create an external connection.

@@ -574,3 +574,22 @@ and None; other layouts omit STENO keys. Existing non-STENO assignments are not
 added back through the Current Custom Action group. This is a presentation filter
 only; STENO output remains restricted to the existing chord protocol and mouse
 controls, without ordinary shortcut dispatch.
+
+## Typing practice
+
+The typing area below the keyboard visualizer has Free type and Practice tabs.
+Practice generates local 10/25/50/100-word rounds from common words, short English
+STENO drills, or a custom whitespace-separated word list. It uses only text entered
+into the focused practice field; there are no global input observers, external
+services or protocol changes. STENO practice accepts Plover's translated text using
+the user's existing dictionary/theory and ignores capitalization. It measures text,
+not stroke count or theory-specific correctness. No lapdrill integration is required.
+
+Timing starts on the first input and freezes when the normalized prompt matches.
+Whitespace runs normalize to a single space; letter case matters outside STENO.
+WPM is current correct characters / 5 / elapsed minutes. Accuracy compares current
+characters against the same positions in the prompt, including extra characters as
+errors, and permits correction; it is not historical uncorrected accuracy. New drill
+resets all metrics. Free text is retained separately. Input and custom lists stay in
+view memory and are not exported, captured or stored in preferences. Input/custom
+list bounds keep scoring and prompt work off the recognition/output paths.
