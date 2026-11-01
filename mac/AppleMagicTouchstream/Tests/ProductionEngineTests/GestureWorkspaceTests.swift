@@ -133,16 +133,16 @@ final class GestureWorkspaceTests: XCTestCase {
 
     func testCatalogExposesEveryExistingInputExactlyOnce() {
         let triggers = GesturePane.allCases.flatMap(\.triggers)
-        let hidden = GestureTrigger.rotationTriggers.filter { $0.rotationCount == 2 || $0.rotationCount == 4 }
+        let hidden:[GestureTrigger] = []
         XCTAssertEqual(Set(triggers),Set(GestureTrigger.allCases).subtracting(hidden))
         XCTAssertEqual(triggers.count,Set(triggers).count)
         for pane in GesturePane.allCases {
             XCTAssertFalse(pane.triggers.isEmpty)
             for trigger in pane.triggers { XCTAssertTrue(pane.includes(trigger)) }
             if pane.isPinchSection {
-                XCTAssertEqual(pane.triggers.count,pane == .fiveFingerPinch ? 4 : 2)
+                XCTAssertEqual(pane.triggers.count,pane == .threeFingerPinch ? 2 : 4)
                 XCTAssertTrue(pane.triggers.prefix(2).allSatisfy(\.isPinch))
-                if pane == .fiveFingerPinch { XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation)) }
+                if pane != .threeFingerPinch { XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation)) }
                 XCTAssertTrue(pane.contactLabel.contains("thumb required"))
             }
         }

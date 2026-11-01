@@ -1,5 +1,13 @@
 # NEXT:
 =======
+0. Let's call it "Pinch, Spread, Rotate" instead.
+===
+0. The more I think about it 2F rotation should work! It is very different than other 2F gestures because the fingers do not travel together and they are spread out instead of side-by-side. (And they include a thumb which other 2F gestures dont!) so that is another way we can tell it apart from movement/directional gestures. The Rotate is also distinct from pinch/zoom which we show with Thumb+2F (which is implemented flawlessly)
+1. Let's also add 4F and 5F rotate to their respective pinch and spread pages. 
+2. Here is an atpcap of the different finger rotates starting 2 > T2F > 4 > 5 @rotate.atpcap
+> **TEST:** Then we can call it "Pinch, Spread and Rotate"
+===
+
 0. Experiment time! Would it be a big deal to do something like a minimal Javelin where we run the state machine in our app instead of plover? (So you wouldn't need to install plover / plugin?) https://github.com/jthlim/javelin-steno
 ===
 2. Implement actions: Missing TouchStream actions:

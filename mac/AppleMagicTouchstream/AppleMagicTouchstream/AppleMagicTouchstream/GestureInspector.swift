@@ -17,7 +17,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Force Click"
         case .fiveFingers: return "Tap and Move"
         case .twoFingers: return "Tap and Move"
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch: return "Pinch and Spread"
+        case .threeFingerPinch: return "Pinch and Spread"
+        case .twoFingerPinch,.fourFingerPinch: return "Pinch, Spread, and Rotate"
         case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Tap and Move"
@@ -30,7 +31,9 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Choose an action for a one-finger force click."
         case .fiveFingers: return "Choose actions for five-finger tapping, movement, force clicking and holding."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
-        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch:
+        case .twoFingerPinch,.fourFingerPinch:
+            return "Choose pinch, spread and rotation actions. A recognized thumb is required to begin."
+        case .threeFingerPinch:
             return "Choose actions for pinching and spreading. Both directions require a recognized thumb to begin."
         case .fiveFingerPinch:
             return "Choose actions for pinching, spreading and rotation. Pinch and Spread require a recognized thumb to begin."
@@ -46,12 +49,12 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fiveFingers: return [.fiveFingerTap,.fiveFingerForce,.fiveFingerMove]
         case .fiveFingerPinch: return [.fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
-        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
+        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
         case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
         case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
         case .fourCorners:return [.fourCornersTap]
-        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
+        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight]
         case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight]
         }
     }

@@ -655,12 +655,12 @@ The 2–4-contact shape pages are **Pinch and Spread**. Five contacts use **Pinc
 Spread, and Rotate**, with Rotate Left/Right below Pinch/Spread. **Thumb+2fingers**
 uses the diagonal grid described above, with Tap top-center, Hold bottom-center,
 and Rotate Left/Right on either side of the empty center. The existing
-three-contact rotation binding IDs serve this thumb-plus-two input; unused two-
-and four-contact fields remain readable for compatibility without visible cards.
+three-contact rotation binding IDs serve this thumb-plus-two input. Two- and
+four-contact rotation cards appear on their respective Pinch, Spread, and Rotate pages.
 Rotation assignments are independent per hand/direction, default None, and support
-Mirror Edit and settings import/export. Assigned Thumb+2 and five-contact rotations
+Mirror Edit and settings import/export. Assigned two- through five-contact rotations
 reserve their corresponding input family. Rotate Content follows angular motion;
-other actions dispatch once on activation. Two/four-contact rotation fields remain inactive.
+other actions dispatch once on activation.
 
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
 and Force Click across the top; Left / Movement / Right in the middle; Hold beside
@@ -702,8 +702,8 @@ receipt and physical feel require hardware testing.
 
 ## Rotation recognition
 
-Thumb+2 and five-contact rotation use a tracked recognized thumb as the pivot and
-measure the angle of the fingertip group's centroid relative to it. Three- and five-contact activation require a recognized thumb and reject
+Two- through five-contact rotations use a tracked recognized thumb as the pivot and
+measure the angle of the fingertip group's centroid relative to it. All rotation counts require a recognized thumb and reject
 palm/invalid/duplicate contacts. Rotation uses angular evidence rather than the
 spread-Tap arrangement bounds; Tap/Hold keep their own geometry. Radius must be at least 15 app mm.
 Membership/identity or native chronology changes rebase pending evidence. Pending
@@ -755,8 +755,7 @@ and directional assignments; directional repeats retain their chosen behavior.
 The receiving app/view decides whether navigation is supported. Existing bindings
 and defaults are unchanged; there is no keyboard fallback or duplicate dispatch.
 
-Rotate Content is a continuous action offered only in the Thumb+2 and
-five-contact rotation slots. Activation and arbitration retain the existing thumb,
+Rotate Content is a continuous action offered only in the two- through five-contact rotation slots. Activation and arbitration retain the existing thumb,
 angular/radial thresholds and first-owner latch. Initial angular travel is emitted
 once at activation; subsequent output uses signed frame deltas, including reversal.
 Stationary frames emit zero angle; changed membership/identity rebases evidence
@@ -778,6 +777,28 @@ Option/Shift flags; the existing small-step volume/brightness actions retain tho
 flags. They share discrete action menus, settings, directional repeat and live
 output gates. Replay never posts playback events or changes sound.
 
-Two- and four-contact rotation fields remain decode-only and inert. Two-finger
-Pinch and Spread has no rotation cards or rotation keyboard reservation. Existing
-Thumb+2 and five-contact native/shortcut rotation keep their behavior.
+Rotation slots for counts 2–5 share activation, reservation, continuation and output.
+Two-contact rotation requires a separated thumb/fingertip chord (minimum 15 mm
+radius), unlike side-by-side mouse contacts. Positive thumb evidence and angular
+travel distinguish it from translation; angular/radial competition distinguishes it
+from pinch. Fresh rotation assignments default None; saved assignments remain intact.
+
+The `rotation-counts.json` fixture preserves all raw frames from `mac/rotate.atpcap`
+with its SHA-256 and excludes settings, saved-text references and output metadata.
+The capture contains 16 deliberate rotations (four each at counts 2, 3, 4, 5),
+followed by ordinary side-by-side two-finger contacts. With pinch and movement
+competitors enabled the prior build recognized 7/16 rotations; shared count support
+alone recognizes 12/16. Full-chord translation for enabled thumb rotations and
+bounded evidenced thumb landing resolve all 16/16. The final two-finger movement
+cycles remain movement. These are capture-specific recognition results, not an
+accuracy claim for other hardware/use.
+
+When thumb rotation is enabled, pending translation requires coherent travel by
+all active contacts, so one moving fingertip cannot acquire pointer movement while
+a separated thumb stays still or turns against it. Coherent translation is still
+allowed, and already activated owners never change. Existing 80 ms evidenced
+additional-contact settling also covers a fourth-to-fifth contact landing when
+five-contact rotation is enabled. An identified non-touching thumb may extend that
+pending four-contact movement settling to 150 ms; it cannot wait indefinitely or
+replace a fired owner. Force/Hold lifetimes, rotation angular thresholds, native
+rotation output, per-pad ownership and replay gates remain shared.

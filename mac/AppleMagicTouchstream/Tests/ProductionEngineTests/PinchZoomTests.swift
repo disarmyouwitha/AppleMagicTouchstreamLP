@@ -355,7 +355,7 @@ extension PinchZoomTests {
         }
     }
     func testRotationUsesSharedLatchAndFiresOnceForEitherDirectionAndCount() {
-        for count in [3,5] { for sign in [-1.0,1.0] {
+        for count in 2...5 { for sign in [-1.0,1.0] {
             var router = TrackpadGestureRouter()
             let expected = GestureTrigger.rotation(count:count,right:sign > 0)!
             _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:count,angle:0),enabled:{$0.isRotation})
@@ -372,21 +372,34 @@ extension PinchZoomTests {
             XCTAssertEqual(router.recognize(device:1,time:1.04,contacts:[OMSRawTouch](),enabled:{$0.isRotation}).phase,.ended)
         }}
     }
-    func testRetiredTwoFingerRotationCannotActivateEvenWithSavedAssignments() {
-        for sign in [-1.0,1.0] {
+    func testThumbRotationDoesNotBlockCoherentTranslationOrWaitForeverForLanding() {
+        for count in [2,4,5] {
             var router = TrackpadGestureRouter()
-            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:2,angle:0),enabled:{$0.isRotation})
-            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:2,angle:sign*0.2),enabled:{$0.isRotation}).gesture)
-            XCTAssertFalse(GestureTrigger.liveRotationTriggers.contains(.twoFingerRotateLeft))
-            XCTAssertFalse(GestureTrigger.liveRotationTriggers.contains(.twoFingerRotateRight))
+            _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
+            let moved = router.recognize(device:1,time:1.01,contacts:chord(count,translation:1),enabled:{_ in true})
+            let expected:GestureTrigger = count == 2 ? .twoFingerMove : count == 4 ? .fourFingerMove : .fiveFingerMove
+            XCTAssertEqual(moved.gesture,expected)
         }
+        var router = TrackpadGestureRouter()
+        func landing(_ dx:Double) -> [OMSRawTouch] {
+            let source = chord(5)[0]
+            let thumb = OMSRawTouch(id:source.id,posX:source.posX,posY:source.posY,total:source.total,
+                pressure:source.pressure,majorAxis:source.majorAxis,minorAxis:source.minorAxis,angle:source.angle,
+                density:source.density,state:.hovering,telemetry:source.telemetry)
+            return Array(chord(5,translation:dx).dropFirst()) + [thumb]
+        }
+        _ = router.recognize(device:2,time:1,contacts:landing(0),enabled:{_ in true})
+        for offset in [0.01,0.06,0.11] {
+            XCTAssertNil(router.recognize(device:2,time:1+offset,contacts:landing(offset*20),enabled:{_ in true}).gesture)
+        }
+        XCTAssertEqual(router.recognize(device:2,time:1.16,contacts:landing(3.2),enabled:{_ in true}).gesture,.fourFingerMove)
     }
     func testPureScaleAndMissingThumbCannotClaimRotation() {
-        for missingThumb in [false,true] {
+        for count in 2...5 { for missingThumb in [false,true] {
             var router = TrackpadGestureRouter()
-            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:3,angle:0,thumb:!missingThumb),enabled:{$0.isRotation})
-            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:3,angle:missingThumb ? 0.2 : 0,thumb:!missingThumb,scale:missingThumb ? 1 : 1.15),enabled:{$0.isRotation}).gesture)
-        }
+            _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:count,angle:0,thumb:!missingThumb),enabled:{$0.isRotation})
+            XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:count,angle:missingThumb ? 0.2 : 0,thumb:!missingThumb,scale:missingThumb ? 1 : 1.15),enabled:{$0.isRotation}).gesture)
+        }}
     }
     func testUserRotationCaptureActivatesLeftRotationWithCompetingShapeActions() throws {
         let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -487,5 +500,28 @@ extension PinchZoomTests {
             "3:fourFingerPinch","4:fiveFingerPinch","5:fourFingerPinch","6:threeFingerPinch",
             "7:threeFingerPinch","8:threeFingerPinch","9:threeFingerPinch","10:threeFingerPinch",
             "11:fourFingerPinch","12:fiveFingerPinch","13:twoFingerMove","15:twoFingerMove"])
+    }
+}
+
+extension PinchZoomTests {
+    func testRecordedRotationsAcrossCountsWithPinchAndMovementCompetition() throws {
+        struct Trace:Decodable { let frames:[RuntimeRawFrame] }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"rotation-counts",withExtension:"json",subdirectory:"Fixtures"))
+        let frames = try JSONDecoder().decode(Trace.self,from:Data(contentsOf:url)).frames
+        var router = TrackpadGestureRouter(), cycle=0, wasDown=false
+        var results:[String] = []
+        for frame in frames {
+            let down = frame.rawTouches.contains { $0.state == .making || $0.state == .touching }
+            let result = router.recognize(device:frame.deviceNumericID,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0.isPinch || GestureTrigger.liveRotationTriggers.contains($0) || [.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove].contains($0)
+            }
+            if result.phase == .began, let gesture = result.gesture { results.append("\(cycle):\(gesture.rawValue)") }
+            if wasDown && !down { cycle += 1 }; wasDown=down
+        }
+        let expected = [2,3,4,5].flatMap { count in
+            (0..<4).map { i in "\((count-2)*4+i):\(GestureTrigger.rotation(count:count,right:i % 2 == 0)!.rawValue)" }
+        }
+        XCTAssertEqual(Array(results.prefix(16)),expected)
+        XCTAssertTrue(results.dropFirst(16).allSatisfy { $0.hasSuffix(":twoFingerMove") })
     }
 }

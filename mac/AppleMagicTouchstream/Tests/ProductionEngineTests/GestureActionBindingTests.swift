@@ -314,7 +314,7 @@ extension GestureActionBindingTests {
             XCTAssertEqual(settings.action(left,in:.right),.disabled)
             XCTAssertEqual(settings.action(right,in:.both),.volumeUpSmall)
             var reservation = GestureKeyboardArbitration()
-            XCTAssertEqual(reservation.process(device:1,activeCount:count) { GestureTrigger.liveRotationTriggers.contains($0) },count == 3 || count == 5)
+            XCTAssertEqual(reservation.process(device:1,activeCount:count) { GestureTrigger.liveRotationTriggers.contains($0) },true)
             var router = TrackpadGestureRouter()
             _ = router.recognize(device:1,time:1,contacts:contacts(Array(1...Int32(count))),enabled:{$0.isRotation})
             XCTAssertNil(router.recognize(device:1,time:1.01,contacts:contacts(Array(1...Int32(count)),dx:0.02),enabled:{$0.isRotation}).gesture)

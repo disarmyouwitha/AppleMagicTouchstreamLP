@@ -21,7 +21,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     private static let leftRotations:[Self] = [.twoFingerRotateLeft,.threeFingerRotateLeft,.fourFingerRotateLeft,.fiveFingerRotateLeft]
     private static let rightRotations:[Self] = [.twoFingerRotateRight,.threeFingerRotateRight,.fourFingerRotateRight,.fiveFingerRotateRight]
     static let rotationTriggers = leftRotations + rightRotations
-    static let liveRotationTriggers:[Self] = [.threeFingerRotateLeft,.threeFingerRotateRight,.fiveFingerRotateLeft,.fiveFingerRotateRight]
+    static let liveRotationTriggers:[Self] = rotationTriggers
     var rotationCount:Int? { (Self.leftRotations.firstIndex(of:self) ?? Self.rightRotations.firstIndex(of:self)).map { $0+2 } }
     var isRotation:Bool { rotationCount != nil }
     var rotatesRight:Bool { Self.rightRotations.contains(self) }
