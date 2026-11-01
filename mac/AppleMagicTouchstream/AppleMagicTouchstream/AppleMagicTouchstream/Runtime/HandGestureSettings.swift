@@ -204,6 +204,16 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
 }
 enum GestureSensitivity: Sendable { case pointer, scroll, zoom }
 
+enum GestureShapeRepeatMode:String,CaseIterable,Codable,Sendable {
+    case once, timed, motion
+    var title:String { switch self { case .once:return "Once"; case .timed:return "Repeat every ms"; case .motion:return "Repeat with motion" } }
+}
+struct GestureShapeRepeat:Equatable,Codable,Sendable {
+    var mode:GestureShapeRepeatMode = .once
+    var intervalMS:Double = 80
+    var boundedIntervalMS:Double { intervalMS.isFinite ? min(5000,max(20,intervalMS.rounded())) : 80 }
+}
+
 struct GestureActionBindings: Equatable, Codable, Sendable {
     var twoFingerMove: GestureAction = .pointer, twoFingerTap: GestureAction = .primaryClick
     var threeFingerMove: GestureAction = .primaryDrag, threeFingerTap: GestureAction = .primaryDoubleClick
@@ -216,7 +226,14 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var twoFingerPinch: GestureAction?
     var pinchActions: [String:GestureAction]?
     var spreadActions: [String:GestureAction]?
-    var rotationActions:[String:GestureAction]? // Saved assignments; recognition is not active yet.
+    var rotationActions:[String:GestureAction]?
+    var shapeRepeats:[String:GestureShapeRepeat]?
+    func shapeRepeat(_ trigger:GestureTrigger) -> GestureShapeRepeat { shapeRepeats?[trigger.rawValue] ?? GestureShapeRepeat() }
+    mutating func setShapeRepeat(_ value:GestureShapeRepeat,for trigger:GestureTrigger) {
+        guard trigger.isPinch || trigger.isRotation else { return }
+        if shapeRepeats == nil { shapeRepeats = [:] }
+        shapeRepeats?[trigger.rawValue] = GestureShapeRepeat(mode:value.mode,intervalMS:value.boundedIntervalMS)
+    }
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             if trigger.isRotation { return rotationActions?[trigger.rawValue] ?? .disabled }
@@ -494,6 +511,9 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         directionalMovement?[trigger.rawValue] = editor
     }
     mutating func preserveMissingRepeatBehaviors(from current:Self) {
+        if let saved = current.bindings.shapeRepeats {
+            bindings.shapeRepeats = saved.merging(bindings.shapeRepeats ?? [:]) { _,supplied in supplied }
+        }
         for (trigger,saved) in current.directionalMovement ?? [:] {
             guard let behaviors = saved.repeatBehaviors, !behaviors.isEmpty else { continue }
             var imported = directionalMovement?[trigger] ?? GestureDirectionalAssignments()
@@ -629,6 +649,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     mutating func setDirectionalRepeatInterval(_ milliseconds:Double,direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) {
         if scope != .right { left.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
         if scope != .left { right.setDirectionalRepeatInterval(milliseconds,direction:direction,for:trigger) }
+    }
+    func shapeRepeat(_ trigger:GestureTrigger,in scope:GestureHandScope) -> GestureShapeRepeat? {
+        let a = left.bindings.shapeRepeat(trigger), b = right.bindings.shapeRepeat(trigger)
+        switch scope { case .left:return a; case .right:return b; case .both:return a == b ? a : nil }
+    }
+    mutating func setShapeRepeat(_ value:GestureShapeRepeat,for trigger:GestureTrigger,in scope:GestureHandScope) {
+        if scope != .right { left.bindings.setShapeRepeat(value,for:trigger) }
+        if scope != .left { right.bindings.setShapeRepeat(value,for:trigger) }
     }
     func directionalRepeatBehavior(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> GestureDirectionalRepeatBehavior? {
         let a = left.movement(trigger).repeatBehavior(direction), b = right.movement(trigger).repeatBehavior(direction)

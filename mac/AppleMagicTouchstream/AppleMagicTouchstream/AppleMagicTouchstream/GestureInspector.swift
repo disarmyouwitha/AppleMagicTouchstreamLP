@@ -17,9 +17,9 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .oneFinger: return "Force Click"
         case .fiveFingers: return "Tap and Move"
         case .twoFingers: return "Tap and Move"
-        case .threeFingerPinch: return "Pinch and Spread"
-        case .twoFingerPinch,.fourFingerPinch: return "Pinch, Spread, and Rotate"
-        case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
+        case .threeFingerPinch: return "Pinch, Spread, Rotate"
+        case .twoFingerPinch,.fourFingerPinch: return "Pinch, Spread, Rotate"
+        case .fiveFingerPinch: return "Pinch, Spread, Rotate"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Tap and Move"
         case .fourCorners:return "Outer Corners"
@@ -34,13 +34,13 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingerPinch,.fourFingerPinch:
             return "Choose pinch, spread and rotation actions. A recognized thumb is required to begin."
         case .threeFingerPinch:
-            return "Choose actions for pinching and spreading. Both directions require a recognized thumb to begin."
+            return "Choose pinch, spread and rotation actions for a recognized thumb and two fingertips."
         case .fiveFingerPinch:
             return "Choose actions for pinching, spreading and rotation. Pinch and Spread require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
         case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners until the configured threshold."
-        case .thumbTwo: return "Choose diagonal swipes, tap, hold and rotation actions for a spread thumb and two fingertips."
+        case .thumbTwo: return "Choose diagonal swipes, tap and hold actions for a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
@@ -51,11 +51,11 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
         case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
-        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
+        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread,.threeFingerRotateLeft,.threeFingerRotateRight]
         case .fourFingers: return [.fourFingerTap,.fourFingerForce,.fourFingerMove]
         case .fourCorners:return [.fourCornersTap]
         case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight]
-        case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight]
+        case .thumbTwo: return [.thumbTwoTap,.thumbTwoMove]
         }
     }
     var isPinchSection: Bool {
@@ -487,6 +487,7 @@ struct GestureInspectorPanel: View {
             setHoldThreshold:{controller.setHoldThreshold($0,count:$1,scope:$2)},
             setTwoHandHoldThreshold:{controller.setTwoHandHoldThreshold($0,chord:$1)},
             holdStatus:{controller.holdStatus(count:$0,scope:$1)},
+            setShapeRepeat:{controller.setShapeRepeat($0,for:$1,scope:$2)},
             setNaturalScrolling:{controller.setNaturalScrolling($0,scope:$1)})
     }
 }
@@ -508,6 +509,7 @@ struct GestureAssignmentWorkspace: View {
     let setHoldThreshold:(Double,Int,GestureHandScope)->Void
     let setTwoHandHoldThreshold:(Double,TwoHandChord)->Void
     let holdStatus:(Int,GestureHandScope)->String
+    let setShapeRepeat:(GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void
     let setNaturalScrolling:(Bool,GestureHandScope)->Void
     @State private var twoHandChord = TwoHandChord.fourCorners
     @State private var twoHandPhase = TwoHandPhase.hold
@@ -538,7 +540,9 @@ struct GestureAssignmentWorkspace: View {
          setHoldThreshold:@escaping (Double,Int,GestureHandScope)->Void = {_,_,_ in},
          setTwoHandHoldThreshold:@escaping (Double,TwoHandChord)->Void = {_,_ in},
          holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 500 ms. Fires once until all-up."},
+         setShapeRepeat:@escaping (GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
          setNaturalScrolling:@escaping (Bool,GestureHandScope)->Void = {_,_ in}) {
+        self.setShapeRepeat = setShapeRepeat
         self.setNaturalScrolling = setNaturalScrolling
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
@@ -838,7 +842,7 @@ struct GestureAssignmentWorkspace: View {
         Text(pane.isPinchSection ? "SHAPE ASSIGNMENTS" : "ASSIGNMENTS")
             .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
         if pane == .thumbTwo {
-            Text("Swipe toward a corner, or choose Tap, Hold or Rotate.")
+            Text("Swipe toward a corner, or choose Tap or Hold.")
                 .font(.caption).foregroundStyle(.secondary)
         } else if !pane.isPinchSection && pane.triggers.contains(where: { $0.isContinuous && !$0.isRotation }) {
             Text("Use continuous movement or separate directional actions.")
@@ -850,9 +854,6 @@ struct GestureAssignmentWorkspace: View {
             movementCard(.thumbTwoMove,direction:.upLeft)
             assignmentCard(.thumbTwoTap,compact:true)
             movementCard(.thumbTwoMove,direction:.upRight)
-            assignmentCard(.threeFingerRotateLeft,compact:true)
-            Color.clear.frame(minHeight:106).accessibilityHidden(true)
-            assignmentCard(.threeFingerRotateRight,compact:true)
             movementCard(.thumbTwoMove,direction:.downLeft)
             holdCard
             movementCard(.thumbTwoMove,direction:.downRight)
@@ -918,6 +919,13 @@ struct GestureAssignmentWorkspace: View {
         .accessibilityHint("Select to edit and switch movement mode.")
     }
 
+    private func shapeBehavior(_ trigger:GestureTrigger,action:GestureAction?) -> String {
+        guard trigger.isPinch || trigger.isRotation, let action, action != .disabled,
+              action != .zoom, action != .rotate else { return trigger.behavior(for:action) }
+        guard let config = settings.shapeRepeat(trigger,in:editingScope) else { return "Mixed behavior" }
+        return config.mode == .once ? "Once on activation" : config.mode == .motion
+            ? "Repeat with motion" : "Repeat every \(Int(config.boundedIntervalMS)) ms"
+    }
     private func assignmentCard(_ trigger:GestureTrigger,compact:Bool = false) -> some View {
         let assigned = settings.action(trigger,in:editingScope)
         return Button { selectedHold = false; selected = trigger; selectedDirection = nil } label: {
@@ -928,7 +936,7 @@ struct GestureAssignmentWorkspace: View {
                     Spacer(minLength:0)
                 }
                 Text(assigned?.title ?? "Mixed").font(.system(size:compact ? 16 : 17,weight:.medium)).fixedSize(horizontal:false,vertical:true)
-                Text(trigger.behavior(for:assigned)).font(.caption).foregroundStyle(.secondary)
+                Text(shapeBehavior(trigger,action:assigned)).font(.caption).foregroundStyle(.secondary)
             }
             .padding(compact ? 12 : 18).frame(maxWidth:.infinity,minHeight:compact ? 106 : 112,alignment:.topLeading)
             .background(!selectedHold && selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
@@ -1073,10 +1081,14 @@ struct GestureAssignmentWorkspace: View {
                             naturalScrollingToggle
                         }
                     }
-                    VStack(alignment:.leading,spacing:8) {
-                        Text("Behavior").font(.caption).foregroundStyle(.secondary)
-                        Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
-                        Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    if (selected.isPinch || selected.isRotation) && action != .zoom && action != .rotate && action != .disabled && action != nil {
+                        shapeRepeatEditor
+                    } else {
+                        VStack(alignment:.leading,spacing:8) {
+                            Text("Behavior").font(.caption).foregroundStyle(.secondary)
+                            Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
+                            Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                        }
                     }
                     if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
                     if !GestureDirectionalAssignments.triggers.contains(selected) {
@@ -1095,6 +1107,34 @@ struct GestureAssignmentWorkspace: View {
             .padding(20)
         }
         .background(Color.primary.opacity(0.025))
+    }
+    private var shapeRepeatEditor:some View {
+        let config = settings.shapeRepeat(selected,in:editingScope)
+        return VStack(alignment:.leading,spacing:12) {
+            Picker("Behavior",selection:Binding<GestureShapeRepeatMode?>(get:{config?.mode},set:{ mode in
+                guard let mode else { return }
+                var value = config ?? GestureShapeRepeat(); value.mode = mode
+                setShapeRepeat(value,selected,editingScope)
+            })) {
+                if config == nil { Text("Mixed").tag(Optional<GestureShapeRepeatMode>.none) }
+                ForEach(GestureShapeRepeatMode.allCases,id:\.self) { choice in Text(choice.title).tag(Optional(choice)) }
+            }
+            .pickerStyle(.menu).modifier(FlexibleMenuPickerSizing())
+            if config?.mode == .timed {
+                HStack {
+                    GestureRepeatIntervalField(value:config?.boundedIntervalMS,enabled:true) { interval in
+                        var value = config ?? GestureShapeRepeat(); value.intervalMS = interval
+                        setShapeRepeat(value,selected,editingScope)
+                    }.id("shape.\(selected.rawValue).\(editingScope.rawValue)")
+                    Text("ms while held").font(.callout)
+                }
+            }
+            Text(config?.mode == .motion
+                ? "Repeats with continued motion in the activated direction. Pausing stops output. Lift all fingers to rearm."
+                : config?.mode == .timed ? "20–5000 ms. Repeats while held, even when still; all-up stops output."
+                : "Fires once on activation and stays latched until all-up.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
     }
     private func directionalInspector(_ direction:GestureMovementDirection) -> some View {
         let value = settings.directionalAction(direction,for:selected,in:editingScope)

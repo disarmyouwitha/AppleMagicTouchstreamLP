@@ -411,8 +411,8 @@ Smart Zoom is a separate discrete action available for taps, force, Hold,
 coordinated gestures and directional assignments, plus Pinch/Spread and rotation.
 It sends one native Smart Magnify request at the cursor, using the shared live
 output gates; applications decide how to zoom. It does not emit keyboard or mouse
-button edges, change continuous Zoom, or run during replay. Continuous shape
-assignments fire once on activation and retain ownership until all-up; directional
+button edges, change continuous Zoom, or run during replay. Discrete shape
+assignments default to once, with optional shape repeat, retaining ownership until all-up; directional
 assignments retain their configured repeat behavior. Quartz gesture encoding is
 isolated in `SmartZoomGestureOutput` and verified through AppKit without posting.
 
@@ -437,8 +437,8 @@ attempts must select Pinch; the subsequent ordinary pointer cycles remain Move.
 ## Movement and directional actions
 
 Thumb+2 additionally exposes diagonal-only movement under `thumbTwoMove`.
-Its assignment grid is `[↖, Tap, ↗] / [Rotate Left, empty, Rotate Right] /
-[↙, Hold, ↘]`. The empty center has no continuous Movement assignment. Tap,
+Its assignment grid is `[↖, Tap, ↗] / [↙, Hold, ↘]`. There is no continuous
+Movement assignment. Tap,
 Hold and existing rotation bindings retain their identities/defaults. Each arrow
 has the same action picker, shortcut builder, Behavior menu, loop control and repeat interval as
 ordinary directions, independently per hand with Mirror Edit and Import/Export.
@@ -585,9 +585,9 @@ named envelopes. Named variants can coexist in the library, including with their
 unnamed command. Renaming a library entry keeps the existing snapshot semantics.
 
 Tap, Force, directions, movement activation, Pinch/Spread and rotation can dispatch
-custom shortcuts once. Directional repeat uses the same interval controls. Hold
+custom shortcuts. Shapes default to once and offer optional repeat. Directional repeat uses the same interval controls. Hold
 assignments (including Both and corners) additionally offer Once after threshold
-or Hold until release for keyboard shortcuts. App targets always open once. Hold
+or Hold until release for keyboard shortcuts. Hold app targets open once after the threshold. Hold
 recognition geometry remains unchanged. Each Hold assignment has a saved threshold
 (default 500 ms), editable in its Action inspector from 100–5000 ms in
 10 ms steps. Ordinary counts, Thumb+2 and per-pad corners are independent
@@ -651,16 +651,14 @@ Both, directional modes/actions/repeats and per-hand gains/Natural preference un
 Takeover opt-in and device selection remain app-local. Unsupported legacy fields
 stay inert and unknown action labels fail rather than silently losing mappings.
 
-The 2–4-contact shape pages are **Pinch and Spread**. Five contacts use **Pinch,
-Spread, and Rotate**, with Rotate Left/Right below Pinch/Spread. **Thumb+2fingers**
-uses the diagonal grid described above, with Tap top-center, Hold bottom-center,
-and Rotate Left/Right on either side of the empty center. The existing
-three-contact rotation binding IDs serve this thumb-plus-two input. Two- and
-four-contact rotation cards appear on their respective Pinch, Spread, and Rotate pages.
+The 2–5-contact shape pages are **Pinch, Spread, Rotate**, with Rotate Left/Right
+below Pinch/Spread. **Thumb+2fingers** uses the two-row diagonal grid described
+above, with Tap top-center and Hold bottom-center. Three-contact rotation now
+appears on its shape page; its existing binding IDs and recognition stay unchanged.
 Rotation assignments are independent per hand/direction, default None, and support
 Mirror Edit and settings import/export. Assigned two- through five-contact rotations
 reserve their corresponding input family. Rotate Content follows angular motion;
-other actions dispatch once on activation.
+discrete actions use the per-shape repeat behavior described below.
 
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
 and Force Click across the top; Left / Movement / Right in the middle; Hold beside
@@ -721,7 +719,7 @@ Clockwise in screen coordinates selects Rotate Right; counterclockwise selects L
 Rotation is registered in the shared continuous session engine. After activation,
 the original input/action stays owned through reversal, anatomical relabeling and
 partial lifts until all-up. Rotate Content emits incremental native angular output;
-other actions fire once rather than on every frame or direction change. Force and
+discrete actions default to once and can opt into timed or motion repeat. Force and
 Both handoff keep their existing explicit precedence. Hold/tap candidates are
 cancelled through the common ownership paths. Discrete actions use the shared
 dispatcher (including Dock system actions); all output shares permissions and replay
@@ -764,7 +762,7 @@ bounded to 180 degrees per event, with screen-clockwise input converted to AppKi
 counterclockwise degrees. Output anchors location/modifiers at activation and sends
 balanced began/changed/ended or cancelled phases. Per-device/reset, reconfiguration,
 stale input and lifecycle cleanup cancel rotation through the shared output path.
-Other assigned rotation actions remain one-shot. Native output retains live,
+Other assigned rotation actions use saved shape-repeat settings. Native output retains live,
 selected/owned/armed/AX gates; replay posts nothing. Tests inspect AppKit event
 conversion, direction, phases, settings round trips and latched incremental angles
 without posting events. App acceptance requires hardware testing.
@@ -802,3 +800,27 @@ five-contact rotation is enabled. An identified non-touching thumb may extend th
 pending four-contact movement settling to 150 ms; it cannot wait indefinitely or
 replace a fired owner. Force/Hold lifetimes, rotation angular thresholds, native
 rotation output, per-pad ownership and replay gates remain shared.
+
+## Shape action repeat
+
+Each per-hand Pinch, Spread and Rotate slot has independent optional `shapeRepeats`
+inside its existing action bindings. Missing settings mean Once. Mirror Edit applies
+to both hands; settings and captures round-trip the fields, and imports preserve
+saved repeat entries when omitted. Action or repeat reconfiguration cancels the
+current output through the shared baseline/reset path.
+
+Discrete actions offer Once, Repeat every ms (20–5000, initial 80 ms), or Repeat
+with motion. Every mode emits once on activation. Timed repeat continues even when
+still while fresh frames arrive; late ticks emit one output without catch-up bursts.
+Motion repeats after each additional 6% span change or 5 degrees in the activated
+shape's direction. Opposite travel reduces pending progress rather than changing
+owners; stationary/missing angular evidence produces no motion repeat. At most
+one repeat is emitted per frame. Native Zoom and Rotate Content keep their existing
+continuous motion and phase handling and have no repeat selector.
+
+Shape repeat does not recognize another gesture or create held shortcut ownership.
+It uses the existing gated discrete dispatcher and shared output timer. All-up,
+cancellation, stale input, force/hold/Both handoff, reset, reconfiguration and lifecycle
+cleanup discard repeat state independently per device. Replay never posts events.
+Offline checks cover defaults, per-hand/Mirror edits, imports/export, intervals,
+freshness, timer versus motion, reversal, isolation and cleanup.

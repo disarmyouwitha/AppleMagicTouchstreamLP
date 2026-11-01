@@ -5,6 +5,48 @@ import XCTest
 
 @MainActor
 final class GestureWorkspaceTests: XCTestCase {
+    func testShapeBehaviorPickerSendsAndSavesMotionChoice() throws {
+        var settings = HandGestureSettings()
+        settings.setAction(.missionControl,for:.threeFingerPinch,in:.left)
+        var chosen:[GestureShapeRepeat] = []
+        let view = GestureAssignmentWorkspace(settings:settings,initialPane:.threeFingerPinch,
+            status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected action edit")},
+            setSensitivity:{_,_,_ in XCTFail("Unexpected sensitivity edit")},
+            setShapeRepeat:{value,trigger,scope in
+                XCTAssertEqual(trigger,.threeFingerPinch); XCTAssertEqual(scope,.left)
+                chosen.append(value)
+                settings.setShapeRepeat(value,for:trigger,in:scope)
+            }).frame(width:1320,height:900)
+        let host = NSHostingView(rootView:view); host.frame = NSRect(x:0,y:0,width:1320,height:900)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+        window.contentView = host; host.layoutSubtreeIfNeeded()
+        defer { window.contentView = nil }
+        func popups(_ view:NSView) -> [NSPopUpButton] {
+            (view as? NSPopUpButton).map { [$0] } ?? view.subviews.flatMap { popups($0) }
+        }
+        let popup = try XCTUnwrap(popups(host).first { $0.itemTitles.contains("Repeat with motion") })
+        let item = try XCTUnwrap(popup.item(withTitle:"Repeat with motion"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(item.action),to:item.target,from:item))
+        XCTAssertEqual(chosen.map(\.mode),[.motion])
+        XCTAssertEqual(settings.shapeRepeat(.threeFingerPinch,in:.left)?.mode,.motion)
+        if let directory = ProcessInfo.processInfo.environment["AMT_SHAPE_PREVIEW_DIR"] {
+            try FileManager.default.createDirectory(atPath:directory,withIntermediateDirectories:true)
+            for pane in [GesturePane.threeFingerPinch,.thumbTwo] {
+                let rendered = GestureAssignmentWorkspace(settings:settings,initialPane:pane,
+                    status:{_,_ in "Offline"},apply:{_,_,_ in},setSensitivity:{_,_,_ in})
+                    .frame(width:1320,height:900)
+                let preview = NSHostingView(rootView:rendered)
+                preview.frame = NSRect(x:0,y:0,width:1320,height:900)
+                let previewWindow = NSWindow(contentRect:preview.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+                previewWindow.contentView = preview; preview.layoutSubtreeIfNeeded()
+                let bitmap = try XCTUnwrap(preview.bitmapImageRepForCachingDisplay(in:preview.bounds))
+                preview.cacheDisplay(in:preview.bounds,to:bitmap)
+                previewWindow.contentView = nil
+                try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:
+                    URL(fileURLWithPath:directory).appendingPathComponent("\(pane.rawValue).png"))
+            }
+        }
+    }
     func testDirectionalPagesDefaultToUpWithoutChangingSavedMode() {
         var settings = HandGestureSettings()
         let original = settings
@@ -140,9 +182,9 @@ final class GestureWorkspaceTests: XCTestCase {
             XCTAssertFalse(pane.triggers.isEmpty)
             for trigger in pane.triggers { XCTAssertTrue(pane.includes(trigger)) }
             if pane.isPinchSection {
-                XCTAssertEqual(pane.triggers.count,pane == .threeFingerPinch ? 2 : 4)
+                XCTAssertEqual(pane.triggers.count,4)
                 XCTAssertTrue(pane.triggers.prefix(2).allSatisfy(\.isPinch))
-                if pane != .threeFingerPinch { XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation)) }
+                XCTAssertTrue(pane.triggers.suffix(2).allSatisfy(\.isRotation))
                 XCTAssertTrue(pane.contactLabel.contains("thumb required"))
             }
         }
@@ -266,7 +308,7 @@ final class GestureWorkspaceTests: XCTestCase {
                 case .twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight: pane = .twoFingerPinch
                 case .fourFingerPinch,.fourFingerSpread,.fourFingerRotateLeft,.fourFingerRotateRight: pane = .fourFingerPinch
                 case .threeFingerPinch,.threeFingerSpread: pane = .threeFingerPinch
-                case .threeFingerRotateLeft,.threeFingerRotateRight: pane = .thumbTwo
+                case .threeFingerRotateLeft,.threeFingerRotateRight: pane = .threeFingerPinch
                 case .fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight: pane = .fiveFingerPinch
                 case .oneFingerForce: pane = .oneFinger
                 case .threeFingerTap,.threeFingerMove,.threeFingerForce: pane = .threeFingers

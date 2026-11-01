@@ -170,7 +170,7 @@ final class ThumbDiagonalTests: XCTestCase {
 @MainActor final class ThumbDiagonalWorkspaceTests:XCTestCase {
     func testDiagonalWorkspaceAndAnimationRenderWithoutInput() throws {
         let settings = HandGestureSettings()
-        XCTAssertEqual(GesturePane.thumbTwo.triggers,[.thumbTwoTap,.thumbTwoMove,.threeFingerRotateLeft,.threeFingerRotateRight])
+        XCTAssertEqual(GesturePane.thumbTwo.triggers,[.thumbTwoTap,.thumbTwoMove])
         // One render exercises the shared layout; pure tests cover all four
         // directions. Explicit screenshot runs still export every direction.
         let directions: [GestureMovementDirection] = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] == nil

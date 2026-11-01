@@ -735,3 +735,56 @@ struct SinglePadCornersEngine {
         return settings.action(hold) != .disabled ? hold : nil
     }
 }
+
+/// Discrete shape repeats share the winning session; no alternate recognition owner.
+/// Motion advances only in the activated shape's direction. Timer repeats stay
+/// fresh only while frames arrive. Late ticks emit one step, never catch-up bursts.
+struct GestureShapeRepeater {
+    private struct Session {
+        var trigger:GestureTrigger
+        var config:GestureShapeRepeat
+        var receipt:Double
+        var deadline:Double
+        var progress = 0.0
+    }
+    private var sessions:[UInt64:Session] = Dictionary(minimumCapacity:2)
+    func active(device:UInt64) -> Bool { sessions[device] != nil }
+    mutating func reset() { sessions.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { sessions[device] = nil }
+    mutating func process(device:UInt64,update:GestureSessionUpdate<GestureTrigger>,config:GestureShapeRepeat,now:Double) -> Bool {
+        guard now.isFinite, let trigger = update.gesture, trigger.isPinch || trigger.isRotation,
+              update.phase == .began || update.phase == .changed else { reset(device:device); return false }
+        if update.phase == .began {
+            if config.mode != .once {
+                sessions[device] = Session(trigger:trigger,config:config,receipt:now,deadline:now+config.boundedIntervalMS/1000)
+            } else { reset(device:device) }
+            return true
+        }
+        guard var session = sessions[device], session.trigger == trigger, session.config == config,
+              now >= session.receipt, now-session.receipt <= 0.2 else { reset(device:device); return false }
+        session.receipt = now
+        defer { sessions[device] = session }
+        guard config.mode == .motion else { return false }
+        let delta:Double
+        if trigger.isRotation {
+            delta = (update.rotationDelta ?? 0) * (trigger.rotatesRight ? 1 : -1) / (Double.pi/36)
+        } else {
+            let scale = update.scaleDelta ?? 0
+            guard scale.isFinite, scale > -1 else { return false }
+            delta = log1p(scale) * (trigger.isSpread ? 1 : -1) / log(1.06)
+        }
+        guard delta.isFinite else { return false }
+        session.progress = max(0,session.progress+delta)
+        guard session.progress >= 1 else { return false }
+        session.progress = session.progress.truncatingRemainder(dividingBy:1)
+        return true
+    }
+    mutating func tick(device:UInt64,now:Double) -> GestureTrigger? {
+        guard var session = sessions[device] else { return nil }
+        guard now.isFinite, now >= session.receipt, now-session.receipt <= 0.2 else { reset(device:device); return nil }
+        guard session.config.mode == .timed, now >= session.deadline else { return nil }
+        session.deadline = now+session.config.boundedIntervalMS/1000
+        sessions[device] = session
+        return session.trigger
+    }
+}

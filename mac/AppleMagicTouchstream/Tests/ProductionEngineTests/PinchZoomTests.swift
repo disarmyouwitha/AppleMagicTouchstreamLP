@@ -525,3 +525,60 @@ extension PinchZoomTests {
         XCTAssertTrue(results.dropFirst(16).allSatisfy { $0.hasSuffix(":twoFingerMove") })
     }
 }
+
+extension PinchZoomTests {
+    private func shapeUpdate(_ trigger:GestureTrigger,_ phase:GestureSessionPhase,delta:Double = 0) -> GestureSessionUpdate<GestureTrigger> {
+        var update = GestureSessionUpdate(gesture:trigger,phase:phase,millimetres:nil,cancellation:nil)
+        if trigger.isRotation { update.rotationDelta = delta } else { update.scaleDelta = delta }
+        return update
+    }
+    func testShapeRepeatsOnceMotionTimerIsolationAndCleanup() {
+        var repeatOutput = GestureShapeRepeater()
+        let timed = GestureShapeRepeat(mode:.timed,intervalMS:50)
+        XCTAssertTrue(repeatOutput.process(device:1,update:shapeUpdate(.threeFingerPinch,.began),config:timed,now:1))
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.049))
+        XCTAssertEqual(repeatOutput.tick(device:1,now:1.051),.threeFingerPinch)
+        XCTAssertFalse(repeatOutput.process(device:1,update:shapeUpdate(.threeFingerPinch,.changed),config:timed,now:1.10))
+        XCTAssertEqual(repeatOutput.tick(device:1,now:1.15),.threeFingerPinch)
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.151))
+        XCTAssertNil(repeatOutput.tick(device:1,now:1.5)) // stale frames cancel
+        XCTAssertFalse(repeatOutput.active(device:1))
+        let motion = GestureShapeRepeat(mode:.motion)
+        XCTAssertTrue(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.began,delta:0.3),config:motion,now:2))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed),config:motion,now:2.01))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed,delta:-0.3),config:motion,now:2.02))
+        XCTAssertTrue(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.changed,delta:Double.pi/30),config:motion,now:2.03))
+        XCTAssertNil(repeatOutput.tick(device:2,now:2.04))
+        XCTAssertTrue(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.began),config:motion,now:2))
+        XCTAssertFalse(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.changed,delta:0.03),config:motion,now:2.01))
+        XCTAssertTrue(repeatOutput.process(device:3,update:shapeUpdate(.twoFingerSpread,.changed,delta:0.04),config:motion,now:2.02))
+        XCTAssertFalse(repeatOutput.process(device:2,update:shapeUpdate(.fiveFingerRotateRight,.ended),config:motion,now:2.05))
+        XCTAssertFalse(repeatOutput.active(device:2)); XCTAssertTrue(repeatOutput.active(device:3))
+        repeatOutput.reset(); XCTAssertFalse(repeatOutput.active(device:3))
+        let once = GestureShapeRepeat()
+        XCTAssertTrue(repeatOutput.process(device:4,update:shapeUpdate(.twoFingerPinch,.began),config:once,now:3))
+        XCTAssertFalse(repeatOutput.process(device:4,update:shapeUpdate(.twoFingerPinch,.changed,delta:-0.5),config:once,now:3.01))
+        XCTAssertFalse(repeatOutput.active(device:4))
+        XCTAssertTrue(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.began),config:motion,now:4))
+        XCTAssertTrue(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.changed,delta:-0.08),config:motion,now:4.01))
+        XCTAssertFalse(repeatOutput.process(device:5,update:shapeUpdate(.fourFingerPinch,.cancelled),config:motion,now:4.02))
+        XCTAssertFalse(repeatOutput.active(device:5))
+    }
+    func testShapeRepeatSettingsRoundTripMirrorAndMissingImport() throws {
+        var settings = HandGestureSettings()
+        let value = GestureShapeRepeat(mode:.timed,intervalMS:75)
+        settings.setShapeRepeat(value,for:.threeFingerPinch,in:.left)
+        XCTAssertNil(settings.shapeRepeat(.threeFingerPinch,in:.both))
+        XCTAssertEqual(settings.shapeRepeat(.threeFingerPinch,in:.right),GestureShapeRepeat())
+        settings.setShapeRepeat(value,for:.threeFingerPinch,in:.both)
+        XCTAssertEqual(settings.shapeRepeat(.threeFingerPinch,in:.both),value)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let roundtrip = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(roundtrip.handGestureSettings,settings)
+        var old = PerHandGestureSettings(); old.preserveMissingRepeatBehaviors(from:settings.left)
+        XCTAssertEqual(old.bindings.shapeRepeat(.threeFingerPinch),value)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:1).boundedIntervalMS,20)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:9000).boundedIntervalMS,5000)
+        XCTAssertEqual(GestureShapeRepeat(intervalMS:Double.nan).boundedIntervalMS,80)
+    }
+}
