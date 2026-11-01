@@ -415,6 +415,10 @@ enum GestureTapActionOutput {
             return shortcut?.events(restoringFlags:flags)
         }
         switch action {
+        case .pageBack,.pageForward:
+            guard let event = PageNavigationOutput.event(forward:action == .pageForward,location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [event]
         case .smartZoom:
             guard let event = SmartZoomGestureOutput.event(location:location,flags:flags) else { return nil }
             clicks.reset()
@@ -437,6 +441,20 @@ enum GestureTapActionOutput {
 
 // Historical diagnostic name for the same compact-row input geometry.
 typealias ThreeFingerDragChord = ThreeFingerRowChord
+
+/// A single native swipe, handled by the view under the pointer; no key/button edges.
+enum PageNavigationOutput {
+    static func event(forward:Bool,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        guard location.x.isFinite, location.y.isFinite, let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location; event.flags = flags
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:16)
+        // AppKit deltaX +1 goes back; -1 goes forward (WebKit swipeWithEvent).
+        event.setIntegerValueField(CGEventField(rawValue:115)!,value:forward ? 8 : 4)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+}
 
 /// Discrete native Smart Magnify, distinct from continuous pinch magnification.
 /// Keep the private Quartz gesture encoding here; construction never posts input.

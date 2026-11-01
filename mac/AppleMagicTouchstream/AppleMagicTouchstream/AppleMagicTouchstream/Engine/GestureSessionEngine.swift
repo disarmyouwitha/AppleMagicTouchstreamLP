@@ -30,6 +30,7 @@ struct GestureSessionUpdate<Gesture: Hashable & Sendable>: Sendable {
     let millimetres: CGPoint?
     let cancellation: GestureCancellationReason?
     var scaleDelta: Double? = nil
+    var rotationDelta: Double? = nil
 }
 
 /// Rules are configured outside callbacks. Array order is activation priority;

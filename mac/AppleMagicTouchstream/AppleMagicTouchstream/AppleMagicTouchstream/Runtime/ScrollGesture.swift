@@ -217,13 +217,47 @@ struct MagnifyGestureOutput {
     }
 }
 
+/// Native rotation uses the same phase/anchor lifecycle as magnification.
+struct RotateGestureOutput {
+    private(set) var active = false
+    private var anchor = CGPoint.zero
+    private var flags = CGEventFlags()
+    static func event(degrees:Double,phase:Int64,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        guard degrees.isFinite, abs(degrees) <= 180, location.x.isFinite, location.y.isFinite,
+              [1,2,4,8].contains(phase), let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location; event.flags = flags
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:5)
+        event.setIntegerValueField(MagnifyGestureOutput.phase,value:phase)
+        // Rotation's private payload stores IEEE Float bits, not a CG double.
+        event.setIntegerValueField(CGEventField(rawValue:115)!,value:Int64(Float(degrees).bitPattern))
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+    mutating func update(radians:Double,began:Bool,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        let target = began ? location : anchor
+        let modifiers = began ? flags : self.flags
+        // Input uses screen coordinates (clockwise positive); AppKit is CCW positive.
+        guard began || active, let event = Self.event(degrees:-radians*180/Double.pi,
+            phase:began ? 1 : 2,location:target,flags:modifiers) else { return nil }
+        if began { anchor = location; self.flags = flags }
+        active = true
+        return event
+    }
+    mutating func finish(cancelled:Bool) -> CGEvent? {
+        guard active else { return nil }; active = false
+        return Self.event(degrees:0,phase:cancelled ? 8 : 4,location:anchor,flags:flags)
+    }
+}
+
 /// Angular evidence around a tracked thumb; output and ownership remain in the router.
 struct ThumbRotationTracker {
-    struct Evidence { var angle:Double; var arc:Double; var radial:Double }
+    struct Evidence { var angle:Double; var arc:Double; var radial:Double; var frameAngle:Double }
     private struct Sample {
         var ids = SIMD8<Int32>(repeating:0)
         var x = SIMD8<Double>(repeating:0), y = SIMD8<Double>(repeating:0)
         var count=0, time:Double
+        var lastAngle = 0.0
         func vector(thumb:Int32) -> CGPoint? {
             guard let pivot = (0..<count).first(where:{ids[$0] == thumb}) else { return nil }
             var dx=0.0, dy=0.0
@@ -261,7 +295,9 @@ struct ThumbRotationTracker {
         let radius=hypot(after.x,after.y), initialRadius=hypot(before.x,before.y)
         guard min(radius,initialRadius) >= 15 else { return nil }
         let angle=atan2(before.x*after.y-before.y*after.x,before.x*after.x+before.y*after.y)
-        return Evidence(angle:angle,arc:abs(angle)*min(radius,initialRadius),radial:abs(radius-initialRadius))
+        let frameAngle = atan2(sin(angle-old.lastAngle),cos(angle-old.lastAngle))
+        old.lastAngle = angle; samples[device] = old
+        return Evidence(angle:angle,arc:abs(angle)*min(radius,initialRadius),radial:abs(radius-initialRadius),frameAngle:frameAngle)
     }
 }
 
@@ -372,6 +408,9 @@ struct TrackpadGestureRouter {
             })
         if update.gesture?.isPinch == true, let pair {
             update.scaleDelta = update.phase == .began ? pair.initialRatio : pair.frameRatio
+        }
+        if update.gesture?.isRotation == true, let turn {
+            update.rotationDelta = update.phase == .began ? turn.angle : turn.frameAngle
         }
         return update
     }

@@ -1,11 +1,10 @@
 # NEXT:
 =======
 1. Implement actions: Missing Apple actions:
-> Smart-zoom 
-> Look Up under the cursor
-> Back / Forward page navigation
-> Previous / Next Space
 > Native content rotation, rather than rotation triggering a shortcut
+> Play/Pause, Previous/Next Track, and Mute— Apple media controls
+===
+0. Experiment time! Let's try adding Rotate to 2F Pinch/Zoom page!
 ===
 # Human Tasks...?
 0. make 6x3 decal girl template in gimp with layers for ppl to edit

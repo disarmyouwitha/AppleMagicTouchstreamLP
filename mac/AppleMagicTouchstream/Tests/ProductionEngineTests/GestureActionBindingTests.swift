@@ -116,6 +116,58 @@ final class GestureActionBindingTests: XCTestCase {
         XCTAssertFalse(letter[1].flags.contains(.maskSecondaryFn))
         XCTAssertFalse(letter[1].flags.contains(.maskNumericPad))
     }
+    func testNativePageNavigationDirectionAndPortableAssignments() throws {
+        for action in [GestureAction.pageBack,.pageForward] {
+            var clicks = PrimaryTapClickOutput()
+            let events = try XCTUnwrap(GestureTapActionOutput.events(action:action,location:CGPoint(x:20,y:30),
+                time:1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+            XCTAssertEqual(events.count,1)
+            let event = try XCTUnwrap(events.first)
+            let native = try XCTUnwrap(NSEvent(cgEvent:event))
+            XCTAssertEqual(native.type,.swipe)
+            XCTAssertEqual(native.deltaX,action == .pageBack ? 1 : -1)
+            XCTAssertEqual(native.deltaY,0)
+            XCTAssertEqual(event.location,CGPoint(x:20,y:30))
+            XCTAssertEqual(event.flags,.maskShift)
+            XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            XCTAssertTrue(action.isDiscreteOutput)
+            XCTAssertTrue(GestureTrigger.twoFingerTap.allowedActions.contains(action))
+            XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
+        }
+        XCTAssertNil(PageNavigationOutput.event(forward:true,location:CGPoint(x:Double.nan,y:0)))
+        var settings = HandGestureSettings(), profile = AppKeymapProfile.defaultProfile()
+        settings.setAction(.pageBack,for:.twoFingerTap,in:.left)
+        settings.setAction(.pageForward,for:.twoFingerTap,in:.right)
+        settings.setAction(.rotate,for:.threeFingerRotateLeft,in:.left)
+        profile.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings,settings)
+        XCTAssertFalse(GestureTrigger.twoFingerTap.allowedActions.contains(.rotate))
+        XCTAssertFalse(GestureDirectionalAssignments.allowedActions.contains(.rotate))
+        XCTAssertTrue(GestureTrigger.liveRotationTriggers.allSatisfy { $0.allowedActions.contains(.rotate) })
+    }
+    func testNativeRotationPhasesDirectionAnchorAndCancellation() throws {
+        var output = RotateGestureOutput()
+        XCTAssertNil(output.update(radians:0.1,began:false,location:.zero))
+        let start = try XCTUnwrap(output.update(radians:Double.pi/6,began:true,location:CGPoint(x:20,y:30),flags:.maskShift))
+        let native = try XCTUnwrap(NSEvent(cgEvent:start))
+        XCTAssertEqual(native.type,.rotate)
+        XCTAssertEqual(native.rotation,-30,accuracy:0.001)
+        XCTAssertEqual(native.phase,.began)
+        let reverse = try XCTUnwrap(output.update(radians:-Double.pi/12,began:false,location:.zero,flags:.maskCommand))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:reverse)).rotation,15,accuracy:0.001)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:reverse)).phase,.changed)
+        XCTAssertEqual(reverse.location,start.location); XCTAssertEqual(reverse.flags,.maskShift)
+        XCTAssertEqual(reverse.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+        let end = try XCTUnwrap(output.finish(cancelled:false))
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:end)).phase,.ended)
+        XCTAssertFalse(output.active); XCTAssertNil(output.finish(cancelled:true))
+        _ = output.update(radians:0,began:true,location:.zero)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:try XCTUnwrap(output.finish(cancelled:true)))).phase,.cancelled)
+        XCTAssertNil(output.update(radians:Double.nan,began:true,location:.zero))
+        XCTAssertFalse(output.active)
+        XCTAssertNil(RotateGestureOutput.event(degrees:181,phase:2,location:.zero))
+    }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
             OMSRawTouch(id:Int32(index+10),posX:Float(index)*0.11+0.3+dx,

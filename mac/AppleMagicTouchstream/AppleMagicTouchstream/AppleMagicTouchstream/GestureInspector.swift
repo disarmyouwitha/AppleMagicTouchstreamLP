@@ -441,7 +441,7 @@ extension GestureTrigger {
         return isContinuous ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.tap"
     }
     func behavior(for action: GestureAction?) -> String {
-        if isRotation { return action == .disabled ? "No output" : "Once on activation" }
+        if isRotation { return action == .rotate ? "Follow motion" : action == .disabled ? "No output" : "Once on activation" }
         guard let action else { return "Mixed assignments" }
         if action == .disabled { return "No output" }
         if action.isDiscreteOutput { return isPinch || isContinuous ? "Once on activation" : "One step per recognition" }
@@ -451,7 +451,7 @@ extension GestureTrigger {
         }
     }
     var recognitionNote: String {
-        if isRotation { return "Turn a recognized thumb and fingertip group at least 3°. Rotation wins when angular travel dominates radial change. Fires once and remains latched until all-up." }
+        if isRotation { return "Turn a recognized thumb and fingertip group at least 3°. Rotation wins when angular travel dominates radial change. Remains latched until all-up; Rotate Content follows motion, while other actions fire once." }
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
@@ -1174,10 +1174,11 @@ struct GestureAssignmentWorkspace: View {
     }
 
     private var behaviorDetail:String {
+        if selected.isRotation && action == .rotate { return "Native content rotation follows your turn, including reversals, until all fingers lift. The receiving app must support rotation." }
         if selected.isRotation { return "Fires once when rotation activates. Continuing or reversing the turn cannot fire another action until all fingers lift." }
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
         if action.shortcutAssignment != nil { return "Runs the assigned shortcut once when this gesture is recognized. The gesture keeps its existing latch until all-up." }
-        if action.isAppleShortcut || action == .smartZoom { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
+        if action.isAppleShortcut || GestureAction.nativeDiscreteActions.contains(action) { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
         switch action {
         case .primaryDrag: return "Holds the primary mouse button through the drag, using the same pointer acceleration as mouse movement."
         case .scroll: return "Precise scrolling follows motion, with momentum after release."
@@ -1474,9 +1475,9 @@ struct GestureActionChooser:View {
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
-            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
+            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
-            ("System",GestureAction.appleShortcuts + [.smartZoom]),
+            ("System",GestureAction.appleShortcuts + GestureAction.nativeDiscreteActions),
             ("Sound & Display",GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in

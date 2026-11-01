@@ -659,7 +659,8 @@ three-contact rotation binding IDs serve this thumb-plus-two input; unused two-
 and four-contact fields remain readable for compatibility without visible cards.
 Rotation assignments are independent per hand/direction, default None, and support
 Mirror Edit and settings import/export. Assigned Thumb+2 and five-contact rotations
-reserve their corresponding input family and dispatch once on activation. Two/four-
+reserve their corresponding input family. Rotate Content follows angular motion;
+other actions dispatch once on activation. Two/four-
 contact rotation fields remain inactive.
 
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
@@ -720,11 +721,12 @@ Clockwise in screen coordinates selects Rotate Right; counterclockwise selects L
 
 Rotation is registered in the shared continuous session engine. After activation,
 the original input/action stays owned through reversal, anatomical relabeling and
-partial lifts until all-up; it fires once rather than on every frame or direction
-change. Force and Both handoff keep their existing explicit precedence. Hold/tap
-candidates are cancelled through the common ownership paths. Actions use the shared
-discrete dispatcher (including Dock system actions), permissions and replay gates.
-There is no continuous native rotation-output action in this pass.
+partial lifts until all-up. Rotate Content emits incremental native angular output;
+other actions fire once rather than on every frame or direction change. Force and
+Both handoff keep their existing explicit precedence. Hold/tap candidates are
+cancelled through the common ownership paths. Discrete actions use the shared
+dispatcher (including Dock system actions); all output shares permissions and replay
+gates. See native content rotation below for the continuous phase lifecycle.
 
 Offline replay of `rotate_no_work.atpcap` contains 718 frames and eight completed
 rotation cycles, with roughly 25–51° counterclockwise travel. All eight activate
@@ -744,3 +746,27 @@ contract rather than the Tap spacing predicate. The pending rotation
 evidence gate prevents that early shape claim while leaving the final rotation
 commit unchanged. Regression replay runs with Pinch/Spread and three-finger motion
 competing; recognition results do not themselves establish OS action delivery.
+
+## Native page navigation and content rotation
+
+Back/Forward page navigation are discrete actions that send one native AppKit
+Swipe event at the pointer (+1 X for Back, -1 for Forward), without keyboard or
+mouse-button edges. Available on taps, force, Hold, shapes, coordinated gestures
+and directional assignments; directional repeats retain their chosen behavior.
+The receiving app/view decides whether navigation is supported. Existing bindings
+and defaults are unchanged; there is no keyboard fallback or duplicate dispatch.
+
+Rotate Content is a continuous action offered only in the existing Thumb+2 and
+five-contact rotation slots. Activation and arbitration retain the existing thumb,
+angular/radial thresholds and first-owner latch. Initial angular travel is emitted
+once at activation; subsequent output uses signed frame deltas, including reversal.
+Stationary frames emit zero angle; changed membership/identity rebases evidence
+without replaying old travel. The owner remains until all-up. Angular payloads are
+bounded to 180 degrees per event, with screen-clockwise input converted to AppKit
+counterclockwise degrees. Output anchors location/modifiers at activation and sends
+balanced began/changed/ended or cancelled phases. Per-device/reset, reconfiguration,
+stale input and lifecycle cleanup cancel rotation through the shared output path.
+Other assigned rotation actions remain one-shot. Native output retains live,
+selected/owned/armed/AX gates; replay posts nothing. Tests inspect AppKit event
+conversion, direction, phases, settings round trips and latched incremental angles
+without posting events. App acceptance requires hardware testing.
