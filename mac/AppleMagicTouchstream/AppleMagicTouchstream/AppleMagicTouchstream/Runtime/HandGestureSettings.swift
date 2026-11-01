@@ -66,7 +66,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if isRotation { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.voice] + GestureAction.smallStepActions
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.smartZoom,.voice] + GestureAction.smallStepActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -90,11 +90,11 @@ typealias GestureFeature = GestureTrigger
 enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresentable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
-    case openConfig, voice
+    case openConfig, voice, smartZoom
     case scrollUp, scrollDown, panLeft, panRight
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
     case shortcut(GestureShortcutAssignment)
-    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     var rawValue: String {
         switch self {
         case .disabled: return "disabled"
@@ -102,6 +102,7 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .primaryDrag: return "primaryDrag"
         case .scroll: return "scroll"
         case .zoom: return "zoom"
+        case .smartZoom: return "smartZoom"
         case .primaryClick: return "primaryClick"
         case .primaryDoubleClick: return "primaryDoubleClick"
         case .secondaryClick: return "secondaryClick"
@@ -141,10 +142,10 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     func encode(to encoder:any Encoder) throws { var box = encoder.singleValueContainer(); try box.encode(rawValue) }
     var shortcutAssignment:GestureShortcutAssignment? { if case let .shortcut(value) = self { return value }; return nil }
     var isHeldShortcut:Bool { shortcutAssignment?.holdUntilRelease == true }
-    var isDiscreteOutput:Bool { isAppleShortcut || self == .voice || shortcutAssignment != nil }
+    var isDiscreteOutput:Bool { isAppleShortcut || self == .smartZoom || self == .voice || shortcutAssignment != nil }
     static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
-    static var oneShotActions: [Self] { appleShortcuts + smallStepActions + [.voice] }
+    static var oneShotActions: [Self] { appleShortcuts + [.smartZoom] + smallStepActions + [.voice] }
     static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
     var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) || Self.smallStepActions.contains(self) }
     var id: String { rawValue }
@@ -170,6 +171,7 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .primaryDrag: return "Drag / Select"; case .scroll: return "Scroll / Pan"
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"
         case .zoom: return "Zoom"
+        case .smartZoom: return "Smart Zoom"
         case .secondaryClick: return "Secondary Click"
         }
     }

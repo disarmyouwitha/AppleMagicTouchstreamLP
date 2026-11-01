@@ -394,6 +394,15 @@ is one shared per-hand gain (0.25–2×), regardless of which count/direction st
 Magnification posts balanced began/changed/ended or cancelled phases, uses a fixed
 activation location, and clamps each output delta to ±0.25.
 
+Smart Zoom is a separate discrete action available for taps, force, Hold,
+coordinated gestures and directional assignments, plus Pinch/Spread and rotation.
+It sends one native Smart Magnify request at the cursor, using the shared live
+output gates; applications decide how to zoom. It does not emit keyboard or mouse
+button edges, change continuous Zoom, or run during replay. Continuous shape
+assignments fire once on activation and retain ownership until all-up; directional
+assignments retain their configured repeat behavior. Quartz gesture encoding is
+isolated in `SmartZoomGestureOutput` and verified through AppKit without posting.
+
 When a recognized thumb and an enabled Pinch/Spread compete at counts 3–5,
 movement activation uses the entire current chord, including the thumb, rather
 than a three-quarter majority. The thumb cannot be omitted while the fingertip

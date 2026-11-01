@@ -1,10 +1,7 @@
 # NEXT:
 =======
 # Human Tasks...?
-0. Let's start working on TouchStream gesture defaults template!!
-> Can you look at the Fingerworks Touchstream Quickstart manual and try to translate each of their gestures into what they would be in AppleMagicTrackpad? (I want you to create TOUCHSTERAM_KEYMAP.json that I can import)
-> Alternatively, can you look at the Fingerworks gesture XML in the SDK under Documents/new_code/touchstream-research and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
-1. make 6x3 decal girl template in gimp with layers for ppl to edit
+0. make 6x3 decal girl template in gimp with layers for ppl to edit
 > Layers for: Center legends vs top-right legends / sublegend layer
 > Outline of where to line up for Decal Girl template
 ===
@@ -22,19 +19,20 @@
 > Sequential macros:        Ctrl+X, (then) V, then =
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
-# `Landings Zones`:
-- 4F hold above homerow, on homerow, below homerow
-- 3F tap above homerow, on homerow, below homerow
 # 1Finger `Custom/Drawings`:
 - `Record Gesture` custom gestures in the future would be awesome!
 - `Sides` up/down left/right sides; left/right top/bottom sides
 - `Triangles`? (we can finally demonstrate how to do them, lol.)
 ===
+# `Landings Zones`:
+- 4F hold above homerow, on homerow, below homerow
+- 3F tap above homerow, on homerow, below homerow
+===
 777. SwiftKey like "learning" hitmap
 ===
-0. **Need to fix AI artwork sub legends lmao**
-1. Implement special "HAND" key for Touchstream layout.
-2. We will need to synthesize the keys from the legends when the hand is held. Can you create the keys and logic and map these on the RHS? 
+1. **Need to fix AI artwork sub legends lmao**
+2. Implement special "HAND" key for Touchstream layout.
+3. We will need to synthesize the keys from the legends when the hand is held. Can you create the keys and logic and map these on the RHS? 
 > Here is the list of unshifted and "hand" shifted pairs: (y,0),(u,4),(i,5),(h,left),(j,1),(k,2),(l,3),(n,_),(m,0)
 > You can see the sublegends here: @RHS_TOUCHSTREAM.png
 ===

@@ -1177,7 +1177,7 @@ struct GestureAssignmentWorkspace: View {
         if selected.isRotation { return "Fires once when rotation activates. Continuing or reversing the turn cannot fire another action until all fingers lift." }
         guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
         if action.shortcutAssignment != nil { return "Runs the assigned shortcut once when this gesture is recognized. The gesture keeps its existing latch until all-up." }
-        if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
+        if action.isAppleShortcut || action == .smartZoom { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
         switch action {
         case .primaryDrag: return "Holds the primary mouse button through the drag, using the same pointer acceleration as mouse movement."
         case .scroll: return "Precise scrolling follows motion, with momentum after release."
@@ -1476,7 +1476,7 @@ struct GestureActionChooser:View {
             ("General",[.disabled]),
             ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.scrollUp,.scrollDown,.panLeft,.panRight]),
             ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
-            ("System",GestureAction.appleShortcuts),
+            ("System",GestureAction.appleShortcuts + [.smartZoom]),
             ("Sound & Display",GestureAction.smallStepActions),
             ("Application",[.openConfig])]
         return definitions.compactMap { title, values in

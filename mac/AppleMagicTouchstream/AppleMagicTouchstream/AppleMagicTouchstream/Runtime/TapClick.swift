@@ -415,6 +415,10 @@ enum GestureTapActionOutput {
             return shortcut?.events()
         }
         switch action {
+        case .smartZoom:
+            guard let event = SmartZoomGestureOutput.event(location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [event]
         case .primaryClick:
             guard let pair = clicks.events(location:location,time:time,doubleClickInterval:doubleClickInterval,flags:flags) else { return nil }
             return [pair.down,pair.up]
@@ -433,6 +437,21 @@ enum GestureTapActionOutput {
 
 // Historical diagnostic name for the same compact-row input geometry.
 typealias ThreeFingerDragChord = ThreeFingerRowChord
+
+/// Discrete native Smart Magnify, distinct from continuous pinch magnification.
+/// Keep the private Quartz gesture encoding here; construction never posts input.
+enum SmartZoomGestureOutput {
+    static func event(location:CGPoint, flags:CGEventFlags = []) -> CGEvent? {
+        guard location.x.isFinite, location.y.isFinite, let event = CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location
+        event.flags = flags
+        // ZoomToggle (22) maps to NSEvent.EventType.smartMagnify.
+        event.setIntegerValueField(MagnifyGestureOutput.hidType,value:22)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+}
 
 /// Read symbolic-shortcut preferences only during configuration, never in input callbacks.
 /// No preferences are changed. Missing entries use Apple's documented keyboard shortcuts.

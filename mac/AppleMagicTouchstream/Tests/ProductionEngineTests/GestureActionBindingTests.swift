@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import OpenMultitouchSupport
@@ -5,6 +6,48 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class GestureActionBindingTests: XCTestCase {
+    func testSmartZoomCatalogAndSettingsRoundTrip() throws {
+        XCTAssertEqual(GestureAction(rawValue:"smartZoom"),.smartZoom)
+        XCTAssertEqual(GestureAction.smartZoom.title,"Smart Zoom")
+        XCTAssertTrue(GestureAction.smartZoom.isDiscreteOutput)
+        XCTAssertFalse(GestureAction.smartZoom.isAppleShortcut)
+        for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.thumbTwoTap,
+                        .fourFingerTap,.fiveFingerTap,.oneFingerForce,.twoFingerPinch,.fiveFingerRotateLeft] {
+            var settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(.smartZoom,for:trigger,in:.left))
+            let restored = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+            XCTAssertEqual(restored.action(trigger,in:.left),.smartZoom)
+            XCTAssertNotEqual(restored.action(trigger,in:.right),.smartZoom)
+        }
+        var profile = AppKeymapProfile.defaultProfile()
+        var settings = HandGestureSettings()
+        settings.setAction(.smartZoom,for:.twoFingerTap,in:.left)
+        profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(
+            from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings?.action(.twoFingerTap,in:.left),.smartZoom)
+        XCTAssertTrue(PerHandGestureSettings.holdActions(for:3).contains(.smartZoom))
+        XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(.smartZoom))
+        XCTAssertTrue(TwoHandGestureSettings.allowedActions.contains(.smartZoom))
+        XCTAssertFalse(GestureTrigger.twoFingerMove.allowedActions.contains(.smartZoom))
+    }
+    func testSmartZoomBuildsNativeEventWithoutButtonOrKeyboardEdges() throws {
+        var clicks = PrimaryTapClickOutput()
+        _ = clicks.events(location:CGPoint(x:100,y:200),time:1,doubleClickInterval:0.5)
+        let events = try XCTUnwrap(GestureTapActionOutput.events(action:.smartZoom,
+            location:CGPoint(x:100,y:200),time:1.1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+        XCTAssertEqual(events.count,1)
+        let event = try XCTUnwrap(events.first)
+        XCTAssertEqual(try XCTUnwrap(NSEvent(cgEvent:event)).type,.smartMagnify)
+        XCTAssertEqual(event.location,CGPoint(x:100,y:200))
+        XCTAssertEqual(event.flags,.maskShift)
+        XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+        XCTAssertEqual(event.getIntegerValueField(MagnifyGestureOutput.phase),0)
+        XCTAssertEqual(try XCTUnwrap(clicks.events(location:CGPoint(x:100,y:200),time:1.2,
+            doubleClickInterval:0.5)).down.getIntegerValueField(.mouseEventClickState),1)
+        XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:Double.nan,y:0)))
+        XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:0,y:Double.infinity)))
+    }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
             OMSRawTouch(id:Int32(index+10),posX:Float(index)*0.11+0.3+dx,
