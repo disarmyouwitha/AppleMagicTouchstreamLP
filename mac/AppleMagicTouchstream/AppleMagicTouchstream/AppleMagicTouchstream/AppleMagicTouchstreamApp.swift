@@ -47,7 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var replayStateCancellable: AnyCancellable?
-    private static let configWindowDefaultHeight: CGFloat = 800
     private var captureMenuItem: NSMenuItem?
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false
@@ -573,20 +572,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func makeConfigWindow() -> NSWindow {
         let contentView = ContentView(viewModel: controller.viewModel, nativeTakeover: nativeTakeover)
-        let window = NSWindow(
-            contentRect: NSRect(
-                x: 0,
-                y: 0,
-                width: 984,
-                height: Self.configWindowDefaultHeight
-            ),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.center()
+        let style:NSWindow.StyleMask = [.titled,.closable,.miniaturizable,.resizable]
+        let titlebarHeight = NSWindow.frameRect(forContentRect:CGRect(x:0,y:0,width:100,height:100),styleMask:style).height-100
+        let visibleFrame = NSScreen.main?.visibleFrame ?? CGRect(x:0,y:0,width:1440,height:900)
+        let size = ConfigWindowSizing.initialContentSize(visibleFrame:visibleFrame,titlebarHeight:titlebarHeight)
+        let window = NSWindow(contentRect:NSRect(origin:.zero,size:size),styleMask:style,backing:.buffered,defer:false)
         window.title = "AppleMagicTouchstream"
         window.contentView = NSHostingView(rootView: contentView)
+        window.contentMinSize = ConfigWindowSizing.minimum
+        window.setContentSize(size)
+        window.center()
         window.isReleasedWhenClosed = false
         window.delegate = self
         return window

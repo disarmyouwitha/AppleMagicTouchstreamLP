@@ -85,6 +85,10 @@ per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Can
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify
 STENO overlap chords after editing and settings/capture replay with authored layouts.
 
+Window sizing checks include 1280-point laptop visible frames, titlebar height and
+outer margins. On the MacBook, verify initial opening stays within the usable screen
+and that both workspaces remain reachable when resizing down to 1120 × 540 points.
+
 ## Run
 
 Start with `./test.sh`: it runs native takeover lifecycle checks, then Swift tests.

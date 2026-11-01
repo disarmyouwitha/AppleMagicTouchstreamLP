@@ -5,6 +5,19 @@ import XCTest
 
 @MainActor
 final class LayoutEditorWorkspaceTests: XCTestCase {
+    func testInitialWindowFitsLaptopVisibleFramesIncludingTitlebarAndMargins() {
+        let style:NSWindow.StyleMask = [.titled,.closable,.miniaturizable,.resizable]
+        let titlebar = NSWindow.frameRect(forContentRect:CGRect(x:0,y:0,width:100,height:100),styleMask:style).height-100
+        for visible in [CGRect(x:0,y:25,width:1280,height:725),CGRect(x:0,y:25,width:1440,height:825),CGRect(x:0,y:25,width:1280,height:675)] {
+            let size = ConfigWindowSizing.initialContentSize(visibleFrame:visible,titlebarHeight:titlebar)
+            let frame = NSWindow.frameRect(forContentRect:CGRect(origin:.zero,size:size),styleMask:style)
+            XCTAssertLessThanOrEqual(frame.width+32,visible.width)
+            XCTAssertLessThanOrEqual(frame.height+32,visible.height)
+            XCTAssertGreaterThanOrEqual(size.width,ConfigWindowSizing.minimum.width)
+            XCTAssertGreaterThanOrEqual(size.height,ConfigWindowSizing.minimum.height)
+        }
+        XCTAssertEqual(ConfigWindowSizing.initialContentSize(visibleFrame:CGRect(x:0,y:0,width:2000,height:1200),titlebarHeight:titlebar),ConfigWindowSizing.preferred)
+    }
     private func editableFields(_ view: NSView) -> [NSTextField] {
         let fields = (view as? NSTextField).map { [$0] } ?? []
         return fields.filter(\.isEditable)+view.subviews.flatMap { editableFields($0) }

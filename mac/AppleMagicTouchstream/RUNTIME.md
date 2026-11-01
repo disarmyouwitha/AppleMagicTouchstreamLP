@@ -120,6 +120,12 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 
 ## Layout authoring
 
+The configuration window starts at 1240 × 720 points, capped to the main screen’s
+visible frame with room for the titlebar and 16-point margins. Its minimum content
+size is 1120 × 540 points, allowing laptop screen resolutions without the previous
+1384-point minimum width. Existing workspace scroll areas handle constrained space;
+trackpad visualization retains its existing maximum size.
+
 Layout Editor replaces the keyboard visualizer in the same workspace while editing.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
 settings column. Apply saves one geometry update and returns to the visualizer;

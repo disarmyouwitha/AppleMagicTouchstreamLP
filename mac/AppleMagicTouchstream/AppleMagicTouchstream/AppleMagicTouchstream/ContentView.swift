@@ -12,6 +12,16 @@ import QuartzCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Content dimensions are in macOS points, independently of Retina pixel density.
+enum ConfigWindowSizing {
+    static let minimum = CGSize(width:1120,height:540)
+    static let preferred = CGSize(width:1240,height:720)
+    static func initialContentSize(visibleFrame:CGRect,titlebarHeight:CGFloat) -> CGSize {
+        CGSize(width:min(preferred.width,max(1,visibleFrame.width-32)),
+               height:min(preferred.height,max(1,visibleFrame.height-titlebarHeight-32)))
+    }
+}
+
 private struct CompactAssignmentMenuKey: EnvironmentKey {
     static let defaultValue = false
 }
@@ -612,7 +622,7 @@ struct ContentView: View {
     private var styledMainLayout: some View {
         mainLayout
             .background(backgroundGradient)
-            .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 340)
+            .frame(minWidth:ConfigWindowSizing.minimum.width,minHeight:ConfigWindowSizing.minimum.height)
             .frame(maxHeight: .infinity, alignment: .top)
     }
 
