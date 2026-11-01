@@ -119,13 +119,34 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 
 ## Layout authoring
 
-Layout Editor stages an editable document for the selected template. Select either
-pad, drag individual keys or optional column/groups, Shift-click to select multiple
-keys, and resize with the corner handle. Exact position/dimensions use millimeters;
-angles are editable numerically. Add/delete/duplicate keys or columns, group/ungroup,
-rotate, align/distribute, undo/redo and reset to the template. Editing snap is a
-separate 1 mm grid and has no connection to typing Snap Radius. Cancel discards the
-session; Apply compiles one geometry update through the existing engine boundary.
+Layout Editor replaces the keyboard visualizer in the same workspace while editing.
+Both trackpads remain visible side by side. Its inspector uses the normal resizable
+settings column. Apply saves one geometry update and returns to the visualizer;
+Cancel returns without publishing the staged document. Undo, Redo and Reset remain
+available in the editor header. Device/takeover controls remain available above it.
+
+Keys and Columns/Groups selection modes support click/drag, Shift-add selection,
+and box selection by dragging empty space. A column/group is selected through any
+of its keys. Corner handles resize individual keys; exact positions and dimensions
+use millimeters, with numeric angles. Icon tools with labels/tooltips provide
+rotation, alignment/distribution, grouping, duplication and deletion. Editing snap
+is a separate 1 mm grid and has no connection to typing Snap Radius.
+
+Mirror Edit defaults on for each edit session. Existing counterpart keys are paired
+once by mirrored geometry and persist their UUID relationship through later edits.
+Movement, size and angle deltas are reflected across the pair while preserving
+existing asymmetry, each side's legends and layer assignments. Dashed outlines
+preview the affected counterparts. Added keys/columns create pairs; deletion and
+duplication include existing counterparts. Grouping keeps separate groups on each
+pad. Unmatched keys stay independent, including STENO Single's right-only geometry.
+Mirror Edit off allows independent edits; turning it back on does not realign keys.
+Mirrored edits undo/redo together as one document transaction. Pair relationships
+round-trip with the document through settings and captures.
+
+The editor snapshots the seed/template only when opened and draws staged geometry
+with Canvas instead of the live contact visualizer. Labels are cached and validity
+is checked at transaction boundaries, not on every drag frame. Dragging never
+reconfigures recognition or posts output; only Apply compiles/publishes geometry.
 
 Documents use UUID identities with immutable opaque binding slots. Physical position
 never depends on that slot; deletion never renumbers neighboring keys. Added keys

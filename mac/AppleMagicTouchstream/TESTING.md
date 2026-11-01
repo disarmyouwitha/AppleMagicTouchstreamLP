@@ -51,6 +51,27 @@ install button and haptic checkboxes without installing or opening any connectio
 Hardware acceptance still includes Outer Corners opening Config, haptic feel,
 1F force drag/select, and translation through the installed plugin in Plover.
 
+## Layout editor verification
+
+`LayoutDocumentTests` cover binding identity, structural reconciliation, transforms,
+history and settings/capture profile round-trips. `LayoutMirrorTests` cover reflected
+geometry deltas, asymmetric/persistent counterparts, paired duplication/deletion,
+independent single-pad geometry, rotated hit testing and box/group selection.
+`LayoutEditorWorkspaceTests` render both pads at narrow/wide sizes and select keys
+on each side through the native picker without publishing a layout. These tests use
+private, hidden AppKit windows and local callbacks; no input clients or output are
+started. Set `AMT_LAYOUT_PREVIEW_DIR` to save previews, for example:
+
+```sh
+AMT_LAYOUT_PREVIEW_DIR=/tmp/amt-layout-preview ./test.sh --filter 'Layout(Mirror|EditorWorkspace|Document)Tests'
+```
+
+On hardware, check direct click/drag in Keys and Columns/Groups modes, Shift-add and
+box selection. Check Mirror Edit on/off, dashed counterpart outlines, independent
+per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
+must return to the visualizer; Cancel must leave live geometry unchanged. Verify
+STENO overlap chords after editing and settings/capture replay with authored layouts.
+
 ## Run
 
 Start with `./test.sh`: it runs native takeover lifecycle checks, then Swift tests.

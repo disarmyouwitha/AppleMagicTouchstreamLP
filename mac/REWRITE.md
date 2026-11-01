@@ -1,6 +1,18 @@
 # NEXT:
 =======
-- 
+- Visual toolbar seems dope! (above/below trackpads, like photoshopy?)
+- When we select a group of keys, can we resize them all at once? (by dragging?)
+- We should remove "Select Key" Dropdown from Layout Editor
+- Once we get Layout Editor done really well we can take "Custom Buttons" out of Keymap Editor! 
+===
+I like:
+0. Ability yo undo, redo, cancel, apply, reset!.. Very nifty! (Maybe when we "apply" it can go back to the visualizer?)
+1. The functionality is very nice but I would like to try and express the functions of the buttons in a more visual or intuitive way.
+
+I dislike:
+0. It breaks out into it's own editor (I think it would be cooler if we replaced the visualizer while we were editing and used that same space) ((But obviously you would need to make some changes so it doesn't get super laggy))
+1. I don't like editing 1 half at a time.. I think it should display both trackpads in the editor, and then have a "Mirror Edit" button (default on) that will mirror changes across halves.
+2. We should be able to Drag/Select columns or keys.
 ===
 0. Please god can we finally fix Column tuning? (Drag to move??)
 * Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
@@ -16,7 +28,10 @@
 ===
 # Human Tasks...?
 0. Start working on TouchStream gesture defaults template!!
+> Can Codex look at the Fingerworks gesture XML and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
 1. make 6x3 decal girl template in gimp with layers for ppl to edit
+> Layers for: Center legends vs top-right legends / sublegend layer
+> Outline of where to line up for Decal Girl template
 ===
 
 

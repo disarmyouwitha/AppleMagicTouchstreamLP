@@ -7,10 +7,15 @@ and all STENO variants. Templates seed editable documents; columns become option
 selection groups rather than geometric constraints. Keys have stable identities,
 independent positions, dimensions and rotations. Existing tuned geometry is the seed.
 
-An explicit edit session previews changes locally. Apply compiles and publishes one
+An inline edit session replaces the visualizer and shows both pads together.
+Apply compiles and publishes one
 layout update through the existing engine boundary; Cancel leaves live geometry alone.
 Recognition, gesture arbitration, STENO transport and output ownership remain shared.
 The runtime consumes rectangles and cached hit geometry, never editor state.
+Mirror Edit defaults on, reflecting geometry and structural changes through stable
+counterpart identities while retaining independent actions on each pad. Unmatched
+keys remain independent. Canvas renders the local preview without live telemetry;
+seed/template snapshots, labels and validation avoid work on every drag frame.
 
 ## Implementation checklist
 
@@ -45,10 +50,11 @@ Do not launch input takeover or post native events during offline verification.
 
 ## Delivered validation
 
-- `./test.sh`: 497 tests executed, seven hardware-dependent skips, zero failures;
+- `./test.sh`: 508 tests executed, seven hardware-dependent skips, zero failures;
   native takeover offline checks also passed.
-- Offscreen AppKit/SwiftUI rendering inspected at 1020 × 780 without launching
-  the app or native input. Canvas and inspector fit without clipping.
+- Offscreen AppKit/SwiftUI rendering inspected at 1140 × 460, 1384 × 520 and
+  1600 × 720 without launching the app or native input. Both pads fit beside the
+  resizable inspector; key selection exposes exact geometry without applying it.
 - Universal arm64/x86_64 Release built, Developer ID signature verified, and
   `./release.sh --check` confirmed bundle identity.
 - Assignment reconciliation is part of Apply: removed keys lose their saved
@@ -59,7 +65,11 @@ Do not launch input takeover or post native events during offline verification.
 ### Hardware review
 
 Open Layout Editor, move a column, then move/resize one key independently and Apply.
-Check typing at the new positions and switching layers. Duplicate an assigned key,
+With Mirror Edit on, check reflected movement/resizing/rotation and dashed partner
+previews. Turn it off and verify each half stays independent. Test click and box
+selection in both Keys and Columns/Groups modes. Apply/Cancel return to the
+visualizer; Cancel must leave geometry unchanged. Check Undo/Redo/Reset and then
+check typing at the new positions and switching layers. Duplicate an assigned key,
 remove it, reset the template and add another key; an old action must not reappear.
 For STENO Asterisk and Single, check the accepted overlapping chords after moving
 keys. Try settings export/import and capture/replay with the edited geometry.

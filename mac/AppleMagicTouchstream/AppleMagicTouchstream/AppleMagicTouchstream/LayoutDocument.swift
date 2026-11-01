@@ -10,10 +10,19 @@ struct LayoutDocument: Codable, Equatable {
         var label: String
         var rect: NormalizedRect
         var group: UUID?
+        var mirrorID: UUID? = nil
         var copySourceRow: Int? = nil
         var copySourceColumn: Int? = nil
         // Explicit visual extensions preserve the accepted STENO overlap drawing.
         var edges: [CGFloat] = [0, 0, 0, 0] // left, top, right, bottom
+        var displayRect: NormalizedRect {
+            var r = rect
+            if edges.count == 4 {
+                r.x -= edges[0]; r.y -= edges[1]
+                r.width += edges[0]+edges[2]; r.height += edges[1]+edges[3]
+            }
+            return r
+        }
     }
     struct Group: Codable, Equatable, Identifiable {
         var id = UUID()
@@ -62,6 +71,7 @@ struct LayoutDocument: Codable, Equatable {
               Set(groups.map(\.id)).count == groups.count else { return false }
         var slots = Set<String>()
         let groupIDs = Set(groups.map(\.id))
+        let byID = Dictionary(uniqueKeysWithValues: keys.map { ($0.id, $0) })
         return keys.allSatisfy { key in
             let r = key.rect
             return key.row >= 0 && key.row < nextRow && key.column >= 0 && key.column < 128 &&
@@ -70,7 +80,9 @@ struct LayoutDocument: Codable, Equatable {
                 r.width > 0 && r.width <= 2 && r.height > 0 && r.height <= 2 &&
                 abs(r.x) <= 2 && abs(r.y) <= 2 && key.edges.count == 4 &&
                 key.edges.allSatisfy { $0.isFinite && abs($0) < 1 } &&
-                (key.group == nil || groupIDs.contains(key.group!))
+                key.displayRect.width > 0 && key.displayRect.height > 0 &&
+                (key.group == nil || groupIDs.contains(key.group!)) &&
+                (key.mirrorID == nil || (byID[key.mirrorID!]?.mirrorID == key.id && byID[key.mirrorID!]?.right != key.right))
         }
     }
 
@@ -105,6 +117,93 @@ struct LayoutDocument: Codable, Equatable {
             layout.authoredDisplayRects[key.rect] = rect
         }
         return layout
+    }
+
+    func expandedGroups(_ ids: Set<UUID>) -> Set<UUID> {
+        let selected = keys.filter { ids.contains($0.id) }
+        return Set(keys.filter { key in
+            ids.contains(key.id) || selected.contains { $0.right == key.right && $0.group != nil && $0.group == key.group }
+        }.map(\.id))
+    }
+
+    func editorHit(at normalized: CGPoint, right: Bool, pad: CGSize) -> UUID? {
+        let point = CGPoint(x: normalized.x*pad.width,y: normalized.y*pad.height)
+        var best: (UUID, CGFloat, CGFloat)?
+        for key in keys where key.right == right {
+            let rect = key.displayRect
+            let geometry = KeyHitGeometry(normalizedRect: rect,size: pad)
+            guard geometry.contains(point) else { continue }
+            let depth = geometry.distanceToEdge(from: point), area = rect.width*rect.height
+            if best == nil || depth > best!.1 || (abs(depth-best!.1) < 0.000001 && area < best!.2) { best = (key.id,depth,area) }
+        }
+        return best?.0
+    }
+
+    func editorMarquee(_ normalized: CGRect, right: Bool, groups: Bool, pad: CGSize) -> Set<UUID> {
+        let box = CGRect(x: normalized.minX*pad.width,y: normalized.minY*pad.height,width: normalized.width*pad.width,height: normalized.height*pad.height)
+        let ids = Set(keys.filter { $0.right == right && $0.displayRect.boundingRect(in: pad).intersects(box) }.map(\.id))
+        return groups ? expandedGroups(ids) : ids
+    }
+
+    /// Pair once at editor entry. Saved pairs survive independent movement and reopening.
+    /// Unequal templates keep unmatched keys independent; actions are never copied.
+    mutating func inferMirrorPairs() {
+        let left = keys.filter { !$0.right && $0.mirrorID == nil }
+        let right = keys.filter { $0.right && $0.mirrorID == nil }
+        var candidates: [(UUID, UUID, CGFloat)] = []
+        for l in left { for r in right {
+            let x = abs(1-l.rect.centerX-r.rect.centerX), y = abs(l.rect.centerY-r.rect.centerY)
+            let widthRatio = l.rect.width/max(0.0001,r.rect.width)
+            let heightRatio = l.rect.height/max(0.0001,r.rect.height)
+            guard x < 0.25, y < 0.2, (0.33...3).contains(widthRatio), (0.33...3).contains(heightRatio) else { continue }
+            let size = abs(l.rect.width-r.rect.width)+abs(l.rect.height-r.rect.height)
+            candidates.append((l.id,r.id,x*x+y*y+size*size*0.1))
+        } }
+        candidates.sort { $0.2 < $1.2 }
+        let indices = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($0.element.id, $0.offset) })
+        for (l,r,_) in candidates {
+            guard let i = indices[l], let j = indices[r], keys[i].mirrorID == nil, keys[j].mirrorID == nil else { continue }
+            keys[i].mirrorID = r; keys[j].mirrorID = l
+        }
+    }
+
+    func pairedSelection(_ ids: Set<UUID>) -> Set<UUID> {
+        ids.union(keys.filter { ids.contains($0.id) }.compactMap(\.mirrorID))
+    }
+
+    /// Replay the source's geometry delta with horizontal reflection. Existing per-hand
+    /// offsets, dimensions, labels and binding addresses remain independent.
+    mutating func mirrorGeometryChanges(from before: Self, sources: Set<UUID>) {
+        let oldByID = Dictionary(uniqueKeysWithValues: before.keys.map { ($0.id,$0) })
+        let indices = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($0.element.id,$0.offset) })
+        let edits = keys.filter { sources.contains($0.id) }
+        for edited in edits {
+            guard let old = oldByID[edited.id], let partnerID = old.mirrorID,
+                  !sources.contains(partnerID), let partner = oldByID[partnerID], let i = indices[partnerID] else { continue }
+            let a = old.rect, b = edited.rect
+            var r = partner.rect
+            let newWidth = min(1, max(0.005,r.width+b.width-a.width))
+            r.x -= (b.x-a.x)+(newWidth-r.width)
+            r.y += b.y-a.y
+            r.width = newWidth; r.height = min(1,max(0.005,r.height+b.height-a.height))
+            r.rotationDegrees = (r.rotationDegrees-b.rotationDegrees+a.rotationDegrees).truncatingRemainder(dividingBy:360)
+            keys[i].rect = r
+            if old.edges.count == 4 && edited.edges.count == 4 && partner.edges.count == 4 {
+                for (target,source) in [(0,2),(1,1),(2,0),(3,3)] {
+                    keys[i].edges[target] = partner.edges[target]+edited.edges[source]-old.edges[source]
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    mutating func addMirrored(right: Bool, label: String = "None", rect: NormalizedRect = NormalizedRect(x: 0.4,y: 0.4,width: 0.08,height: 0.18), group: UUID? = nil, oppositeGroup: UUID? = nil) -> UUID {
+        let source = add(right: right,label: label,rect: rect,group: group)
+        var reflected = rect; reflected.x = 1-rect.x-rect.width; reflected.rotationDegrees = -rect.rotationDegrees
+        let target = add(right: !right,label: label,rect: reflected,group: oppositeGroup)
+        let i = keys.count-2, j = keys.count-1
+        keys[i].mirrorID = target; keys[j].mirrorID = source
+        return source
     }
 
     /// Structural edits and layer assignments are reconciled together on Apply.
@@ -160,12 +259,14 @@ struct LayoutDocument: Codable, Equatable {
     }
     mutating func remove(_ ids: Set<UUID>) {
         keys.removeAll { ids.contains($0.id) }
+        let remaining = Set(keys.map(\.id))
+        for i in keys.indices where keys[i].mirrorID.map({ !remaining.contains($0) }) == true { keys[i].mirrorID = nil }
         groups.removeAll { group in !keys.contains { $0.group == group.id } }
     }
-    mutating func duplicate(_ ids: Set<UUID>) -> Set<UUID> {
-        var newIDs = Set<UUID>(), groupMap: [UUID: UUID] = [:]
+    mutating func duplicate(_ ids: Set<UUID>, mirrorOffset: Bool = false, sourceRight: Bool = true) -> Set<UUID> {
+        var newIDs = Set<UUID>(), groupMap: [UUID: UUID] = [:], keyMap: [UUID: UUID] = [:]
         for key in keys.filter({ ids.contains($0.id) }) {
-            var copy = key; copy.id = UUID(); copy.copySourceRow = key.row; copy.copySourceColumn = key.column
+            var copy = key; copy.id = UUID(); keyMap[key.id] = copy.id; copy.copySourceRow = key.row; copy.copySourceColumn = key.column
             copy.row = nextRow; copy.column = 0; nextRow += 1
             if let group = key.group {
                 if groupMap[group] == nil {
@@ -176,7 +277,15 @@ struct LayoutDocument: Codable, Equatable {
             }
             keys.append(copy); newIDs.insert(copy.id)
         }
-        translate(newIDs, dx: 0.02, dy: 0.02)
+        for i in keys.indices where newIDs.contains(keys[i].id) {
+            keys[i].mirrorID = keys[i].mirrorID.flatMap { keyMap[$0] }
+        }
+        if mirrorOffset {
+            let before = self
+            let sources = Set(keys.filter { newIDs.contains($0.id) && $0.right == sourceRight }.map(\.id))
+            translate(sources, dx: 0.02, dy: 0.02)
+            mirrorGeometryChanges(from: before, sources: sources)
+        } else { translate(newIDs, dx: 0.02, dy: 0.02) }
         return newIDs
     }
 }

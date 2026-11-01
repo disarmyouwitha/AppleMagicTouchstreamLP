@@ -79,6 +79,8 @@ struct ContentView: View {
 
     @StateObject private var viewModel: ContentViewModel
     @State private var editingLayout = false
+    @State private var layoutEditorDocument: LayoutDocument?
+    @State private var layoutEditorTemplate: LayoutDocument?
     @AppStorage(GlassToKeyDefaultsKeys.layoutDocuments) private var storedLayoutDocuments = Data()
     @State private var layoutDocuments: [String: LayoutDocument] = [:]
     private var authoredLayout: LayoutDocument? { layoutDocuments[layoutOption.rawValue] }
@@ -568,24 +570,46 @@ struct ContentView: View {
 
     var body: some View {
         lifecycleContent(styledMainLayout)
-            .sheet(isPresented: $editingLayout) {
-                LayoutEditor(document: authoredLayout ?? editorSeed, template: templateSeed, onApply: { document in
-                    var documents = layoutDocuments
-                    var authored = document
-                    if var edited = authored {
-                        guard edited.isValid else { return }
-                        keyMappingsByLayer = edited.updatedMappings(keyMappingsByLayer)
-                        for i in edited.keys.indices { edited.keys[i].copySourceRow = nil; edited.keys[i].copySourceColumn = nil }
-                        authored = edited
-                    }
-                    documents[layoutOption.rawValue] = authored
-                    layoutDocuments = documents
-                    storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
-                    selectedGridKey = nil
-                    rebuildLayouts()
-                    updateGridLabelInfo()
-                })
-            }
+    }
+
+    private func beginLayoutEditing() {
+        // Snapshot once at entry. Telemetry refreshes must not rebuild template geometry
+        // or decode documents while the local canvas is dragging.
+        var document = authoredLayout ?? editorSeed
+        var template = templateSeed
+        document.inferMirrorPairs(); template.inferMirrorPairs()
+        layoutEditorDocument = document; layoutEditorTemplate = template
+        editingLayout = true
+    }
+
+    private func finishLayoutEditing() {
+        editingLayout = false
+        layoutEditorDocument = nil; layoutEditorTemplate = nil
+    }
+
+    private func applyEditedLayout(_ document: LayoutDocument?) {
+        var documents = layoutDocuments
+        var authored = document
+        if var edited = authored {
+            guard edited.isValid else { return }
+            keyMappingsByLayer = edited.updatedMappings(keyMappingsByLayer)
+            for i in edited.keys.indices { edited.keys[i].copySourceRow = nil; edited.keys[i].copySourceColumn = nil }
+            authored = edited
+        }
+        documents[layoutOption.rawValue] = authored
+        layoutDocuments = documents
+        storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
+        selectedGridKey = nil
+        rebuildLayouts()
+        updateGridLabelInfo()
+        finishLayoutEditing()
+    }
+
+    @ViewBuilder private var layoutEditorWorkspace: some View {
+        if let document = layoutEditorDocument, let template = layoutEditorTemplate {
+            LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
+                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth)
+        }
     }
 
     private var styledMainLayout: some View {
@@ -773,7 +797,7 @@ struct ContentView: View {
             HStack {
                 Text("AppleMagicTouchstream").font(.headline)
                 Spacer()
-                EqualWidthInspectorPicker(selection:$inspectorTab).frame(width:260)
+                EqualWidthInspectorPicker(selection:$inspectorTab).frame(width:260).disabled(editingLayout)
             }
             .padding(.horizontal,20).padding(.vertical,12)
             Divider()
@@ -781,6 +805,8 @@ struct ContentView: View {
             Divider()
             if inspectorTab == "Gestures" {
                 GestureInspectorPanel(controller:viewModel.gestures,takeover:nativeTakeover)
+            } else if editingLayout {
+                layoutEditorWorkspace
             } else {
                 GeometryReader { viewport in
                     let width = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:0)
@@ -947,7 +973,7 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
-            onEditLayout: { editingLayout = true },
+            onEditLayout: beginLayoutEditing,
             stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
             stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
             stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
