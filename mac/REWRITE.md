@@ -35,7 +35,7 @@
 - `Sides` up/down left/right sides; left/right top/bottom sides
 - `Triangles`? (we can finally demonstrate how to do them, lol.)
 ===
-777. We need to have "Click & Drag" to move Columns. (individual keys?)
+777. SwiftKey like "learning" hitmap
 ===
 0. **Need to fix AI artwork sub legends lmao**
 1. Implement special "HAND" key for Touchstream layout.
@@ -45,6 +45,7 @@
 ===
 # Linked Gestures:
 * Both hand gestures like 3f hold lhs right directional 3f on rhs
+> Could make for a cool CMD+TAB?
 
 
 =======
