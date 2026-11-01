@@ -547,7 +547,7 @@ private struct LayoutToolButton: View {
         }
         .buttonStyle(LayoutToolButtonStyle())
         .overlay(RoundedRectangle(cornerRadius:6).stroke(Color.accentColor.opacity(glow ? 1:0),lineWidth:2)
-            .shadow(color:Color.accentColor.opacity(glow ? 0.55:0),radius:5))
+            .shadow(color:Color.accentColor.opacity(glow ? 0.55:0),radius:5).allowsHitTesting(false))
     }
 }
 

@@ -1,13 +1,6 @@
 # NEXT:
 =======
-* * Can I get a full release DMG built and signed?
 * Test on Macbook!
-- Can you reset my column widths to the app's default?
-===
-0. "Templates use DEFAULT_KEYMAP.json spacing and label presets."
-> Does that mean you baked it into the template now, or does it depend on the values in default_keymap still?
-1. I think we should add +5% spacing -5% spacing buttons to the left of delete (screenshot)
-2. I don't see any highlight when clicking buttons under "arrange" maybe just a short highlight or pulse around the edges? 
 ===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
