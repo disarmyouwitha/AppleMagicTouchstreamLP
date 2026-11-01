@@ -4,7 +4,7 @@ import XCTest
 final class TouchStreamTemplateTests:XCTestCase {
     private var root:URL { URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent() }
     func testTouchStreamTemplateImportsEveryAssignmentWithoutSilentNormalization() throws {
-        let data = try Data(contentsOf:root.appendingPathComponent("TOUCHSTERAM_KEYMAP.json"))
+        let data = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/TOUCHSTERAM_KEYMAP.json"))
         let profile = try PortableKeymapInterop.importProfile(from:data,currentProfile:.defaultProfile())
         let settings = try XCTUnwrap(profile.handGestureSettings)
         XCTAssertEqual(profile.layoutPreset,TrackpadLayoutPreset.touchstream.rawValue)
@@ -38,7 +38,7 @@ final class TouchStreamTemplateTests:XCTestCase {
         var gestures = HandGestureSettings()
         gestures.stenoConnectionMode = .serial; gestures.stenoHapticOnTouch = true; gestures.stenoForceThreshold = 147
         current.handGestureSettings = gestures
-        let data = try Data(contentsOf:root.appendingPathComponent("TOUCHSTERAM_KEYMAP.json"))
+        let data = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/TOUCHSTERAM_KEYMAP.json"))
         let result = try PortableKeymapInterop.importProfile(from:data,currentProfile:current)
         XCTAssertEqual(result.handGestureSettings?.stenoConnectionMode,.serial)
         XCTAssertEqual(result.handGestureSettings?.stenoHapticOnTouch,true)

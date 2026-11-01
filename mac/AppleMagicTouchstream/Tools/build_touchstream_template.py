@@ -96,7 +96,7 @@ def generate(base):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, default=APP / 'MY_KEYMAP.json')
-    parser.add_argument('--output', type=Path, default=ROOT / 'TOUCHSTERAM_KEYMAP.json')
+    parser.add_argument('--output', type=Path, default=ROOT / 'AppleMagicTouchstream/AppleMagicTouchstream/TOUCHSTERAM_KEYMAP.json')
     args = parser.parse_args()
     data = args.base.read_bytes()
     base = json.loads(data)

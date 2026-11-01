@@ -1,6 +1,6 @@
 # FingerWorks TouchStream gesture template
 
-Import [TOUCHSTERAM_KEYMAP.json](TOUCHSTERAM_KEYMAP.json) using **Import Settings**.
+Import [TOUCHSTERAM_KEYMAP.json](AppleMagicTouchstream/AppleMagicTouchstream/TOUCHSTERAM_KEYMAP.json) using **Import Settings**.
 The requested filename spelling is intentional. This is a practical approximation
 for the current AppleMagicTouchstream app, not a firmware-equivalent port.
 
@@ -232,3 +232,8 @@ RHS point/click/drag/scroll, LHS arrows/select, Copy Hold, Cut/Paste pinch/sprea
 and Outer Corners. Then test the relocated file/search/formatting chords in a
 noncritical document. The app's current thresholds, thumb classification and motion
 repeat feel remain unchanged.
+
+The Xcode app target explicitly copies `TOUCHSTERAM_KEYMAP.json` into
+`Contents/Resources`. Future release DMGs include it inside the app bundle. The
+file remains an optional import and does not replace DEFAULT_KEYMAP.json or load
+automatically. The generator and offline import checks use its relocated path.
