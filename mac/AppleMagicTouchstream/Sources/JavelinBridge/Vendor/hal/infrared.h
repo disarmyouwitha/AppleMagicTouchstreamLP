@@ -1,0 +1,116 @@
+//---------------------------------------------------------------------------
+
+#pragma once
+#include "../fixed_point.h"
+#include "../uint32.h"
+#include <stddef.h>
+#include <stdint.h>
+
+//---------------------------------------------------------------------------
+
+enum class InfraredRepeatDelayMode : uint16_t {
+  START_TO_START,
+  END_TO_START,
+};
+
+enum class InfraredRepeatDataMode : uint16_t {
+  FULL,
+  HEADER_AND_TRAILER,
+  NO_HEADER,
+};
+
+enum class InfraredEndianness : uint16_t {
+  MSB_FIRST,
+  LSB_FIRST,
+};
+
+using InfraredTime = FixedPoint<uint16_t, 1>;
+using LongInfraredTime = FixedPoint<uint32_t, 1>;
+
+struct InfraredSignalConfiguration {
+  // Number of times to send the message.
+  // Use 0 for infinite.
+  uint16_t playbackCount = 1;
+
+  uint16_t carrierFrequency = 38000;
+  uint16_t dutyCycle = 33;
+
+  // Delay after data, measured in microseconds.
+  InfraredRepeatDelayMode repeatDelayMode : 1;
+  InfraredRepeatDataMode repeatDataMode : 2;
+  uint16_t filler : 12;
+  InfraredEndianness endianness : 1;
+
+  FixedPoint<Uint32, 1> repeatDelay;
+};
+static_assert(sizeof(InfraredSignalConfiguration) == 12);
+
+struct InfraredDataConfiguration {
+  InfraredSignalConfiguration signalConfiguration;
+
+  // Time in microseconds.
+  struct PulseTime {
+    // If onTime top bit is clear, then the pulse is emitted on-off.
+    // If onTime top bit is set, then the pulse is emitted off-on.
+    InfraredTime onTime;
+    InfraredTime offTime;
+
+    uint32_t GetTime() const { return (onTime.value & 0x7fff) + offTime.value; }
+  };
+
+  PulseTime header;
+  PulseTime zeroBit;
+  PulseTime oneBit;
+  PulseTime trailer[2];
+
+  const PulseTime &GetBitPulseTime(size_t index) const {
+    return (&zeroBit)[index];
+  }
+};
+
+class Infrared {
+public:
+  static void SendData(const void *data, size_t bitCount,
+                       const InfraredDataConfiguration &configuration);
+
+  // playCount = 0 -> infinite playback.
+  static void SendRawData(const InfraredTime *data, size_t dataCount,
+                          const InfraredSignalConfiguration &rawData);
+
+  static void SendMessage(const char *protocolName, uint32_t address,
+                          uint32_t command, uint32_t extraData);
+
+  static void Stop();
+
+private:
+  static uint8_t toggle;
+
+  static void SendDysonMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendJvcMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendKaseikyoMessage(uint32_t address, uint32_t command,
+                                  uint32_t vendor);
+  static void SendMatsushitaMessage(uint32_t address, uint32_t command,
+                                    uint32_t _);
+  static void SendMitsubishiMessage(uint32_t address, uint32_t command,
+                                    uint32_t _);
+  static void SendNECMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendNECXMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendNECData(const uint8_t *data);
+  static void SendNEC42Message(uint32_t address, uint32_t command, uint32_t _);
+  static void SendNEC42XMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendNEC42Data(const uint8_t *data);
+  static void SendPioneerMessage(uint32_t address, uint32_t command,
+                                 uint32_t _);
+  static void SendRC5Message(uint32_t address, uint32_t command, uint32_t _);
+  static void SendRC6Message(uint32_t address, uint32_t command, uint32_t mode);
+  static void SendRCAMessage(uint32_t address, uint32_t command, uint32_t _);
+  static void SendSamsungMessage(uint32_t address, uint32_t command,
+                                 uint32_t _);
+  static void SendSircMessage(uint32_t address, uint32_t command,
+                              uint32_t bits);
+  static void
+  SendSircMessageBits(uint32_t address, uint32_t command, uint32_t bits,
+                      const InfraredDataConfiguration &configuration);
+};
+
+//---------------------------------------------------------------------------
