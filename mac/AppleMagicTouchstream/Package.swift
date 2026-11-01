@@ -27,7 +27,7 @@ let package = Package(
         )
     ],
     targets: [
-        .target(name: "JavelinBridge", path: "Sources/JavelinBridge", exclude: ["LICENSE.txt", "Vendor/steno_key_code_emitter.cc"], publicHeadersPath: "include", cxxSettings: [.headerSearchPath("Vendor"), .define("JAVELIN_BOARD_CONFIG", to: "<stddef.h>")]),
+        .target(name: "JavelinBridge", path: "Sources/JavelinBridge", exclude: ["LICENSE.txt", "README.md", "Vendor/processor/fake_processor.cc"], publicHeadersPath: "include", cxxSettings: [.headerSearchPath("Vendor"), .define("JAVELIN_BOARD_CONFIG", to: "<stddef.h>"), .define("AMT_HOST_EMITTER", to: "1")]),
         .target(
             name: "OpenMultitouchSupportXCF",
             path: "Framework/OpenMultitouchSupportXCF",

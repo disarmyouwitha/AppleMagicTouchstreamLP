@@ -725,6 +725,7 @@ void Infrared::SendSircMessageBits(
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
+#if RUN_TESTS
 #include "../unit_test.h"
 
 TEST_BEGIN("Infrared Dyson data is calculated correctly") {
@@ -881,3 +882,5 @@ TEST_BEGIN("Infrared Sirc20 data is calculated correctly") {
 TEST_END
 
 //---------------------------------------------------------------------------
+
+#endif // RUN_TESTS (AMT host build)

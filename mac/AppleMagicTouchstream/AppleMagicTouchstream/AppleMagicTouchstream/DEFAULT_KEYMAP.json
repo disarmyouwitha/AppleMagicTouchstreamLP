@@ -278,7 +278,7 @@
           "pointerSensitivity" : 1,
           "scrollSensitivity" : 1
         },
-        "stenoConnectionMode" : "plugin",
+        "stenoConnectionMode" : "javelin",
         "stenoForceThreshold" : 130,
         "stenoHapticOnRelease" : true,
         "stenoHapticOnTouch" : false,

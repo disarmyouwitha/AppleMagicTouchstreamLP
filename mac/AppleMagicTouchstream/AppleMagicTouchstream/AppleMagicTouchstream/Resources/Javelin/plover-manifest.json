@@ -1,0 +1,12 @@
+{
+  "version": "5.4.2",
+  "source": "https://github.com/opensteno/plover/tree/v5.4.2/plover/assets",
+  "dictionaries": [
+    "plover-commands.json",
+    "plover-main.json"
+  ],
+  "sha256": {
+    "plover-commands.json": "71f8b1a96042f7169273318256f7afae97b691313c2a6557366bc04099ce8da8",
+    "plover-main.json": "6570873c7f703ecd39c9870083f643db3475b49462a8db80fe22fe33ac3cfe92"
+  }
+}

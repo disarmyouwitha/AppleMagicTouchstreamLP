@@ -350,3 +350,33 @@ without posting system input. Hardware: use Practice below the pads,
 complete a round with normal typing and Plover, correct a word using backspace, then
 start a new round. Verify Free type retains its own text and practice does not alter
 keyboard/gesture/STENO recognition or create an external connection.
+
+### Embedded Javelin prototype
+
+`JavelinTests` runs the native Javelin core without Plover or native event output:
+Gemini-to-stroke aliases, dictionary priority, multi-stroke replacement, affixes,
+punctuation/case, star undo, independent instances, reset, inert unsupported
+commands, connection serialization, and bundled Lapwing loading/translation.
+
+Hardware acceptance: quit Plover, select STENO → Connection → Built-in Javelin
+(Lapwing), wait for Lapwing ready, type words and multi-stroke outlines into a
+scratch text field, then test punctuation, suffixes and star undo. Change fields
+and confirm undo does not delete previous-field text; use a STENO force-click after
+manual cursor edits. Test mode changes, takeover release, sleep and replay exit
+for stale output. Existing STENO mouse, corners, haptics and chord cancellation
+should behave identically. Python/modal dictionaries and raw keyboard commands
+require the Plover connection. Offline tests never launch input or type text.
+
+`JavelinDictionaryTests` exercises the Plover text/number backend, strict outline
+and translation validation, alias conflicts, portable JSON, bundled save-copy
+protection (including symlinks), original-file preservation, catalog reopen,
+profile isolation, priority/enable/remove/export, atomic batch import, and native
+output overflow cancellation. The tests use temporary files and never post input.
+
+UI acceptance: choose either built-in connection, open Dictionaries…, load or
+create a JSON dictionary, edit/search entries, change priority and enabled state,
+and test translations. Edit a bundled dictionary, cancel Save As and confirm no
+file changes; repeat with a user location and Save Dictionary, confirming the
+original is disabled and untouched. Delete an entry in the copy and check that
+the old bundled translation does not return. Export and reload the JSON in Plover
+or AMT. Editing/canceling a draft must preserve committed files and the app's signature.

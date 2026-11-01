@@ -1,6 +1,9 @@
 //---------------------------------------------------------------------------
 
 #include "steno_key_code_buffer.h"
+#if AMT_HOST_EMITTER
+#include <stdexcept>
+#endif
 
 #include "key_press_parser.h"
 #include "orthography.h"
@@ -144,6 +147,9 @@ void StenoKeyCodeBuffer::AppendTextNoCaseModeOverride(const char *p,
 
         default:
         BadEscape:
+#if AMT_HOST_EMITTER
+          if (d >= buffer + BUFFER_SIZE - 1) throw std::length_error("Steno output limit");
+#endif
           *d++ = StenoKeyCode('\\', StenoCaseMode::NORMAL);
           caseMode = GetNextLetterCaseMode(caseMode);
         }
@@ -155,6 +161,9 @@ void StenoKeyCodeBuffer::AppendTextNoCaseModeOverride(const char *p,
       Backspace(1);
       d = currentOutput;
     } else {
+#if AMT_HOST_EMITTER
+      if (d >= buffer + BUFFER_SIZE - 1) throw std::length_error("Steno output limit");
+#endif
       *d++ = StenoKeyCode(c, caseMode, StenoCaseMode::NORMAL);
     }
 

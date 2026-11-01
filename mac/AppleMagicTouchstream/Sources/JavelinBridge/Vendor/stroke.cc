@@ -134,6 +134,15 @@ void StenoStroke::Set(const char *string) {
   keyState = value;
 }
 
+bool StenoStroke::SetChecked(const char *string) {
+  uint32_t value = 0;
+  for (const StrokeKey &display : parser) {
+    if (display.c == *string) { value |= display.mask; ++string; }
+  }
+  keyState = value;
+  return *string == '\0' && value != 0;
+}
+
 char *StenoStroke::ToString(char *buffer) const {
   Utf8Pointer utf8(buffer);
   const StrokeKey *pEnd = end(formatter);

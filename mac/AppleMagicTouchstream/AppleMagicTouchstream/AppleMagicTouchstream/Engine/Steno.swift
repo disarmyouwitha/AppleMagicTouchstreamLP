@@ -330,7 +330,7 @@ enum StenoLayoutDefinition {
         } }
     }
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
-                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .plugin,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
+                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .defaultMode,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
         if preset == .stenoSingle {
             rects = []

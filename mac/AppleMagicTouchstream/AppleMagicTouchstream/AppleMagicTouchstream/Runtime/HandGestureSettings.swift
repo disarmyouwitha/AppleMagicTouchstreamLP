@@ -585,7 +585,7 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
     var stenoConnectionMode:StenoConnectionMode?
-    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .plugin }
+    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .defaultMode }
     var stenoHapticOnTouch:Bool?
     var stenoHapticOnRelease:Bool?
     var stenoForceThreshold:Double?

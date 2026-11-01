@@ -26,6 +26,7 @@ StenoKeyCodeEmitter::EmitterContext::EmitterContext()
 
 //---------------------------------------------------------------------------
 
+#if !AMT_HOST_EMITTER
 bool StenoKeyCodeEmitter::Process(const StenoKeyCode *previous,
                                   size_t previousLength,
                                   const StenoKeyCode *value,
@@ -85,6 +86,7 @@ void StenoKeyCodeEmitter::Emit(const StenoKeyCode *value, size_t length) const {
 
 //---------------------------------------------------------------------------
 
+#endif // AMT_HOST_EMITTER
 void StenoKeyCodeEmitter::EmitterContext::ProcessStenoKeyCode(
     StenoKeyCode stenoKeyCode) {
   // Convert the incoming keyCode to a raw character code.

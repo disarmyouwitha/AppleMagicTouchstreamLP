@@ -475,6 +475,7 @@ char *PatternMatch::Replace(const char *format) const {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
+#if RUN_TESTS
 #include "unit_test.h"
 
 // spellchecker: disable
@@ -634,3 +635,5 @@ TEST_END
 // spellchecker: enable
 
 //---------------------------------------------------------------------------
+
+#endif // RUN_TESTS (AMT host build)

@@ -827,7 +827,7 @@ final class DispatchService: @unchecked Sendable {
         var drops: UInt64 = 0
         var nextCommandID: UInt64 = 1
         var stenoEnabled = false
-        var stenoConnectionMode = StenoConnectionMode.serial
+        var stenoConnectionMode = StenoConnectionMode.defaultMode
         var stenoHapticTouch = false, stenoHapticRelease = false
         var stenoForceThreshold:Float = 130
         var stenoPointerMode = StenoPointerMode.disabled
@@ -919,7 +919,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func configureStenoMode(_ enabled:Bool,pointerMode:StenoPointerMode = .disabled,forceThreshold:Float = 130,
-                            connectionMode:StenoConnectionMode = .serial,hapticTouch:Bool = false,hapticRelease:Bool = false) {
+                            connectionMode:StenoConnectionMode = .defaultMode,hapticTouch:Bool = false,hapticRelease:Bool = false) {
         let connectionChanged = stateLock.withLockUnchecked { state in
             let changed = state.stenoEnabled != enabled || state.stenoConnectionMode != connectionMode
             if changed || state.stenoPointerMode != pointerMode || state.stenoForceThreshold != forceThreshold
@@ -1134,6 +1134,12 @@ final class DispatchService: @unchecked Sendable {
 
     private func drainQueue() {
         while let command = popNextCommand() {
+            if case let .stenoStroke(mask,generation) = command.payload,
+               stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }),
+               keyDispatcher != nil {
+                dispatchJavelin(mask,generation:generation,command:command)
+                return // Preserve ordering while the main actor validates the text destination.
+            }
             if case let .textPaste(label,generation) = command.payload {
                 AutocorrectEngine.shared.invalidate()
                 TextShortcutTypingOutput.shared.request(label,generation:generation) { [weak self] pasted in
@@ -1145,6 +1151,65 @@ final class DispatchService: @unchecked Sendable {
             }
             dispatch(command)
         }
+    }
+
+    func reloadJavelinDictionaries(profile:JavelinDictionaryProfile) {
+        guard keyDispatcher != nil else { return }
+        dispatchQueue.async { [self] in
+            let mode = stateLock.withLockUnchecked { state -> StenoConnectionMode? in
+                guard state.stenoEnabled, state.stenoConnectionMode.isBuiltIn,
+                      state.stenoConnectionMode.dictionaryProfile == profile else { return nil }
+                state.stenoGeneration &+= 1
+                return state.stenoConnectionMode
+            }
+            guard let mode else { return }
+            JavelinBackend.shared.start(profile:mode.dictionaryProfile,force:true)
+        }
+    }
+
+    private func javelinIsCurrent(_ generation:UInt64) -> Bool {
+        stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }
+    }
+
+    private func dispatchJavelin(_ mask:UInt64,generation:UInt64,command:Command) {
+        AutocorrectEngine.shared.invalidate()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let ticket = JavelinFocusTicket(generation:generation) else {
+                self.dispatchQueue.async { self.finishJavelin(command,posted:false) }; return
+            }
+            let reset = ticket.needsReset
+            self.dispatchQueue.async {
+                guard self.javelinIsCurrent(generation) else { self.finishJavelin(command,posted:false); return }
+                if reset { JavelinBackend.shared.reset() }
+                guard let edit = JavelinBackend.shared.translate(mask), edit.backspaces <= 4096, edit.text.utf8.count <= 65536 else {
+                    self.finishJavelin(command,posted:false); return
+                }
+                Task { @MainActor in
+                    let valid = ticket.isCurrent()
+                    self.dispatchQueue.async {
+                        guard valid, self.javelinIsCurrent(generation), AXIsProcessTrusted(),
+                              !IsSecureEventInputEnabled(), NSRunningApplication(processIdentifier:ticket.pid)?.isActive == true else {
+                            self.finishJavelin(command,posted:false); return
+                        }
+                        for _ in 0..<edit.backspaces {
+                            self.keyDispatcher?.postKeyStrokeImmediate(code:51,flags:[],altAscii:0,token:nil,heldFlags:self.heldGestureFlags)
+                        }
+                        var posted = true
+                        for stroke in TextShortcutTypingPlan.strokes(edit.text) {
+                            if self.keyDispatcher?.postSavedTextStrokeImmediate(stroke,heldFlags:self.heldGestureFlags) != true { posted = false; break }
+                        }
+                        self.finishJavelin(command,posted:posted)
+                    }
+                }
+            }
+        }
+    }
+
+    private func finishJavelin(_ command:Command,posted:Bool) {
+        if !posted { JavelinBackend.shared.reset() }
+        emitRecordedEvent(for:command,status:posted ? .posted:.cancelled)
+        drainQueue()
     }
 
     private func popNextCommand() -> Command? {
@@ -1186,6 +1251,9 @@ final class DispatchService: @unchecked Sendable {
             }
             guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
                 emitRecordedEvent(for:command,status:.cancelled); return
+            }
+            if update.click != nil || update.dragBegan {
+                if stateLock.withLockUnchecked({ $0.stenoConnectionMode.isBuiltIn }) { JavelinBackend.shared.reset() }
             }
             InterpretedTrackpadPointer.shared.postStenoPointer(update,device:device,time:time)
         case let .stenoStroke(mask,generation):

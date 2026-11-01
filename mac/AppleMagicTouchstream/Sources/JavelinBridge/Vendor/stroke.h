@@ -124,6 +124,7 @@ public:
   constexpr StenoStroke(uint32_t keyState) : keyState(keyState) {}
 
   void Set(const char *string);
+  bool SetChecked(const char *string); // AMT: reject incomplete dictionary outlines.
   template <size_t N> StenoStroke(const char (&s)[N]) { Set(s); }
 
   bool IsEmpty() const { return keyState == 0; }

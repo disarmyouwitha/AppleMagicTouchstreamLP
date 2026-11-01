@@ -852,7 +852,7 @@ final class ContentViewModel: ObservableObject {
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
@@ -868,7 +868,7 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings

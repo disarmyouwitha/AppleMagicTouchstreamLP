@@ -375,9 +375,9 @@ is app-local and does not require an acceleration profile or Accessibility for
 its own action; normal selected/owned/armed/takeover gates remain. Leaving STENO
 restores the ordinary gesture assignments.
 
-The Connection selector offers the existing Gemini PR Serial endpoint and a
-**Plover Plugin** loopback connection. The plugin is the default for missing/new preferences; an explicitly saved serial
-choice stays serial. Plugin mode listens only on `127.0.0.1:31572`, with the same HELLO/READY
+The Connection selector offers Gemini PR Serial, a **Plover Plugin** loopback
+connection, **Built-in Javelin (Lapwing)**, and **Built-in Javelin (Plover)**. Built-in Javelin (Lapwing) is the default for missing/new preferences; explicitly
+saved plugin or serial choices remain unchanged. Plugin mode listens only on `127.0.0.1:31572`, with the same HELLO/READY
 handshake and six-byte Gemini PR frames as the Windows plugin. It automatically
 reconnects, bounds setup time/output buffering, rejects invalid setup or commands,
 and drops disconnected/full output rather than storing strokes for reconnect.
@@ -399,6 +399,63 @@ installation, without starting Plover's GUI or changing its settings.
 After installation, restart Plover and choose AppleMagicTouchstream
 under Configure → Machine. The source/builder and usage are in
 [PloverPlugin](PloverPlugin/README.md); the Windows copy remains intact.
+
+**Built-in Javelin (Lapwing)** and **Built-in Javelin (Plover)** are self-contained backends.
+Touch recognition and completed-chord masks are unchanged. A pinned Javelin C++
+core (7efd1e13a74f00ba4d2e793198546e6dc83c7fbe) translates strokes on the existing
+serial output queue; normal keyboard/gesture frames never enter it. Bundled
+Lapwing AIO 1.5.0 JSON dictionaries load only when its option is enabled, with
+commands → numbers → UK additions → proper nouns → base priority. Plover's stock
+5.4.2 commands/main JSON dictionaries are bundled separately, with their GPL
+license and source/version/checksum manifest. Plover uses the same native engine
+and output path, with the standard basic number-key fallback; Lapwing keeps its
+own explicit number dictionary. Both drawn S
+keys produce S; star and number aliases collapse to their shared steno bits.
+The host emitter returns Unicode/backspace edits and never posts native input.
+Live DispatchService verifies generation, Accessibility, secure-input state and
+focused target before serialized output. AX capture/verification stays on the
+main actor, while the output pump preserves stroke order. Replay remains
+recording-only and does not load dictionaries or translate/post text.
+
+Multi-stroke translation, standard affix/case/punctuation formatting and star undo
+use the real Javelin engine. English suffix spelling uses a conservative host
+rule subset. Python/modal dictionaries, raw keyboard shortcuts, plugin macros,
+Plover commands and extended functions are inert in this prototype, including
+reserving their JSON outlines against lower-priority fallthrough. Keep the Plover
+option for those extensions. No personal dictionary or Plover preferences ship.
+Focus changes, STENO mouse clicks/drag acquisition, queue resets and transport or
+mode changes discard translation history without output. A STENO force-click
+provides an explicit history boundary after moving the cursor with another device
+or editing text within the same field; there is no manual reset button. This prototype does not monitor physical
+keyboard/mouse input or promise to track those edits. Dictionary versions, hashes
+and MIT/PolyForm Noncommercial notices ship under `Resources/Javelin`.
+
+**Dictionaries…** opens the manager for the selected built-in profile. Each
+profile has an independently saved, ordered dictionary list; higher enabled rows
+win. Load accepts local JSON dictionaries; New/Edit support searchable outline and
+translation rows; Export writes portable JSON. Removing a user dictionary removes
+only the reference, never the file. Batch imports validate all files before
+changing the list. Imported files remain at the selected paths and can be reloaded
+after external edits. The local catalog lives at Application Support/
+AppleMagicTouchstream/StenoDictionaries/catalog.json; it contains paths and enabled
+states, with no dictionary contents added to settings or capture formats.
+
+Bundled dictionaries stay read-only. Editing a bundled dictionary asks for a
+Save As location before opening a draft; Cancel writes nothing. Saving writes the
+copy atomically, inserts it at the original priority, and disables the original
+bundled dictionary. Thus deleting a copied entry does not fall through to the old
+bundled value. All dictionary writes/exports reject destinations within the app
+or bundled resource folder, including symlink aliases. Editing saves ordinary
+JSON outside the signed app. Open/save errors remain visible. Dictionary changes
+reload only the active matching built-in backend on the output queue, invalidating
+queued strokes and resetting translation history. Normal recognition is unchanged.
+
+JSON loading validates file/entry/translation bounds, complete canonical steno
+outlines, conflicting aliases and balanced formatting braces. Unsupported commands
+remain inert. The native host append path bounds accumulated text; overflow cancels
+the edit and resets history without posting partial output. Search and JSON file
+work run off the main/input queues. Replay never loads a user dictionary or emits
+translated text. See Sources/JavelinBridge/README.md for vendor provenance/patches.
 
 The shared output queue sends six-byte packets using
 [Plover's Gemini PR wire order](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).
