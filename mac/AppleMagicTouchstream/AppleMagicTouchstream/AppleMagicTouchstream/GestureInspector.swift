@@ -1222,7 +1222,7 @@ enum WorkspaceColumnSizing {
     static let defaultGestureColumnWidth = 286.0
     static let defaultGestureInspectorWidth = defaultMenuWidth
     static let compactMenuBreakpoint = 380.0
-    static let defaultMenuWidth = compactMenuBreakpoint + 1
+    static let defaultMenuWidth = 321.0
     static let minimumMenu = 220.0
     static let minimumInspector = minimumMenu
     static let dividerWidth = 8.0

@@ -120,7 +120,7 @@ assigned a supported action. Changing layouts does not replace saved mappings.
 
 ## Layout authoring
 
-The configuration window starts at 1240 × 720 points, capped to the main screen’s
+The configuration window starts at 1280 × 720 points, capped to the main screen’s
 visible frame with room for the titlebar and 16-point margins. Its minimum content
 size is 1120 × 540 points, allowing laptop screen resolutions without the previous
 1384-point minimum width. Existing workspace scroll areas handle constrained space;
@@ -561,6 +561,10 @@ Default off; reconcile the saved preference at launch and reflect actual service
 status on config load, changes and errors. Imports may apply an included startup
 preference and report failure; exports include it. Build/tests never register
 login items. Login launch and registration approval require a user hardware test.
+
+Keyboard settings, Layout Editor and the Gesture action inspector share a default
+sidebar width of 321 points; gesture navigation defaults to 286 points. Saved custom
+widths take precedence over these defaults.
 
 The Gesture workspace’s Left/Right/Both selector uses equal-width native segments
 that fill its navigation column.

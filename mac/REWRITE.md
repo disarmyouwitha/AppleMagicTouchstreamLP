@@ -1,9 +1,5 @@
 # NEXT:
 =======
-* Test on Macbook!
-0. Can we have the default width/height of the app reduces to fit on my macbook resolution? (it seems like 100px too wide? maybe less?)
-1. Trackpad Takeover isn't working on macbook?
-===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
 2. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. does monkeytype have an API? lmao. random word type monkey type generator? probably easier to roll you own. 

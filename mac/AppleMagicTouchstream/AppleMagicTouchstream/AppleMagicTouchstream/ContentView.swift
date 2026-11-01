@@ -15,7 +15,7 @@ import UniformTypeIdentifiers
 /// Content dimensions are in macOS points, independently of Retina pixel density.
 enum ConfigWindowSizing {
     static let minimum = CGSize(width:1120,height:540)
-    static let preferred = CGSize(width:1240,height:720)
+    static let preferred = CGSize(width:1280,height:720)
     static func initialContentSize(visibleFrame:CGRect,titlebarHeight:CGFloat) -> CGSize {
         CGSize(width:min(preferred.width,max(1,visibleFrame.width-32)),
                height:min(preferred.height,max(1,visibleFrame.height-titlebarHeight-32)))
