@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Practice reads only its focused text field; it never observes or posts input.
@@ -70,7 +71,7 @@ struct TypingPracticePanel: View {
     @State private var count = 25
     @State private var custom = ""
     @State private var session = TypingPracticeSession(prompt:"")
-    @FocusState private var practiceFocused:Bool
+    @State private var focusToken = UUID()
 
     init(freeText:Binding<String>,initialPractice:Bool = false,initialMode:TypingPracticeSession.Mode = .words) {
         _freeText = freeText
@@ -84,20 +85,19 @@ struct TypingPracticePanel: View {
                     Text("Free type").tag(false)
                     Text("Practice").tag(true)
                 }.pickerStyle(.segmented).frame(width:230)
-                Spacer()
+                if practicing {
+                    Picker("Practice",selection:$mode) {
+                        ForEach(TypingPracticeSession.Mode.allCases) { Text($0.rawValue).tag($0) }
+                    }.frame(width:220)
+                    Picker("Words",selection:$count) { ForEach([10,25,50,100],id:\.self) { Text("\($0)").tag($0) } }.frame(width:145)
+                }
+                Spacer(minLength:8)
                 if practicing {
                     Button(action:restart) { Label("New drill",systemImage:"arrow.clockwise") }
                         .disabled(mode == .custom && TypingPracticeSession.words(from:custom).isEmpty)
                 }
             }
             if practicing {
-                HStack(spacing:12) {
-                    Picker("Practice",selection:$mode) {
-                        ForEach(TypingPracticeSession.Mode.allCases) { Text($0.rawValue).tag($0) }
-                    }.frame(width:220)
-                    Picker("Words",selection:$count) { ForEach([10,25,50,100],id:\.self) { Text("\($0)").tag($0) } }.frame(width:145)
-                    Spacer()
-                }
                 if mode == .custom {
                     TextField("Words to practice, separated by spaces",text:$custom)
                         .textFieldStyle(.roundedBorder).onSubmit(restart)
@@ -109,6 +109,11 @@ struct TypingPracticePanel: View {
                     Text(highlightedPrompt).font(.system(size:18,design:.monospaced))
                         .lineSpacing(6).frame(maxWidth:.infinity,alignment:.leading)
                         .accessibilityLabel("Practice prompt: \(session.prompt)")
+                        .overlay {
+                            PracticePromptInput(text:Binding(get:{session.input},set:{session.update($0,at:.now)}),
+                                enabled:session.finishedAt == nil,focusToken:focusToken)
+                        }
+                        .help("Click the prompt to focus, then type. Backspace and Plover corrections work here.")
                     ProgressView(value:session.progress).accessibilityLabel("Practice progress")
                     TimelineView(.periodic(from:.now,by:0.5)) { context in
                         HStack(spacing:20) {
@@ -120,12 +125,7 @@ struct TypingPracticePanel: View {
                                 .foregroundStyle(session.finishedAt != nil ? Color.green:Color.secondary)
                         }
                     }
-                    TextEditor(text:Binding(get:{session.input},set:{session.update($0,at:.now)}))
-                        .font(.system(.body,design:.monospaced)).focused($practiceFocused)
-                        .frame(height:85).disabled(session.finishedAt != nil)
-                        .overlay(RoundedRectangle(cornerRadius:6).stroke(Color.secondary.opacity(0.6)))
-                        .accessibilityLabel("Practice input")
-                    Text(mode == .steno ? "Use Plover’s translated output here. Capitalization is ignored; corrections and backspaces update the score.":"Match the prompt. Corrections are allowed; WPM and accuracy reflect your current text.")
+                    Text(mode == .steno ? "Use Plover’s translated output here. Capitalization is ignored; corrections and backspaces update the score.":"Click the prompt and type. Corrections are allowed; WPM and accuracy reflect your current text.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } else {
@@ -156,6 +156,63 @@ struct TypingPracticePanel: View {
     private func restart() {
         var random = SystemRandomNumberGenerator()
         session = TypingPracticeSession(prompt:TypingPracticeSession.prompt(mode:mode,count:count,custom:custom,using:&random),ignoresCase:mode == .steno)
-        practiceFocused = true
+        focusToken = UUID()
+    }
+}
+
+/// A normal focused NSTextView preserves Unicode, backspace and AX replacement
+/// for Plover; only its drawing is hidden behind the highlighted prompt.
+struct PracticePromptInput:NSViewRepresentable {
+    @Binding var text:String
+    let enabled:Bool
+    let focusToken:UUID
+    func makeCoordinator() -> Coordinator { Coordinator(text:$text) }
+    func makeNSView(context:Context) -> PromptTextView {
+        let view = PromptTextView()
+        view.delegate = context.coordinator
+        view.isRichText = false
+        view.drawsBackground = false
+        view.textColor = .clear
+        view.insertionPointColor = .clear
+        view.isAutomaticQuoteSubstitutionEnabled = false
+        view.isAutomaticDashSubstitutionEnabled = false
+        view.isAutomaticTextReplacementEnabled = false
+        view.isAutomaticSpellingCorrectionEnabled = false
+        view.isContinuousSpellCheckingEnabled = false
+        view.isGrammarCheckingEnabled = false
+        view.setAccessibilityLabel("Practice input")
+        return view
+    }
+    func updateNSView(_ view:PromptTextView,context:Context) {
+        context.coordinator.text = $text
+        view.isEditable = enabled
+        if view.string != text {
+            view.string = text
+            view.setSelectedRange(NSRange(location:(text as NSString).length,length:0))
+        }
+        if context.coordinator.focusToken != focusToken {
+            context.coordinator.focusToken = focusToken
+            DispatchQueue.main.async { [weak view] in
+                guard let view, view.isEditable, let window = view.window, window.isKeyWindow else { return }
+                window.makeFirstResponder(view)
+            }
+        }
+    }
+    @MainActor final class Coordinator:NSObject,NSTextViewDelegate {
+        var text:Binding<String>
+        var focusToken:UUID?
+        init(text:Binding<String>) { self.text = text }
+        func textDidChange(_ notification:Notification) {
+            guard let view = notification.object as? NSTextView else { return }
+            text.wrappedValue = view.string
+        }
+    }
+    final class PromptTextView:NSTextView {
+        override func draw(_ dirtyRect:NSRect) {}
+        override func mouseDown(with event:NSEvent) {
+            guard isEditable else { return }
+            window?.makeFirstResponder(self)
+            setSelectedRange(NSRange(location:(string as NSString).length,length:0))
+        }
     }
 }

@@ -60,6 +60,31 @@ final class TypingPracticeTests:XCTestCase {
 }
 
 @MainActor final class TypingPracticeViewTests:XCTestCase {
+    func testPromptInputAcceptsUnicodeBackspaceAndPloverStyleReplacement() throws {
+        var text = ""
+        let host = NSHostingView(rootView:PracticePromptInput(text:Binding(get:{text},set:{text = $0}),enabled:true,focusToken:UUID()))
+        host.frame = CGRect(x:0,y:0,width:600,height:80)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        func input(in view:NSView) -> NSTextView? {
+            if let text = view as? NSTextView { return text }
+            return view.subviews.compactMap { input(in:$0) }.first
+        }
+        let editor = try XCTUnwrap(input(in:host))
+        editor.insertText("cat",replacementRange:NSRange(location:NSNotFound,length:0))
+        XCTAssertEqual(text,"cat")
+        editor.insertText("s",replacementRange:NSRange(location:NSNotFound,length:0))
+        XCTAssertEqual(text,"cats")
+        editor.deleteBackward(nil)
+        XCTAssertEqual(text,"cat")
+        editor.insertText("café",replacementRange:NSRange(location:0,length:3))
+        XCTAssertEqual(text,"café")
+        XCTAssertFalse(editor.drawsBackground)
+        XCTAssertEqual(editor.textColor,.clear)
+        XCTAssertFalse(window.isVisible)
+    }
     func testPracticeAndFreeTypeRenderWithoutOutputOrMutatingFreeText() throws {
         for (practice,mode) in [(false,TypingPracticeSession.Mode.words),(true,.words),(true,.steno),(true,.custom)] {
             var freeText = "keep my free text"

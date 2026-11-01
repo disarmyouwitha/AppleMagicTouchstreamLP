@@ -578,6 +578,10 @@ controls, without ordinary shortcut dispatch.
 ## Typing practice
 
 The typing area below the keyboard visualizer has Free type and Practice tabs.
+Practice mode keeps its mode/word-count selectors beside the Typing area control
+and New drill. The separate input box is hidden: a transparent native text input
+over the highlighted prompt handles typing, backspace, Unicode and Plover/AX text
+replacement. Clicking the prompt focuses input; Free type keeps its visible box.
 Practice generates local 10/25/50/100-word rounds from common words, short English
 STENO drills, or a custom whitespace-separated word list. It uses only text entered
 into the focused practice field; there are no global input observers, external

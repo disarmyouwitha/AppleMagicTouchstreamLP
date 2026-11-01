@@ -344,7 +344,9 @@ STENO codes stay hidden. The filter must not change saved assignments or output.
 
 TypingPracticeTests cover generated pool/count limits, empty/single custom lists,
 clock start/freeze, positional accuracy, corrections, Plover-style replacement,
-case/whitespace matching and bounded input. Hardware: use Practice below the pads,
+case/whitespace matching and bounded input. Native prompt-input checks insert
+Unicode, backspace and replacement text directly into an isolated hidden NSTextView
+without posting system input. Hardware: use Practice below the pads,
 complete a round with normal typing and Plover, correct a word using backspace, then
 start a new round. Verify Free type retains its own text and practice does not alter
 keyboard/gesture/STENO recognition or create an external connection.

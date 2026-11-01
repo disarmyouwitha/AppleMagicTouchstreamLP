@@ -1,8 +1,5 @@
 # NEXT:
 =======
-0. Built-in small typing games for typing practice and steno practice (like lapdrill.py) Ability to plug into lapdrill or like.. A random monkeytype like generator? probably easier to roll you own. 
-> Should we use the textarea under the trackpad visualizer?
-===
 # Human Tasks...?
 0. Start working on TouchStream gesture defaults template!!
 > Can Codex look at the Fingerworks gesture XML and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
