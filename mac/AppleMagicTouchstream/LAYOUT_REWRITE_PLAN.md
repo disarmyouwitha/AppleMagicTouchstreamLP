@@ -72,7 +72,8 @@ With Mirror Edit on, check reflected movement/resizing/rotation and dashed partn
 previews. Turn it off and verify each half stays independent. Test click and box
 selection with individual keys only. Resize a temporary selection with the shared
 frame handle, exact dimensions and 5% buttons, including mirrored and mixed-rotation
-selections. Check segmented Off/1 mm/5 mm snap beside the title, compact tools capped at three
+selections. Check fixed 1 mm snap, mapped per-hand legends and bundled default template resets,
+compact tools capped at three
 columns, the count beside Add Column and visualizer size caps. Apply/Cancel return to the
 visualizer; Cancel must leave geometry unchanged. Check Undo/Redo/Reset and then
 check typing at the new positions and switching layers. Duplicate an assigned key,

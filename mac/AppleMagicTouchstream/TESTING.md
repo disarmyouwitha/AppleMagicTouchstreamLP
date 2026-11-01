@@ -76,7 +76,8 @@ Check Shift/Keep proportions, common-axis nonuniform resizing and mixed-rotation
 uniform resizing. Verify visualizer/editor trackpad size caps match; tool grids wrap
 into at most three columns at wider settings widths, with Rotate Right below Rotate
 Left. Check the column count beside Add Column, header controls beside the title,
-segmented Off/1 mm/5 mm snapping and
+fixed 1 mm snapping, correct active-layer/per-hand editor legends, bundled default
+template reset geometry and
 blue Mirror Edit buttons in both editors, dashed counterpart outlines, independent
 per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify

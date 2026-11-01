@@ -598,7 +598,7 @@ struct ContentView: View {
     @ViewBuilder private var layoutEditorWorkspace: some View {
         if let document = layoutEditorDocument, let template = layoutEditorTemplate {
             LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
-                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth)
+                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer())
         }
     }
 
@@ -2937,17 +2937,30 @@ struct ContentView: View {
     }
 
     private var templateSeed: LayoutDocument {
-        let preset = layoutOption
-        func base(_ right: Bool) -> ContentViewModel.Layout {
-            if preset.isSteno { return StenoLayoutDefinition.layout(preset: preset, side: right ? .right : .left, size: trackpadSize, columns: columnSettings, spacing: keySpacingPercent, overrides: [:]) }
-            if preset == .touchstream { return Self.makeTouchStreamKeyLayout(size: trackpadSize, side: right ? .right : .left, keyGeometryOverrides: [:]) }
-            if !right && preset.blankLeftSide { return ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize) }
-            return Self.makeKeyLayout(size: trackpadSize, keyWidth: Self.baseKeyWidthMM, keyHeight: Self.baseKeyHeightMM,
-                columns: preset.columns, rows: preset.rows, trackpadWidth: Self.trackpadWidthMM, trackpadHeight: Self.trackpadHeightMM,
-                columnAnchorsMM: preset.columnAnchors, columnSettings: ColumnLayoutDefaults.defaultSettings(columns: preset.columns),
-                keySpacingPercent: LayoutKeySpacingDefaults.defaultPercent, mirrored: !right)
+        let profile = Bundle.main.url(forResource:"DEFAULT_KEYMAP",withExtension:"json")
+            .flatMap { try? Data(contentsOf:$0) }
+            .flatMap { PortableKeymapInterop.decodeBundledDefaultProfile(from:$0) }
+        return Self.editorTemplate(preset:layoutOption,size:trackpadSize,profile:profile)
+    }
+
+    /// Reset uses the same imported geometry fields as loading the bundled keymap.
+    /// It deliberately leaves current per-layer action assignments to Keymap Tuning.
+    static func editorTemplate(preset:TrackpadLayoutPreset,size:CGSize,profile:AppKeymapProfile?) -> LayoutDocument {
+        if let saved = profile?.layoutDocuments?[preset.rawValue], saved.isValid { return saved }
+        let columns = profile?.columnSettingsByLayout[preset.rawValue] ?? ColumnLayoutDefaults.defaultSettings(columns:preset.columns)
+        let spacing = profile?.keySpacingPercentByLayout?[preset.rawValue] ?? LayoutKeySpacingDefaults.defaultPercent
+        let overrides = profile?.keyGeometryByLayout?[preset.rawValue] ?? [:]
+        func base(_ right:Bool) -> ContentViewModel.Layout {
+            if preset.isSteno { return StenoLayoutDefinition.layout(preset:preset,side:right ? .right:.left,size:size,columns:columns,spacing:spacing,overrides:overrides) }
+            if preset == .touchstream { return makeTouchStreamKeyLayout(size:size,side:right ? .right:.left,keyGeometryOverrides:overrides) }
+            if !right && preset.blankLeftSide { return ContentViewModel.Layout(keyRects:[],trackpadSize:size) }
+            return makeKeyLayout(size:size,keyWidth:baseKeyWidthMM,keyHeight:baseKeyHeightMM,
+                columns:preset.columns,rows:preset.rows,trackpadWidth:trackpadWidthMM,trackpadHeight:trackpadHeightMM,
+                columnAnchorsMM:preset.columnAnchors,columnSettings:columns,keySpacingPercent:spacing,
+                keyGeometryOverrides:overrides,mirrored:!right)
         }
-        return LayoutDocument.seed(left: base(false), right: base(true), leftLabels: preset.leftLabels, rightLabels: preset.rightLabels, groupByBindingColumn: preset.allowsColumnSettings && !preset.isSteno)
+        return LayoutDocument.seed(left:base(false),right:base(true),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
+            groupByBindingColumn:preset.allowsColumnSettings && !preset.isSteno)
     }
 
     private func rebuildLayouts() {

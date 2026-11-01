@@ -7,10 +7,11 @@ struct LayoutEditor: View {
     let template: LayoutDocument
     let onApply: (LayoutDocument?) -> Void
     let onCancel: () -> Void
+    let mappings: [String:KeyMapping]
     @Binding var menuWidth: Double
     @State private var selection = Set<UUID>()
     @State private var mirror = true
-    @State private var snapMM: CGFloat = 1
+    private let snapMM: CGFloat = 1
     @State private var right = true
     @State private var history = LayoutDocumentHistory()
     @State private var dragStart: LayoutDocument?
@@ -33,7 +34,8 @@ struct LayoutEditor: View {
     }
 
     init(document: LayoutDocument, template: LayoutDocument, onApply: @escaping (LayoutDocument?) -> Void,
-         onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = []) {
+         onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = [], mappings: [String:KeyMapping] = [:]) {
+        self.mappings = mappings
         _document = State(initialValue:document)
         self.template = template; self.onApply = onApply; self.onCancel = onCancel; _menuWidth = menuWidth
         _selection = State(initialValue:initialSelection)
@@ -90,7 +92,6 @@ struct LayoutEditor: View {
         HStack(spacing:12) {
             Label("Layout Editor",systemImage:"square.and.pencil").font(.headline)
             mirrorToggle
-            snapToggle
         }.fixedSize()
     }
     private var editorActions: some View {
@@ -113,15 +114,6 @@ struct LayoutEditor: View {
         MirrorEditButton(isOn:$mirror)
             .accessibilityLabel("Mirror Edit").accessibilityValue(mirror ? "On":"Off")
             .help("Reflect geometry and structural edits across paired keys. Each pad keeps its own actions.")
-    }
-    private var snapToggle: some View {
-        Picker("Grid snap",selection:$snapMM) {
-            Text("Off").tag(CGFloat(0))
-            Text("1 mm").tag(CGFloat(1))
-            Text("5 mm").tag(CGFloat(5))
-        }
-        .pickerStyle(.segmented).labelsHidden().frame(width:170)
-        .help("Grid snap for dragging and selection resizing. Independent of typing Snap Radius.")
     }
     private var selectionCaption: some View {
         HStack(spacing: 12) {
@@ -415,7 +407,7 @@ struct LayoutEditor: View {
         }.frame(width:90).disabled(disabled).help(hint ?? title).accessibilityLabel(title)
     }
     private func refreshLegends() {
-        legends = Dictionary(uniqueKeysWithValues:document.keys.map { ($0.id,KeyActionCatalog.action(for:$0.label)?.displayText ?? $0.label) })
+        legends = document.editorLegends(mappings:mappings)
     }
     private func change(mirrorGeometry: Bool = true,_ action: () -> Void) {
         let old = document, ids = selection

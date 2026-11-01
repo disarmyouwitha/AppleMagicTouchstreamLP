@@ -138,10 +138,15 @@ Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
 displayScale) and shrink together when needed. Tool buttons retain their compact
 90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
 The editor selects individual keys regardless of saved group metadata; Group/Ungroup
-controls are removed. Mirror Edit and a segmented Off / 1 mm / 5 mm grid selector
-sit beside the Layout Editor title. The column count sits beside Add Column.
-Editing snap offers Off, 1 mm and 5 mm for dragging and shared
-frame resizing, independently of typing Snap Radius. Mirror Edit uses a blue enabled
+controls are removed. Mirror Edit sits beside the Layout Editor title. The column count sits beside Add
+Column. Dragging and shared frame resizing always use a 1 mm grid, independently of
+typing Snap Radius; no grid selector is shown.
+
+Editor legends resolve the active layer’s actual per-hand mappings, including staged
+duplicate sources, without rewriting the document’s fallback labels. Reset seeds
+geometry from bundled DEFAULT_KEYMAP.json, including per-layout column dimensions,
+row spacing, padding, key overrides and any authored default documents. Current
+action assignments remain independent of geometry reset. Mirror Edit uses a blue enabled
 button with the same split-pad icon in Layout Editor and Gesture Editor.
 
 Keymap Tuning no longer offers the separate Custom Buttons creation, deletion or

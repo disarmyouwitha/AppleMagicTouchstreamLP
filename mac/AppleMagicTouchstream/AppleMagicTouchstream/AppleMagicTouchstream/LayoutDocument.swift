@@ -225,6 +225,17 @@ struct LayoutDocument: Codable, Equatable {
         return result.mapValues { $0.filter { surviving.contains($0.key) } }
     }
 
+    /// Presentation follows the active hand/layer mapping without changing fallback labels
+    /// or assignments. Resolve staged duplicate provenance just as Apply does.
+    func editorLegends(mappings: [String:KeyMapping]) -> [UUID:String] {
+        let staged = updatedMappings([0:mappings])[0] ?? [:]
+        return Dictionary(uniqueKeysWithValues:keys.map { key in
+            let address = GridKeyPosition(side:key.right ? .right:.left,row:key.row,column:key.column).storageKey
+            let label = staged[address]?.primary.displayText ?? KeyActionCatalog.action(for:key.label)?.displayText ?? key.label
+            return (key.id,label)
+        })
+    }
+
     struct SelectionFrame: Equatable {
         let rect: NormalizedRect
         let allowsIndependentAxes: Bool

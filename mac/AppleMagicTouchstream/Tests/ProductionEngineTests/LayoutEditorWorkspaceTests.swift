@@ -17,6 +17,60 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
         doc.inferMirrorPairs()
         return doc
     }
+    private func defaultProfile() throws -> AppKeymapProfile {
+        let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/DEFAULT_KEYMAP.json"))
+        return try XCTUnwrap(PortableKeymapInterop.decodeBundledDefaultProfile(from:data))
+    }
+    func testEditorLegendsUseIndependentActiveHandMappingsAndDuplicateSource() throws {
+        var doc = document()
+        let left = try XCTUnwrap(doc.keys.first {!$0.right})
+        let right = try XCTUnwrap(doc.keys.first {$0.right})
+        let a = try XCTUnwrap(KeyActionCatalog.action(for:"A")), b = try XCTUnwrap(KeyActionCatalog.action(for:"B"))
+        let mappings = [GridKeyPosition(side:.left,row:left.row,column:left.column).storageKey:KeyMapping(primary:a,hold:nil),
+                        GridKeyPosition(side:.right,row:right.row,column:right.column).storageKey:KeyMapping(primary:b,hold:nil)]
+        let before = doc
+        let legends = doc.editorLegends(mappings:mappings)
+        XCTAssertEqual(legends[left.id],a.displayText); XCTAssertEqual(legends[right.id],b.displayText)
+        XCTAssertEqual(doc,before,"Display labels must not overwrite fallback actions or geometry")
+        let copied = try XCTUnwrap(doc.duplicate([left.id]).first)
+        XCTAssertEqual(doc.editorLegends(mappings:mappings)[copied],a.displayText)
+    }
+    func testResetGridTemplatesUseBundledColumnDimensionsAndRowSpacing() throws {
+        let profile = try defaultProfile(), size = CGSize(width:432,height:310.23)
+        for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour,.fiveByThree,.fiveByFour] {
+            let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
+            XCTAssertEqual(doc.keys.count,preset.rows*preset.columns*2)
+            let columns = try XCTUnwrap(profile.columnSettingsByLayout[preset.rawValue])
+            let spacing = try XCTUnwrap(profile.keySpacingPercentByLayout?[preset.rawValue])
+            for side in [false,true] {
+                let expected = ContentView.makeKeyLayout(size:size,keyWidth:ContentView.baseKeyWidthMM,keyHeight:ContentView.baseKeyHeightMM,
+                    columns:preset.columns,rows:preset.rows,trackpadWidth:ContentView.trackpadWidthMM,trackpadHeight:ContentView.trackpadHeightMM,
+                    columnAnchorsMM:preset.columnAnchors,columnSettings:columns,keySpacingPercent:spacing,
+                    keyGeometryOverrides:profile.keyGeometryByLayout?[preset.rawValue] ?? [:],mirrored:!side)
+                for key in doc.keys where key.right == side {
+                    XCTAssertEqual(key.rect,expected.normalizedKeyRects[key.row][key.column],"\(preset) \(side) \(key.row):\(key.column)")
+                }
+            }
+        }
+    }
+    func testResetSpecialTemplatesRetainBundledGeometryAndStenoOverlap() throws {
+        let profile = try defaultProfile(), size = CGSize(width:432,height:310.23)
+        for preset in [TrackpadLayoutPreset.touchstream,.steno,.stenoVoyager,.stenoSingle] {
+            let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
+            XCTAssertTrue(doc.isValid)
+            if preset == .stenoSingle { XCTAssertFalse(doc.keys.contains {!$0.right}) }
+            if preset == .steno || preset == .stenoSingle { XCTAssertTrue(doc.keys.contains {$0.edges.contains {$0 > 0}}) }
+            for side in [false,true] {
+                let expected = preset == .touchstream
+                    ? ContentView.makeTouchStreamKeyLayout(size:size,side:side ? .right:.left,keyGeometryOverrides:profile.keyGeometryByLayout?[preset.rawValue] ?? [:])
+                    : StenoLayoutDefinition.layout(preset:preset,side:side ? .right:.left,size:size,
+                        columns:profile.columnSettingsByLayout[preset.rawValue] ?? [],spacing:profile.keySpacingPercentByLayout?[preset.rawValue] ?? 10,
+                        overrides:profile.keyGeometryByLayout?[preset.rawValue] ?? [:])
+                for key in doc.keys where key.right == side { XCTAssertEqual(key.rect,expected.normalizedKeyRects[key.row][key.column]) }
+            }
+        }
+    }
     func testInlineWorkspaceRendersIndividualSelectionOnEitherPadWithoutApplying() throws {
         let doc = document()
         for side in [false,true] {
