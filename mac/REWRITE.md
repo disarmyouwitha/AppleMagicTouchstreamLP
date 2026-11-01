@@ -1,6 +1,8 @@
 # NEXT:
 =======
 0. Let's call it "Pinch, Spread, Rotate" instead.
+1. I guess we need to move Rotate Left and Rotate Right into the 3F Pinch, Spread, Rotate page so it matches the rest.. Maybe we can layout the GUI on T2F like this with the remaining options? <screenshot>
+2. Can we add the Repeat behaviour options for pinch,spread,rotate gestures?
 ===
 0. The more I think about it 2F rotation should work! It is very different than other 2F gestures because the fingers do not travel together and they are spread out instead of side-by-side. (And they include a thumb which other 2F gestures dont!) so that is another way we can tell it apart from movement/directional gestures. The Rotate is also distinct from pinch/zoom which we show with Thumb+2F (which is implemented flawlessly)
 1. Let's also add 4F and 5F rotate to their respective pinch and spread pages. 
