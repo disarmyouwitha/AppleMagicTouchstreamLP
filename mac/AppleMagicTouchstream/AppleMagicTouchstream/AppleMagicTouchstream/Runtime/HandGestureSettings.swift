@@ -66,7 +66,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if isRotation { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.smartZoom,.voice] + GestureAction.smallStepActions
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.smartZoom,.lookUp,.previousSpace,.nextSpace,.voice] + GestureAction.smallStepActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -90,11 +90,11 @@ typealias GestureFeature = GestureTrigger
 enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresentable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
-    case openConfig, voice, smartZoom
+    case openConfig, voice, smartZoom, lookUp, previousSpace, nextSpace
     case scrollUp, scrollDown, panLeft, panRight
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
     case shortcut(GestureShortcutAssignment)
-    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.lookUp,.previousSpace,.nextSpace,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     var rawValue: String {
         switch self {
         case .disabled: return "disabled"
@@ -103,6 +103,9 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .scroll: return "scroll"
         case .zoom: return "zoom"
         case .smartZoom: return "smartZoom"
+        case .lookUp: return "lookUp"
+        case .previousSpace: return "previousSpace"
+        case .nextSpace: return "nextSpace"
         case .primaryClick: return "primaryClick"
         case .primaryDoubleClick: return "primaryDoubleClick"
         case .secondaryClick: return "secondaryClick"
@@ -146,7 +149,7 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     static var oneShotActions: [Self] { appleShortcuts + [.smartZoom] + smallStepActions + [.voice] }
-    static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
+    static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.lookUp,.previousSpace,.nextSpace]
     var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) || Self.smallStepActions.contains(self) }
     var id: String { rawValue }
     var title: String {
@@ -172,6 +175,9 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"
         case .zoom: return "Zoom"
         case .smartZoom: return "Smart Zoom"
+        case .lookUp: return "Look Up"
+        case .previousSpace: return "Previous Space"
+        case .nextSpace: return "Next Space"
         case .secondaryClick: return "Secondary Click"
         }
     }

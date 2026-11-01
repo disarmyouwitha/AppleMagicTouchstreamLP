@@ -473,7 +473,11 @@ struct AppleShortcutPlan: Equatable, Sendable {
         switch action {
         case .missionControl: return "32"; case .appExpose: return "33"
         case .showDesktop: return "36"; case .launchpad: return "160"
-        case .notificationCenter: return "163"; default: return nil
+        case .notificationCenter: return "163"
+        case .lookUp: return "70"
+        case .previousSpace: return "79"
+        case .nextSpace: return "81"
+        default: return nil
         }
     }
     static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
@@ -493,6 +497,23 @@ struct AppleShortcutPlan: Equatable, Sendable {
                 ? "com.apple.expose.awake" : "com.apple.expose.front.awake")
         }
         guard let id = symbolicID(action) else { return nil }
+        // These system shortcuts can be disabled by the user. Never leak their
+        // fallback keystrokes into the foreground app when explicitly disabled.
+        let defaultShortcut: Self?
+        switch action {
+        case .lookUp: defaultShortcut = Self(keyCode:2,flags:[.maskControl,.maskCommand])
+        case .previousSpace: defaultShortcut = Self(keyCode:123,flags:.maskControl)
+        case .nextSpace: defaultShortcut = Self(keyCode:124,flags:.maskControl)
+        default: defaultShortcut = nil
+        }
+        if let defaultShortcut {
+            guard let entry = preferences[id] as? [String:Any] else {
+                return preferences[id] == nil ? defaultShortcut : nil
+            }
+            guard (entry["enabled"] as? NSNumber)?.boolValue == true else { return nil }
+            // macOS saves an enabled-only entry when the default binding is used.
+            if entry["value"] == nil { return defaultShortcut }
+        }
         if let entry = preferences[id] as? [String:Any], (entry["enabled"] as? NSNumber)?.boolValue == true {
             guard let value = entry["value"] as? [String:Any], value["type"] as? String == "standard",
                   let parameters = value["parameters"] as? [NSNumber], parameters.count == 3 else { return nil }

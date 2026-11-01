@@ -394,6 +394,13 @@ is one shared per-hand gain (0.25–2×), regardless of which count/direction st
 Magnification posts balanced began/changed/ended or cancelled phases, uses a fixed
 activation location, and clamps each output delta to ±0.25.
 
+Look Up, Previous Space and Next Space are discrete System actions using macOS
+symbolic shortcuts (70, 79, 81). Custom enabled bindings take precedence; missing
+or enabled-only entries use Control-Command-D and Control-Left/Right. Explicitly
+disabled or malformed entries remain unavailable, without emitting fallback keys.
+They use the existing gated one-shot output, directional repeat, and portable
+settings paths. No assignments or recognition thresholds change.
+
 Smart Zoom is a separate discrete action available for taps, force, Hold,
 coordinated gestures and directional assignments, plus Pinch/Spread and rotation.
 It sends one native Smart Magnify request at the cursor, using the shared live

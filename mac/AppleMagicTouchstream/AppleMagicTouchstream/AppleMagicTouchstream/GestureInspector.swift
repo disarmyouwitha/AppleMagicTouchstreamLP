@@ -710,7 +710,6 @@ struct GestureAssignmentWorkspace: View {
     private var twoHandTrigger:TwoHandTrigger { .init(chord:twoHandChord,phase:twoHandPhase) }
     private var twoHandHeader:some View {
         VStack(alignment:.leading,spacing:14) {
-            Text("Gestures / Both hands").font(.caption).foregroundStyle(.secondary)
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
@@ -783,7 +782,6 @@ struct GestureAssignmentWorkspace: View {
 
     private var header: some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("Gestures / \(scopeText)").font(.caption).foregroundStyle(.secondary)
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(pane.group).font(.system(size:25,weight:.semibold))

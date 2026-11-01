@@ -48,6 +48,37 @@ final class GestureActionBindingTests: XCTestCase {
         XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:Double.nan,y:0)))
         XCTAssertNil(SmartZoomGestureOutput.event(location:CGPoint(x:0,y:Double.infinity)))
     }
+    func testLookUpAndSpacesUseConfiguredShortcutsAndHonorDisabledBindings() throws {
+        for (action,id,code,flags) in [(GestureAction.lookUp,"70",CGKeyCode(2),CGEventFlags([.maskControl,.maskCommand])),
+                                       (.previousSpace,"79",123,.maskControl),(.nextSpace,"81",124,.maskControl)] {
+            for preferences:[String:Any] in [[:],[id:["enabled":true]]] {
+                let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:preferences))
+                XCTAssertEqual(plan.keyCode,code)
+                XCTAssertEqual(plan.flags,flags)
+                let events = try XCTUnwrap(plan.events())
+                XCTAssertEqual(events.map(\.type),[.keyDown,.keyUp])
+                XCTAssertEqual(events.map { $0.getIntegerValueField(.keyboardEventKeycode) },[Int64(code),Int64(code)])
+                XCTAssertTrue(events.allSatisfy { $0.flags == flags && $0.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag })
+                for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] { XCTAssertNil(plan.events(phase:phase)) }
+            }
+            let custom:[String:Any] = [id:["enabled":true,"value":["type":"standard","parameters":[65535,20,CGEventFlags.maskAlternate.rawValue]]]]
+            let configured = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:custom))
+            XCTAssertEqual(configured.keyCode,20)
+            XCTAssertEqual(configured.flags,.maskAlternate)
+            for invalid:[String:Any] in [[id:["enabled":false]],[id:["enabled":false,"value":custom[id]!]],
+                                        [id:["enabled":true,"value":["type":"standard","parameters":[0,999,0]]]],
+                                        [id:"invalid"],[id:["value":[:]]]] {
+                XCTAssertNil(AppleShortcutPlan.resolve(action,preferences:invalid))
+            }
+            var profile = AppKeymapProfile.defaultProfile(), settings = HandGestureSettings()
+            XCTAssertTrue(settings.setAction(action,for:.threeFingerTap,in:.left))
+            profile.handGestureSettings = settings
+            let imported = try PortableKeymapInterop.importProfile(
+                from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.left),action)
+            XCTAssertEqual(imported.handGestureSettings?.action(.threeFingerTap,in:.right),.primaryDoubleClick)
+        }
+    }
     private func contacts(_ fingers: [Int32], dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
             OMSRawTouch(id:Int32(index+10),posX:Float(index)*0.11+0.3+dx,
