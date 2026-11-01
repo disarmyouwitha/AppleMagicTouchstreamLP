@@ -1,5 +1,10 @@
 # NEXT:
 =======
+0. Hey in the Layout Editor sometimes it would be nice to be able to see where your fingers land on the keys. We should have a "show contacts" that will show touch contacts without dispatching any keys. (Please make sure the layout editor does not get laggy)
+1. I need to fix my 6x3 layout to match my actual keys, lmao.
+2. THEN fix Steno 6x3 to match my actual keys. 
+3. Then re-export MY_KEYMAP.json and DEFAULT_KEYMAP.JSON
+===
 0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
 > Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
 ^ Needs more testing

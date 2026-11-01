@@ -1150,6 +1150,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return nil // A mode change cannot turn held contacts into a fresh chord/key tap.
         }
         if isStenoLayout {
+            // Publish contact completion after stamping any completed chord. This
+            // preserves recording ownership through the final all-up frame.
+            let recordingContactsActive = padsWithContacts != 0
+            if recordingContactsActive { dispatchService.updateStenoRecordingContacts(active:true) }
+            defer { if !recordingContactsActive { dispatchService.updateStenoRecordingContacts(active:false) } }
             let side:TrackpadSide = isLeftDevice ? .left:.right
             let index = bindings(for:side,layout:isLeftDevice ? leftLayout:rightLayout,
                 labels:isLeftDevice ? leftLabels:rightLabels,canvasSize:trackpadSize)

@@ -430,6 +430,14 @@ or editing text within the same field; there is no manual reset button. This pro
 keyboard/mouse input or promise to track those edits. Dictionary versions, hashes
 and MIT/PolyForm Noncommercial notices ship under `Resources/Javelin`.
 
+STENO 6x3's main 6×3 grid uses the regular 6x3 offsets, scales and padding from
+bundled DEFAULT_KEYMAP.json, cached as configuration data. Its old neutral-column,
+0.5% padding seed resolves to that geometry too; explicit non-neutral tuning and
+authored layout documents remain independent. The steno key identities and thumb
+keys are unchanged. Asterisk and Single geometry are unaffected. The retired 5x3
+and 5x4 presets are removed from the picker, template code and bundled keymaps;
+use Layout Editor to remove/add columns within an authored document instead.
+
 **Dictionaries…** opens the manager for the selected built-in profile. Each
 profile has an independently saved, ordered dictionary list; higher enabled rows
 win. Load accepts local JSON dictionaries; New/Edit support searchable outline and
@@ -440,6 +448,23 @@ changing the list. Imported files remain at the selected paths and can be reload
 after external edits. The local catalog lives at Application Support/
 AppleMagicTouchstream/StenoDictionaries/catalog.json; it contains paths and enabled
 states, with no dictionary contents added to settings or capture formats.
+
+**Record Stroke** sits below Outline. It captures completed AMT chords before
+translation, formats canonical steno notation and joins successive strokes with
+`/` (up to 31). Stop Recording focuses Translation for normal text entry. Recording
+never posts its chords to Javelin, the Plover plugin or the serial endpoint. A UUID
+is stamped on queued recording commands, so stopped, replaced or cancelled
+recordings cannot fall through to native output. Contact state is observed only
+in STENO: a chord already held when Record starts is discarded through all-up;
+a chord held when Stop occurs is still discarded at completion. STENO force mouse,
+scroll and corner arbitration remain unchanged. Normal keyboard frames do not run
+recording logic. Replay cannot arm a recorder or mutate a live recording lease.
+
+Recording ends on Stop, 31 strokes, a 30-second timeout, editor dismissal, app/window
+focus loss, mode changes, dictionary reload and output lifecycle reset. Raw capture
+changes only the editor draft; Add/Update Entry and Save Dictionary retain the
+existing validation and save-copy rules. Translation accepts ordinary text, so users
+can use QWERTY, already-defined steno strokes or fingerspelling after recording.
 
 Bundled dictionaries stay read-only. Editing a bundled dictionary asks for a
 Save As location before opening a draft; Cancel writes nothing. Saving writes the

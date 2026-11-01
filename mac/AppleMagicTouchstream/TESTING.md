@@ -380,3 +380,19 @@ file changes; repeat with a user location and Save Dictionary, confirming the
 original is disabled and untouched. Delete an entry in the copy and check that
 the old bundled translation does not return. Export and reload the JSON in Plover
 or AMT. Editing/canceling a draft must preserve committed files and the app's signature.
+
+### Raw dictionary stroke recording and STENO 6x3 alignment
+
+`StenoStrokeRecordingTests` checks canonical multi-stroke capture, alias collapse,
+31-stroke bounds, stale/replaced leases, held chords crossing Record/Stop, and
+replay isolation without posting native input. `StenoSixByThreeDefaultsTests`
+compares all 18 main keys on both hands with DEFAULT_KEYMAP.json's regular 6x3
+geometry, including old neutral seeds and editor reset; it verifies independent
+tuning and that retired 5x3/5x4 entries are absent from bundled keymaps.
+
+Hardware acceptance: select STENO 6x3 and compare its main keys with the regular
+6x3 layout. Open Dictionaries → Edit/New, press Record Stroke, play KAT then -S,
+and confirm Outline shows KAT/-S while no text reaches Translation or another app.
+Stop Recording, enter a translation using QWERTY or steno, and save. Check Stop
+while a chord is held, focus loss, timeout, Cancel and mode changes for leaked
+text or recording that remains armed. STENO force mouse must continue to work.

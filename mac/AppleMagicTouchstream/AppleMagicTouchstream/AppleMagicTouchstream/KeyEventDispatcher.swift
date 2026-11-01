@@ -753,7 +753,7 @@ final class DispatchService: @unchecked Sendable {
     private enum CommandPayload:Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
-        case stenoStroke(UInt64,UInt64)
+        case stenoStroke(UInt64,UInt64,UUID?)
         case stenoPointer(StenoPointerUpdate,UInt64,Double,UInt64)
         case textPaste(String,UInt64)
         case appLaunch(String)
@@ -923,7 +923,10 @@ final class DispatchService: @unchecked Sendable {
         let connectionChanged = stateLock.withLockUnchecked { state in
             let changed = state.stenoEnabled != enabled || state.stenoConnectionMode != connectionMode
             if changed || state.stenoPointerMode != pointerMode || state.stenoForceThreshold != forceThreshold
-                || state.stenoHapticTouch != hapticTouch || state.stenoHapticRelease != hapticRelease { state.stenoGeneration &+= 1 }
+                || state.stenoHapticTouch != hapticTouch || state.stenoHapticRelease != hapticRelease {
+                state.stenoGeneration &+= 1
+                if keyDispatcher != nil { StenoStrokeRecorder.shared.reset() }
+            }
             state.stenoEnabled = enabled; state.stenoPointerMode = pointerMode; state.stenoForceThreshold = forceThreshold
             state.stenoConnectionMode = connectionMode; state.stenoHapticTouch = hapticTouch; state.stenoHapticRelease = hapticRelease
             return changed
@@ -950,7 +953,25 @@ final class DispatchService: @unchecked Sendable {
         guard mask != 0, mask & ~GeminiPRPacket.keyMask == 0 else { return }
         let generation = stateLock.withLockUnchecked { $0.stenoEnabled ? $0.stenoGeneration:nil }
         guard let generation else { return }
-        enqueue(.stenoStroke(mask,generation),sourceSequence:sourceSequence)
+        let recording = keyDispatcher == nil ? nil:StenoStrokeRecorder.shared.routingID
+        enqueue(.stenoStroke(mask,generation,recording),sourceSequence:sourceSequence)
+    }
+
+    func updateStenoRecordingContacts(active:Bool) {
+        guard keyDispatcher != nil else { return } // Replay never mutates a live recording.
+        StenoStrokeRecorder.shared.observeContacts(active:active)
+    }
+
+    func beginStenoStrokeRecording(id:UUID,receive:@escaping @Sendable (StenoStrokeRecorder.Event)->Void) -> Bool {
+        guard keyDispatcher != nil else { return false }
+        let armed = stateLock.withLockUnchecked { state in
+            guard state.stenoEnabled, state.stenoConnectionMode.isBuiltIn else { return false }
+            state.stenoGeneration &+= 1
+            StenoStrokeRecorder.shared.begin(id:id,receive:receive)
+            return true
+        }
+        if armed { dispatchQueue.async { JavelinBackend.shared.reset() } }
+        return armed
     }
 
     func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
@@ -1068,6 +1089,7 @@ final class DispatchService: @unchecked Sendable {
             TextShortcutTypingOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
+            if keyDispatcher != nil { StenoStrokeRecorder.shared.reset() }
             state.stenoGeneration &+= 1; state.stenoHapticGeneration &+= 1
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
@@ -1134,7 +1156,15 @@ final class DispatchService: @unchecked Sendable {
 
     private func drainQueue() {
         while let command = popNextCommand() {
-            if case let .stenoStroke(mask,generation) = command.payload,
+            if case let .stenoStroke(mask,generation,recording) = command.payload, let recording, keyDispatcher != nil {
+                if stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }) {
+                    _ = StenoStrokeRecorder.shared.consume(mask,id:recording)
+                }
+                // A recording command never falls through to a translator, even after Stop.
+                emitRecordedEvent(for:command,status:.cancelled)
+                continue
+            }
+            if case let .stenoStroke(mask,generation,_) = command.payload,
                stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }),
                keyDispatcher != nil {
                 dispatchJavelin(mask,generation:generation,command:command)
@@ -1160,6 +1190,7 @@ final class DispatchService: @unchecked Sendable {
                 guard state.stenoEnabled, state.stenoConnectionMode.isBuiltIn,
                       state.stenoConnectionMode.dictionaryProfile == profile else { return nil }
                 state.stenoGeneration &+= 1
+                StenoStrokeRecorder.shared.reset()
                 return state.stenoConnectionMode
             }
             guard let mode else { return }
@@ -1256,7 +1287,7 @@ final class DispatchService: @unchecked Sendable {
                 if stateLock.withLockUnchecked({ $0.stenoConnectionMode.isBuiltIn }) { JavelinBackend.shared.reset() }
             }
             InterpretedTrackpadPointer.shared.postStenoPointer(update,device:device,time:time)
-        case let .stenoStroke(mask,generation):
+        case let .stenoStroke(mask,generation,_):
             guard let mode = stateLock.withLockUnchecked({ state -> StenoConnectionMode? in
                 state.stenoEnabled && state.stenoGeneration == generation ? state.stenoConnectionMode:nil
             }) else { emitRecordedEvent(for:command,status:.cancelled); return }
@@ -1316,7 +1347,7 @@ final class DispatchService: @unchecked Sendable {
                 status: status, sourceSequence: command.sourceSequence)
         case let .stenoPointer(update,device,_,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.scrollBegan ? "scrollBegin" : update.scrollEnded ? "scrollEnd" : update.scrolling ? "scroll" : update.dragBegan ? "dragBegin" : update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : update.dragging ? "dragMove" : "move")"),status:status,sourceSequence:command.sourceSequence)
-        case let .stenoStroke(mask,_):
+        case let .stenoStroke(mask,_,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(label),status:status,sourceSequence:command.sourceSequence)

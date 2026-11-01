@@ -58,8 +58,8 @@ let package = Package(
             dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit", "JavelinBridge"],
             path: "AppleMagicTouchstream/AppleMagicTouchstream",
             exclude: ["AppleMagicTouchstreamApp.swift", "Assets.xcassets", "AppleMagicTouchstream.entitlements",
-                      "DEFAULT_KEYMAP.json", "MY_KEYMAP.json", "TOUCHSTERAM_KEYMAP.json"],
-            resources: [.copy("Resources")],
+                      "MY_KEYMAP.json", "TOUCHSTERAM_KEYMAP.json"],
+            resources: [.copy("Resources"), .copy("DEFAULT_KEYMAP.json")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

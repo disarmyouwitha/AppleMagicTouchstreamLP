@@ -257,6 +257,29 @@ struct StenoChordEngine:Sendable {
     }
 }
 
+@MainActor enum StenoSixByThreeDefaults {
+    static let profile:AppKeymapProfile? = {
+        #if SWIFT_PACKAGE
+        let bundle = Bundle.module
+        #else
+        let bundle = Bundle.main
+        #endif
+        return bundle.url(forResource:"DEFAULT_KEYMAP",withExtension:"json")
+            .flatMap { try? Data(contentsOf:$0) }
+            .flatMap { PortableKeymapInterop.decodeBundledDefaultProfile(from:$0) }
+    }()
+    static func resolve(columns:[ColumnLayoutSettings],spacing:Double) -> ([ColumnLayoutSettings],Double) {
+        let neutral = ColumnLayoutDefaults.defaultSettings(columns:6)
+        let useSeed = columns.isEmpty || columns == neutral
+        let seedColumns = profile?.columnSettingsByLayout[TrackpadLayoutPreset.sixByThree.rawValue] ?? neutral
+        let seedSpacing = profile?.keySpacingPercentByLayout?[TrackpadLayoutPreset.sixByThree.rawValue] ?? 10
+        // The old STENO 6x3 seed stored neutral columns and 0.5% padding.
+        // Upgrade that seed while retaining authored documents and explicit tuning.
+        let useSpacing = useSeed && (abs(spacing-0.5)<0.000001 || columns.isEmpty && abs(spacing-10)<0.000001)
+        return (useSeed ? seedColumns:columns,useSpacing ? seedSpacing:spacing)
+    }
+}
+
 /// Stable grid identities for split and single-pad visualizations of the same wire keys.
 enum StenoLayoutDefinition {
     static func labels(preset:TrackpadLayoutPreset,side:TrackpadSide) -> [[String]] {
@@ -357,11 +380,12 @@ enum StenoLayoutDefinition {
                     (0..<4).map { .init(x:vowelsX+CGFloat($0)*(width+gap),y:0.79,width:width,height:0.18) }]
             }
         } else if preset == .stenoVoyager {
-            // Reuse the 6×3 stagger and its mirrored, inner-to-outer column identities.
+            // Match the bundled 6x3 keyboard geometry; keep STENO bindings/thumbs.
+            let tuning = StenoSixByThreeDefaults.resolve(columns:columns,spacing:spacing)
             let main = ContentView.makeKeyLayout(size:size,keyWidth:ContentView.baseKeyWidthMM,keyHeight:ContentView.baseKeyHeightMM,
                 columns:6,rows:3,trackpadWidth:ContentView.trackpadWidthMM,trackpadHeight:ContentView.trackpadHeightMM,
-                columnAnchorsMM:TrackpadLayoutPreset.sixByThree.columnAnchors,columnSettings:columns,
-                keySpacingPercent:spacing,mirrored:side == .left)
+                columnAnchorsMM:TrackpadLayoutPreset.sixByThree.columnAnchors,columnSettings:tuning.0,
+                keySpacingPercent:tuning.1,mirrored:side == .left)
             rects = main.normalizedKeyRects
         } else {
             rects = asteriskRects(side:side)

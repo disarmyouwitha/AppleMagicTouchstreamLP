@@ -85,6 +85,12 @@ extern "C" {
 void *AMTJavelinCreate() { return new HostEngine; }
 void AMTJavelinDestroy(void *p) { delete static_cast<HostEngine *>(p); }
 int AMTJavelinAdd(void *p,const char *outline,const char *translation) { return static_cast<HostEngine *>(p)->dictionary.Add(outline,translation); }
+int AMTJavelinFormatStroke(uint32_t value,char *output,size_t capacity) {
+  if (!value || (value & ~((1u<<25)-1))) return 0;
+  char text[StenoStroke::MAX_STRING_LENGTH]; StenoStroke(value).ToString(text);
+  size_t size=strlen(text)+1; if (size>capacity) return 0;
+  memcpy(output,text,size); return 1;
+}
 int AMTJavelinCanonicalOutline(const char *input,char *output,size_t capacity) {
   std::string source(input), canonical; size_t offset=0;
   if (source.empty() || source.size()>2048 || source.back()=='/') return 0;

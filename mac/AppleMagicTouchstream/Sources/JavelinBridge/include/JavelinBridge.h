@@ -8,6 +8,7 @@ extern "C" {
 void *AMTJavelinCreate(void);
 void AMTJavelinDestroy(void *engine);
 int AMTJavelinAdd(void *engine, const char *outline, const char *translation);
+int AMTJavelinFormatStroke(uint32_t stroke, char *output, size_t capacity);
 int AMTJavelinCanonicalOutline(const char *input, char *output, size_t capacity);
 void AMTJavelinReset(void *engine);
 int AMTJavelinProcess(void *engine, uint32_t stroke);

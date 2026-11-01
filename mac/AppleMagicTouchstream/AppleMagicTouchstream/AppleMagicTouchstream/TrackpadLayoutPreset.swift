@@ -7,14 +7,12 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     case blank = "Blank"
     case sixByThree = "6x3"
     case sixByFour = "6x4"
-    case fiveByThree = "5x3"
-    case fiveByFour = "5x4"
     case mobileOrtho12x4 = "mobile-ortho-12x4"
     case mobile = "mobile"
     case touchstream = "TouchStream"
 
-    static let allCases: [TrackpadLayoutPreset] = [.touchstream,.steno,.stenoVoyager,.stenoSingle,.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.mobile]
-    static let selectableCases: [TrackpadLayoutPreset] = [.blank,.sixByThree,.sixByFour,.fiveByThree,.fiveByFour,.mobileOrtho12x4,.touchstream,.steno,.stenoVoyager,.stenoSingle]
+    static let allCases: [TrackpadLayoutPreset] = [.touchstream,.steno,.stenoVoyager,.stenoSingle,.blank,.sixByThree,.sixByFour,.mobileOrtho12x4,.mobile]
+    static let selectableCases: [TrackpadLayoutPreset] = [.blank,.sixByThree,.sixByFour,.mobileOrtho12x4,.touchstream,.steno,.stenoVoyager,.stenoSingle]
     var isSteno:Bool { self == .steno || self == .stenoVoyager || self == .stenoSingle }
     static let stenoVariants:[Self] = [.steno,.stenoVoyager,.stenoSingle]
     static var mainPickerCases:[Self] { selectableCases.filter { !$0.isSteno || $0 == .steno } }
@@ -54,8 +52,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return 10
         case .steno, .stenoVoyager, .sixByThree, .sixByFour:
             return 6
-        case .fiveByThree, .fiveByFour:
-            return 5
         case .mobileOrtho12x4:
             return 12
         case .mobile:
@@ -69,9 +65,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         switch self {
         case .touchstream:
             return 6
-        case .sixByThree, .fiveByThree:
+        case .sixByThree:
             return 3
-        case .steno, .stenoVoyager, .stenoSingle, .sixByFour, .fiveByFour, .mobileOrtho12x4, .mobile:
+        case .steno, .stenoVoyager, .stenoSingle, .sixByFour, .mobileOrtho12x4, .mobile:
             return 4
         case .blank:
             return 0
@@ -90,10 +86,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return (0..<9).map { CGPoint(x: CGFloat($0) * 16, y: 0) }
         case .steno, .stenoVoyager, .sixByThree, .sixByFour:
             return Self.columnAnchors6
-        case .fiveByThree:
-            return Self.columnAnchors5FromSixTakeFirst
-        case .fiveByFour:
-            return Self.columnAnchors5FromSixTakeFirst
         case .mobileOrtho12x4:
             return Self.columnAnchors12
         case .mobile:
@@ -113,10 +105,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return Self.rightLabels6x3
         case .sixByFour:
             return Self.rightLabels6x4
-        case .fiveByThree:
-            return Self.rightLabels6x3.map { Array($0.prefix(self.columns)) }
-        case .fiveByFour:
-            return Self.rightLabels6x4.map { Array($0.prefix(self.columns)) }
         case .mobileOrtho12x4:
             return Self.rightLabels12x4
         case .mobile:
@@ -194,8 +182,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         CGPoint(x: 125.0, y: 22.6)
     ]
 
-    private static let columnAnchors5FromSixDropFirst: [CGPoint] = Array(columnAnchors6.suffix(5))
-    private static let columnAnchors5FromSixTakeFirst: [CGPoint] = Array(columnAnchors6.prefix(5))
 
     private static let columnAnchors12: [CGPoint] = [
         CGPoint(x: 6.0, y: 10.0),

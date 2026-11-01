@@ -2638,7 +2638,7 @@ struct ContentView: View {
         guard isAutoSplaySupportedPreset else {
             showKeymapAlert(
                 title: "Auto Splay",
-                message: "Auto Splay currently supports 6-column layouts plus 5x3 and 5x4."
+                message: "Auto Splay currently supports 6-column layouts."
             )
             return
         }
@@ -2725,24 +2725,6 @@ struct ContentView: View {
             return
         }
 
-        if isFiveColumnAutoSplayPreset, layoutOption.columns == 5, updated.count >= 5, referenceRects.count >= 5 {
-            for index in 0..<Self.autoSplayTouchCount {
-                let center = normalizedCenter(for: referenceRects[index])
-                let target = selectedTouches[index]
-                updated[index].offsetXPercent = Self.normalizedColumnOffsetPercent(
-                    updated[index].offsetXPercent + ((target.xNorm - center.x) * 100.0)
-                )
-                updated[index].offsetYPercent = Self.normalizedColumnOffsetPercent(
-                    updated[index].offsetYPercent + ((target.yNorm - center.y) * 100.0)
-                )
-            }
-
-            updated[4].offsetXPercent = updated[3].offsetXPercent
-            updated[4].offsetYPercent = updated[3].offsetYPercent
-            columnSettings = updated
-            return
-        }
-
         showKeymapAlert(
             title: "Auto Splay",
             message: "Auto Splay could not apply to this layout configuration.",
@@ -2819,16 +2801,12 @@ struct ContentView: View {
     }
 
     private var isAutoSplaySupportedPreset: Bool {
-        layoutOption.columns == 6 || isFiveColumnAutoSplayPreset
-    }
-
-    private var isFiveColumnAutoSplayPreset: Bool {
-        layoutOption == .fiveByThree || layoutOption == .fiveByFour
+        layoutOption.columns == 6
     }
 
     private func resolveAutoSplayReferenceRow() -> Int {
         guard layoutOption.rows > 0 else { return 0 }
-        if isFiveColumnAutoSplayPreset || layoutOption == .sixByFour {
+        if layoutOption == .sixByFour {
             // Keep the reference on the home row (2nd row from bottom).
             return min(max(layoutOption.rows - 2, 0), layoutOption.rows - 1)
         }

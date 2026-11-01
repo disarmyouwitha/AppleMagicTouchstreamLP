@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        ACE300000000000000000002 /* StenoStrokeRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE300000000000000000001; };
         ACE200000000000000000202 /* JavelinDictionaryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE200000000000000000201; };
         ACE200000000000000000102 /* JavelinDictionaries.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE200000000000000000101; };
         ACE100000000000000000002 /* JavelinBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE100000000000000000001; };
@@ -59,6 +60,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        ACE300000000000000000001 /* StenoStrokeRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/StenoStrokeRecording.swift; sourceTree = "<group>"; };
         ACE200000000000000000201 /* JavelinDictionaryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinDictionaryEditor.swift; sourceTree = "<group>"; };
         ACE200000000000000000101 /* JavelinDictionaries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinDictionaries.swift; sourceTree = "<group>"; };
         ACE100000000000000000001 /* JavelinBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinBackend.swift; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
                 AC7300000000000000000D01 /* GeminiPRPort.swift */,
                 AC7400000000000000000101 /* PloverConnection.swift */,
                 ACE100000000000000000001 /* JavelinBackend.swift */,
+                ACE300000000000000000001 /* StenoStrokeRecording.swift */,
                 ACE200000000000000000201 /* JavelinDictionaryEditor.swift */,
                 ACE200000000000000000101 /* JavelinDictionaries.swift */,
                 AC7400000000000000000201 /* Plover plugin wheel */,
@@ -335,6 +338,7 @@
                 AC7300000000000000000D02 /* GeminiPRPort.swift in Sources */,
                 AC7400000000000000000102 /* PloverConnection.swift in Sources */,
                 ACE100000000000000000002 /* JavelinBackend.swift in Sources */,
+                ACE300000000000000000002 /* StenoStrokeRecording.swift in Sources */,
                 ACE200000000000000000202 /* JavelinDictionaryEditor.swift in Sources */,
                 ACE200000000000000000102 /* JavelinDictionaries.swift in Sources */,
 				5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */,

@@ -51,7 +51,7 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
     }
     func testResetGridTemplatesUseBundledColumnDimensionsAndRowSpacing() throws {
         let profile = try defaultProfile(), size = CGSize(width:432,height:310.23)
-        for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour,.fiveByThree,.fiveByFour] {
+        for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour] {
             let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
             XCTAssertEqual(doc.keys.count,preset.rows*preset.columns*2)
             let mappings = profile.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]

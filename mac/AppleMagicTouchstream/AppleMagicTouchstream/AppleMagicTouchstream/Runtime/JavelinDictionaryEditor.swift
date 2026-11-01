@@ -148,6 +148,8 @@ private struct JavelinDictionaryEntryEditor:View {
     let store:JavelinDictionaryStore
     let profile:JavelinDictionaryProfile
     let saved:@MainActor () -> Void
+    @StateObject private var recording = StenoOutlineRecordingModel()
+    @FocusState private var translationFocused:Bool
     @State private var document:StenoDictionaryDocument
     @State private var search = ""
     @State private var matches = DictionarySearchResult(keys:[],total:0)
@@ -171,9 +173,9 @@ private struct JavelinDictionaryEntryEditor:View {
                 }
                 Spacer()
                 Button("Cancel") { cancel() }.disabled(saving).keyboardShortcut(.cancelAction)
-                Button("Save Dictionary") { save() }.disabled(saving).keyboardShortcut("s",modifiers:.command)
+                Button("Save Dictionary") { save() }.disabled(saving || recording.isRecording).keyboardShortcut("s",modifiers:.command)
             }
-            TextField("Search outlines or translations",text:$search).textFieldStyle(.roundedBorder)
+            TextField("Search outlines or translations",text:$search).textFieldStyle(.roundedBorder).disabled(recording.isRecording)
             List(selection:Binding(get:{selected},set:{ select($0) })) {
                 ForEach(matches.keys,id:\.self) { key in
                     HStack {
@@ -186,17 +188,24 @@ private struct JavelinDictionaryEntryEditor:View {
                         }
                     }.tag(key)
                 }
-            }.frame(minHeight:230)
+            }.frame(minHeight:230).disabled(recording.isRecording)
             Text("\(document.entries.count) entries · \(matches.total) matches\(matches.total > matches.keys.count ? " · Showing first 300; narrow your search":"")")
                 .font(.caption).foregroundStyle(.secondary)
             HStack(alignment:.top) {
                 VStack(alignment:.leading) {
                     Text("Outline").font(.caption)
-                    TextField("KAT or KAT/-S",text:$outline).textFieldStyle(.roundedBorder)
+                    TextField("KAT or KAT/-S",text:$outline).textFieldStyle(.roundedBorder).disabled(recording.isRecording)
+                    Button {
+                        if recording.isRecording { recording.stop(); translationFocused = true }
+                        else { translationFocused = false; recording.start() }
+                    } label: {
+                        Label(recording.isRecording ? "Stop Recording":"Record Stroke",systemImage:recording.isRecording ? "stop.circle":"record.circle")
+                    }.tint(recording.isRecording ? .red:.accentColor)
+                        .help("Capture raw chords without typing them. Lift both hands between strokes, then Stop Recording to enter the translation.")
                 }.frame(width:200)
                 VStack(alignment:.leading) {
                     Text("Translation").font(.caption)
-                    TextEditor(text:$translation).font(.system(.body,design:.monospaced)).frame(height:70)
+                    TextEditor(text:$translation).focused($translationFocused).disabled(recording.isRecording).font(.system(.body,design:.monospaced)).frame(height:70)
                         .overlay(RoundedRectangle(cornerRadius:4).stroke(Color.secondary.opacity(0.25)))
                 }
                 VStack {
@@ -207,11 +216,17 @@ private struct JavelinDictionaryEntryEditor:View {
                         document.entries.removeValue(forKey:selected); self.selected = nil
                         outline = ""; translation = ""; dirty = true; revision += 1
                     }.disabled(selected == nil)
-                }.padding(.top,18)
+                }.padding(.top,18).disabled(recording.isRecording)
             }.disabled(saving)
+            if recording.isRecording { Text("Play the chord(s), then Stop Recording. Up to 31 strokes · stops after 30 seconds.").font(.caption).foregroundStyle(.secondary) }
+            if let recordingError = recording.error { Text(recordingError).font(.caption).foregroundStyle(.red) }
             if saving { ProgressView().controlSize(.small) }
             if let error { Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled) }
         }.padding(20).frame(width:860,height:600).interactiveDismissDisabled()
+            .onDisappear { recording.stop() }
+            .onReceive(NotificationCenter.default.publisher(for:NSApplication.didResignActiveNotification)) { _ in recording.stop() }
+            .onReceive(NotificationCenter.default.publisher(for:NSWindow.didResignKeyNotification)) { _ in recording.stop() }
+            .onChange(of:recording.outline) { value in if let value { outline = value } }
             .task(id:search+"#\(revision)") {
                 try? await Task.sleep(for:.milliseconds(180))
                 guard !Task.isCancelled else { return }
@@ -249,6 +264,7 @@ private struct JavelinDictionaryEntryEditor:View {
         }
     }
     private func cancel() {
+        recording.stop()
         if dirty || pending {
             let alert = NSAlert(); alert.messageText = "Discard dictionary edits?"; alert.informativeText = "Your JSON file has not been changed."
             alert.addButton(withTitle:"Keep Editing"); alert.addButton(withTitle:"Discard")

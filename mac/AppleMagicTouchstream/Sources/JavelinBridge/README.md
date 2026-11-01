@@ -7,7 +7,8 @@ License: PolyForm Noncommercial 1.0.0; see LICENSE.txt (also shipped in the app)
 
 Vendor contains upstream C++ sources, excluding ARM implementation files.
 Host changes: engine.h exposes ResetHostTranslation (no output); stroke.h/.cc
-adds SetChecked to reject incomplete outlines; steno_key_code_buffer.cc bounds
+adds SetChecked to reject incomplete outlines; the host bridge exposes canonical
+stroke formatting for dictionary recording; steno_key_code_buffer.cc bounds
 host text appends and throws on overflow (Bridge.cc catches and cancels edits);
 pattern.cc and
 hal/infrared.cc guard upstream test-only blocks for non-test desktop compilation.
