@@ -136,11 +136,18 @@ existing group metadata, bindings and counterpart links are retained.
 
 Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
 displayScale) and shrink together when needed. Tool buttons retain their compact
-90-point width and wrap into as many columns as fit, including three or four.
+90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
 The editor selects individual keys regardless of saved group metadata; Group/Ungroup
-controls are removed. Editing snap offers Off, 1 mm and 5 mm for dragging and shared
+controls are removed. Mirror Edit and a segmented Off / 1 mm / 5 mm grid selector
+sit beside the Layout Editor title. The column count sits beside Add Column.
+Editing snap offers Off, 1 mm and 5 mm for dragging and shared
 frame resizing, independently of typing Snap Radius. Mirror Edit uses a blue enabled
 button with the same split-pad icon in Layout Editor and Gesture Editor.
+
+Keymap Tuning no longer offers the separate Custom Buttons creation, deletion or
+geometry editor. New keys and columns are authored in Layout Editor. Existing saved
+custom buttons still load, render and dispatch their assigned actions; their
+serialized representation remains supported.
 
 Mirror Edit defaults on for each edit session. Existing counterpart keys are paired
 once by mirrored geometry and persist their UUID relationship through later edits.

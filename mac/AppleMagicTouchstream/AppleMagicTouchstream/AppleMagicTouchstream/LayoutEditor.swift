@@ -50,7 +50,6 @@ struct LayoutEditor: View {
                 ScrollView(.vertical) {
                     VStack(alignment: .leading,spacing: 16) {
                         header
-                        selectionTools
                         HStack(alignment: .top,spacing: 20) {
                             pad(isRight: false).frame(width:padWidth)
                             pad(isRight: true).frame(width:padWidth)
@@ -79,9 +78,23 @@ struct LayoutEditor: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Label("Layout Editor",systemImage: "square.and.pencil").font(.headline)
-            Spacer(minLength: 8)
+        ViewThatFits(in:.horizontal) {
+            HStack(spacing:12) { editorTitle; Spacer(minLength:8); editorActions }
+            VStack(alignment:.leading,spacing:12) {
+                editorTitle
+                HStack { Spacer(minLength:0); editorActions }
+            }
+        }
+    }
+    private var editorTitle: some View {
+        HStack(spacing:12) {
+            Label("Layout Editor",systemImage:"square.and.pencil").font(.headline)
+            mirrorToggle
+            snapToggle
+        }.fixedSize()
+    }
+    private var editorActions: some View {
+        HStack(spacing:8) {
             icon("Undo", "arrow.uturn.backward",disabled: !history.canUndo || dragStart != nil,action: undo)
                 .keyboardShortcut("z",modifiers: .command)
             icon("Redo", "arrow.uturn.forward",disabled: !history.canRedo || dragStart != nil,action: redo)
@@ -96,27 +109,19 @@ struct LayoutEditor: View {
                 .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!documentValid || dragStart != nil).accessibilityLabel("Apply")
         }
     }
-    private var selectionTools: some View {
-        HStack(spacing:12) { mirrorToggle; snapToggle; Spacer(minLength:0) }
-    }
     private var mirrorToggle: some View {
         MirrorEditButton(isOn:$mirror)
             .accessibilityLabel("Mirror Edit").accessibilityValue(mirror ? "On":"Off")
             .help("Reflect geometry and structural edits across paired keys. Each pad keeps its own actions.")
     }
     private var snapToggle: some View {
-        Menu {
-            Picker("Grid snap",selection:$snapMM) {
-                Text("Off").tag(CGFloat(0))
-                Text("1 mm").tag(CGFloat(1))
-                Text("5 mm").tag(CGFloat(5))
-            }
-        } label: { Label(snapMM == 0 ? "Snap off":"\(Int(snapMM)) mm",systemImage:"grid") }
-            .menuStyle(.borderlessButton).fixedSize()
-            .padding(.horizontal,10).padding(.vertical,5)
-            .background(snapMM > 0 ? Color.accentColor:Color.secondary,in:RoundedRectangle(cornerRadius:5))
-            .foregroundStyle(.white)
-            .help("Choose Off, 1 mm or 5 mm for dragging and selection resizing. Independent of typing Snap Radius.")
+        Picker("Grid snap",selection:$snapMM) {
+            Text("Off").tag(CGFloat(0))
+            Text("1 mm").tag(CGFloat(1))
+            Text("5 mm").tag(CGFloat(5))
+        }
+        .pickerStyle(.segmented).labelsHidden().frame(width:170)
+        .help("Grid snap for dragging and selection resizing. Independent of typing Snap Radius.")
     }
     private var selectionCaption: some View {
         HStack(spacing: 12) {
@@ -301,28 +306,38 @@ struct LayoutEditor: View {
                 tool("Larger 5%","arrow.up.left.and.arrow.down.right",disabled:selection.isEmpty,
                      hint:"Scale selected keys and spacing up by 5%.") { scaleSelection(1.05) }
                 tool("Rotate left 5°","arrow.counterclockwise",disabled:selection.isEmpty) { rotate(-5) }
-                tool("Rotate right 5°","arrow.clockwise",disabled:selection.isEmpty) { rotate(5) }
                 tool("Align column centers","align.horizontal.center",disabled:selection.count < 2) { align(horizontal:true) }
                 tool("Align row centers","align.vertical.center",disabled:selection.count < 2) { align(horizontal:false) }
+                tool("Rotate right 5°","arrow.clockwise",disabled:selection.isEmpty) { rotate(5) }
                 tool("Space horizontally","distribute.horizontal.center",disabled:selection.count < 3) { distribute(horizontal:true) }
                 tool("Space vertically","distribute.vertical.center",disabled:selection.count < 3) { distribute(horizontal:false) }
                 tool("Duplicate","square.on.square",disabled:selection.isEmpty,action:duplicate)
                 tool("Delete","trash",disabled:selection.isEmpty,action:delete)
-            }
+            }.frame(maxWidth:286,alignment:.leading)
             Divider()
             Text("Add").font(.subheadline.bold())
             if mirror { Label("Both trackpads",systemImage:"rectangle.split.2x1").font(.caption).foregroundStyle(.secondary) }
             else { Picker("Trackpad",selection:$right) { Text("Left").tag(false); Text("Right").tag(true) }.pickerStyle(.segmented) }
-            HStack {
-                tool("Key","plus.square",disabled:!canAdd(1),action:addKey)
-                tool("Column","rectangle.split.1x2",disabled:!canAdd(columnCount),action:addColumn)
+            ViewThatFits(in:.horizontal) {
+                HStack(spacing:8) { addKeyTool; addColumnControls }.fixedSize(horizontal:true,vertical:false)
+                VStack(alignment:.leading,spacing:10) { addKeyTool; addColumnControls }
             }
-            Stepper("\(columnCount) keys per column",value:$columnCount,in:1...8).font(.subheadline)
             Divider()
             if !documentValid { Text("Undo the last change before applying: this layout exceeds the supported size.").font(.caption).foregroundStyle(.red) }
             Text("Dashed outlines show the paired keys affected by Mirror Edit. Key assignments stay independent.")
                 .font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth:.infinity,alignment:.leading).textFieldStyle(.roundedBorder)
+    }
+    private var addKeyTool: some View {
+        tool("Key","plus.square",disabled:!canAdd(1),action:addKey)
+    }
+    private var addColumnControls: some View {
+        HStack(spacing:8) {
+            tool("Column","rectangle.split.1x2",disabled:!canAdd(columnCount),action:addColumn)
+            Stepper("\(columnCount) keys per column",value:$columnCount,in:1...8)
+                .font(.caption).frame(width:88).fixedSize(horizontal:false,vertical:true)
+                .accessibilityLabel("Keys per column")
+        }
     }
     @ViewBuilder private var selectionDimensions: some View {
         if let frame = activeSelectionFrame {

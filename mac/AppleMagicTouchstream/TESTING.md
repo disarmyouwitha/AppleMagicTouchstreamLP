@@ -74,7 +74,9 @@ On hardware, check individual click/drag, Shift-add and box selection. Resize te
 selections using only the shared square handle, Width/Height and Smaller/Larger 5%.
 Check Shift/Keep proportions, common-axis nonuniform resizing and mixed-rotation
 uniform resizing. Verify visualizer/editor trackpad size caps match; tool grids wrap
-into three/four columns at wider settings widths. Check Off/1 mm/5 mm snapping and
+into at most three columns at wider settings widths, with Rotate Right below Rotate
+Left. Check the column count beside Add Column, header controls beside the title,
+segmented Off/1 mm/5 mm snapping and
 blue Mirror Edit buttons in both editors, dashed counterpart outlines, independent
 per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify

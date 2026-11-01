@@ -2,15 +2,10 @@
 =======
 * * Test on Macbook!
 ===
-I have a small list of edits for you (Screenshot)
-0. I absolutely hate the off/1mm/5mm selector it needs to be changed. If you cant do it how I want use something like <gesture/keyboard> selector
-1. Lets move "Mirror Edit" and the grid-snap selector onto the same row to the right of "Layout Editor"
-2. Lets default to 3 columns max and I want to swap "Rotate Right 5" with the "Align" pair, so that it sits underneath "Rotate Left 5"
-3. I was going to say Align Delete to the right, but actually leave it I like it where it is at.
-4. "3 keys per column" selector should be moved to the right of the "colunm" button"
-> Since we can add keys/columns in Layout Editor now (looks good) lets remove "Custom Button" from Keymap Tuning and if the logic is seperate for those add/remove buttons lets remove that too.
-===
-- 6x3 Template reset doesn't reset to the actual 6x3 default.. it's like the underlying Corne template?
+1. Lets actually remove the snap-grid selector and just default it to 1mm I like that. 
+2. when we go into Layout Editor the keys are assigned totally wrong letters.. like.. duplicated from the wrong half? or RHS? (If the Templates are wrong they should use what is saved now in DEFAULT_KEYMAP.json 
+3. 6x3 Template reset doesn't reset to the actual 6x3 default.. it's like the underlying Corne template?
+> None of the templates seem to default exactly as they load from my keymap files.. they all have like a little vertical padding between the rows?
 ===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)

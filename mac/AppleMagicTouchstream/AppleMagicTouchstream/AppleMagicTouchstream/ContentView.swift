@@ -250,7 +250,6 @@ struct ContentView: View {
     private static let mobileKeySpacingMM: CGFloat = 1.5
     private static let mobileRowSpacingMM: CGFloat = 5.0
     private static let mobileTopInsetMM: CGFloat = 12.0
-    static let minCustomButtonSize = CGSize(width: 0.05, height: 0.05)
     private static let editableLayers = KeyLayerConfig.editableLayers
     fileprivate static let columnScaleRange: ClosedRange<Double> = ColumnLayoutDefaults.scaleRange
     fileprivate static let columnScalePercentRange: ClosedRange<Double> =
@@ -302,15 +301,6 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 1
         formatter.minimum = NSNumber(value: ContentView.rotationDegreesRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.rotationDegreesRange.upperBound)
-        return formatter
-    }()
-    fileprivate static let buttonGeometryPercentFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 1
-        formatter.minimum = 0
-        formatter.maximum = 100
         return formatter
     }()
     fileprivate static let snapRadiusPercentFormatter: NumberFormatter = {
@@ -1048,12 +1038,6 @@ struct ContentView: View {
             bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
             gestureRepeatCadenceData: $storedGestureRepeatCadenceData,
             systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled,
-            onAddCustomButton: { side in
-                addCustomButton(side: side)
-            },
-            onRemoveCustomButton: { id in
-                removeCustomButton(id: id)
-            },
             onClearTouchState: {
                 viewModel.clearTouchState()
             },
@@ -1369,8 +1353,6 @@ struct ContentView: View {
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
         @State private var keymapTuningExpanded = false
-        let onAddCustomButton: (TrackpadSide) -> Void
-        let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
@@ -1422,8 +1404,6 @@ struct ContentView: View {
                             primaryActionGroups: primaryActionGroups,
                             holdActionGroups: holdActionGroups,
                             layerSelection: layerSelection,
-                            onAddCustomButton: onAddCustomButton,
-                            onRemoveCustomButton: onRemoveCustomButton,
                             onClearTouchState: onClearTouchState,
                             onUpdateButton: onUpdateButton,
                             onUpdateKeyMapping: onUpdateKeyMapping,
@@ -1805,8 +1785,6 @@ struct ContentView: View {
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let layerSelection: Binding<Int>
-        let onAddCustomButton: (TrackpadSide) -> Void
-        let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
@@ -2126,56 +2104,7 @@ struct ContentView: View {
                         enabled:canEditActionBuilder, showsTitle:false) { action,_ in applyBuiltAction(action) }
                         .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")
                 }
-                subsectionHeader("Custom Buttons")
-                addButtonsRow
-                if let selection = buttonSelection {
-                    VStack(alignment: .leading, spacing: 6) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            ColumnTuningRow(
-                                title: "X (%)",
-                                value: positionBinding(for: selection.button, axis: .x),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: positionRange(for: selection.button, axis: .x),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Y (%)",
-                                value: positionBinding(for: selection.button, axis: .y),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: positionRange(for: selection.button, axis: .y),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Width (%)",
-                                value: sizeBinding(for: selection.button, dimension: .width),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: sizeRange(for: selection.button, dimension: .width),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                            ColumnTuningRow(
-                                title: "Height (%)",
-                                value: sizeBinding(for: selection.button, dimension: .height),
-                                formatter: ContentView.buttonGeometryPercentFormatter,
-                                range: sizeRange(for: selection.button, dimension: .height),
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false
-                            )
-                        }
-                        HStack {
-                            Button("Deleted Selected Button") {
-                                onRemoveCustomButton(selection.button.id)
-                            }
-                            Spacer()
-                        }
-                    }
-                }
+
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -2193,129 +2122,6 @@ struct ContentView: View {
             }
         }
 
-        private var addButtonsRow: some View {
-            HStack(spacing: 8) {
-                Button {
-                    onAddCustomButton(.left)
-                } label: {
-                    Text("Add Left")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                Button {
-                    onAddCustomButton(.right)
-                } label: {
-                    Text("Add Right")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-
-        private enum CustomButtonAxis {
-            case x
-            case y
-        }
-
-        private enum CustomButtonDimension {
-            case width
-            case height
-        }
-
-        private func positionBinding(
-            for button: CustomButton,
-            axis: CustomButtonAxis
-        ) -> Binding<Double> {
-            Binding(
-                get: {
-                    let value = axis == .x ? button.rect.x : button.rect.y
-                    return Double(value * 100.0)
-                },
-                set: { newValue in
-                    onUpdateButton(button.id) { updated in
-                        let rect = updated.rect
-                        let maxNormalized = axis == .x
-                            ? (1.0 - rect.width)
-                            : (1.0 - rect.height)
-                        let upper = max(0.0, Double(maxNormalized))
-                        let normalized = min(max(newValue / 100.0, 0.0), upper)
-                        var next = rect
-                        if axis == .x {
-                            next.x = CGFloat(normalized)
-                        } else {
-                            next.y = CGFloat(normalized)
-                        }
-                        updated.rect = next.clamped(
-                            minWidth: ContentView.minCustomButtonSize.width,
-                            minHeight: ContentView.minCustomButtonSize.height
-                        )
-                    }
-                }
-            )
-        }
-
-        private func positionRange(
-            for button: CustomButton,
-            axis: CustomButtonAxis
-        ) -> ClosedRange<Double> {
-            let rect = button.rect
-            let maxNormalized = axis == .x
-                ? (1.0 - rect.width)
-                : (1.0 - rect.height)
-            let upper = max(0.0, Double(maxNormalized)) * 100.0
-            return 0.0...upper
-        }
-
-        private func sizeBinding(
-            for button: CustomButton,
-            dimension: CustomButtonDimension
-        ) -> Binding<Double> {
-            Binding(
-                get: {
-                    let value = dimension == .width ? button.rect.width : button.rect.height
-                    return Double(value * 100.0)
-                },
-                set: { newValue in
-                    onUpdateButton(button.id) { updated in
-                        let rect = updated.rect
-                        let maxNormalized = dimension == .width
-                            ? (1.0 - rect.x)
-                            : (1.0 - rect.y)
-                        let minNormalized = dimension == .width
-                            ? ContentView.minCustomButtonSize.width
-                            : ContentView.minCustomButtonSize.height
-                        let upper = max(minNormalized, maxNormalized)
-                        let normalized = min(max(newValue / 100.0, minNormalized), upper)
-                        var next = rect
-                        if dimension == .width {
-                            next.width = CGFloat(normalized)
-                        } else {
-                            next.height = CGFloat(normalized)
-                        }
-                        updated.rect = next.clamped(
-                            minWidth: ContentView.minCustomButtonSize.width,
-                            minHeight: ContentView.minCustomButtonSize.height
-                        )
-                    }
-                }
-            )
-        }
-
-        private func sizeRange(
-            for button: CustomButton,
-            dimension: CustomButtonDimension
-        ) -> ClosedRange<Double> {
-            let rect = button.rect
-            let maxNormalized = dimension == .width
-                ? (1.0 - rect.x)
-                : (1.0 - rect.y)
-            let minNormalized = dimension == .width
-                ? ContentView.minCustomButtonSize.width
-                : ContentView.minCustomButtonSize.height
-            let upper = max(minNormalized, maxNormalized) * 100.0
-            let lower = minNormalized * 100.0
-            return lower...upper
-        }
     }
 
     private struct ModeTogglesSectionView: View {
@@ -3919,29 +3725,6 @@ struct ContentView: View {
         }
     }
 
-    private func addCustomButton(side: TrackpadSide) {
-        let action = KeyActionCatalog.action(for: "Space") ?? KeyActionCatalog.presets.first
-        guard let action else { return }
-        let newButton = CustomButton(
-            id: UUID(),
-            side: side,
-            rect: defaultNewButtonRect(),
-            action: action
-            ,
-            hold: nil,
-            layer: viewModel.activeLayer
-        )
-        customButtons.append(newButton)
-        selectedButtonID = newButton.id
-    }
-
-    private func removeCustomButton(id: UUID) {
-        customButtons.removeAll { $0.id == id }
-        if selectedButtonID == id {
-            selectedButtonID = nil
-        }
-    }
-
     private func updateCustomButton(id: UUID, update: (inout CustomButton) -> Void) {
         guard let index = customButtons.firstIndex(where: { $0.id == id }) else { return }
         update(&customButtons[index])
@@ -3953,21 +3736,6 @@ struct ContentView: View {
     ) {
         updateCustomButton(id: id, update: update)
         refreshButtonInspectorSelection()
-    }
-
-    private func defaultNewButtonRect() -> NormalizedRect {
-        let width: CGFloat = 0.18
-        let height: CGFloat = 0.14
-        let rect = NormalizedRect(
-            x: 0.5 - width / 2.0,
-            y: 0.5 - height / 2.0,
-            width: width,
-            height: height
-        )
-        return rect.clamped(
-            minWidth: Self.minCustomButtonSize.width,
-            minHeight: Self.minCustomButtonSize.height
-        )
     }
 
     private struct ColumnTuningRow: View {
