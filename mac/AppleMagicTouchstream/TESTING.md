@@ -337,3 +337,7 @@ recording-only tests chord left/right consonants, the merged star and all four v
 all-up. `STENO_PREVIEW_DIR=/tmp ./test.sh --filter StenoLayoutTests` also renders
 the single-pad preset. Hardware acceptance: select STENO → Layout → Steno Single, select the right pad,
 and test full two-hand chords, thumb vowels and the retained mouse/force controls.
+
+Verify STENO Keymap Tuning Primary/Hold choosers contain only STENO codes and None,
+including when a selected key has an older non-STENO assignment. Outside STENO,
+STENO codes stay hidden. The filter must not change saved assignments or output.

@@ -1969,7 +1969,7 @@ struct ContentView: View {
             let containsAction = groups.contains { group in
                 group.actions.contains(action)
             }
-            if action.kind != .none && (isStenoLayout || action.kind != .steno) && !containsAction {
+            if action.kind != .none && (!isStenoLayout && action.kind != .steno) && !containsAction {
                 groups.insert(
                     KeyActionCatalog.ActionGroup(
                         title: "Current Custom Action",

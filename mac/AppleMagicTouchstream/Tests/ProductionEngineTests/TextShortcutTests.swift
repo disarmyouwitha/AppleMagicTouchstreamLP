@@ -108,7 +108,10 @@ private final class MemoryTextShortcutStore:TextShortcutStoring,@unchecked Senda
         XCTAssertTrue(groups.first(where:{$0.title == "Shortcuts"})?.actions.contains(text.storageLabel) == true)
         for original in [KeyActionCatalog.primaryActionGroups,KeyActionCatalog.holdActionGroups] {
             XCTAssertFalse(KeyActionCatalog.inspectorActionGroups(original,isSteno:false).flatMap(\.actions).contains(where:{$0.kind == .steno}))
-            XCTAssertEqual(KeyActionCatalog.inspectorActionGroups(original,isSteno:true).flatMap(\.actions),original.flatMap(\.actions))
+            let steno = KeyActionCatalog.inspectorActionGroups(original,isSteno:true).flatMap(\.actions)
+            XCTAssertFalse(steno.isEmpty)
+            XCTAssertTrue(steno.allSatisfy {$0.kind == .steno || $0.kind == .none})
+            XCTAssertEqual(steno.filter {$0.kind == .steno}.count,StenoKey.allCases.count)
         }
     }
 

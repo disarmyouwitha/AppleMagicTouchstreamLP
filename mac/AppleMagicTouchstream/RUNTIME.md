@@ -568,3 +568,9 @@ widths take precedence over these defaults.
 
 The Gesture workspace’s Left/Right/Both selector uses equal-width native segments
 that fill its navigation column.
+
+In STENO layouts, Keymap Tuning’s Primary/Hold choosers contain only STENO keys
+and None; other layouts omit STENO keys. Existing non-STENO assignments are not
+added back through the Current Custom Action group. This is a presentation filter
+only; STENO output remains restricted to the existing chord protocol and mouse
+controls, without ordinary shortcut dispatch.
