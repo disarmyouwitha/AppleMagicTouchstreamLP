@@ -852,11 +852,11 @@ struct GestureAssignmentWorkspace: View {
     private var thumbDiagonalGrid: some View {
         LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
             movementCard(.thumbTwoMove,direction:.upLeft)
-            assignmentCard(.thumbTwoTap,compact:true)
             movementCard(.thumbTwoMove,direction:.upRight)
+            assignmentCard(.thumbTwoTap,compact:true)
             movementCard(.thumbTwoMove,direction:.downLeft)
-            holdCard
             movementCard(.thumbTwoMove,direction:.downRight)
+            holdCard
         }
     }
 

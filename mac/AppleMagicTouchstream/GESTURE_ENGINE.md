@@ -437,7 +437,7 @@ attempts must select Pinch; the subsequent ordinary pointer cycles remain Move.
 ## Movement and directional actions
 
 Thumb+2 additionally exposes diagonal-only movement under `thumbTwoMove`.
-Its assignment grid is `[↖, Tap, ↗] / [↙, Hold, ↘]`. There is no continuous
+Its assignment grid is `[↖, ↗, Tap] / [↙, ↘, Hold]`. There is no continuous
 Movement assignment. Tap,
 Hold and existing rotation bindings retain their identities/defaults. Each arrow
 has the same action picker, shortcut builder, Behavior menu, loop control and repeat interval as
@@ -653,7 +653,7 @@ stay inert and unknown action labels fail rather than silently losing mappings.
 
 The 2–5-contact shape pages are **Pinch, Spread, Rotate**, with Rotate Left/Right
 below Pinch/Spread. **Thumb+2fingers** uses the two-row diagonal grid described
-above, with Tap top-center and Hold bottom-center. Three-contact rotation now
+above, with Tap top-right and Hold bottom-right. Three-contact rotation now
 appears on its shape page; its existing binding IDs and recognition stay unchanged.
 Rotation assignments are independent per hand/direction, default None, and support
 Mirror Edit and settings import/export. Assigned two- through five-contact rotations

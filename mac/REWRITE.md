@@ -2,6 +2,8 @@
 =======
 0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
 > Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
+^ Needs more testing
+===
 1. Experiment time! Would it be a big deal to do something like a minimal Javelin where we run the state machine in our app instead of plover? (So you wouldn't need to install plover / plugin?) https://github.com/jthlim/javelin-steno
 ===
 2. Implement actions: Missing TouchStream actions:
