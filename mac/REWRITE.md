@@ -1,8 +1,9 @@
 # NEXT:
 =======
 # Human Tasks...?
-0. Start working on TouchStream gesture defaults template!!
-> Can Codex look at the Fingerworks gesture XML and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
+0. Let's start working on TouchStream gesture defaults template!!
+> Can you look at the Fingerworks Touchstream Quickstart manual and try to translate each of their gestures into what they would be in AppleMagicTrackpad? (I want you to create TOUCHSTERAM_KEYMAP.json that I can import)
+> Alternatively, can you look at the Fingerworks gesture XML in the SDK under Documents/new_code/touchstream-research and translate that into one of my keymap files so I can import it? (as best as possible, given the gestures and actions I have implemented - keeping in mind that shortcuts can be formed for many things.)
 1. make 6x3 decal girl template in gimp with layers for ppl to edit
 > Layers for: Center legends vs top-right legends / sublegend layer
 > Outline of where to line up for Decal Girl template
