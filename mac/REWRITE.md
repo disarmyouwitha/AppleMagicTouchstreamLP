@@ -1,26 +1,16 @@
 # NEXT:
 =======
+* * Test on Macbook!
+===
+1. I like how the buttons look when squished as far as possible (screenshot) can you make them default this size?
+2. What does Group/Ungroup do? I can't really tell from the GUI / user experience as I usually just drag/select or shift-select the keys I want? They don't stay permanently grouped and that seems fine?
+3. ALSO there are no buttons for transforming group selection size at the same time?
+> Alternatively: Can we Drag/select resize for the whole selected group when we resize 1 of the members?
+===
 - Visual toolbar seems dope! (above/below trackpads, like photoshopy?)
 - When we select a group of keys, can we resize them all at once? (by dragging?)
 - We should remove "Select Key" Dropdown from Layout Editor
 - Once we get Layout Editor done really well we can take "Custom Buttons" out of Keymap Editor! 
-===
-I like:
-0. Ability yo undo, redo, cancel, apply, reset!.. Very nifty! (Maybe when we "apply" it can go back to the visualizer?)
-1. The functionality is very nice but I would like to try and express the functions of the buttons in a more visual or intuitive way.
-
-I dislike:
-0. It breaks out into it's own editor (I think it would be cooler if we replaced the visualizer while we were editing and used that same space) ((But obviously you would need to make some changes so it doesn't get super laggy))
-1. I don't like editing 1 half at a time.. I think it should display both trackpads in the editor, and then have a "Mirror Edit" button (default on) that will mirror changes across halves.
-2. We should be able to Drag/Select columns or keys.
-===
-0. Please god can we finally fix Column tuning? (Drag to move??)
-* Should the keys be truely dynamic? Right now they are in a grid and we can set padding and x,y / rotation on a column (and rotation on a key) but each key's x,y can't be set individually.. This is.. mostly fine, that's how keyboards are laid out.. but does it have to be this way for efficiency? This is how keyboards are wired.. but I don't think it would be very hard to dynamically place and track hits on dynamic keys.. we are already doing it basically? We just don't give the user freedom?
-* Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes?
-* Maybe this can be part of a bigger re-write where we change the Column Tuning editor to allow for click/drag colunms and keys? Lets talk about it!
-> Comments:
-> add/remove columns so we dont need so many different layout options?
-> > This way.. we could allow STENO or Touchstream layouts to adjust their keys too?... (especially Steno)
 ===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)
