@@ -113,8 +113,10 @@ unknown labels fail import. Do not alter on-disk names as part of prose cleanup.
 
 Keyboard is the default workspace; keep visible trackpad controls, visualizers,
 keymap/column inspectors, pressure labels, paths and the monochrome hand menu icon.
-TouchStream uses fixed independent traced geometry, per-key overrides and automatic
-reference background; column tuning stays disabled. Contact palette is unknown black,
+TouchStream seeds independent traced geometry and automatic reference background.
+Layout Editor authors keys and optional groups for every template, including
+TouchStream and STENO; geometry edits compile only on Apply. Keep document identities
+independent of positions and include documents in settings and capture/replay. Contact palette is unknown black,
 thumb orange, index blue, middle green, ring purple, pinky pink, palm gray. No contact
 legend or display toggles. Keep resizable gesture columns, searchable actions,
 Left/Right, Mirror Edit and coordinated Both as distinct concepts. Keyboard and

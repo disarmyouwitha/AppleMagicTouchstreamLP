@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AC8100000000000000000202 /* LayoutEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8100000000000000000201; };
+        AC8100000000000000000102 /* LayoutDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8100000000000000000101; };
         AC7400000000000000000102 /* PloverConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7400000000000000000101; };
         AC7400000000000000000202 /* Plover plugin wheel in Resources */ = {isa = PBXBuildFile; fileRef = AC7400000000000000000201; };
         AC7300000000000000000C02 /* Steno.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7300000000000000000C01; };
@@ -50,6 +52,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AC8100000000000000000201 /* LayoutEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEditor.swift; sourceTree = "<group>"; };
+        AC8100000000000000000101 /* LayoutDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutDocument.swift; sourceTree = "<group>"; };
         AC7400000000000000000101 /* PloverConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/PloverConnection.swift; sourceTree = "<group>"; };
         AC7400000000000000000201 /* Plover plugin wheel */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppleMagicTouchstream/Resources/plover_applemagictouchstream-0.1.0-py3-none-any.whl; sourceTree = SOURCE_ROOT; };
         AC7300000000000000000C01 /* Steno.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Steno.swift; sourceTree = "<group>"; };
@@ -155,6 +159,8 @@
                 AC7100000000000000000901 /* AutocorrectEngine.swift */,
                 AC7100000000000000000A01 /* VoiceDictationManager.swift */,
                 AC7200000000000000000B01 /* TextShortcuts.swift */,
+                AC8100000000000000000201 /* LayoutEditor.swift */,
+                AC8100000000000000000101 /* LayoutDocument.swift */,
                 AC7300000000000000000C01 /* Steno.swift */,
                 AC7300000000000000000D01 /* GeminiPRPort.swift */,
                 AC7400000000000000000101 /* PloverConnection.swift */,
@@ -300,6 +306,8 @@
                 AC7100000000000000000902 /* AutocorrectEngine.swift in Sources */,
                 AC7100000000000000000A02 /* VoiceDictationManager.swift in Sources */,
                 AC7200000000000000000B02 /* TextShortcuts.swift in Sources */,
+                AC8100000000000000000202 /* LayoutEditor.swift in Sources */,
+                AC8100000000000000000102 /* LayoutDocument.swift in Sources */,
                 AC7300000000000000000C02 /* Steno.swift in Sources */,
                 AC7300000000000000000D02 /* GeminiPRPort.swift in Sources */,
                 AC7400000000000000000102 /* PloverConnection.swift in Sources */,

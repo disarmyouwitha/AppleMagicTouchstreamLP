@@ -1,6 +1,7 @@
 import Foundation
 
 enum GlassToKeyDefaultsKeys {
+    static let layoutDocuments = "AMT.LayoutDocuments"
     static let gestureRecognitionEnabled = "GlassToKey.gestureRecognitionEnabled"
 
     static let leftDeviceID = "GlassToKey.leftDeviceID"

@@ -100,9 +100,10 @@ The 88 regions are traced independently from the 1320×940 left image and
 trackpad surface. Centers, sizes and rotations follow the printed borders, not
 physical sensor calibration. Thumb regions use rotated
 rectangular bounds around oval artwork. Saved per-key overrides still apply.
-Column tuning stays disabled for this fixed independent geometry.
+The traced geometry is the editable template seed; Layout Editor can author independent
+positions, sizes and groups without changing the reference image.
 Keymap Tuning keeps its labels and options in side-by-side 50/50 columns even at
-narrow sidebar widths. Column Tuning uses the same 50/50 label/control split.
+narrow sidebar widths. Layout Editor replaces the old Column Tuning panel.
 At normal widths Mode Toggles uses two rows: Run at Startup / Snap Radius, then
 Autocorrect / Hold Repeat. Narrow sidebars use one full-width label/switch pair per
 row instead of wrapping labels into narrow columns. Switches align at the right
@@ -116,13 +117,37 @@ Letters, numbers, modifiers, navigation and function keys use the action catalog
 Unsupported hand-logo/PC-only legends remain editable inactive placeholders until
 assigned a supported action. Changing layouts does not replace saved mappings.
 
+## Layout authoring
+
+Layout Editor stages an editable document for the selected template. Select either
+pad, drag individual keys or optional column/groups, Shift-click to select multiple
+keys, and resize with the corner handle. Exact position/dimensions use millimeters;
+angles are editable numerically. Add/delete/duplicate keys or columns, group/ungroup,
+rotate, align/distribute, undo/redo and reset to the template. Editing snap is a
+separate 1 mm grid and has no connection to typing Snap Radius. Cancel discards the
+session; Apply compiles one geometry update through the existing engine boundary.
+
+Documents use UUID identities with immutable opaque binding slots. Physical position
+never depends on that slot; deletion never renumbers neighboring keys. Added keys
+receive fresh slots, and duplicated keys copy each layer's assignments at Apply.
+Per-template documents are saved under `AMT.LayoutDocuments`, exported in the Mac
+host extension and recorded in capture profiles. Production replay compiles those
+same documents. Invalid geometry is rejected. The spatial index chooses bucket
+density from physical key count, independent of sparse binding addresses.
+
+STENO documents explicitly store the template's visible edge extensions. Moving
+keys preserves that authored shape instead of inferring new overlaps from row
+neighbors. Existing STENO hit allowances, chord accumulation, force/mouse behavior
+and output transport remain unchanged. Normal keyboard hit testing retains its
+single-winner overlap rule. Structural editing does not add work to live frames.
+
 ## STENO layouts and Gemini PR
 
 `STENO` follows the [Asterisk v2](https://stenokeyboards.com/products/asterisk-v2)
 arrangement: broad number bars, two consonant rows, tall inner star keys and A/O,
 E/U thumb pairs. `STENO 6x3` uses the supplied Voyager image's staggered 6×3
-main grid plus those thumb pairs. It retains mirrored column tuning; the
-Asterisk arrangement has fixed independent geometry. Its key bounds follow the
+main grid plus those thumb pairs. All STENO variants are editable in Layout Editor.
+The Asterisk template key bounds follow the
 [maker’s layout drawing](https://docs.stenokeyboards.com/images/keyboard-layouts/asterisk.svg),
 calibrated to the published 234 mm board width and centered independently on each
 pad without stretching. For stationary row chords, both consonant rows extend

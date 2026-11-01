@@ -78,6 +78,13 @@ struct ContentView: View {
     }
 
     @StateObject private var viewModel: ContentViewModel
+    @State private var editingLayout = false
+    @AppStorage(GlassToKeyDefaultsKeys.layoutDocuments) private var storedLayoutDocuments = Data()
+    @State private var layoutDocuments: [String: LayoutDocument] = [:]
+    private var authoredLayout: LayoutDocument? { layoutDocuments[layoutOption.rawValue] }
+    private var editorSeed: LayoutDocument {
+        LayoutDocument.seed(left: leftLayout, right: rightLayout, leftLabels: leftGridLabels, rightLabels: rightGridLabels, groupByBindingColumn: layoutOption.allowsColumnSettings && !layoutOption.isSteno)
+    }
     @State private var testText = ""
     @State private var autocorrectCurrentBufferText = "<empty>"
     @State private var autocorrectLastCorrectedText = "none"
@@ -377,8 +384,8 @@ struct ContentView: View {
     private var layoutColumns: Int { layoutOption.columns }
     private var layoutRows: Int { layoutOption.rows }
     private var layoutColumnAnchors: [CGPoint] { layoutOption.columnAnchors }
-    private var leftGridLabels: [[String]] { layoutOption.leftLabels }
-    private var rightGridLabels: [[String]] { layoutOption.rightLabels }
+    private var leftGridLabels: [[String]] { authoredLayout?.labels(right: false) ?? layoutOption.leftLabels }
+    private var rightGridLabels: [[String]] { authoredLayout?.labels(right: true) ?? layoutOption.rightLabels }
     private var layoutSelectionBinding: Binding<TrackpadLayoutPreset> {
         Binding(
             get: { layoutOption },
@@ -561,6 +568,24 @@ struct ContentView: View {
 
     var body: some View {
         lifecycleContent(styledMainLayout)
+            .sheet(isPresented: $editingLayout) {
+                LayoutEditor(document: authoredLayout ?? editorSeed, template: templateSeed, onApply: { document in
+                    var documents = layoutDocuments
+                    var authored = document
+                    if var edited = authored {
+                        guard edited.isValid else { return }
+                        keyMappingsByLayer = edited.updatedMappings(keyMappingsByLayer)
+                        for i in edited.keys.indices { edited.keys[i].copySourceRow = nil; edited.keys[i].copySourceColumn = nil }
+                        authored = edited
+                    }
+                    documents[layoutOption.rawValue] = authored
+                    layoutDocuments = documents
+                    storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
+                    selectedGridKey = nil
+                    rebuildLayouts()
+                    updateGridLabelInfo()
+                })
+            }
     }
 
     private var styledMainLayout: some View {
@@ -590,6 +615,13 @@ struct ContentView: View {
                 viewModel.gestures.refreshPermission()
                 viewModel.startTrackpadConnectionRecovery()
 
+            }
+            .onChange(of: storedLayoutDocuments) { data in
+                let decoded = LayoutDocumentStorage.decode(data)
+                if decoded != layoutDocuments {
+                    layoutDocuments = decoded
+                    rebuildLayouts(); updateGridLabelInfo()
+                }
             }
             .onDisappear {
                 persistConfig()
@@ -915,19 +947,16 @@ struct ContentView: View {
             onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
+            onEditLayout: { editingLayout = true },
             stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
             stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
             stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
             stenoForceThreshold:Binding(get:{ viewModel.gestures.settings.resolvedStenoForceThreshold },set:{
                 viewModel.gestures.setStenoForceThreshold($0); rebuildLayouts()
             }),
-            columnSettings: columnSettings,
-            columnSelection: columnInspectorSelection,
-            columnSpacingPercent: $keySpacingPercent,
             primaryActionGroups: primaryActionGroups,
             holdActionGroups: holdActionGroups,
             gestureActionGroups: gestureActionGroups,
-            editColumnIndex: $editColumnIndex,
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
             selectionRevision: inspectorSelectionRevision,
@@ -1002,9 +1031,6 @@ struct ContentView: View {
             onClearTouchState: {
                 viewModel.clearTouchState()
             },
-            onUpdateColumn: { index, update in
-                updateColumnSettingAndSelection(index: index, update: update)
-            },
             onUpdateButton: { id, update in
                 updateCustomButtonAndSelection(id: id, update: update)
             },
@@ -1018,21 +1044,7 @@ struct ContentView: View {
                 updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
             },
             onSaveShortcutLibraryAction: saveShortcutLibraryAction,
-            onRestoreDefaults: restoreTypingTuningDefaults,
-            onApplyMxSpacing: {
-                applyKeySizePreset(
-                    targetKeyWidthMm: LayoutKeySizePresetTuning.mxKeyWidthMm,
-                    targetKeyHeightMm: LayoutKeySizePresetTuning.mxKeyHeightMm
-                )
-            },
-            onApplyChocSpacing: {
-                applyKeySizePreset(
-                    targetKeyWidthMm: Self.baseKeyWidthMM,
-                    targetKeyHeightMm: Self.baseKeyHeightMM
-                )
-            },
-            onAutoSplayColumns: applyAutoSplay,
-            onEvenSpaceColumns: applyEvenColumnSpacing
+            onRestoreDefaults: restoreTypingTuningDefaults
         )
     }
 
@@ -1247,17 +1259,14 @@ struct ContentView: View {
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let onEditLayout: () -> Void
         let stenoConnectionMode:Binding<StenoConnectionMode>
         let stenoHapticTouch:Binding<Bool>
         let stenoHapticRelease:Binding<Bool>
         let stenoForceThreshold:Binding<Double>
-        let columnSettings: [ColumnLayoutSettings]
-        let columnSelection: ColumnInspectorSelection?
-        @Binding var columnSpacingPercent: Double
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let gestureActionGroups: [KeyActionCatalog.ActionGroup]
-        @Binding var editColumnIndex: Int
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
@@ -1333,22 +1342,16 @@ struct ContentView: View {
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
-        @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = false
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
-        let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
         let onRestoreDefaults: () -> Void
-        let onApplyMxSpacing: () -> Void
-        let onApplyChocSpacing: () -> Void
-        let onAutoSplayColumns: () -> Void
-        let onEvenSpaceColumns: () -> Void
 
         var body: some View {
             ScrollView(.vertical) {
@@ -1376,31 +1379,11 @@ struct ContentView: View {
 
                     if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
 
-                    CollapsibleSection(
-                        isExpanded: $columnTuningExpanded
-                    ) {
-                        ColumnTuningSectionView(
-                            layoutOption: layoutOption,
-                            columnSettings: columnSettings,
-                            selection: columnSelection,
-                            columnSpacingPercent: $columnSpacingPercent,
-                            editColumnIndex: $editColumnIndex,
-                            onUpdateColumn: onUpdateColumn,
-                            onApplyMxSpacing: onApplyMxSpacing,
-                            onApplyChocSpacing: onApplyChocSpacing,
-                            onAutoSplay: onAutoSplayColumns,
-                            onEvenSpacing: onEvenSpaceColumns
-                        )
-                    } label: {
-                        Text("Column Tuning")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
+                    Button(action: onEditLayout) {
+                        Label("Layout Editor", systemImage: "square.grid.3x3")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }.padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.05)))
 
                     CollapsibleSection(
                         isExpanded: $keymapTuningExpanded
@@ -1760,205 +1743,6 @@ struct ContentView: View {
                         .padding(.top, topSpacing)
                 }
             }
-        }
-    }
-
-    private struct ColumnTuningSectionView: View {
-        let layoutOption: TrackpadLayoutPreset
-        let columnSettings: [ColumnLayoutSettings]
-        let selection: ColumnInspectorSelection?
-        @Binding var columnSpacingPercent: Double
-        @Binding var editColumnIndex: Int
-        let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
-        let onApplyMxSpacing: () -> Void
-        let onApplyChocSpacing: () -> Void
-        let onAutoSplay: () -> Void
-        let onEvenSpacing: () -> Void
-
-        private var editColumnBinding: Binding<Int> {
-            Binding(
-                get: {
-                    guard !columnSettings.isEmpty else { return 0 }
-                    return min(max(editColumnIndex, 0), columnSettings.count - 1)
-                },
-                set: { newValue in
-                    guard !columnSettings.isEmpty else { return }
-                    editColumnIndex = min(max(newValue, 0), columnSettings.count - 1)
-                }
-            )
-        }
-
-        private var activeColumnIndex: Int? {
-            guard !columnSettings.isEmpty else { return nil }
-            return editColumnBinding.wrappedValue
-        }
-
-        private var activeColumnSettings: ColumnLayoutSettings? {
-            guard let index = activeColumnIndex else { return nil }
-            return columnSettings[index]
-        }
-
-        private var isAutoSplaySupportedPreset: Bool {
-            layoutOption.columns == 6 || layoutOption == .fiveByThree || layoutOption == .fiveByFour
-        }
-
-        private var isEvenSpacingAvailable: Bool {
-            layoutOption.allowsColumnSettings &&
-            layoutOption.columns >= 3 &&
-            columnSettings.count >= layoutOption.columns
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
-                    if let index = activeColumnIndex,
-                       let settings = activeColumnSettings {
-                        EqualSplitFormRow(alwaysHorizontal: true) {
-                            Text("Edit Column")
-                        } field: {
-                            Picker("", selection: editColumnBinding) {
-                                ForEach(columnSettings.indices, id: \.self) { columnIndex in
-                                    Text("Column \(columnIndex + 1)").tag(columnIndex)
-                                }
-                            }
-                            .pickerStyle(MenuPickerStyle())
-                            .labelsHidden()
-                            .modifier(FlexibleMenuPickerSizing())
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        VStack(alignment: .leading, spacing: 14) {
-                            ColumnTuningRow(
-                                title: "Column Spacing (%)",
-                                value: Binding(
-                                    get: { columnSpacingPercent },
-                                    set: { newValue in
-                                        columnSpacingPercent = LayoutKeySpacingDefaults.normalized(newValue)
-                                    }
-                                ),
-                                formatter: ContentView.columnSpacingFormatter,
-                                range: ContentView.columnSpacingPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Scale X (%)",
-                                value: Binding(
-                                    get: { settings.scaleX * 100.0 },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.scaleX = ContentView.normalizedColumnScale(newValue / 100.0)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnScalePercentFormatter,
-                                range: ContentView.columnScalePercentRange,
-                                sliderStep: 5.0,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Scale Y (%)",
-                                value: Binding(
-                                    get: { settings.scaleY * 100.0 },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.scaleY = ContentView.normalizedColumnScale(newValue / 100.0)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnScalePercentFormatter,
-                                range: ContentView.columnScalePercentRange,
-                                sliderStep: 5.0,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column X (%)",
-                                value: Binding(
-                                    get: { settings.offsetXPercent },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.offsetXPercent = ContentView.normalizedColumnOffsetPercent(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnOffsetFormatter,
-                                range: ContentView.columnOffsetPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Column Y (%)",
-                                value: Binding(
-                                    get: { settings.offsetYPercent },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.offsetYPercent = ContentView.normalizedColumnOffsetPercent(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.columnOffsetFormatter,
-                                range: ContentView.columnOffsetPercentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                            ColumnTuningRow(
-                                title: "Rotation (0-360 deg)",
-                                value: Binding(
-                                    get: { settings.rotationDegrees },
-                                    set: { newValue in
-                                        onUpdateColumn(index) { setting in
-                                            setting.rotationDegrees = ContentView.normalizedRotationDegrees(newValue)
-                                        }
-                                    }
-                                ),
-                                formatter: ContentView.rotationDegreesFormatter,
-                                range: ContentView.rotationDegreesRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true,
-                                alwaysHorizontal: true
-                            )
-                        }
-                        HStack(spacing: 8) {
-
-                            Button {
-                                onEvenSpacing()
-                            } label: {
-                                Text("e v e n s p a c i n g")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(!isEvenSpacingAvailable)
-                        }
-                    } else {
-                        Text("No columns available for this layout.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text(layoutOption.hasGrid
-                        ? (layoutOption == .touchstream
-                            ? "TouchStream uses traced left/right key positions. Select a key to edit its size, rotation, and action."
-                            : "This preset uses a fixed right-side layout; column tuning is disabled.")
-                        : "Layout has no grid. Pick one of the presets to show keys.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -3308,18 +3092,44 @@ struct ContentView: View {
         applyColumnSettings(columnSettings)
     }
 
+    private func publishAuthoredLayouts(leftLayout: ContentViewModel.Layout, rightLayout: ContentViewModel.Layout,
+        leftLabels: [[String]], rightLabels: [[String]], trackpadSize: CGSize, trackpadWidthMm: CGFloat) {
+        let document = authoredLayout
+        let left = document?.compile(right: false, base: leftLayout, size: trackpadSize) ?? leftLayout
+        let right = document?.compile(right: true, base: rightLayout, size: trackpadSize) ?? rightLayout
+        self.leftLayout = left; self.rightLayout = right
+        viewModel.configureLayouts(leftLayout: left, rightLayout: right,
+            leftLabels: document?.labels(right: false) ?? leftLabels,
+            rightLabels: document?.labels(right: true) ?? rightLabels,
+            trackpadSize: trackpadSize, trackpadWidthMm: trackpadWidthMm)
+    }
+
+    private var templateSeed: LayoutDocument {
+        let preset = layoutOption
+        func base(_ right: Bool) -> ContentViewModel.Layout {
+            if preset.isSteno { return StenoLayoutDefinition.layout(preset: preset, side: right ? .right : .left, size: trackpadSize, columns: columnSettings, spacing: keySpacingPercent, overrides: [:]) }
+            if preset == .touchstream { return Self.makeTouchStreamKeyLayout(size: trackpadSize, side: right ? .right : .left, keyGeometryOverrides: [:]) }
+            if !right && preset.blankLeftSide { return ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize) }
+            return Self.makeKeyLayout(size: trackpadSize, keyWidth: Self.baseKeyWidthMM, keyHeight: Self.baseKeyHeightMM,
+                columns: preset.columns, rows: preset.rows, trackpadWidth: Self.trackpadWidthMM, trackpadHeight: Self.trackpadHeightMM,
+                columnAnchorsMM: preset.columnAnchors, columnSettings: ColumnLayoutDefaults.defaultSettings(columns: preset.columns),
+                keySpacingPercent: LayoutKeySpacingDefaults.defaultPercent, mirrored: !right)
+        }
+        return LayoutDocument.seed(left: base(false), right: base(true), leftLabels: preset.leftLabels, rightLabels: preset.rightLabels, groupByBindingColumn: preset.allowsColumnSettings && !preset.isSteno)
+    }
+
     private func rebuildLayouts() {
         if layoutOption.isSteno {
             leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
             rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
-            viewModel.configureLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
+            publishAuthoredLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
                 trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
             return
         }
         if layoutOption == .touchstream {
             leftLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
             rightLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)
-            viewModel.configureLayouts(leftLayout: leftLayout, rightLayout: rightLayout,
+            publishAuthoredLayouts(leftLayout: leftLayout, rightLayout: rightLayout,
                 leftLabels: leftGridLabels, rightLabels: rightGridLabels,
                 trackpadSize: trackpadSize, trackpadWidthMm: Self.trackpadWidthMM)
             return
@@ -3330,7 +3140,7 @@ struct ContentView: View {
               layoutColumnAnchors.count == layoutColumns else {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3346,7 +3156,7 @@ struct ContentView: View {
                 size: trackpadSize,
                 keyGeometryOverrides: keyGeometryOverrides
             )
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3371,7 +3181,7 @@ struct ContentView: View {
                 keySpacingPercent: keySpacingPercent,
                 keyGeometryOverrides: keyGeometryOverrides
             )
-            viewModel.configureLayouts(
+            publishAuthoredLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftGridLabels,
@@ -3408,7 +3218,7 @@ struct ContentView: View {
             keySpacingPercent: keySpacingPercent,
             keyGeometryOverrides: keyGeometryOverrides
         )
-        viewModel.configureLayouts(
+        publishAuthoredLayouts(
             leftLayout: leftLayout,
             rightLayout: rightLayout,
             leftLabels: leftGridLabels,
@@ -3419,6 +3229,7 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
+        layoutDocuments = LayoutDocumentStorage.decode(storedLayoutDocuments)
         normalizeStoredShortcutActions()
         let storedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(storedLayoutPreset)
         let resolvedLayout: TrackpadLayoutPreset = (storedLayout == .mobile || storedLayout == .mobileOrtho12x4) ? .sixByThree : storedLayout
@@ -3717,11 +3528,16 @@ struct ContentView: View {
             keyMappingsByLayout: mappings,
             keyGeometryByLayout: keyGeometryByLayout,
             gestureRecognitionEnabled: gestureRecognitionEnabled,
-            handGestureSettings: viewModel.gestures.settings
+            handGestureSettings: viewModel.gestures.settings,
+            layoutDocuments: layoutDocuments
         )
     }
 
     private func applyKeymapProfile(_ profile: AppKeymapProfile) {
+        if let documents = profile.layoutDocuments {
+            layoutDocuments = documents.filter { $0.value.isValid }
+            storedLayoutDocuments = (try? JSONEncoder().encode(layoutDocuments)) ?? Data()
+        }
         if let gestures = profile.handGestureSettings { viewModel.gestures.applyImportedSettings(gestures) }
         gestureRecognitionEnabled = profile.gestureRecognitionEnabled ?? false
         storedLeftDeviceID = profile.leftDeviceID
@@ -4382,7 +4198,8 @@ struct ContentView: View {
     }
 
     private func keyRotationDegrees(for key: SelectedGridKey) -> Double {
-        keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
+        if let authored = authoredLayout?.keys.first(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) { return authored.rect.rotationDegrees }
+        return keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
     }
 
     private func updateKeyRotation(
@@ -4390,6 +4207,14 @@ struct ContentView: View {
         rotationDegrees: Double
     ) {
         let normalized = Self.normalizedRotationDegrees(rotationDegrees)
+        if var document = authoredLayout,
+           let i = document.keys.firstIndex(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) {
+            document.keys[i].rect.rotationDegrees = normalized
+            var documents = layoutDocuments; documents[layoutOption.rawValue] = document
+            layoutDocuments = documents
+            storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
+            rebuildLayouts(); return
+        }
         if normalized <= 0.000_01 {
             let existing = keyGeometryOverrides[key.storageKey]
             let widthScale = existing?.widthScale ?? 1.0

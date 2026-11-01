@@ -2061,8 +2061,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         side: TrackpadSide
     ) -> BindingIndex {
         let keyRects = layout.keyRects
-        let keyRows = max(1, keyRects.count)
-        let keyCols = max(1, keyRects.first?.count ?? 1)
+        // Spatial density follows physical key count, not sparse binding addresses.
+        let count = keyRects.reduce(0) { $0 + $1.filter { $0.width > 0 && $0.height > 0 }.count }
+        let keyCols = max(4, min(24, Int(sqrt(Double(max(1, count))*1.4))))
+        let keyRows = max(3, min(18, Int(ceil(Double(max(1, count))/Double(keyCols)))))
         var keyGrid = BindingGrid(canvasSize: canvasSize, rows: keyRows, cols: keyCols)
         let useCustomGrid = customButtons.count > 4
         var customGrid = useCustomGrid
@@ -2111,7 +2113,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             let rowRects = keyRects[row]
             for col in 0..<rowRects.count {
                 let rect = rowRects[col]
-                guard row < labels.count,
+                guard rect.width > 0, rect.height > 0, row < labels.count,
                       col < labels[row].count else { continue }
                 let label = labels[row][col]
                 let position = GridKeyPosition(side: side, row: row, column: col)
