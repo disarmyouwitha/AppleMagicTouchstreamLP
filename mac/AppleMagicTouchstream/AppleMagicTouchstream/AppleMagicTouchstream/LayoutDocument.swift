@@ -236,6 +236,66 @@ struct LayoutDocument: Codable, Equatable {
         })
     }
 
+    /// Bands share an axis coordinate (for example, a row or column). Changing gaps
+    /// translates bands only; individual key dimensions and their bindings stay fixed.
+    private func spacingBands(_ ids:Set<UUID>,right:Bool,axisX:Bool,pad:CGSize) -> [(ids:Set<UUID>,low:CGFloat,high:CGFloat)] {
+        guard let frame = selectionFrame(ids,right:right,pad:pad), frame.allowsIndependentAxes else { return [] }
+        let angle = CGFloat(frame.rect.rotationDegrees * .pi/180), c = cos(angle), s = sin(angle)
+        let projected = keys.filter { ids.contains($0.id) && $0.right == right }.map { key -> (UUID,CGFloat,CGFloat) in
+            let x = key.rect.centerX*pad.width, y = key.rect.centerY*pad.height
+            return (key.id,axisX ? x*c+y*s : -x*s+y*c,axisX ? key.rect.width*pad.width : key.rect.height*pad.height)
+        }.sorted {$0.1 < $1.1}
+        var bands:[(ids:Set<UUID>,low:CGFloat,high:CGFloat)] = []
+        var center:CGFloat = -.infinity
+        for (id,p,length) in projected {
+            if abs(p-center) <= 0.5, let last = bands.indices.last {
+                bands[last].ids.insert(id); bands[last].low = min(bands[last].low,p-length/2); bands[last].high = max(bands[last].high,p+length/2)
+            } else { bands.append(([id],p-length/2,p+length/2)); center = p }
+        }
+        return bands
+    }
+    func selectionSpacing(_ ids:Set<UUID>,right:Bool,axisX:Bool,pad:CGSize) -> CGFloat? {
+        let bands = spacingBands(ids,right:right,axisX:axisX,pad:pad)
+        guard bands.count > 1 else { return nil }
+        return (1..<bands.count).reduce(CGFloat(0)) {$0+bands[$1].low-bands[$1-1].high}/CGFloat(bands.count-1)
+    }
+    mutating func setSelectionSpacing(_ ids:Set<UUID>,axisX:Bool,millimeters:CGFloat,pad:CGSize) {
+        guard millimeters.isFinite, pad.width > 0, pad.height > 0 else { return }
+        for side in [false,true] {
+            let bands = spacingBands(ids,right:side,axisX:axisX,pad:pad)
+            guard bands.count > 1, let frame = selectionFrame(ids,right:side,pad:pad) else { continue }
+            let angle = CGFloat(frame.rect.rotationDegrees * .pi/180), c = cos(angle), s = sin(angle)
+            var shift:CGFloat = 0
+            for n in 1..<bands.count {
+                shift += millimeters-(bands[n].low-bands[n-1].high)
+                for i in keys.indices where bands[n].ids.contains(keys[i].id) {
+                    keys[i].rect.x += (axisX ? shift*c : -shift*s)/pad.width
+                    keys[i].rect.y += (axisX ? shift*s : shift*c)/pad.height
+                }
+            }
+        }
+    }
+
+    /// Scale center-to-center pitch, not key dimensions. Unlike multiplying gaps,
+    /// this can open spacing from touching keys or reduce an existing overlap.
+    mutating func scaleSelectionSpacing(_ ids:Set<UUID>,factor:CGFloat,pad:CGSize) {
+        guard factor.isFinite, factor > 0, factor != 1, pad.width > 0, pad.height > 0 else { return }
+        for side in [false,true] {
+            guard let frame = selectionFrame(ids,right:side,pad:pad), frame.allowsIndependentAxes else { continue }
+            let xs = spacingBands(ids,right:side,axisX:true,pad:pad), ys = spacingBands(ids,right:side,axisX:false,pad:pad)
+            guard let x = xs.first, let y = ys.first else { continue }
+            let angle = CGFloat(frame.rect.rotationDegrees * .pi/180), c = cos(angle), s = sin(angle)
+            let originX = (x.low+x.high)/2, originY = (y.low+y.high)/2
+            for i in keys.indices where ids.contains(keys[i].id) && keys[i].right == side {
+                let px = keys[i].rect.centerX*pad.width, py = keys[i].rect.centerY*pad.height
+                let dx = xs.count > 1 ? (px*c+py*s-originX)*(factor-1):0
+                let dy = ys.count > 1 ? (-px*s+py*c-originY)*(factor-1):0
+                keys[i].rect.x += (dx*c-dy*s)/pad.width
+                keys[i].rect.y += (dx*s+dy*c)/pad.height
+            }
+        }
+    }
+
     struct SelectionFrame: Equatable {
         let rect: NormalizedRect
         let allowsIndependentAxes: Bool

@@ -845,6 +845,21 @@ final class StenoMouseTests:XCTestCase {
             }
         }
     }
+    func testEmptyEditorLayoutCancelsChordAndRestoringStenoAcceptsFreshChord() {
+        let run = session(pointerMode:.twoFinger), point = contact(.tl,preset:.steno,side:.left)
+        let size = CGSize(width:432,height:310.23)
+        frame(run,1,4,[point])
+        let empty = ContentViewModel.Layout(keyRects:[],trackpadSize:size)
+        run.engine.updateLayouts(leftLayout:empty,rightLayout:empty,leftLabels:[],rightLabels:[],trackpadSize:size,trackpadWidthMm:160)
+        frame(run,1.02,4,[point]); frame(run,1.04,4,[])
+        XCTAssertTrue(packets(run).isEmpty)
+        XCTAssertTrue(run.output.acceptedBindings.isEmpty)
+        run.engine.updateLayouts(leftLayout:StenoLayoutDefinition.layout(preset:.steno,side:.left,size:size,pointerMode:.twoFinger),
+            rightLayout:StenoLayoutDefinition.layout(preset:.steno,side:.right,size:size,pointerMode:.twoFinger),
+            leftLabels:TrackpadLayoutPreset.steno.leftLabels,rightLabels:TrackpadLayoutPreset.steno.rightLabels,trackpadSize:size,trackpadWidthMm:160)
+        frame(run,1.06,4,[point]); frame(run,1.08,4,[])
+        XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
+    }
     func testReconfiguringStenoWithHeldContactsCancelsPartialStroke() {
         let run = session(pointerMode:.twoFinger)
         let point = contact(.tl,preset:.steno,side:.left)

@@ -129,7 +129,13 @@ Keys support click/drag, Shift-add selection and box selection by dragging empty
 space. Every selection has one shared frame and square resize handle per pad;
 individual member handles, group selection mode and the key-selection dropdown are
 absent. Width/Height fields resize selections in millimeters, and Smaller/Larger
-5% buttons scale keys and spacing. Shift or Keep proportions locks the aspect ratio.
+5% buttons scale keys and spacing. Selection spacing X/Y sets gaps between aligned
+bands of keys in the selection’s shared axes, translating keys without resizing them.
+Negative gaps allow overlap. The first band anchors each pad; Mirror Edit reflects
+these translations. A single band or mixed-angle selection has no editable gap on
+that axis. Numeric geometry fields retain incomplete drafts and validate on Return
+or focus loss, producing one undo transaction per committed field edit.
+Shift or Keep proportions locks the aspect ratio.
 Keys with shared axes can resize independently; mixed rotations scale uniformly.
 Each pad uses its own anchor. Fixed STENO overlap allowances, key identities,
 existing group metadata, bindings and counterpart links are retained.
@@ -145,9 +151,19 @@ typing Snap Radius; no grid selector is shown.
 Editor legends resolve the active layer’s actual per-hand mappings, including staged
 duplicate sources, without rewriting the document’s fallback labels. Reset seeds
 geometry from bundled DEFAULT_KEYMAP.json, including per-layout column dimensions,
-row spacing, padding, key overrides and any authored default documents. Current
+row spacing, padding, key overrides, base-layer fallback labels and any authored
+default documents. Current
 action assignments remain independent of geometry reset. Mirror Edit uses a blue enabled
 button with the same split-pad icon in Layout Editor and Gesture Editor.
+
+Tool buttons visibly press blue and shrink while clicked, then pulse a blue border
+for about 0.8 seconds. Spacing −5%/+5% precede Delete in Arrange; they scale the
+selected center-to-center pitch while preserving key dimensions, so touching keys
+can gain a gap. The first band anchors each pad, with Mirror Edit and undo retained. While editing a STENO
+layout, the live runtime is temporarily configured with empty non-STENO key regions
+and no custom buttons. This uses normal gesture recognition without steno chords or
+force-mouse interception. Apply/Cancel restores the selected STENO runtime through
+the shared reconfiguration/cleanup path; no gesture or STENO preferences are changed.
 
 Keymap Tuning no longer offers the separate Custom Buttons creation, deletion or
 geometry editor. New keys and columns are authored in Layout Editor. Existing saved

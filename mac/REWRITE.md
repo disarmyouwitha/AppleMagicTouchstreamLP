@@ -4,18 +4,10 @@
 * Test on Macbook!
 - Can you reset my column widths to the app's default?
 ===
-Okay, yes, I reviewed the templates and I want you to set the template spacing and label presets based on DEFAULT_KEYMAP.json 
-
-ADDITIONALLY!!
-0. When you click one of the layout buttons can it flash or highlight or *look* like I clicked it?
-1. When you select a group it shows a "Selection size" but it should also show "Selection Spacing" I think with x,y to allow you to adjust spacing for the whole column numerically
-2. When you are trying to edit the "Section size" it wont let you backspace to 0 because of the minimum validation.
-3. When you enter "Layout Editor" in STENO mode, we should "turn off" Steno mode temporarily and allow normal gestures until you exit Layout mode
-===
-1. Lets actually remove the snap-grid selector and just default it to 1mm I like that. 
-2. when we go into Layout Editor the keys are assigned totally wrong letters.. like.. duplicated from the wrong half? or RHS? (If the Templates are wrong they should use what is saved now in DEFAULT_KEYMAP.json 
-3. 6x3 Template reset doesn't reset to the actual 6x3 default.. it's like the underlying Corne template?
-> None of the templates seem to default exactly as they load from my keymap files.. they all have like a little vertical padding between the rows?
+0. "Templates use DEFAULT_KEYMAP.json spacing and label presets."
+> Does that mean you baked it into the template now, or does it depend on the values in default_keymap still?
+1. I think we should add +5% spacing -5% spacing buttons to the left of delete (screenshot)
+2. I don't see any highlight when clicking buttons under "arrange" maybe just a short highlight or pulse around the edges? 
 ===
 0. In STENO mode, when we are in Key Tuning we should ONLY show Steno keys 
 1. We should allow Shortcuts to fire in Steno mode (outside of the Steno protocol)

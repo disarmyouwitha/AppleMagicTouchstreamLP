@@ -304,6 +304,10 @@ struct LayoutEditor: View {
                 tool("Space horizontally","distribute.horizontal.center",disabled:selection.count < 3) { distribute(horizontal:true) }
                 tool("Space vertically","distribute.vertical.center",disabled:selection.count < 3) { distribute(horizontal:false) }
                 tool("Duplicate","square.on.square",disabled:selection.isEmpty,action:duplicate)
+                tool("Spacing −5%","arrow.right.and.line.vertical.and.arrow.left",disabled:!canAdjustSpacing,
+                     hint:"Reduce selected center-to-center spacing by 5%, keeping key sizes fixed.") { adjustSpacing(0.95) }
+                tool("Spacing +5%","arrow.left.and.line.vertical.and.arrow.right",disabled:!canAdjustSpacing,
+                     hint:"Increase selected center-to-center spacing by 5%, keeping key sizes fixed.") { adjustSpacing(1.05) }
                 tool("Delete","trash",disabled:selection.isEmpty,action:delete)
             }.frame(maxWidth:286,alignment:.leading)
             Divider()
@@ -339,6 +343,9 @@ struct LayoutEditor: View {
                     selectionSizeField("Width",axisX:true,frame:frame)
                     selectionSizeField("Height",axisX:false,frame:frame)
                 }
+                Text("Selection spacing · mm").font(.subheadline.bold())
+                HStack { spacingField("X",axisX:true); spacingField("Y",axisX:false) }
+                Text("Gaps between rows or columns; negative values overlap.").font(.caption).foregroundStyle(.secondary)
                 Toggle("Keep proportions",isOn:Binding(get:{keepProportions || !supportsIndependentResize},set:{keepProportions = $0}))
                     .toggleStyle(.checkbox).disabled(!supportsIndependentResize).font(.caption)
                 Text(supportsIndependentResize ? "Scales keys and spacing together." : "Mixed key angles resize proportionally.")
@@ -350,15 +357,29 @@ struct LayoutEditor: View {
         let size = axisX ? frame.rect.width*width : frame.rect.height*height
         return VStack(alignment:.leading,spacing:4) {
             Text(title).font(.caption).foregroundStyle(.secondary)
-            TextField(title,value:Binding<Double>(get:{Double(size)},set:{value in
-                guard value.isFinite, value > 0, size > 0 else { return }
+            LayoutNumericField(title:title,value:Double(size),positive:true) { value in
+                guard size > 0 else { return }
                 let scale = CGFloat(value)/size
                 let linked = keepProportions || !supportsIndependentResize
                 let sx = axisX || linked ? scale : 1
                 let sy = !axisX || linked ? scale : 1
                 change { document.resizeSelection(selection,scaleX:sx,scaleY:sy,pad:padMM) }
-            }),format:.number.precision(.fractionLength(2)))
-                .accessibilityLabel("Selection \(title.lowercased())")
+            }
+            .id(selection.sorted {$0.uuidString < $1.uuidString}.map(\.uuidString).joined()+title)
+            .accessibilityLabel("Selection \(title.lowercased())")
+        }
+    }
+
+    private func spacingField(_ title:String,axisX:Bool) -> some View {
+        let side = document.keys.contains {$0.right == right && selection.contains($0.id)} ? right:!right
+        let spacing = document.selectionSpacing(selection,right:side,axisX:axisX,pad:padMM)
+        return VStack(alignment:.leading,spacing:4) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            LayoutNumericField(title:title,value:Double(spacing ?? 0)) { value in
+                change { document.setSelectionSpacing(selection,axisX:axisX,millimeters:CGFloat(value),pad:padMM) }
+            }.disabled(spacing == nil)
+                .id(selection.sorted {$0.uuidString < $1.uuidString}.map(\.uuidString).joined()+"spacing"+title)
+                .accessibilityLabel("Selection spacing \(title)")
         }
     }
 
@@ -381,17 +402,16 @@ struct LayoutEditor: View {
     private func field(_ title: String,key: LayoutDocument.Key,path: WritableKeyPath<NormalizedRect,CGFloat>,scale: CGFloat) -> some View {
         VStack(alignment:.leading,spacing:4) {
             Text(title).font(.caption).foregroundStyle(.secondary)
-            TextField(title,value:Binding(get:{key.rect[keyPath:path]*scale},set:{value in
-                guard value.isFinite else { return }
+            LayoutNumericField(title:title,value:Double(key.rect[keyPath:path]*scale),positive:path == \.width || path == \.height) { value in
                 change {
                     guard let i = document.keys.firstIndex(where:{$0.id == key.id}) else { return }
                     var r = document.keys[i].rect
-                    r[keyPath:path] = value/scale
+                    r[keyPath:path] = CGFloat(value)/scale
                     r.width = min(1,max(0.005,r.width)); r.height = min(1,max(0.005,r.height))
                     r.x = min(1-r.width,max(0,r.x)); r.y = min(1-r.height,max(0,r.y))
                     document.keys[i].rect = r
                 }
-            }),format:.number.precision(.fractionLength(2)))
+            }.id(key.id.uuidString+title)
         }
     }
     private func icon(_ title: String,_ symbol: String,disabled: Bool = false,action: @escaping () -> Void) -> some View {
@@ -399,13 +419,19 @@ struct LayoutEditor: View {
             .disabled(disabled).help(title).accessibilityLabel(title)
     }
     private func tool(_ title: String,_ symbol: String,disabled: Bool = false,hint: String? = nil,action: @escaping () -> Void) -> some View {
-        Button(action:action) {
-            VStack(spacing:5) {
-                Image(systemName:symbol).font(.system(size:18)).frame(height:22)
-                Text(title).font(.caption).lineLimit(2).multilineTextAlignment(.center)
-            }.frame(maxWidth:.infinity,minHeight:48)
-        }.frame(width:90).disabled(disabled).help(hint ?? title).accessibilityLabel(title)
+        LayoutToolButton(title:title,symbol:symbol,action:action)
+            .frame(width:90).disabled(disabled).help(hint ?? title).accessibilityLabel(title)
     }
+    private var canAdjustSpacing: Bool {
+        [false,true].contains { side in
+            document.selectionSpacing(selection,right:side,axisX:true,pad:padMM) != nil ||
+            document.selectionSpacing(selection,right:side,axisX:false,pad:padMM) != nil
+        }
+    }
+    private func adjustSpacing(_ factor:CGFloat) {
+        change { document.scaleSelectionSpacing(selection,factor:factor,pad:padMM) }
+    }
+
     private func refreshLegends() {
         legends = document.editorLegends(mappings:mappings)
     }
@@ -494,5 +520,72 @@ struct MirrorEditButton: View {
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1:0.45)
         .accessibilityLabel("Mirror Edit").accessibilityValue(isOn ? "On":"Off")
+    }
+}
+
+private struct LayoutToolButton: View {
+    let title:String
+    let symbol:String
+    let action:() -> Void
+    @State private var glow = false
+    @State private var pulse = UUID()
+    var body: some View {
+        Button {
+            let token = UUID(); pulse = token
+            withAnimation(.easeOut(duration:0.08)) { glow = true }
+            action()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds:150_000_000)
+                guard pulse == token else { return }
+                withAnimation(.easeOut(duration:0.65)) { glow = false }
+            }
+        } label: {
+            VStack(spacing:5) {
+                Image(systemName:symbol).font(.system(size:18)).frame(height:22)
+                Text(title).font(.caption).lineLimit(2).multilineTextAlignment(.center)
+            }.frame(maxWidth:.infinity,minHeight:48)
+        }
+        .buttonStyle(LayoutToolButtonStyle())
+        .overlay(RoundedRectangle(cornerRadius:6).stroke(Color.accentColor.opacity(glow ? 1:0),lineWidth:2)
+            .shadow(color:Color.accentColor.opacity(glow ? 0.55:0),radius:5))
+    }
+}
+
+private struct LayoutToolButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration:Configuration) -> some View {
+        configuration.label.padding(.horizontal,8).padding(.vertical,4)
+            .foregroundStyle(configuration.isPressed ? Color.white:Color.primary)
+            .background(configuration.isPressed ? Color.accentColor:Color.primary.opacity(0.07),in:RoundedRectangle(cornerRadius:6))
+            .scaleEffect(configuration.isPressed ? 0.96:1)
+            .opacity(enabled ? 1:0.3)
+    }
+}
+
+/// Keep incomplete input local; publish one undoable edit on Return or focus loss.
+struct LayoutNumericField: View {
+    let title:String
+    let value:Double
+    var positive = false
+    let onCommit:(Double) -> Void
+    @State private var draft = ""
+    @State private var invalid = false
+    @FocusState private var focused:Bool
+    private var formatted:String { value.formatted(.number.precision(.fractionLength(2))) }
+    var body: some View {
+        VStack(alignment:.leading,spacing:2) {
+            TextField(title,text:$draft).focused($focused).onSubmit(commit)
+                .onAppear { draft = formatted }
+                .onChange(of:value) { _ in if !focused { draft = formatted } }
+                .onChange(of:focused) { active in if !active { commit() } }
+                .onChange(of:draft) { _ in invalid = false }
+            if invalid { Text(positive ? "Enter a value above zero.":"Enter a number.").font(.caption2).foregroundStyle(.red) }
+        }
+    }
+    private func commit() {
+        let text = draft.replacingOccurrences(of:Locale.current.decimalSeparator ?? ".",with:".")
+        guard let number = Double(text), number.isFinite, !positive || number > 0 else { invalid = true; return }
+        if number != value { onCommit(number) }
+        draft = number.formatted(.number.precision(.fractionLength(2)))
     }
 }

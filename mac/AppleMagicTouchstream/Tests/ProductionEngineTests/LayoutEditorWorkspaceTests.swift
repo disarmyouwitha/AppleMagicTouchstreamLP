@@ -41,6 +41,11 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
         for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour,.fiveByThree,.fiveByFour] {
             let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
             XCTAssertEqual(doc.keys.count,preset.rows*preset.columns*2)
+            let mappings = profile.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]
+            for key in doc.keys {
+                let address = GridKeyPosition(side:key.right ? .right:.left,row:key.row,column:key.column).storageKey
+                if let mapping = mappings[address] { XCTAssertEqual(key.label,mapping.primary.label) }
+            }
             let columns = try XCTUnwrap(profile.columnSettingsByLayout[preset.rawValue])
             let spacing = try XCTUnwrap(profile.keySpacingPercentByLayout?[preset.rawValue])
             for side in [false,true] {

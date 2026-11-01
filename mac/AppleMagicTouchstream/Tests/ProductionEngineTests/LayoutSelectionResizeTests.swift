@@ -9,6 +9,54 @@ final class LayoutSelectionResizeTests: XCTestCase {
         XCTAssertEqual(a.x,b.x,accuracy:1e-9,file:file,line:line)
         XCTAssertEqual(a.y,b.y,accuracy:1e-9,file:file,line:line)
     }
+    func testPercentageSpacingOpensTouchingKeysWithoutResizingAndMirrors() throws {
+        var doc = LayoutDocument()
+        let a = doc.addMirrored(right:false,rect:.init(x:0.2,y:0.1,width:0.1,height:0.1))
+        let b = doc.addMirrored(right:false,rect:.init(x:0.2,y:0.2,width:0.1,height:0.1))
+        let ids:Set<UUID> = [a,b], pad = CGSize(width:160,height:100), before = doc
+        doc.scaleSelectionSpacing(ids,factor:1.05,pad:pad)
+        doc.mirrorGeometryChanges(from:before,sources:ids)
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:false,axisX:false,pad:pad)),0.5,accuracy:0.00001)
+        XCTAssertEqual(doc.keys[0].rect,before.keys[0].rect)
+        XCTAssertEqual(doc.keys[2].rect.y,doc.keys[3].rect.y,accuracy:0.00001)
+        for (old,new) in zip(before.keys,doc.keys) { XCTAssertEqual(old.rect.width,new.rect.width); XCTAssertEqual(old.rect.height,new.rect.height) }
+        doc.scaleSelectionSpacing(ids,factor:0.95,pad:pad)
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:false,axisX:false,pad:pad)),-0.025,accuracy:0.00001)
+    }
+    func testSelectionSpacingChangesOnlyGapsAndMirrorsWithoutResizing() throws {
+        var doc = LayoutDocument()
+        let a = doc.addMirrored(right:false,rect:.init(x:0.2,y:0.1,width:0.1,height:0.1))
+        let b = doc.addMirrored(right:false,rect:.init(x:0.2,y:0.25,width:0.1,height:0.1))
+        let c = doc.addMirrored(right:false,rect:.init(x:0.2,y:0.4,width:0.1,height:0.1))
+        let ids:Set<UUID> = [a,b,c], pad = CGSize(width:160,height:100), before = doc
+        XCTAssertNil(doc.selectionSpacing(ids,right:false,axisX:true,pad:pad))
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:false,axisX:false,pad:pad)),5,accuracy:0.00001)
+        doc.setSelectionSpacing(ids,axisX:false,millimeters:-1,pad:pad)
+        doc.mirrorGeometryChanges(from:before,sources:ids)
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:false,axisX:false,pad:pad)),-1,accuracy:0.00001)
+        XCTAssertEqual(doc.keys.first {$0.id == a}?.rect,before.keys.first {$0.id == a}?.rect)
+        for (old,new) in zip(before.keys,doc.keys) {
+            XCTAssertEqual(old.rect.width,new.rect.width); XCTAssertEqual(old.rect.height,new.rect.height)
+            XCTAssertEqual(old.label,new.label); XCTAssertEqual(old.mirrorID,new.mirrorID)
+        }
+        XCTAssertEqual(doc.keys[2].rect.y,0.19,accuracy:0.00001)
+        XCTAssertEqual(doc.keys[4].rect.y,0.28,accuracy:0.00001)
+        XCTAssertEqual(doc.keys[3].rect.y,doc.keys[2].rect.y,accuracy:0.00001)
+    }
+    func testSelectionSpacingUsesSharedRotatedAxesAndRetainsRows() throws {
+        var doc = LayoutDocument(), ids = Set<UUID>()
+        for x in [CGFloat(0.2),0.4] {
+            for y in [CGFloat(0.2),0.4] { ids.insert(doc.add(right:true,rect:.init(x:x,y:y,width:0.1,height:0.1))) }
+        }
+        let pad = CGSize(width:100,height:100)
+        doc.rotate(ids,degrees:30,pad:pad)
+        let before = doc
+        doc.setSelectionSpacing(ids,axisX:true,millimeters:2,pad:pad)
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:true,axisX:true,pad:pad)),2,accuracy:0.00001)
+        XCTAssertEqual(try XCTUnwrap(doc.selectionSpacing(ids,right:true,axisX:false,pad:pad)),10,accuracy:0.00001)
+        for (a,b) in zip(before.keys,doc.keys) { XCTAssertEqual(a.rect.width,b.rect.width); XCTAssertEqual(a.rect.rotationDegrees,b.rect.rotationDegrees) }
+    }
+
     func testTemporarySelectionScalesKeysAndSpacingWithoutCreatingGroups() throws {
         var doc = LayoutDocument()
         let a = doc.add(right:true,label:"A",rect:.init(x:0.1,y:0.2,width:0.1,height:0.2))

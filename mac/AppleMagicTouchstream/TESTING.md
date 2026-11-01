@@ -77,7 +77,9 @@ uniform resizing. Verify visualizer/editor trackpad size caps match; tool grids 
 into at most three columns at wider settings widths, with Rotate Right below Rotate
 Left. Check the column count beside Add Column, header controls beside the title,
 fixed 1 mm snapping, correct active-layer/per-hand editor legends, bundled default
-template reset geometry and
+template reset geometry, numeric spacing (including overlap), incomplete numeric
+field drafts, pressed and released tool pulse feedback, ±5% spacing from touching keys, temporary normal gestures during STENO editing,
+STENO restoration on Apply/Cancel and
 blue Mirror Edit buttons in both editors, dashed counterpart outlines, independent
 per-hand assignments, paired structural edits and Undo/Redo/Reset. Apply and Cancel
 must return to the visualizer; Cancel must leave live geometry unchanged. Verify

@@ -570,11 +570,18 @@ struct ContentView: View {
         document.inferMirrorPairs(); template.inferMirrorPairs()
         layoutEditorDocument = document; layoutEditorTemplate = template
         editingLayout = true
+        if layoutOption.isSteno {
+            let empty = ContentViewModel.Layout(keyRects:[],trackpadSize:trackpadSize)
+            viewModel.configureLayouts(leftLayout:empty,rightLayout:empty,leftLabels:[],rightLabels:[],
+                trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
+            viewModel.updateCustomButtons([])
+        }
     }
 
     private func finishLayoutEditing() {
         editingLayout = false
         layoutEditorDocument = nil; layoutEditorTemplate = nil
+        if layoutOption.isSteno { rebuildLayouts(); viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons) }
     }
 
     private func applyEditedLayout(_ document: LayoutDocument?) {
@@ -590,7 +597,7 @@ struct ContentView: View {
         layoutDocuments = documents
         storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
         selectedGridKey = nil
-        rebuildLayouts()
+        if !layoutOption.isSteno { rebuildLayouts() }
         updateGridLabelInfo()
         finishLayoutEditing()
     }
@@ -658,7 +665,7 @@ struct ContentView: View {
             }
             .onChange(of: customButtons) { newValue in
                 saveCustomButtons(newValue)
-                viewModel.updateCustomButtons(newValue)
+                viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:newValue)
                 refreshButtonInspectorSelection()
                 refreshActionGroupCaches()
             }
@@ -2919,7 +2926,7 @@ struct ContentView: View {
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: newLayout)
         keyMappingsByLayer = keyMappings(for: newLayout)
-        viewModel.updateCustomButtons(customButtons)
+        viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
     }
@@ -2930,10 +2937,16 @@ struct ContentView: View {
         let left = document?.compile(right: false, base: leftLayout, size: trackpadSize) ?? leftLayout
         let right = document?.compile(right: true, base: rightLayout, size: trackpadSize) ?? rightLayout
         self.leftLayout = left; self.rightLayout = right
-        viewModel.configureLayouts(leftLayout: left, rightLayout: right,
-            leftLabels: document?.labels(right: false) ?? leftLabels,
-            rightLabels: document?.labels(right: true) ?? rightLabels,
-            trackpadSize: trackpadSize, trackpadWidthMm: trackpadWidthMm)
+        if editingLayout && layoutOption.isSteno {
+            let empty = ContentViewModel.Layout(keyRects:[],trackpadSize:trackpadSize)
+            viewModel.configureLayouts(leftLayout:empty,rightLayout:empty,leftLabels:[],rightLabels:[],
+                trackpadSize:trackpadSize,trackpadWidthMm:trackpadWidthMm)
+        } else {
+            viewModel.configureLayouts(leftLayout:left,rightLayout:right,
+                leftLabels:document?.labels(right:false) ?? leftLabels,
+                rightLabels:document?.labels(right:true) ?? rightLabels,
+                trackpadSize:trackpadSize,trackpadWidthMm:trackpadWidthMm)
+        }
     }
 
     private var templateSeed: LayoutDocument {
@@ -2959,8 +2972,15 @@ struct ContentView: View {
                 columnAnchorsMM:preset.columnAnchors,columnSettings:columns,keySpacingPercent:spacing,
                 keyGeometryOverrides:overrides,mirrored:!right)
         }
-        return LayoutDocument.seed(left:base(false),right:base(true),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
+        var document = LayoutDocument.seed(left:base(false),right:base(true),leftLabels:preset.leftLabels,rightLabels:preset.rightLabels,
             groupByBindingColumn:preset.allowsColumnSettings && !preset.isSteno)
+        let mappings = profile?.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]
+        for i in document.keys.indices {
+            let key = document.keys[i]
+            let address = GridKeyPosition(side:key.right ? .right:.left,row:key.row,column:key.column).storageKey
+            if let action = mappings[address]?.primary { document.keys[i].label = action.label }
+        }
+        return document
     }
 
     private func rebuildLayouts() {
@@ -3088,7 +3108,7 @@ struct ContentView: View {
         customButtons = loadCustomButtons(for: resolvedLayout)
         loadKeyMappings()
         keyMappingsByLayer = keyMappings(for: resolvedLayout)
-        viewModel.updateCustomButtons(customButtons)
+        viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
         if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.leftDeviceID) != nil {
