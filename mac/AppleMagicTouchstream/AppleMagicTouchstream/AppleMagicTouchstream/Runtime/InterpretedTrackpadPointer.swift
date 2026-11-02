@@ -245,6 +245,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             postedEvents &+= 1
         }
         var drag = PrimaryDragOutput()
+        var modifierCaptureSequence:UInt64?
         var mouseOutputTrace = GestureMouseOutputTrace()
         var buttonObserver: ButtonObserver?
         var buttonObserverHealthy = false
@@ -433,7 +434,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             state.devices = devices; state.displayBounds = bounds
             if state.needsDragObserver && state.buttonObserver == nil {
-                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown,.leftMouseUp,.rightMouseUp,.otherMouseUp]
+                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown,.leftMouseUp,.rightMouseUp,.otherMouseUp,.flagsChanged]
                     .reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
                 let tap = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.listenOnly,
                     eventsOfInterest:mask,callback: { _,type,event,context in
@@ -521,6 +522,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             || CGEventSource.buttonState(.combinedSessionState,button:.center),ownsPrimary:false)
     }
     private func observeButton(type: CGEventType, event: CGEvent) {
+        if type == .flagsChanged { KeyboardModifierDiagnostics.record(event,origin:.observed); return }
         let tag = event.getIntegerValueField(.eventSourceUserData)
         let ownProcess = event.getIntegerValueField(.eventSourceUnixProcessID) == Int64(getpid())
         let sourceID = event.getIntegerValueField(.eventSourceStateID)
@@ -544,6 +546,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
         }
     }
+    func beginCaptureDiagnostics() { lock.withLock { $0.modifierCaptureSequence = nil } }
+
     /// Called only while recording a live frame, never during replay or ordinary input.
     func captureOutputDiagnostic() -> RuntimeGestureOutputDiagnostic {
         lock.withLock { state in
@@ -560,6 +564,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for (bit,code) in [CGKeyCode(56),60,58,61,59,62,55,54].enumerated() {
                 if CGEventSource.keyState(.hidSystemState,key:code) { modifierKeys |= UInt16(1) << bit }
             }
+            let modifierHistory = KeyboardModifierDiagnostics.snapshot(since:state.modifierCaptureSequence)
+            if let modifierHistory { state.modifierCaptureSequence = modifierHistory.throughSequence }
             return RuntimeGestureOutputDiagnostic(dragOwner:state.drag.owner,dragOwnerCount:state.drag.owners.count,
                 dragSourceID:dragSource?.rawValue,combinedButtons:buttons(.combinedSessionState),
                 hidButtons:buttons(.hidSystemState),dragSourceButtons:buttons(dragSource),
@@ -567,7 +573,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 observerHealthy:state.buttonObserverHealthy,observedMouseEdges:state.mouseOutputTrace.snapshot(),
                 combinedFlagsRawValue:CGEventSource.flagsState(.combinedSessionState).rawValue,
                 hidFlagsRawValue:CGEventSource.flagsState(.hidSystemState).rawValue,
-                ownedKeyboardFlagsRawValue:DispatchService.shared.heldGestureFlags.rawValue,hidModifierKeys:modifierKeys)
+                ownedKeyboardFlagsRawValue:DispatchService.shared.heldGestureFlags.rawValue,hidModifierKeys:modifierKeys,modifierHistory:modifierHistory)
         }
     }
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }

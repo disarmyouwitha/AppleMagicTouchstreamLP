@@ -49,6 +49,29 @@ enum KeyboardStrokeOutput {
     }
 }
 
+/// Read-only rolling diagnostics. Only actual live submission/observation calls this;
+/// constructing events and replay do not touch the history or start an observer.
+enum KeyboardModifierDiagnostics {
+    private static let history = OSAllocatedUnfairLock(initialState:ModifierDiagnosticRing())
+    static func record(_ event:CGEvent,origin:RuntimeModifierTraceEntry.Origin) {
+        let keyboard = event.type == .keyDown || event.type == .keyUp || event.type == .flagsChanged
+        let code = keyboard ? ModifierDiagnosticRing.modifierCode(CGKeyCode(truncatingIfNeeded:event.getIntegerValueField(.keyboardEventKeycode))):nil
+        let entry = RuntimeModifierTraceEntry(origin:origin,timestamp:origin == .submitted ? DispatchTime.now().uptimeNanoseconds:event.timestamp,type:event.type.rawValue,
+            modifierKeyCode:code,flagsRawValue:event.flags.rawValue,
+            sourcePID:event.getIntegerValueField(.eventSourceUnixProcessID),
+            sourceID:event.getIntegerValueField(.eventSourceStateID),
+            tagged:event.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag)
+        history.withLock { $0.record(entry) }
+    }
+    static func snapshot(since sequence:UInt64?) -> RuntimeModifierHistory? {
+        history.withLock { $0.snapshot(since:sequence) }
+    }
+    static func post(_ event:CGEvent,tap:CGEventTapLocation = .cghidEventTap) {
+        record(event,origin:.submitted)
+        event.post(tap:tap)
+    }
+}
+
 enum InputMonitoringPermission {
     static func hasListenAccess() -> Bool {
         CGPreflightListenEventAccess()
@@ -290,8 +313,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             guard let events = KeyboardStrokeOutput.events(code:code,flags:flags,
                     restoringFlags:restoringFlags,source:source) else { return }
             let keyDown = events.down, keyUp = events.up
-            keyDown.post(tap: .cghidEventTap)
-            keyUp.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(keyDown)
+            KeyboardModifierDiagnostics.post(keyUp)
             if code == Self.globeKeyCode { AutocorrectEngine.shared.invalidate(); return }
             AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: true, altAscii: altAscii)
         }
@@ -336,7 +359,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 return
             }
             configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
-            event.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(event)
             AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii)
         }
     }
@@ -488,8 +511,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         guard let source = ensureEventSource(),
               let pair = TextShortcutTypingPlan.events(stroke,
                 restoringFlags:CGEventSource.flagsState(.combinedSessionState).union(heldFlags),source:source) else { return false }
-        pair.down.post(tap:.cghidEventTap)
-        pair.up.post(tap:.cghidEventTap)
+        KeyboardModifierDiagnostics.post(pair.down)
+        KeyboardModifierDiagnostics.post(pair.up)
         return true
     }
 
@@ -524,8 +547,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                     unicodeString: baseAddress
                 )
             }
-            keyDown.post(tap: .cghidEventTap)
-            keyUp.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(keyDown)
+            KeyboardModifierDiagnostics.post(keyUp)
         }
     }
 
@@ -569,7 +592,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         )?.cgEvent else {
             return
         }
-        event.post(tap: .cgSessionEventTap)
+        KeyboardModifierDiagnostics.post(event,tap:.cgSessionEventTap)
     }
 
     @inline(__always)
@@ -1067,7 +1090,7 @@ final class DispatchService: @unchecked Sendable {
                 begin: { AutocorrectEngine.shared.invalidate() },
                 post: { event in
                     event.timestamp = DispatchTime.now().uptimeNanoseconds
-                    event.post(tap: .cghidEventTap)
+                    KeyboardModifierDiagnostics.post(event)
                 }, pause: { Thread.sleep(forTimeInterval: $0) }))
         }
     }

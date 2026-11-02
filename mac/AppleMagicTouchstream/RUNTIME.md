@@ -710,3 +710,9 @@ preview ends. Saved assignments are never changed. Enabling/disabling retains an
 so a held preview contact cannot become a key. Apply, Cancel and editor dismissal
 restore the normal input configuration. The toggle does not change saved keyboard,
 gesture, haptic or takeover preferences. Native selected-pad takeover is unchanged.
+
+Modifier diagnostics keep a bounded, memory-only history of live AMT modifier-bearing
+output and modifier transitions from the existing listen-only drag observer. Ordinary
+key codes/text are redacted. Captures include prehistory followed by incremental
+entries; they do not replay these records. The trace is diagnostic only and never
+clears modifiers or changes shared output ownership. See TESTING.md for coverage.

@@ -197,6 +197,17 @@ history. Mouse edges optionally retain their actual event modifier flags; live
 frame snapshots also retain combined/HID flags, the app's owned keyboard flags,
 and an eight-bit L/R Shift/Option/Control/Command key-down mask. These additions
 record no ordinary key contents. Missing older fields mean unknown, not zero.
+A fixed 256-entry in-memory modifier history retains AMT-submitted modifier-bearing
+keyboard/media events, their restoring edges, and flags-changed events seen by the
+existing live drag observer. It records modifier codes only (ordinary key codes and
+text are discarded), flags, event timestamps, source PID/state ID and interpreter tag.
+Observed source identity does not prove physical origin. Observation has the same
+coverage/health limits as the existing drag observer; no new observer, polling timer,
+permission request or ordinary-key subscription is added. Normal recognition and
+modifier ownership/cleanup do not consult this history. Each new live capture gets
+the retained history on its first frame; subsequent frames contain only new entries,
+with sequence numbers and an overwrite count. Unchanged frames omit modifierHistory;
+older captures without it remain unknown. Replay never records into this live history.
 Replay never polls live button/modifier state or emits these recorded edges. Old
 records without this optional evidence remain readable; the v5 envelope is unchanged.
 This evidence distinguishes an omitted release from state remaining down after an

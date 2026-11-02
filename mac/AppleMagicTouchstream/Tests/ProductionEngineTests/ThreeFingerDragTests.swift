@@ -58,6 +58,57 @@ final class ThreeFingerDragTests: XCTestCase {
         XCTAssertNil(decoded.hidModifierKeys)
     }
 
+    func testModifierHistoryRedactsOrdinaryKeysAndRetainsBorrowAndRestoreEdges() throws {
+        var trace = ModifierDiagnosticRing()
+        func entry(_ flags:CGEventFlags,code:CGKeyCode = 9,origin:RuntimeModifierTraceEntry.Origin = .submitted,type:CGEventType = .keyDown) -> RuntimeModifierTraceEntry {
+            .init(origin:origin,timestamp:100,type:type.rawValue,modifierKeyCode:code,
+                flagsRawValue:flags.rawValue,sourcePID:123,sourceID:0,tagged:false)
+        }
+        trace.record(entry([]))
+        XCTAssertTrue(try XCTUnwrap(trace.snapshot(since:nil)).entries.isEmpty)
+        trace.record(entry(.maskCommand))
+        trace.record(entry([],type:.keyUp))
+        let borrowed = try XCTUnwrap(trace.snapshot(since:nil))
+        XCTAssertEqual(borrowed.entries.count,2)
+        XCTAssertEqual(borrowed.entries.map(\.flagsRawValue),[CGEventFlags.maskCommand.rawValue,0])
+        XCTAssertTrue(borrowed.entries.allSatisfy { $0.modifierKeyCode == nil })
+        XCTAssertNil(trace.snapshot(since:borrowed.throughSequence))
+        trace.record(entry([],code:55,origin:.observed,type:.flagsChanged))
+        let delta = try XCTUnwrap(trace.snapshot(since:borrowed.throughSequence))
+        XCTAssertEqual(delta.entries.count,1)
+        XCTAssertEqual(delta.entries[0].modifierKeyCode,55)
+        XCTAssertEqual(delta.entries[0].origin,.observed)
+        XCTAssertEqual(delta.entries[0].sourcePID,123)
+        XCTAssertEqual(borrowed.entries.count,2,"Prior capture snapshots are immutable")
+        XCTAssertFalse(DragButtonInterference.interrupts(type:.flagsChanged,tag:0))
+    }
+    func testModifierHistoryIsBoundedAndReportsOverrunWithoutRepeatingFrames() throws {
+        var trace = ModifierDiagnosticRing()
+        for time in 1...300 {
+            trace.record(.init(origin:.observed,timestamp:UInt64(time),type:CGEventType.flagsChanged.rawValue,
+                modifierKeyCode:55,flagsRawValue:time.isMultiple(of:2) ? 0:CGEventFlags.maskCommand.rawValue,
+                sourcePID:0,sourceID:0,tagged:false))
+        }
+        let first = try XCTUnwrap(trace.snapshot(since:nil))
+        XCTAssertEqual(first.entries.count,256)
+        XCTAssertEqual(first.entries.first?.sequence,45)
+        XCTAssertEqual(first.entries.last?.sequence,300)
+        XCTAssertEqual(first.droppedEntries,44)
+        XCTAssertNil(trace.snapshot(since:first.throughSequence))
+        let delta = try XCTUnwrap(trace.snapshot(since:298))
+        XCTAssertEqual(delta.entries.map(\.sequence),[299,300])
+        XCTAssertEqual(delta.droppedEntries,0)
+        XCTAssertEqual(try XCTUnwrap(trace.snapshot(since:nil)),first,"New captures include the retained prehistory again")
+        let diagnostic = RuntimeGestureOutputDiagnostic(dragOwner:nil,dragOwnerCount:0,dragSourceID:nil,
+            combinedButtons:0,hidButtons:0,dragSourceButtons:0,otherGestureSourceButtons:0,
+            observerHealthy:true,observedMouseEdges:[],modifierHistory:first)
+        let data = try JSONEncoder().encode(diagnostic)
+        XCTAssertEqual(try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:data),diagnostic)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
+        legacy.removeValue(forKey:"modifierHistory")
+        XCTAssertNil(try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONSerialization.data(withJSONObject:legacy)).modifierHistory)
+    }
+
     private func touches(_ count: Int = 3, dx: Float = 0, triangular: Bool = false, thumb: Bool = false) -> [OMSRawTouch] {
         (0..<count).map { index in
             let telemetry: OMSTouchTelemetry? = thumb ? OMSTouchTelemetry(

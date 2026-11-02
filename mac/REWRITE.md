@@ -1,10 +1,5 @@
 # NEXT:
 =======
-0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
-> Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
-^ Needs more testing
-# I GOT A PCAP!! It was stuck when trying to 2F click apps in my docked menu (it would open the app in finder instead) I tried clicking shift on physical keyboard but it didnt fix I had to do command on physical keyboard and then 2F click started working correctly. (It is not currently stuck)
-===
 2. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
 > Middle click and drag	    Mouse3 click or held drag
