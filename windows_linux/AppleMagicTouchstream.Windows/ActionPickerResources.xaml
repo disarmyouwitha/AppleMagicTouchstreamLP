@@ -19,7 +19,7 @@
           <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
             <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="⌄" Foreground="#a7bacb" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,3"/></Border></ControlTemplate></ToggleButton.Template>
           </ToggleButton>
-          <ContentPresenter IsHitTestVisible="False" Margin="10,2,30,2" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+          <TextBlock x:Name="PART_SelectedTitle" IsHitTestVisible="False" Margin="10,2,30,2" VerticalAlignment="Center" Text="{TemplateBinding SelectedActionTitle}" TextTrimming="CharacterEllipsis" ToolTip="{TemplateBinding SelectedActionTitle}"/>
           <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" VerticalOffset="6" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
             <Border x:Name="MenuPanel" Width="460" MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="#121b24" BorderBrush="#465c70" BorderThickness="1" CornerRadius="12" Padding="16" TextElement.Foreground="#e7edf2">
               <Grid>

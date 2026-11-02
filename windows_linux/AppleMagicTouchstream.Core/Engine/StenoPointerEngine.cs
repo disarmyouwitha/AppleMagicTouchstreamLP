@@ -17,6 +17,7 @@ public sealed class StenoPointerEngine
         public readonly HandScrollMomentum Momentum=new();
         public double PointerGain=1,ScrollGain=1;
         public bool Natural=true;
+        public HandGestureRecognition? Recognition;
     }
     private readonly Pad[] _pads=[new(),new()];
     private readonly IHandGestureOutput _output;
@@ -24,6 +25,7 @@ public sealed class StenoPointerEngine
     private bool _cycleOwned,_sawBoth;
     private double _forceThreshold=130;
     public bool HasOwner=>_cycleOwned;
+    public HandGestureRecognition? RecentRecognition(TrackpadSide side,double now)=>_pads[(int)side].Recognition is {} value && value.Visible(now) ? value : null;
     public StenoPointerEngine(IHandGestureOutput output) { _output=output; }
     // Retired finger-mode argument remains API-compatible; all modes use 2F.
     public void Configure(int fingers,HandGestureSettings? motion=null,double forceThreshold=130)
@@ -46,7 +48,7 @@ public sealed class StenoPointerEngine
     public void Cancel(TrackpadSide? side=null)
     {
         for(int i=0;i<2;i++)if(side==null || (int)side==i)
-        { var p=_pads[i];Release((TrackpadSide)i);_down&=(byte)~(1<<i);p.Blocked=p.Count>0;p.ForceBlocked=p.Count>0;p.Momentum.Cancel();p.OriginCount=0; }
+        { var p=_pads[i];Release((TrackpadSide)i);_down&=(byte)~(1<<i);p.Blocked=p.Count>0;p.ForceBlocked=p.Count>0;p.Momentum.Cancel();p.OriginCount=0;p.Recognition=null; }
         if(_down==0) {_cycleOwned=false;_sawBoth=false;}
     }
     public void Tick(double hostTime,bool eligible)
@@ -99,6 +101,7 @@ public sealed class StenoPointerEngine
             {
                 _cycleOwned=true;p.Pointer.Reset();p.Scroll?.Reset();p.Momentum.Cancel();
                 p.Owner=contacts.Length switch {1=>Owner.Drag,4=>Owner.Scroll,_=>Owner.Click};
+                p.Recognition=new(contacts.Length switch {1=>HandRecognitionKind.StenoDrag,2=>HandRecognitionKind.StenoPrimaryClick,3=>HandRecognitionKind.StenoSecondaryClick,_=>HandRecognitionKind.StenoScroll},hostTime);
                 if(p.Owner==Owner.Drag){bool first=_dragOwners==0;_dragOwners|=bit;if(first)_output.PrimaryButton(true);}
                 else if(p.Owner==Owner.Click)_output.Tap(contacts.Length==2 ? HandGestureAction.PrimaryClick:HandGestureAction.SecondaryClick);
                 _output.ForceFeedback(side);Remember(p,contacts);return true; // discard all pre-force travel
@@ -106,6 +109,7 @@ public sealed class StenoPointerEngine
         }
         if(p.Owner==Owner.Scroll)
         {
+            p.Recognition=new(HandRecognitionKind.StenoScroll,hostTime);
             double sign=p.Natural ? 1:-1;
             (double X,double Y)? result=p.Scroll is {} accelerator ? accelerator.Millimetres(time,dx,dy,p.ScrollGain,p.Natural):(dx*6*p.ScrollGain*sign,dy*6*p.ScrollGain*sign);
             if(result is not {} scroll){Cancel(side);Remember(p,contacts);return _cycleOwned;}
@@ -114,7 +118,7 @@ public sealed class StenoPointerEngine
             else Cancel(side);
         }
         else if(p.Owner is Owner.Drag or Owner.Pointer)
-        {Move(p,time,dx,dy,side);}
+        {p.Recognition=new(p.Owner==Owner.Drag ? HandRecognitionKind.StenoDrag : HandRecognitionKind.StenoPointer,hostTime);Move(p,time,dx,dy,side);}
         else if(p.Owner==Owner.None && p.MaximumCount<=2 && contacts.Length==2 && mayActivate)
         {
             if(p.OriginCount!=2){contacts.CopyTo(p.Origin);p.OriginCount=2;}
@@ -124,7 +128,7 @@ public sealed class StenoPointerEngine
                 for(int i=0;i<2;i++){int j=contacts[0].Id==p.Origin[i].Id ? 0:contacts[1].Id==p.Origin[i].Id ? 1:-1;if(j<0){continuous=false;break;}if(i==0){ax=contacts[j].X-p.Origin[i].X;ay=contacts[j].Y-p.Origin[i].Y;}else{bx=contacts[j].X-p.Origin[i].X;by=contacts[j].Y-p.Origin[i].Y;}}
                 double x=(ax+bx)/2,y=(ay+by)/2,length=Math.Sqrt(x*x+y*y);
                 if(continuous && length>=2 && (ax*x+ay*y)/length>=1.5 && (bx*x+by*y)/length>=1.5 && Math.Sqrt(Math.Pow(ax-bx,2)+Math.Pow(ay-by,2))<=length*.6+.5)
-                {p.Owner=Owner.Pointer;_cycleOwned=true;Move(p,time,x,y,side);}
+                {p.Owner=Owner.Pointer;_cycleOwned=true;p.Recognition=new(HandRecognitionKind.StenoPointer,hostTime);Move(p,time,x,y,side);}
             }
         }
         Remember(p,contacts);return _cycleOwned;

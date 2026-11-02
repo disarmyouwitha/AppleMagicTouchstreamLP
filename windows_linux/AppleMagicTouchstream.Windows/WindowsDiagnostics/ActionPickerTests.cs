@@ -25,6 +25,7 @@ internal static class ActionPickerTests
         panel.MirrorEdits=false; panel.SelectSlot(nameof(HandGestureTrigger.TwoFingerTap));
         var gesture=HandGestureTests.Controls<SearchableActionComboBox>(panel).Single(c=>Equals(c.Tag,HandGestureTrigger.TwoFingerTap));
         Layout(gesture); gesture.PrepareResults();
+        Check(gesture.SelectedActionTitle=="Primary Click" && ((TextBlock)gesture.Template.FindName("PART_SelectedTitle",gesture)).Text=="Primary Click","Closed gesture picker displayed its option object instead of Title");
         Check(Results(gesture).Select(c=>c.Category).Distinct().Count()>=4,"Gesture actions were not categorized");
         Check(Results(gesture).Single(c=>c.IsCurrent).Title=="Primary Click","Current action checkmark missing");
         var selected=gesture.SelectedItem;
@@ -45,6 +46,7 @@ internal static class ActionPickerTests
         Check(Results(gesture).Count==1 && Results(gesture)[0].Title=="Paste","Shortcut alias was not searchable");
         Check(gesture.Choose(Results(gesture).Single()),"Gesture result did not commit");
         Check(settings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.Paste && settings.HandGesturesV1.Right.TwoFingerTap==HandGestureAction.PrimaryClick && edits==1,"Choosing a result changed the wrong hand or saved twice");
+        gesture.UpdateLayout(); Check(gesture.SelectedActionTitle=="Paste" && ((TextBlock)gesture.Template.FindName("PART_SelectedTitle",gesture)).Text=="Paste","Closed selected title did not update after choosing");
 
         // Keyboard Primary/Hold use the existing complete catalog and semantic
         // values. A separate result view preserves selections filtered out by a query.
@@ -59,6 +61,7 @@ internal static class ActionPickerTests
         keyboard.SetQuery("Hyper");
         Check(Results(keyboard).Count==1 && changed==0 && Equals(keyboard.SelectedValue,"None"),"Keyboard search changed the stored key or lost Hyper");
         keyboard.Choose(Results(keyboard).Single()); Check(Equals(keyboard.SelectedValue,"Hyper") && changed==1,"Keyboard chooser lost its semantic value");
+        keyboard.UpdateLayout(); Check(((TextBlock)keyboard.Template.FindName("PART_SelectedTitle",keyboard)).Text=="Hyper","Keyboard picker displayed its option object instead of Display");
         keyboard.SetQuery("Navigation Enter"); Check(Results(keyboard).Count==1 && changed==1,"Keyboard category search changed the selection");
         keyboard.PrepareResults(); Check(Equals(keyboard.SelectedValue,"Hyper") && changed==1,"Dismiss/reopen reset a keyboard mapping");
         source.Filter=item=>Value(item)=="None" || GeminiPRPacket.TryResolve(Value(item),out _);

@@ -54,6 +54,7 @@ public sealed class HandGestureEngine
         public readonly HandShapeRepeater ShapeRepeat = new();
         public readonly HandGestureContact[] MovementOrigin = new HandGestureContact[5];
         public int MovementCount;
+        public HandGestureRecognition? Recognition;
     }
     private readonly Pad[] _pads = [new(), new()];
     private readonly IHandGestureOutput _output;
@@ -62,6 +63,12 @@ public sealed class HandGestureEngine
     private byte _dragOwners;
     private long _epoch;
     public HandGestureEngine(IHandGestureOutput output) { _output = output; }
+    public HandGestureRecognition? RecentRecognition(TrackpadSide side,double now)
+    {
+        var local=_pads[(int)side].Recognition;
+        var both=_coordinated.RecentRecognition(now);
+        return local is {} value && value.Visible(now) && (both==null || value.Time>both.Value.Time) ? value : both;
+    }
 
     public void Configure(HandGestureSettings settings, bool sameDevice)
     {
@@ -94,6 +101,7 @@ public sealed class HandGestureEngine
         p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
         p.CornerPending = false;
         p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); p.MovementCount=0; p.ForceBlocked = true; p.ForceClaimed = false;
+        p.Recognition=null;
         // Keep reservation through all-up, including setting/permission transitions.
     }
     private static void CancelTaps(Pad p) { p.Two.Cancel(); p.Three.Cancel(); p.Four.Cancel(); p.Five.Cancel(); }
@@ -237,10 +245,11 @@ public sealed class HandGestureEngine
             var threeTrigger = p.Thumb.Complete();
             p.CycleClaimed |= two && enabled(HandGestureTrigger.TwoFingerTap) || three && threeTrigger.HasValue && enabled(threeTrigger.Value)
                 || four && enabled(HandGestureTrigger.FourFingerTap) || five && enabled(HandGestureTrigger.FiveFingerTap);
-            if (two && enabled(HandGestureTrigger.TwoFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.TwoFingerTap),nameof(HandGestureTrigger.TwoFingerTap));
-            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value)) Emit(settings,settings.Get(threeTrigger.Value),threeTrigger.Value.ToString());
-            if (four && enabled(HandGestureTrigger.FourFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.FourFingerTap),nameof(HandGestureTrigger.FourFingerTap));
-            if (five && enabled(HandGestureTrigger.FiveFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.FiveFingerTap),nameof(HandGestureTrigger.FiveFingerTap));
+            void tap(HandGestureTrigger trigger) { p.Recognition=new(HandRecognitionKind.Gesture,hostTime,trigger); Emit(settings,settings.Get(trigger),trigger.ToString()); }
+            if (two && enabled(HandGestureTrigger.TwoFingerTap)) tap(HandGestureTrigger.TwoFingerTap);
+            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value)) tap(threeTrigger.Value);
+            if (four && enabled(HandGestureTrigger.FourFingerTap)) tap(HandGestureTrigger.FourFingerTap);
+            if (five && enabled(HandGestureTrigger.FiveFingerTap)) tap(HandGestureTrigger.FiveFingerTap);
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
             p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset(); p.MovementCount=0;
@@ -255,6 +264,7 @@ public sealed class HandGestureEngine
         {
             EndOwner(side,p); p.Shape.Reset(); p.Momentum.Cancel();
             CancelTaps(p); p.ForceClaimed = true;
+            p.Recognition=new(HandRecognitionKind.Gesture,hostTime,forceTrigger!.Value);
             Emit(settings,settings.Get(forceTrigger!.Value),forceTrigger.Value.ToString()); _output.ForceFeedback(side);
         }
         // Corner acquisition is independent of a smaller, moving cohort's Hold.
@@ -277,7 +287,7 @@ public sealed class HandGestureEngine
             }
             if (p.HoldBlocked) _output.HeldAssignment(index,null);
             else if (!p.HoldClaimed && time-p.HoldSince >= settings.CornerMilliseconds(HandCornerChord.OuterCorners)/1000)
-            { p.HoldClaimed = true; Emit(settings,settings.CornerAction(HandCornerChord.OuterCorners),"CornerHold",index); }
+            { p.HoldClaimed = true; p.Recognition=new(HandRecognitionKind.CornerHold,hostTime); Emit(settings,settings.CornerAction(HandCornerChord.OuterCorners),"CornerHold",index); }
             contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
             return reserved;
         }
@@ -386,6 +396,7 @@ public sealed class HandGestureEngine
         p.Thumb.Observe(contacts);
         if (p.Owner.HasValue && continued)
         {
+            p.Recognition=new(HandRecognitionKind.Gesture,hostTime,p.Owner.Value,Direction:p.Direction);
             var action = settings.Get(p.Owner.Value);
             if (p.Direction is {} direction && settings.Directional(p.Owner.Value) is {} directions)
             {
@@ -434,7 +445,7 @@ public sealed class HandGestureEngine
         // A real shape/movement activation beats a pending Hold on the same
         // frame. An already fired Hold still takes the early ownership path.
         if (holdReady && !p.Owner.HasValue)
-        { p.HoldClaimed=true; CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
+        { p.HoldClaimed=true; p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:count); CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
         contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
         return reserved;
     }

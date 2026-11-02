@@ -24,6 +24,7 @@
     <EmbeddedResource Include="../../Assets/MacLayoutTemplates.json" LogicalName="AppleMagicTouchstream.MacLayoutTemplates.json" />
     <Compile Include="../MacMotionTests.cs" Link="MacMotionTests.cs" />
     <Compile Include="../ShapeGestureParityTests.cs" Link="ShapeGestureParityTests.cs" />
+    <Compile Include="../GestureRecognitionTests.cs" Link="GestureRecognitionTests.cs" />
     <EmbeddedResource Include="../Fixtures/RotationCountsMac.json" />
     <Compile Include="../../WindowsAbsolutePointer.cs" Link="WindowsAbsolutePointer.cs" />
     <Compile Include="../WindowsAbsolutePointerTests.cs" Link="WindowsAbsolutePointerTests.cs" />

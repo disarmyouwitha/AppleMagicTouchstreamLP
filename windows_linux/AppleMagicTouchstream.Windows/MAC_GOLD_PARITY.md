@@ -64,6 +64,20 @@ This is a substantial functional port; the remaining differences below are real.
   commits, handed settings, shortcut keys, source filters and selection isolation.
   Set `APPLEMAGICTOUCHSTREAM_MENU_PREVIEW_DIR` during `--selftest` to render the
   popup contents offline without creating a runtime or posting input.
+- Closed action selectors display the selected human-readable Title/Display,
+  including None and Mixed, instead of an option object's diagnostic string.
+  Regression tests inspect the actual closed-control template and selection updates.
+- Like Mac's pressure header, each visualizer displays the latest recognized
+  gesture beside Peak for two seconds. Continuous owners refresh their label;
+  taps remain visible briefly after lift. The Gestures workspace also shows
+  independent Left/Right feedback. Pure engine snapshots cover taps, movement,
+  latched directional arrows, Pinch/Spread/Rotate, Hold, Force, corner/Both and
+  STENO mouse actions. Labels identify input gestures, not assigned shortcuts.
+  Normal lift retains recent feedback; invalid/stale input, cancellation and
+  reconfiguration clear it. Polling never starts input, hooks, haptics or output;
+  no feedback or custom-action payload is persisted. Replay excludes live feedback.
+  Recognition and WPF template tests run under `--selftest`; optional offline
+  visual previews use `APPLEMAGICTOUCHSTREAM_FEEDBACK_PREVIEW_DIR`.
 - Four/five-finger taps, five-finger movement and per-count 2–5-finger Hold.
   New taps/movement/ordinary holds default to None. Hold thresholds are independent,
   default 500 ms, editable from 100–5000 ms.

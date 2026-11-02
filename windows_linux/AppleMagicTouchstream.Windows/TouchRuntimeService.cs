@@ -36,6 +36,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private WindowsHandGestures? _handGestures;
     internal event Action<ulong>? StenoStrokeObserved;
     public string HandGestureStatus => _handGestures?.Status ?? "Unavailable";
+    public HandGestureRecognition? RecentRecognition(TrackpadSide side,double now)=>_handGestures?.RecentRecognition(side,now);
     public WindowsStenoConnection StenoConnection { get; }=new();
     private UserSettings _settings;
     private KeymapStore _keymap;

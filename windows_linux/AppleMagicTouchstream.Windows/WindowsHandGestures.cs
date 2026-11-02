@@ -24,6 +24,16 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     public bool SupportsKeyboardProposals => true;
     public void SetKeyboardPriority(TrackpadSide side,bool priority) { lock(_sync) _keyboardPriority[(int)side]=priority; }
     public HandGestureEvidence Evidence(TrackpadSide side) { lock(_sync) return _engine.Evidence(side); }
+    public HandGestureRecognition? RecentRecognition(TrackpadSide side,double now)
+    {
+        lock(_sync)
+        {
+            if(_disposed) return null;
+            var ordinary=_engine.RecentRecognition(side,now);
+            var steno=_stenoMode ? _stenoPointer.RecentRecognition(side,now) : null;
+            return steno is {} value && (ordinary==null || value.Time>ordinary.Value.Time) ? value : ordinary;
+        }
+    }
     public void Cancel(TrackpadSide? side=null) { lock(_sync) { _stenoPointer.Cancel(side); if(side is {} pad) _engine.Cancel(pad); else { _output.Release(); _engine.Reset(); } } }
     public WindowsHandGestures(GlobalMouseInputHook hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover,
         DispatchEventQueue? keyboardQueue=null,SendInputDispatcher? keyboardDispatcher=null)

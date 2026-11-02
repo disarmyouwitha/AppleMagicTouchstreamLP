@@ -464,6 +464,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateMouseTakeoverUi()
     {
+        double recognitionTime=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+        HandGestureRecognition? recognition(TrackpadSide side)=>IsReplayMode ? null : _runtimeService?.RecentRecognition(side,recognitionTime) ?? _handGestures?.RecentRecognition(side,recognitionTime);
+        string? leftRecognition=recognition(TrackpadSide.Left)?.Title,rightRecognition=recognition(TrackpadSide.Right)?.Title;
+        LeftSurface.RecognizedGesture=leftRecognition; RightSurface.RecognizedGesture=rightRecognition;
+        _handGesturePanel?.SetRecognition(leftRecognition,rightRecognition);
         _handGesturePanel?.SetStatus(IsReplayMode ? "Replay - no gesture output" : _runtimeService?.HandGestureStatus ?? _handGestures?.Status ?? "Waiting for live input");
         MouseTakeoverController? controller = IsReplayMode ? null : MouseTakeover;
         _updatingMouseTakeover = true;

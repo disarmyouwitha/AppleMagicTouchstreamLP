@@ -7,6 +7,8 @@ namespace AppleMagicTouchstream;
 
 public sealed class TouchView : FrameworkElement
 {
+    public static readonly DependencyProperty RecognizedGestureProperty=DependencyProperty.Register(nameof(RecognizedGesture),typeof(string),typeof(TouchView),new FrameworkPropertyMetadata(null,FrameworkPropertyMetadataOptions.AffectsRender));
+    public string? RecognizedGesture { get=>(string?)GetValue(RecognizedGestureProperty); set=>SetValue(RecognizedGestureProperty,value); }
     public TouchState? State { get; set; }
     public ushort? RequestedMaxX { get; set; }
     public ushort? RequestedMaxY { get; set; }
@@ -233,6 +235,14 @@ public sealed class TouchView : FrameworkElement
         const double rightPadding = 18;
         double footerY = pad.Bottom + 5;
         dc.DrawText(footerPeak, new Point(pad.Left + 8, pad.Top-23));
+        double recognitionX=pad.Left+8+footerPeak.Width+14;
+        double recognitionWidth=pad.Right-recognitionX-8;
+        if(!string.IsNullOrWhiteSpace(RecognizedGesture) && recognitionWidth>30)
+        {
+            var recognition=new FormattedText(RecognizedGesture,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,_uiTypeface,12,_footerBrush,VisualTreeHelper.GetDpi(this).PixelsPerDip)
+            { MaxTextWidth=recognitionWidth,MaxLineCount=1,Trimming=TextTrimming.CharacterEllipsis };
+            dc.DrawText(recognition,new Point(recognitionX,pad.Top-23));
+        }
         double hitX = pad.Right - footerRight.Width - rightPadding;
         dc.DrawText(footerRight, new Point(hitX, footerY));
     }

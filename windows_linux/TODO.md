@@ -1,9 +1,13 @@
 # Notes:
 =======
-0. Make sure when a gesture is set to None (Like a 2-finger tap) that the logic doesnt affect a 2finger Move (please verify)
-1. I am getting jittery little starts with 2F movement (It is especially noticeable if I move slowly to start— a tiny jump in the cursor!).. I think it might be waiting to see if it isn't another gesture? However, I don't have any other 2F gestures set! check out my ATPCAP 2F_skips.atpcap
+0. The drop-down menus in gesture/keyboard need fancy menu's like mac/AppleMagicTrackpad where it is separated by category and searchable.
+> New drop-down is cool! But it says "ActionOption { Action = None, Title = None } When I feel like it is supposed to display the Action or the Title (?)
+
+ALSO! It doesn't show the recognized gesture in the visualizer like we do for mac!
 ===
-0. The drop-down menus in gesture/keyboard need fancy menu's like mac/AppleMagicTrackpad where it is separated by category and searchable. 
+0. Make sure when a gesture is set to None (Like a 2-finger tap) that the logic doesnt affect a 2finger Move (please verify)
+---
+1. I am getting jittery little starts with 2F movement (It is especially noticeable if I move slowly to start— a tiny jump in the cursor!).. I think it might be waiting to see if it isn't another gesture? However, I don't have any other 2F gestures set! check out my ATPCAP 2F_skips.atpcap 
 ===
 1. Test Shortcut builder
 > The GUI is about the worst it could be. (screenshot) `Text` doesn't match "Key" or "app" format of label. No Hyper button.. Mac doesn't have one, right? I am also getting the error "choose key modifier or target" (and when it "fired" it only typed the first letter and stopped)

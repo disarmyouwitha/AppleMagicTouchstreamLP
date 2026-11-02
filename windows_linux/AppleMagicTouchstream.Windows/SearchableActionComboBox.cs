@@ -19,10 +19,12 @@ public sealed class SearchableActionComboBox : ComboBox
     public static readonly DependencyProperty PickerTitleProperty=DependencyProperty.Register(nameof(PickerTitle),typeof(string),typeof(SearchableActionComboBox),new PropertyMetadata("Choose an action"));
     public static readonly DependencyProperty ResultsViewProperty=DependencyProperty.Register(nameof(ResultsView),typeof(ICollectionView),typeof(SearchableActionComboBox));
     public static readonly DependencyProperty CurrentActionTitleProperty=DependencyProperty.Register(nameof(CurrentActionTitle),typeof(string),typeof(SearchableActionComboBox),new PropertyMetadata("None"));
+    public static readonly DependencyProperty SelectedActionTitleProperty=DependencyProperty.Register(nameof(SelectedActionTitle),typeof(string),typeof(SearchableActionComboBox),new PropertyMetadata("None"));
     public static readonly DependencyProperty ResultCountTextProperty=DependencyProperty.Register(nameof(ResultCountText),typeof(string),typeof(SearchableActionComboBox),new PropertyMetadata(""));
     public string PickerTitle { get=>(string)GetValue(PickerTitleProperty); set=>SetValue(PickerTitleProperty,value); }
     public ICollectionView? ResultsView { get=>(ICollectionView?)GetValue(ResultsViewProperty); private set=>SetValue(ResultsViewProperty,value); }
     public string CurrentActionTitle { get=>(string)GetValue(CurrentActionTitleProperty); private set=>SetValue(CurrentActionTitleProperty,value); }
+    public string SelectedActionTitle { get=>(string)GetValue(SelectedActionTitleProperty); private set=>SetValue(SelectedActionTitleProperty,value); }
     public string ResultCountText { get=>(string)GetValue(ResultCountTextProperty); private set=>SetValue(ResultCountTextProperty,value); }
     internal Func<object,string>? CategorySelector { get; set; }
     internal Func<object,string>? SearchTextSelector { get; set; }
@@ -50,6 +52,12 @@ public sealed class SearchableActionComboBox : ComboBox
         if(_search!=null) _search.TextChanged+=SearchChanged;
         if(_results!=null) { _results.PreviewMouseLeftButtonUp+=ResultClicked; _results.SelectionChanged+=ResultHighlighted; }
         if(_done!=null) _done.Click+=DoneClicked;
+    }
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        if(e.Property==SelectedItemProperty || e.Property==DisplayMemberPathProperty)
+            SelectedActionTitle=Display(SelectedItem);
+        base.OnPropertyChanged(e);
     }
     private void DoneClicked(object sender,RoutedEventArgs e)=>IsDropDownOpen=false;
     private void ResultHighlighted(object sender,SelectionChangedEventArgs e)=>e.Handled=true;

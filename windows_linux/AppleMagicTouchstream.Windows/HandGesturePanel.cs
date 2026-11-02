@@ -17,6 +17,7 @@ internal sealed class HandGesturePanel : Grid
     private readonly TextBox _search=new() { Margin=new(0,0,0,12),MinHeight=28,ToolTip="Search gestures or assigned actions" };
     private readonly TextBlock _status=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary };
     private readonly TextBlock _deviceHint=new() { TextWrapping=TextWrapping.Wrap,FontSize=11,Foreground=Secondary };
+    private readonly TextBlock _recognition=new() { Tag="RecognizedGestures",TextWrapping=TextWrapping.Wrap,FontSize=12,Foreground=new SolidColorBrush(Color.FromRgb(143,182,207)),Margin=new(0,8,0,0),Visibility=Visibility.Collapsed };
     private readonly RadioButton[] _scopes=new RadioButton[3];
     private readonly Dictionary<string,Slot> _slots=new();
     private readonly List<Page> _pages=new();
@@ -64,7 +65,7 @@ internal sealed class HandGesturePanel : Grid
         ScrollViewer.SetHorizontalScrollBarVisibility(_navigation,ScrollBarVisibility.Disabled);
         Grid.SetRow(_navigation,1); navigation.Children.Add(_navigation);
         var footer=new StackPanel { Margin=new(0,12,0,0) };
-        footer.Children.Add(_deviceHint); _status.Margin=new(0,4,0,0); footer.Children.Add(_status);
+        footer.Children.Add(_deviceHint); _status.Margin=new(0,4,0,0); footer.Children.Add(_status); footer.Children.Add(_recognition);
         Grid.SetRow(footer,2); navigation.Children.Add(footer); Children.Add(navigation);
         AddDivider(1); AddDivider(3);
         var pageScroll=new ScrollViewer { Content=_pageContent,VerticalScrollBarVisibility=ScrollBarVisibility.Hidden,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new(22,12,22,20) };
@@ -83,6 +84,12 @@ internal sealed class HandGesturePanel : Grid
         System.Windows.Automation.AutomationProperties.SetName(divider,column==1 ? "Gesture navigation width" : "Action inspector width"); Grid.SetColumn(divider,column); Children.Add(divider);
     }
     public void SetStatus(string text) { if(_status.Text!=text) _status.Text=text; }
+    internal void SetRecognition(string? left,string? right)
+    {
+        string text=string.Join("\n",new[]{string.IsNullOrWhiteSpace(left) ? null : "Left · "+left,string.IsNullOrWhiteSpace(right) ? null : "Right · "+right}.Where(s=>s!=null));
+        if(_recognition.Text!=text) _recognition.Text=text;
+        _recognition.Visibility=text.Length==0 ? Visibility.Collapsed : Visibility.Visible;
+    }
     internal void SetDeviceSelection(string? leftPath,string? rightPath,bool selectActiveScope=false)
     {
         bool left=!string.IsNullOrWhiteSpace(leftPath),right=!string.IsNullOrWhiteSpace(rightPath);

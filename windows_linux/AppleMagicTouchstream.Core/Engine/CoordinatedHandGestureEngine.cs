@@ -21,10 +21,14 @@ internal sealed class CoordinatedHandGestureEngine
     private double? _firstLift;
     private bool _blocked, _fired, _available, _reserved,_growing;
     public bool Claimed => _fired;
-    public void Cancel(IHandGestureOutput output) { _blocked=true; _chord=null; output.HeldAssignment(2,null); }
-    private void Emit(CoordinatedHandChord chord,bool hold,IHandGestureOutput output,bool force=false)
+    private HandGestureRecognition? _recognition;
+    public HandGestureRecognition? RecentRecognition(double now)=>_recognition is {} value && value.Visible(now) ? value : null;
+    public void Cancel(IHandGestureOutput output) { _blocked=true; _chord=null; _recognition=null; output.HeldAssignment(2,null); }
+    private void Emit(CoordinatedHandChord chord,bool hold,IHandGestureOutput output,double now,bool force=false)
     {
         var action=_settings.Action(chord,hold,force);
+        if(action==HandGestureAction.None) return;
+        _recognition=new(force ? HandRecognitionKind.CoordinatedForce : hold ? HandRecognitionKind.CoordinatedHold : HandRecognitionKind.CoordinatedTap,now,Chord:chord);
         if (action==HandGestureAction.Custom)
         { string slot=chord+"/"+(force ? "Force" : hold ? "Hold" : "Tap");
           if (_settings.CustomActions.GetValueOrDefault(slot) is {} label)
@@ -36,6 +40,7 @@ internal sealed class CoordinatedHandGestureEngine
     public void Reset()
     {
         _chord = null; _blocked = true; _fired = _reserved = _growing = false;
+        _recognition=null;
         _firstLift = null;
         foreach (var p in _pads) { p.Count = p.OriginalCount = 0; p.Receipt = p.Landed = p.Lifted = 0; p.ForceSince=null; p.ForceBlocked=p.PressureHigh=false; }
     }
@@ -45,7 +50,7 @@ internal sealed class CoordinatedHandGestureEngine
         foreach (var pad in _pads)
             if (pad.Count>0 && now-pad.Receipt>.2) { pad.Count=0; stale=true; }
         if (!eligible || stale)
-        { _blocked = true; _chord = null; output.HeldAssignment(2,null); }
+        { _blocked = true; _chord = null; _recognition=null; output.HeldAssignment(2,null); }
         // A disconnected pad cannot supply all-up. Retire stale samples so its
         // cached contact count cannot indefinitely reserve the healthy pad.
         if (stale && _pads[0].Count==0 && _pads[1].Count==0)
@@ -73,13 +78,13 @@ internal sealed class CoordinatedHandGestureEngine
         }
         bool reserved = _reserved;
         if (!_available || !eligible || independentOwner || !double.IsFinite(now))
-        { _blocked = true; _chord = null; output.HeldAssignment(2,null); }
+        { _blocked = true; _chord = null; _recognition=null; output.HeldAssignment(2,null); }
         if (_pads[0].Count == 0 && _pads[1].Count == 0)
         {
             output.HeldAssignment(2,null);
             if (_chord is {} chord && !_blocked && !_fired && now-_started is >= .02 and <= .5
                 && now-(_firstLift ?? now) <= .15)
-                Emit(chord,false,output);
+                Emit(chord,false,output,now);
             _blocked = _fired = _reserved = _growing = false; _chord = null;
             _firstLift = null;
             return reserved;
@@ -127,13 +132,13 @@ internal sealed class CoordinatedHandGestureEngine
                     if (Math.Pow(p.Origin[j].X-p.Contacts[i].X,2)+Math.Pow(p.Origin[j].Y-p.Contacts[i].Y,2)>4) _blocked = true;
                 }
             }
-            if (_blocked) { _chord = null; return true; }
+            if (_blocked) { _chord = null; _recognition=null; return true; }
             bool intact = !_growing && !_firstLift.HasValue && _pads[0].Count == _pads[0].OriginalCount && _pads[1].Count == _pads[1].OriginalCount
                 && _pads[0].Lifted < _started && _pads[1].Lifted < _started;
             if(intact && ForceReady(current))
-            { _fired=true; Emit(current,false,output,true); output.ForceFeedback(TrackpadSide.Left); output.ForceFeedback(TrackpadSide.Right); return true; }
+            { _fired=true; Emit(current,false,output,now,true); output.ForceFeedback(TrackpadSide.Left); output.ForceFeedback(TrackpadSide.Right); return true; }
             if (intact && _settings.Action(current,true) != HandGestureAction.None && now-_started >= _settings.Milliseconds(current)/1000)
-            { _fired = true; Emit(current,true,output); }
+            { _fired = true; Emit(current,true,output,now); }
         }
         return reserved;
     }
