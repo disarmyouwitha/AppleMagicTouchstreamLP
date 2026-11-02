@@ -3,9 +3,6 @@
 0. Hey, I noticed in the Layout Editor that it doesn't display my Custom Buttons that were added before we moved the function to the Layout Editor.. Why? Do I need to re-create the buttons with the new editor and re-export? (Can you set up the buttons for me and I will Import?)
 1. Set up custom buttons in Layout Editor / make sure special space/backspace continuous still works / make sure MO() layer buttons still work.
 ===
-2. THEN fix Steno 6x3 to match my actual keys. 
-3. Then re-export MY_KEYMAP.json and DEFAULT_KEYMAP.JSON
-===
 0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
 > Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
 ^ Needs more testing
@@ -23,9 +20,11 @@
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
 # Human Tasks...?
-0. make 6x3 decal girl template in gimp with layers for ppl to edit
-> Layers for: Center legends vs top-right legends / sublegend layer
+0. Have Codex create "Export Layout) button (can it do the legends on a separate layer? Or image?)
+1. make 6x3 decal girl template in gimp with layers for ppl to edit
+> Options for: Center legends vs top-right legends / sublegend layer
 > Outline of where to line up for Decal Girl template
+2. Test on Decal girl site!
 ===
 
 

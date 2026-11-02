@@ -84,6 +84,10 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
             XCTAssertTrue(doc.isValid)
             if preset == .stenoSingle { XCTAssertFalse(doc.keys.contains {!$0.right}) }
             if preset == .steno || preset == .stenoSingle { XCTAssertTrue(doc.keys.contains {$0.edges.contains {$0 > 0}}) }
+            if let authored = profile.layoutDocuments?[preset.rawValue] {
+                XCTAssertEqual(doc,authored,"Reset must preserve the bundled authored STENO geometry")
+                continue
+            }
             for side in [false,true] {
                 let expected = preset == .touchstream
                     ? ContentView.makeTouchStreamKeyLayout(size:size,side:side ? .right:.left,keyGeometryOverrides:profile.keyGeometryByLayout?[preset.rawValue] ?? [:])

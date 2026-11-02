@@ -46,8 +46,10 @@ final class TouchStreamTemplateTests:XCTestCase {
         let factoryData = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/DEFAULT_KEYMAP.json"))
         let factory = try XCTUnwrap(PortableKeymapInterop.decodeBundledDefaultProfile(from:factoryData))
         XCTAssertEqual(result.columnSettingsByLayout["6x3"],factory.columnSettingsByLayout["6x3"])
-        XCTAssertEqual(result.columnSettingsByLayout.filter { $0.key != "6x3" },current.columnSettingsByLayout.filter { $0.key != "6x3" })
-        XCTAssertEqual(result.layoutDocuments?["6x3"],factory.layoutDocuments?["6x3"])
+        XCTAssertEqual(result.columnSettingsByLayout["STENO Voyager"],factory.columnSettingsByLayout["STENO Voyager"])
+        let templates:Set<String> = ["6x3","STENO Voyager"]
+        XCTAssertEqual(result.columnSettingsByLayout.filter { !templates.contains($0.key) },current.columnSettingsByLayout.filter { !templates.contains($0.key) })
+        for template in templates { XCTAssertEqual(result.layoutDocuments?[template],factory.layoutDocuments?[template]) }
         XCTAssertEqual(result.leftDeviceID,current.leftDeviceID)
         XCTAssertEqual(result.runAtStartupEnabled,current.runAtStartupEnabled)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])

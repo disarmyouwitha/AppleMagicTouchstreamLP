@@ -420,7 +420,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.571875,
+                "x" : 0.573375,
                 "y" : 0.08839860748476935
               },
               "right" : false,
@@ -441,7 +441,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.4316249999999999,
+                "x" : 0.431125,
                 "y" : 0.061009573542210614
               },
               "right" : false,
@@ -462,7 +462,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.28712499999999996,
+                "x" : 0.288875,
                 "y" : 0.10580504786771104
               },
               "right" : false,
@@ -483,7 +483,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.14887499999999992,
+                "x" : 0.14662499999999995,
                 "y" : 0.18798955613577026
               },
               "right" : false,
@@ -504,7 +504,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.004374999999999955,
+                "x" : 0.004374999999999948,
                 "y" : 0.18798955613577026
               },
               "right" : false,
@@ -546,7 +546,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.571875,
+                "x" : 0.573375,
                 "y" : 0.27556135770234985
               },
               "right" : false,
@@ -567,7 +567,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.4316249999999999,
+                "x" : 0.431125,
                 "y" : 0.24817232375979112
               },
               "right" : false,
@@ -588,7 +588,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.28712499999999996,
+                "x" : 0.288875,
                 "y" : 0.29296779808529155
               },
               "right" : false,
@@ -609,7 +609,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.14887499999999992,
+                "x" : 0.14662499999999995,
                 "y" : 0.3751523063533508
               },
               "right" : false,
@@ -630,7 +630,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.004374999999999955,
+                "x" : 0.004374999999999948,
                 "y" : 0.3751523063533508
               },
               "right" : false,
@@ -672,7 +672,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.571875,
+                "x" : 0.573375,
                 "y" : 0.4627241079199303
               },
               "right" : false,
@@ -693,7 +693,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.4316249999999999,
+                "x" : 0.431125,
                 "y" : 0.4353350739773717
               },
               "right" : false,
@@ -714,7 +714,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.28712499999999996,
+                "x" : 0.288875,
                 "y" : 0.480130548302872
               },
               "right" : false,
@@ -735,7 +735,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.14887499999999992,
+                "x" : 0.14662499999999995,
                 "y" : 0.5623150565709312
               },
               "right" : false,
@@ -756,7 +756,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.004374999999999955,
+                "x" : 0.004374999999999948,
                 "y" : 0.5623150565709312
               },
               "right" : false,
@@ -798,7 +798,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.29875,
+                "x" : 0.29725000000000007,
                 "y" : 0.08839860748476935
               },
               "right" : true,
@@ -819,7 +819,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.43900000000000006,
+                "x" : 0.4395,
                 "y" : 0.061009573542210614
               },
               "right" : true,
@@ -840,7 +840,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.5835,
+                "x" : 0.58175,
                 "y" : 0.10580504786771104
               },
               "right" : true,
@@ -861,7 +861,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.7217500000000001,
+                "x" : 0.7240000000000001,
                 "y" : 0.18798955613577026
               },
               "right" : true,
@@ -924,7 +924,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.29875,
+                "x" : 0.29725000000000007,
                 "y" : 0.27556135770234985
               },
               "right" : true,
@@ -945,7 +945,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.43900000000000006,
+                "x" : 0.4395,
                 "y" : 0.24817232375979112
               },
               "right" : true,
@@ -966,7 +966,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.5835,
+                "x" : 0.58175,
                 "y" : 0.29296779808529155
               },
               "right" : true,
@@ -987,7 +987,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.7217500000000001,
+                "x" : 0.7240000000000001,
                 "y" : 0.3751523063533508
               },
               "right" : true,
@@ -1050,7 +1050,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.29875,
+                "x" : 0.29725000000000007,
                 "y" : 0.4627241079199303
               },
               "right" : true,
@@ -1071,7 +1071,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.43900000000000006,
+                "x" : 0.4395,
                 "y" : 0.4353350739773717
               },
               "right" : true,
@@ -1092,7 +1092,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.5835,
+                "x" : 0.58175,
                 "y" : 0.480130548302872
               },
               "right" : true,
@@ -1113,7 +1113,7 @@
               "rect" : {
                 "height" : 0.17014795474325498,
                 "width" : 0.129375,
-                "x" : 0.7217500000000001,
+                "x" : 0.7240000000000001,
                 "y" : 0.5623150565709312
               },
               "right" : true,
@@ -1225,9 +1225,9 @@
               "mirrorID" : "30E993F9-1079-4709-965B-EA6D405D94AE",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.746875,
-                "y" : 0.12189730200174065
+                "width" : 0.15625000000000008,
+                "x" : 0.715625,
+                "y" : 0.11319408181026978
               },
               "right" : false,
               "row" : 0
@@ -1246,9 +1246,9 @@
               "mirrorID" : "57F21642-2674-4317-A5D5-24485754B6AD",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.609375,
-                "y" : 0.0971018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.5733750000000001,
+                "y" : 0.08839860748476934
               },
               "right" : false,
               "row" : 0
@@ -1267,9 +1267,9 @@
               "mirrorID" : "75FFEC23-704D-4C31-A750-2E6B0CAAC12C",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.4628749999999999,
-                "y" : 0.05230635335073977
+                "width" : 0.14374999999999996,
+                "x" : 0.43112500000000004,
+                "y" : 0.06100957354221061
               },
               "right" : false,
               "row" : 0
@@ -1288,9 +1288,9 @@
               "mirrorID" : "6581C6AF-FFED-4F5C-BD50-E027B25BB597",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.31837499999999996,
-                "y" : 0.0971018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.28887500000000005,
+                "y" : 0.10580504786771104
               },
               "right" : false,
               "row" : 0
@@ -1309,9 +1309,9 @@
               "mirrorID" : "A0D88F17-9097-4E58-AD6E-FFD69B94352C",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.17387499999999992,
-                "y" : 0.1966927763272411
+                "width" : 0.14374999999999996,
+                "x" : 0.146625,
+                "y" : 0.18798955613577029
               },
               "right" : false,
               "row" : 0
@@ -1330,9 +1330,9 @@
               "mirrorID" : "4A019DBB-3C82-4273-AC95-E7BBACEF264C",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.029374999999999957,
-                "y" : 0.1966927763272411
+                "width" : 0.14375,
+                "x" : 0.0043749999999999345,
+                "y" : 0.18798955613577029
               },
               "right" : false,
               "row" : 0
@@ -1351,9 +1351,9 @@
               "mirrorID" : "71B6DD26-EA0B-4ABF-A907-FF4B65DD64E3",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.746875,
-                "y" : 0.30906005221932115
+                "width" : 0.15625000000000008,
+                "x" : 0.715625,
+                "y" : 0.3003568320278503
               },
               "right" : false,
               "row" : 1
@@ -1372,9 +1372,9 @@
               "mirrorID" : "BC3DD472-E83D-4B43-BEC1-D8B28923AA8F",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.609375,
-                "y" : 0.2842645778938207
+                "width" : 0.14374999999999996,
+                "x" : 0.5733750000000001,
+                "y" : 0.27556135770234985
               },
               "right" : false,
               "row" : 1
@@ -1393,9 +1393,9 @@
               "mirrorID" : "50445834-58E1-4388-AC57-4EE55D6A6A3F",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.4628749999999999,
-                "y" : 0.23946910356832027
+                "width" : 0.14374999999999996,
+                "x" : 0.43112500000000004,
+                "y" : 0.24817232375979115
               },
               "right" : false,
               "row" : 1
@@ -1414,9 +1414,9 @@
               "mirrorID" : "F2D6D22B-E6AA-4E79-9B1D-125B38272A3F",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.31837499999999996,
-                "y" : 0.2842645778938207
+                "width" : 0.14374999999999996,
+                "x" : 0.28887500000000005,
+                "y" : 0.29296779808529155
               },
               "right" : false,
               "row" : 1
@@ -1435,9 +1435,9 @@
               "mirrorID" : "BCB06B7D-5B47-4C6B-8529-0310F1B919C4",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.17387499999999992,
-                "y" : 0.38385552654482163
+                "width" : 0.14374999999999996,
+                "x" : 0.146625,
+                "y" : 0.37515230635335084
               },
               "right" : false,
               "row" : 1
@@ -1456,9 +1456,9 @@
               "mirrorID" : "9BC1AE04-14F1-47EC-84C4-9314B7FA8AC6",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.029374999999999957,
-                "y" : 0.38385552654482163
+                "width" : 0.14375,
+                "x" : 0.0043749999999999345,
+                "y" : 0.37515230635335084
               },
               "right" : false,
               "row" : 1
@@ -1477,9 +1477,9 @@
               "mirrorID" : "6DFE02B6-E03F-40A9-A9D7-399C2EA7D6AE",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.746875,
-                "y" : 0.4962228024369016
+                "width" : 0.15625000000000008,
+                "x" : 0.715625,
+                "y" : 0.48751958224543074
               },
               "right" : false,
               "row" : 2
@@ -1498,9 +1498,9 @@
               "mirrorID" : "14A58754-E18F-46ED-9610-1D571810F61B",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.609375,
-                "y" : 0.47142732811140114
+                "width" : 0.14374999999999996,
+                "x" : 0.5733750000000001,
+                "y" : 0.4627241079199303
               },
               "right" : false,
               "row" : 2
@@ -1519,9 +1519,9 @@
               "mirrorID" : "FBFE57E2-14C8-4EDA-B47A-ABDD76D7DC3E",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.4628749999999999,
-                "y" : 0.42663185378590085
+                "width" : 0.14374999999999996,
+                "x" : 0.43112500000000004,
+                "y" : 0.43533507397737176
               },
               "right" : false,
               "row" : 2
@@ -1540,9 +1540,9 @@
               "mirrorID" : "94A766B3-FB08-405A-8EA6-892C0DBC18FA",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.31837499999999996,
-                "y" : 0.47142732811140114
+                "width" : 0.14374999999999996,
+                "x" : 0.28887500000000005,
+                "y" : 0.480130548302872
               },
               "right" : false,
               "row" : 2
@@ -1561,9 +1561,9 @@
               "mirrorID" : "E71B1666-FD27-41F2-B676-EBACB457F50B",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.17387499999999992,
-                "y" : 0.571018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.146625,
+                "y" : 0.5623150565709312
               },
               "right" : false,
               "row" : 2
@@ -1582,9 +1582,9 @@
               "mirrorID" : "227C6D5E-892B-4401-9AEE-48E53A374417",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.029374999999999957,
-                "y" : 0.571018276762402
+                "width" : 0.14375,
+                "x" : 0.0043749999999999345,
+                "y" : 0.5623150565709312
               },
               "right" : false,
               "row" : 2
@@ -1644,10 +1644,10 @@
               "label" : "STN_N6",
               "mirrorID" : "9A255D74-3163-4648-B742-3AA1E0F033F2",
               "rect" : {
-                "height" : 0.21366405570060926,
-                "width" : 0.129375,
-                "x" : 0.12375,
-                "y" : 0.12189730200174065
+                "height" : 0.21366405570060923,
+                "width" : 0.15625000000000008,
+                "x" : 0.1281249999999999,
+                "y" : 0.11319408181026978
               },
               "right" : true,
               "row" : 0
@@ -1666,9 +1666,9 @@
               "mirrorID" : "B07A84D7-75D6-4F5B-89C3-25FDFBEE263E",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.26125000000000004,
-                "y" : 0.0971018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.282875,
+                "y" : 0.08839860748476934
               },
               "right" : true,
               "row" : 0
@@ -1687,9 +1687,9 @@
               "mirrorID" : "8C91BC87-5946-42B0-8B1D-174468DF0C04",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.40775000000000006,
-                "y" : 0.05230635335073977
+                "width" : 0.14374999999999996,
+                "x" : 0.425125,
+                "y" : 0.06100957354221061
               },
               "right" : true,
               "row" : 0
@@ -1708,9 +1708,9 @@
               "mirrorID" : "2AC2C911-9EA0-41A6-A0D6-6936D000C17F",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.55225,
-                "y" : 0.0971018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.567375,
+                "y" : 0.10580504786771104
               },
               "right" : true,
               "row" : 0
@@ -1729,9 +1729,9 @@
               "mirrorID" : "7C26C2CD-8523-4418-9A3D-82E86F9055EE",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.6967500000000001,
-                "y" : 0.1966927763272411
+                "width" : 0.14374999999999996,
+                "x" : 0.7096250000000001,
+                "y" : 0.18798955613577029
               },
               "right" : true,
               "row" : 0
@@ -1750,9 +1750,9 @@
               "mirrorID" : "D6B886E0-2D34-4640-931C-449889274D52",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.84125,
-                "y" : 0.1966927763272411
+                "width" : 0.14375,
+                "x" : 0.8518750000000002,
+                "y" : 0.18798955613577029
               },
               "right" : true,
               "row" : 0
@@ -1771,9 +1771,9 @@
               "mirrorID" : "467F5902-2CDE-4959-A5A1-1DA963F71613",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.12375,
-                "y" : 0.30906005221932115
+                "width" : 0.15625000000000008,
+                "x" : 0.1281249999999999,
+                "y" : 0.3003568320278503
               },
               "right" : true,
               "row" : 1
@@ -1792,9 +1792,9 @@
               "mirrorID" : "4D414D59-1436-48EA-BB27-A31435677F9A",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.26125000000000004,
-                "y" : 0.2842645778938207
+                "width" : 0.14374999999999996,
+                "x" : 0.282875,
+                "y" : 0.27556135770234985
               },
               "right" : true,
               "row" : 1
@@ -1813,9 +1813,9 @@
               "mirrorID" : "FA6DFDC4-0BC0-4894-8C07-CA44F518519B",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.40775000000000006,
-                "y" : 0.23946910356832027
+                "width" : 0.14374999999999996,
+                "x" : 0.425125,
+                "y" : 0.24817232375979115
               },
               "right" : true,
               "row" : 1
@@ -1834,9 +1834,9 @@
               "mirrorID" : "2A97559D-EE52-4061-B526-8FEBF37D09D6",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.55225,
-                "y" : 0.2842645778938207
+                "width" : 0.14374999999999996,
+                "x" : 0.567375,
+                "y" : 0.29296779808529155
               },
               "right" : true,
               "row" : 1
@@ -1855,9 +1855,9 @@
               "mirrorID" : "AF57385B-90D0-4C1D-96F3-0F9EF716D910",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.6967500000000001,
-                "y" : 0.38385552654482163
+                "width" : 0.14374999999999996,
+                "x" : 0.7096250000000001,
+                "y" : 0.37515230635335084
               },
               "right" : true,
               "row" : 1
@@ -1876,9 +1876,9 @@
               "mirrorID" : "5B9E876A-C549-4F44-AFC1-DD1A51A3124D",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.84125,
-                "y" : 0.38385552654482163
+                "width" : 0.14375,
+                "x" : 0.8518750000000002,
+                "y" : 0.37515230635335084
               },
               "right" : true,
               "row" : 1
@@ -1897,9 +1897,9 @@
               "mirrorID" : "AF16D458-3D11-4844-BF20-F1B94EFE9D0D",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.12375,
-                "y" : 0.4962228024369016
+                "width" : 0.15625000000000008,
+                "x" : 0.1281249999999999,
+                "y" : 0.48751958224543074
               },
               "right" : true,
               "row" : 2
@@ -1918,9 +1918,9 @@
               "mirrorID" : "32A54E00-BE0C-4E84-8996-3D9D2431C96E",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.26125000000000004,
-                "y" : 0.47142732811140114
+                "width" : 0.14374999999999996,
+                "x" : 0.282875,
+                "y" : 0.4627241079199303
               },
               "right" : true,
               "row" : 2
@@ -1939,9 +1939,9 @@
               "mirrorID" : "6E7B98FD-8CA0-4220-933F-428806BBB48C",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.40775000000000006,
-                "y" : 0.42663185378590085
+                "width" : 0.14374999999999996,
+                "x" : 0.425125,
+                "y" : 0.43533507397737176
               },
               "right" : true,
               "row" : 2
@@ -1960,9 +1960,9 @@
               "mirrorID" : "826AD66F-399C-4829-8891-C437A8F292B4",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.55225,
-                "y" : 0.47142732811140114
+                "width" : 0.14374999999999996,
+                "x" : 0.567375,
+                "y" : 0.480130548302872
               },
               "right" : true,
               "row" : 2
@@ -1981,9 +1981,9 @@
               "mirrorID" : "3328089E-F5C2-41BA-B811-6E10C2EF1CC9",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.6967500000000001,
-                "y" : 0.571018276762402
+                "width" : 0.14374999999999996,
+                "x" : 0.7096250000000001,
+                "y" : 0.5623150565709312
               },
               "right" : true,
               "row" : 2
@@ -2002,9 +2002,9 @@
               "mirrorID" : "CAAF9966-E329-4403-8E40-4C25701E6465",
               "rect" : {
                 "height" : 0.21366405570060923,
-                "width" : 0.129375,
-                "x" : 0.84125,
-                "y" : 0.571018276762402
+                "width" : 0.14375,
+                "x" : 0.8518750000000002,
+                "y" : 0.5623150565709312
               },
               "right" : true,
               "row" : 2
@@ -2063,7 +2063,7 @@
       "TwoFingerTapGestureAction" : "Left Click"
     }
   },
-  "KeymapJson" : "{\"Layouts\":{\"mobile\":{\"Mappings\":{\"3\":{},\"1\":{},\"0\":{},\"2\":{}},\"CustomButtons\":{},\"KeyGeometry\":{}},\"Blank\":{\"Mappings\":{\"2\":{},\"0\":{},\"1\":{},\"3\":{}},\"CustomButtons\":{\"2\":[],\"0\":[]},\"KeyGeometry\":{}},\"mobile-ortho-12x4\":{\"Mappings\":{\"1\":{\"right:2:11\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0}},\"0\":{\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:10\":{\"Primary\":{\"Label\":\"P\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"right:1:0\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"right:3:8\":{\"Primary\":{\"Label\":\"'\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:0:0\":{\"Primary\":{\"Label\":\"Tab\"},\"HoldForceThreshold\":0},\"right:0:7\":{\"Primary\":{\"Label\":\"U\"},\"HoldForceThreshold\":0},\"right:0:6\":{\"Primary\":{\"Label\":\"Y\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"Ctrl\"},\"HoldForceThreshold\":0},\"right:2:6\":{\"Primary\":{\"Label\":\"N\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:3:10\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0},\"right:1:6\":{\"Primary\":{\"Label\":\"H\"},\"HoldForceThreshold\":0},\"right:3:9\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:2:10\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"right:1:9\":{\"Primary\":{\"Label\":\"L\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\",\"}},\"right:2:3\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"Option\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"I\"}},\"right:0:9\":{\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"right:3:7\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"Emoji\"},\"HoldForceThreshold\":0},\"right:0:11\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"right:1:7\":{\"Primary\":{\"Label\":\"J\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"right:2:7\":{\"Primary\":{\"Label\":\"M\"},\"HoldForceThreshold\":0},\"right:1:11\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"right:1:10\":{\"Primary\":{\"Label\":\":\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"right:3:11\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0}},\"2\":{\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"3\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:8\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:11\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}},\"KeyGeometry\":{},\"CustomButtons\":{\"1\":[],\"0\":[{\"HoldForceThreshold\":0,\"Rect\":{\"Height\":0.23,\"Width\":0.25,\"Y\":0.77,\"X\":0.5},\"Id\":\"61F65836-BA49-40E3-A1B3-93AC861CA581\",\"Primary\":{\"Label\":\"Space\"},\"Layer\":0,\"Side\":1},{\"HoldForceThreshold\":0,\"Rect\":{\"Y\":0.77,\"Width\":0.25,\"Height\":0.23,\"X\":0.25},\"Id\":\"74382F6D-2CC3-402E-806A-4770DAE208AF\",\"Primary\":{\"Label\":\"Back\"},\"Layer\":0,\"Side\":1}],\"3\":[]}},\"6x3\":{\"Mappings\":{\"0\":{\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+V\"}},\"right:1:3\":{\"Primary\":{\"Label\":\"L\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"~\"}},\"right:0:1\":{\"Primary\":{\"Label\":\"U\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"&\"}},\"left:1:4\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+A\"}},\"right:1:0\":{\"Primary\":{\"Label\":\"H\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"_\"}},\"left:0:0\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"'\"}},\"right:0:2\":{\"Primary\":{\"Label\":\"I\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"*\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"J\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"!\"}},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"Y\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"-\"}},\"left:0:2\":{\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"{\"}},\"right:0:3\":{\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+F\"}},\"left:2:2\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+C\"}},\"right:2:2\":{\"Primary\":{\"Label\":\",\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"$\"}},\"right:2:3\":{\"Primary\":{\"Label\":\".\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"^\"}},\"left:1:0\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\"\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+X\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"]\"}},\"left:1:5\":{\"Primary\":{\"Label\":\"Ctrl\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"N\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"=\"}},\"right:1:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"K\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"#\"}},\"right:0:5\":{\"Primary\":{\"Label\":\"Delete\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Emoji\"}},\"right:2:1\":{\"Primary\":{\"Label\":\"M\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"@\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"P\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Shift+Cmd+4\"}},\"left:2:0\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"`\"}},\"left:1:2\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"(\"}},\"right:2:4\":{\"Primary\":{\"Label\":\"\\\/\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\\\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+S\"}},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\")\"}},\"left:0:4\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"[\"}},\"left:0:1\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"}\"}},\"left:0:5\":{\"Primary\":{\"Label\":\"Tab\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Esc\"}},\"right:1:4\":{\"Primary\":{\"Label\":\";\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"?\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+Z\"}}},\"1\":{\"right:1:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Voice\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"—\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"+\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0}},\"3\":{\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"2\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}},\"CustomButtons\":{\"3\":[],\"1\":[{\"Rect\":{\"Height\":0.32,\"Width\":0.25,\"X\":0,\"Y\":0.6799999999999999},\"Primary\":{\"Label\":\"Space\"},\"Layer\":1,\"Id\":\"90ABB5E6-6A85-4CC2-B527-76CF67AE6740\",\"HoldForceThreshold\":0,\"Side\":1},{\"Rect\":{\"Y\":0.6799999999999999,\"Height\":0.32,\"X\":0.75,\"Width\":0.25},\"Primary\":{\"Label\":\"Space\"},\"Layer\":1,\"Id\":\"717E62A7-3B1E-4F89-995F-16F7472D20AE\",\"HoldForceThreshold\":0,\"Side\":0},{\"Rect\":{\"Width\":0.27,\"Y\":0.67,\"X\":0.3,\"Height\":0.2},\"Primary\":{\"Label\":\"0\"},\"Layer\":1,\"Id\":\"1D28B5F2-13EB-47F1-8338-9A108DCBF993\",\"HoldForceThreshold\":0,\"Side\":1}],\"0\":[{\"Rect\":{\"Y\":0.6799999999999999,\"X\":0,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Layer\":0,\"Id\":\"3B96A0B2-A59E-48E3-99BF-DF6CCCF87570\",\"HoldForceThreshold\":0,\"Side\":1},{\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Back\"},\"Layer\":0,\"Id\":\"2D99F608-4FB9-4D3C-BB70-F09EDF57E0D9\",\"HoldForceThreshold\":0,\"Side\":0},{\"Rect\":{\"Width\":0.25,\"Height\":0.2610966057441253,\"X\":0.5,\"Y\":0.7389033942558747},\"Primary\":{\"Label\":\"MO(1)\"},\"Layer\":0,\"Id\":\"BE89F157-B4D7-464E-907B-761D7649AFC9\",\"HoldForceThreshold\":0,\"Side\":0}],\"2\":[]},\"KeyGeometry\":{}},\"STENO Voyager\":{\"Mappings\":{\"0\":{},\"1\":{},\"2\":{},\"3\":{}},\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{}},\"TouchStream\":{\"Mappings\":{\"3\":{},\"1\":{},\"2\":{},\"0\":{\"left:2:2\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":{\"Label\":\"Cmd+A\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":{\"Label\":\"Cmd+Z\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":{\"Label\":\"Cmd+V\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":{\"Label\":\"Cmd+C\"},\"HoldForceThreshold\":0},\"left:2:6\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":{\"Label\":\"\\\"\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":{\"Label\":\"!\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":{\"Label\":\"'\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":{\"Label\":\"`\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":{\"Label\":\"_\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":{\"Label\":\"Cmd+S\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":{\"Label\":\"Cmd+X\"},\"HoldForceThreshold\":0}}},\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{}},\"STENO\":{\"Mappings\":{\"0\":{},\"1\":{},\"2\":{},\"3\":{}},\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{}},\"STENO single\":{\"Mappings\":{\"0\":{},\"2\":{},\"1\":{},\"3\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[]}},\"6x4\":{\"Mappings\":{\"1\":{\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"-\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}}},\"0\":{\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}},\"right:2:2\":{\"Hold\":{\"Label\":\"B\"},\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Emoji\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"G\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"}}},\"2\":{\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"3\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}},\"CustomButtons\":{\"3\":[],\"0\":[{\"Layer\":0,\"Rect\":{\"Width\":0.25,\"X\":0,\"Height\":0.23,\"Y\":0.77},\"Id\":\"0D51D6C8-B960-4EA4-9F46-3C146D421AF0\",\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Side\":1},{\"Layer\":0,\"Rect\":{\"Width\":0.25,\"Height\":0.23,\"X\":0.49,\"Y\":0.77},\"Id\":\"50611E14-3F36-41E5-A96F-509756EC3DFB\",\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0,\"Side\":0},{\"Layer\":0,\"Rect\":{\"Width\":0.25,\"X\":0.75,\"Y\":0.77,\"Height\":0.23},\"Id\":\"4F062E7D-8641-464E-94C7-A175D5CE7F03\",\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0,\"Side\":0}],\"2\":[],\"1\":[{\"Layer\":1,\"Rect\":{\"Width\":0.25,\"X\":0.32,\"Y\":0.7,\"Height\":0.15},\"Id\":\"6FC0D4AE-3FBF-4AC0-9C07-07353D18E13A\",\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0,\"Side\":1}]},\"KeyGeometry\":{}}},\"Version\":2}",
+  "KeymapJson" : "{\"Version\":2,\"Layouts\":{\"mobile\":{\"CustomButtons\":{},\"Mappings\":{\"0\":{},\"1\":{},\"3\":{},\"2\":{}},\"KeyGeometry\":{}},\"6x3\":{\"CustomButtons\":{\"3\":[],\"1\":[{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Layer\":1,\"Id\":\"90ABB5E6-6A85-4CC2-B527-76CF67AE6740\",\"Side\":1,\"Rect\":{\"X\":0,\"Width\":0.25,\"Height\":0.32,\"Y\":0.6799999999999999}},{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Layer\":1,\"Id\":\"717E62A7-3B1E-4F89-995F-16F7472D20AE\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32}},{\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0,\"Layer\":1,\"Id\":\"1D28B5F2-13EB-47F1-8338-9A108DCBF993\",\"Side\":1,\"Rect\":{\"Width\":0.27,\"X\":0.3,\"Height\":0.2,\"Y\":0.67}}],\"0\":[{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Layer\":0,\"Id\":\"3B96A0B2-A59E-48E3-99BF-DF6CCCF87570\",\"Side\":1,\"Rect\":{\"Height\":0.32,\"Width\":0.25,\"Y\":0.6799999999999999,\"X\":0}},{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0,\"Layer\":0,\"Id\":\"2D99F608-4FB9-4D3C-BB70-F09EDF57E0D9\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Height\":0.32,\"Y\":0.6799999999999999,\"Width\":0.25}},{\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0,\"Layer\":0,\"Id\":\"BE89F157-B4D7-464E-907B-761D7649AFC9\",\"Side\":0,\"Rect\":{\"Width\":0.25,\"Y\":0.7389033942558747,\"X\":0.5,\"Height\":0.2610966057441253}}],\"2\":[]},\"KeyGeometry\":{},\"Mappings\":{\"2\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"1\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"—\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"8\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Voice\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"left:1:3\":{\"Hold\":{\"Label\":\"Cmd+S\"},\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Hold\":{\"Label\":\"&\"},\"Primary\":{\"Label\":\"U\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Hold\":{\"Label\":\"~\"},\"Primary\":{\"Label\":\"L\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"},\"Hold\":{\"Label\":\"#\"}},\"right:0:0\":{\"Hold\":{\"Label\":\"-\"},\"Primary\":{\"Label\":\"Y\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"},\"Hold\":{\"Label\":\"Esc\"}},\"right:0:4\":{\"Hold\":{\"Label\":\"Shift+Cmd+4\"},\"Primary\":{\"Label\":\"P\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Hold\":{\"Label\":\"\\\"\"},\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"right:2:0\":{\"Hold\":{\"Label\":\"=\"},\"Primary\":{\"Label\":\"N\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Hold\":{\"Label\":\"'\"},\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Hold\":{\"Label\":\"(\"},\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Hold\":{\"Label\":\"@\"},\"Primary\":{\"Label\":\"M\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Hold\":{\"Label\":\"Cmd+A\"},\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Hold\":{\"Label\":\"$\"},\"Primary\":{\"Label\":\",\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Hold\":{\"Label\":\"Cmd+V\"},\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Hold\":{\"Label\":\"_\"},\"Primary\":{\"Label\":\"H\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Hold\":{\"Label\":\")\"},\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Hold\":{\"Label\":\"Cmd+C\"},\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Hold\":{\"Label\":\"*\"},\"Primary\":{\"Label\":\"I\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"right:0:3\":{\"Hold\":{\"Label\":\"Cmd+F\"},\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Hold\":{\"Label\":\"{\"},\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Hold\":{\"Label\":\"}\"},\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Hold\":{\"Label\":\"Cmd+X\"},\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Hold\":{\"Label\":\"`\"},\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"J\"},\"Hold\":{\"Label\":\"!\"}},\"right:2:4\":{\"Hold\":{\"Label\":\"\\\\\"},\"Primary\":{\"Label\":\"\\\/\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"},\"Hold\":{\"Label\":\"]\"}},\"left:2:4\":{\"Hold\":{\"Label\":\"Cmd+Z\"},\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"},\"Hold\":{\"Label\":\"^\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\";\"}},\"right:0:5\":{\"Hold\":{\"Label\":\"Emoji\"},\"Primary\":{\"Label\":\"Delete\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Ctrl\"}},\"left:0:4\":{\"Hold\":{\"Label\":\"[\"},\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0}},\"3\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}}}},\"Blank\":{\"CustomButtons\":{\"2\":[],\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"2\":{},\"1\":{},\"0\":{},\"3\":{}}},\"6x4\":{\"CustomButtons\":{\"1\":[{\"Id\":\"6FC0D4AE-3FBF-4AC0-9C07-07353D18E13A\",\"Side\":1,\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0,\"Rect\":{\"X\":0.32,\"Height\":0.15,\"Width\":0.25,\"Y\":0.7},\"Layer\":1}],\"2\":[],\"3\":[],\"0\":[{\"Id\":\"0D51D6C8-B960-4EA4-9F46-3C146D421AF0\",\"Side\":1,\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Rect\":{\"X\":0,\"Y\":0.77,\"Height\":0.23,\"Width\":0.25},\"Layer\":0},{\"Id\":\"50611E14-3F36-41E5-A96F-509756EC3DFB\",\"Side\":0,\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0,\"Rect\":{\"Y\":0.77,\"Width\":0.25,\"Height\":0.23,\"X\":0.49},\"Layer\":0},{\"Id\":\"4F062E7D-8641-464E-94C7-A175D5CE7F03\",\"Side\":0,\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0,\"Rect\":{\"Height\":0.23,\"X\":0.75,\"Width\":0.25,\"Y\":0.77},\"Layer\":0}]},\"KeyGeometry\":{},\"Mappings\":{\"1\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"8\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"-\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"7\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"2\":{\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"3\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"B\"},\"Primary\":{\"Label\":\"K\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Emoji\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"4\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"G\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"}},\"left:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}}}}},\"STENO\":{\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"0\":{},\"2\":{},\"1\":{},\"3\":{}}},\"mobile-ortho-12x4\":{\"CustomButtons\":{\"0\":[{\"Side\":1,\"Layer\":0,\"Rect\":{\"Height\":0.23,\"X\":0.5,\"Width\":0.25,\"Y\":0.77},\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0,\"Id\":\"61F65836-BA49-40E3-A1B3-93AC861CA581\"},{\"Side\":1,\"Layer\":0,\"Rect\":{\"Y\":0.77,\"Height\":0.23,\"Width\":0.25,\"X\":0.25},\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0,\"Id\":\"74382F6D-2CC3-402E-806A-4770DAE208AF\"}],\"1\":[],\"3\":[]},\"KeyGeometry\":{},\"Mappings\":{\"0\":{\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\":\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Ctrl\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"J\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"G\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Emoji\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"I\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\",\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"L\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"U\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"M\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"N\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"'\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Option\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"A\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Y\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"P\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"H\"}}},\"1\":{\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}}},\"2\":{\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"3\":{\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}}}},\"TouchStream\":{\"CustomButtons\":{\"0\":[]},\"Mappings\":{\"3\":{},\"2\":{},\"0\":{\"left:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+A\"},\"Primary\":{\"Label\":\"A\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"'\"},\"Primary\":{\"Label\":\"T\"}},\"right:2:2\":{\"Primary\":{\"Label\":\"J\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"!\"}},\"left:3:5\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"`\"}},\"left:3:2\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+X\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+S\"}},\"right:3:6\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"-\"},\"Primary\":{\"Label\":\"Y\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+C\"},\"Primary\":{\"Label\":\"C\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"_\"},\"Primary\":{\"Label\":\"H\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"=\"},\"Primary\":{\"Label\":\"N\"}},\"left:2:6\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\"\"}},\"left:3:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+Z\"},\"Primary\":{\"Label\":\"Z\"}},\"left:3:4\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+V\"}}},\"1\":{}},\"KeyGeometry\":{}},\"STENO single\":{\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"0\":{},\"3\":{},\"1\":{},\"2\":{}}},\"STENO Voyager\":{\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"0\":{},\"3\":{},\"2\":{},\"1\":{}}}}}",
   "Settings" : {
     "ActiveLayer" : 0,
     "AutocorrectEnabled" : true,

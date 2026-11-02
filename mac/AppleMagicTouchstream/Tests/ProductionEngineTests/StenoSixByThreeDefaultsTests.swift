@@ -22,8 +22,13 @@ import XCTest
                 XCTAssertTrue(layout.isSteno)
             }
             let reset = ContentView.editorTemplate(preset:.stenoVoyager,size:size,profile:profile)
-            for key in reset.keys where key.right == (side == .right) && key.row < 3 {
-                XCTAssertEqual(key.rect,expected.normalizedKeyRects[key.row][key.column])
+            if let authored = profile.layoutDocuments?[TrackpadLayoutPreset.stenoVoyager.rawValue] {
+                XCTAssertTrue(authored.isValid)
+                XCTAssertEqual(reset,authored,"Authored STENO geometry overrides its legacy seed on reset")
+            } else {
+                for key in reset.keys where key.right == (side == .right) && key.row < 3 {
+                    XCTAssertEqual(key.rect,expected.normalizedKeyRects[key.row][key.column])
+                }
             }
         }
     }
