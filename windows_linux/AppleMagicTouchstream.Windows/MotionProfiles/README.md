@@ -23,6 +23,13 @@ independent per-axis history and acceleration before the existing release-moment
 model. Touching either pad brakes released scrolling without clicking. Fractional
 pointer and wheel output remains intact. No Windows mouse/driver settings change.
 
+Pointer/Drag startup uses the same curve on each original movement sample while
+recognition is pending. The resulting output is retained privately and published
+once movement acquires; the accumulated physical distance is never accelerated
+again as one fast sample. This prevents a nonlinear startup jump without changing
+the curve, movement threshold, tap eligibility or an activated gesture's response.
+New cohorts and cancelled/losing candidates discard pending output.
+
 Windows wheel messages do not carry macOS pixel-scroll phases. Application wheel
 handling, lines-per-detent settings and display scaling still affect the result;
 this ports AMT's numerical response, not Apple's entire private input stack.

@@ -204,6 +204,21 @@ Existing serialized identities and capture formats remain unchanged.
 
 ## Verification and hardware handoff
 
+`2F_skips.atpcap` contains 302 successfully decoded reports across eight Right-pad
+movement episodes (SHA-256
+`d137cd7e8787932456644701d4095320e1ea74a9056e7a6647ca749f13bbaf9f`).
+Its companion selects captured Mac motion on Right, no 2F shape bindings, and
+2F Primary Click. Replaying the original settings and an explicit tap=None
+variant identified nonlinear amplification when accumulated startup travel was
+sent to the pointer curve as one sample. Pending Pointer/Drag now accelerates
+each source delta before retaining its output, publishing only on acquisition.
+With tap=None, median first-step output across the eight episodes changes from
+5.39 to 2.15 pixels; the original profile's median changes from 33.29 to 8.40.
+All acquisition frames and pointer-call counts remain unchanged. The imported
+curve and post-acquisition response are unchanged. Existing checks verify the
+same acceleration vectors, gesture arbitration, drag cleanup and capture paths;
+live precision acceptance remains a hardware check.
+
 `ShapeGestureParityTests` verifies every 2–5-finger direction on both pads,
 signed repeat behavior, all-up/cancellation, shape/Force/Hold arbitration and
 settings cloning. `RotationCountsMac.json` projects all 1,875 frames from Mac's

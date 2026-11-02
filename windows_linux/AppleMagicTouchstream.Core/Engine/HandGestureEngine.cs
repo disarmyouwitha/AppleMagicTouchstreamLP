@@ -36,6 +36,7 @@ public sealed class HandGestureEngine
         public readonly HandGestureContact[] Previous = new HandGestureContact[InputFrame.MaxContacts];
         public int PreviousCount, PendingCount;
         public double PreviousTime, TravelX, TravelY, LastReceipt, AcquisitionSince;
+        public double PendingPointerX, PendingPointerY;
         public bool Reserved, Blocked, SawFour, ForceBlocked, ForceClaimed, CycleClaimed, KeyboardOwned;
         public HandGestureEvidence Evidence;
         public HandGestureTrigger? Owner;
@@ -96,6 +97,7 @@ public sealed class HandGestureEngine
     {
         p.CycleClaimed=true;
         p.Owner = null; p.PreviousCount = 0; p.TravelX = p.TravelY = 0;
+        p.PendingPointerX=p.PendingPointerY=0;
         p.PendingCount = 0; p.Blocked = true; p.SawFour = false;
         CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
         p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
@@ -118,6 +120,7 @@ public sealed class HandGestureEngine
     {
         _output.HeldAssignment((int)side,null);
         p.Owner = null; p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
+        p.PendingPointerX=p.PendingPointerY=0;
         p.ShapeRepeat.Reset(); p.Rotation.Reset();
         byte bit=(byte)(1<<(int)side);
         if((_dragOwners&bit)!=0){_dragOwners&=(byte)~bit;if(_dragOwners==0)_output.PrimaryButton(false);}
@@ -251,6 +254,7 @@ public sealed class HandGestureEngine
             if (four && enabled(HandGestureTrigger.FourFingerTap)) tap(HandGestureTrigger.FourFingerTap);
             if (five && enabled(HandGestureTrigger.FiveFingerTap)) tap(HandGestureTrigger.FiveFingerTap);
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
+            p.PendingPointerX=p.PendingPointerY=0;
             p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset(); p.MovementCount=0;
             p.HoldCount = 0; p.HoldBlocked = p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
@@ -274,6 +278,7 @@ public sealed class HandGestureEngine
         if (!p.Owner.HasValue && !p.ForceClaimed && !p.HoldClaimed && !p.CornerPending && cornerCandidate)
         {
             p.CornerPending = true; p.HoldBlocked = false; p.HoldCount = 4; p.HoldSince = time;
+            ResetPendingPointer(p);
             contacts.CopyTo(p.HoldOrigin); CancelTaps(p); p.Shape.Reset(); p.Momentum.Cancel();
         }
         if (p.CornerPending)
@@ -323,6 +328,7 @@ public sealed class HandGestureEngine
         var shape = p.Shape.Process(contacts,time,pinchOwned);
         var turn = p.Rotation.Process(contacts,time,rotationOwned);
         bool shapeBegan = false;
+        bool pointerBegan = false;
         bool rotationEnabled = PerHandGestureSettings.Rotation(count) is {} left && PerHandGestureSettings.Rotation(count,true) is {} right
             && (enabled(left) || enabled(right));
         bool sameMovement = p.MovementCount==count && shared==count;
@@ -333,7 +339,7 @@ public sealed class HandGestureEngine
         }
         if (continued && !p.Owner.HasValue)
         {
-            if (p.PendingCount != count) { p.PendingCount = count; p.TravelX = p.TravelY = 0; }
+            if (p.PendingCount != count) { p.PendingCount = count; ResetPendingPointer(p); }
             // A first finger can shift while the second lands. That interval did
             // not have a stable two-finger chord at both ends, so it is a fresh
             // baseline when a two-finger tap is also assigned. Counting its
@@ -348,9 +354,22 @@ public sealed class HandGestureEngine
             // never changes when another finger joins or lifts.
             bool waitingForScroll = count == 3 && enabled(HandGestureTrigger.FourFingerMove)
                 && (p.SawFour || fourthContactPending && time-p.AcquisitionSince <= ChordLandingSeconds);
-            if (formingTapChord || formingScrollChord || count == 3 && p.SawFour) p.TravelX = p.TravelY = 0;
+            bool rebaseTravel=formingTapChord || formingScrollChord || count == 3 && p.SawFour;
+            if (rebaseTravel) ResetPendingPointer(p);
             else { p.TravelX += dx; p.TravelY += dy; }
             HandGestureTrigger? trigger = PerHandGestureSettings.Movement(count);
+            if(!rebaseTravel && trigger is {} movement && settings.Get(movement) is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag)
+            {
+                // Recognition accumulates millimetres, but acceleration is
+                // nonlinear and must see the original per-frame deltas. Treating
+                // all startup travel as one fast sample produces a cursor jump.
+                // Keep the already-accelerated motion private until this owner
+                // wins; taps/shape/holds/cancellation never publish it.
+                var pending=PointerDelta(p,settings,time,dx,dy);
+                if(pending is not {} value) { EndOwner(side,p); Cancel(p); return reserved; }
+                var bounded=PointerMotionLimits.Constrain(value.X,value.Y);
+                p.PendingPointerX+=bounded.X; p.PendingPointerY+=bounded.Y;
+            }
             bool tapOwnsSlop = count == 2 && enabled(HandGestureTrigger.TwoFingerTap) && p.Two.CanComplete;
             bool settlingFourHold = count == 4 && !p.HoldBlocked && settings.Hold(4) != HandGestureAction.None
                 && settings.Directional(HandGestureTrigger.FourFingerMove) == null;
@@ -367,6 +386,7 @@ public sealed class HandGestureEngine
             if (rotationWins || !rotationCandidate && shapeDominant && !tapStillPossible && Math.Abs(shape!.Value.Change) >= .6)
             {
                 p.Owner = rotationWins ? rotationDirection : direction; shapeBegan = true;
+                ResetPendingPointer(p);
                 CancelTaps(p); p.Momentum.Cancel();
             }
             else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= (settings.Directional(trigger.Value) != null ? 3 : threshold)
@@ -376,6 +396,7 @@ public sealed class HandGestureEngine
                 && (count != 3 || settings.Directional(trigger.Value) != null || AcceptsRow(contacts)))
             {
                 p.Owner = trigger;
+                pointerBegan=settings.Get(trigger.Value) is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag;
                 dx = p.TravelX; dy = p.TravelY;
                 CancelTaps(p);
                 if (settings.Directional(trigger.Value) is {} directions)
@@ -432,8 +453,8 @@ public sealed class HandGestureEngine
             }
             else if (action is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag)
             {
-                (double X,double Y)? delta = p.Accelerator?.Millimetres(time,dx,dy,settings.PointerSensitivity);
-                if (p.Accelerator == null) delta = (dx*6*settings.PointerSensitivity,dy*6*settings.PointerSensitivity);
+                (double X,double Y)? delta = pointerBegan ? (p.PendingPointerX,p.PendingPointerY) : PointerDelta(p,settings,time,dx,dy);
+                if(pointerBegan) p.PendingPointerX=p.PendingPointerY=0;
                 if (delta is {} value && double.IsFinite(value.X) && double.IsFinite(value.Y))
                 {
                     var bounded = PointerMotionLimits.Constrain(value.X,value.Y);
@@ -445,10 +466,18 @@ public sealed class HandGestureEngine
         // A real shape/movement activation beats a pending Hold on the same
         // frame. An already fired Hold still takes the early ownership path.
         if (holdReady && !p.Owner.HasValue)
-        { p.HoldClaimed=true; p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:count); CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
+        { p.HoldClaimed=true; p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:count); ResetPendingPointer(p); CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
         contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
         return reserved;
     }
+    private static void ResetPendingPointer(Pad p)
+    {
+        p.TravelX=p.TravelY=p.PendingPointerX=p.PendingPointerY=0;
+        p.Accelerator?.Reset();
+    }
+    private static (double X,double Y)? PointerDelta(Pad p,PerHandGestureSettings settings,double time,double dx,double dy)
+        =>p.Accelerator is {} accelerator ? accelerator.Millimetres(time,dx,dy,settings.PointerSensitivity)
+            : (dx*6*settings.PointerSensitivity,dy*6*settings.PointerSensitivity);
     internal static bool AcceptsRow(ReadOnlySpan<HandGestureContact> c)
     {
         if (c.Length != 3) return false;
