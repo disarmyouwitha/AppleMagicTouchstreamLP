@@ -133,6 +133,8 @@ size is 1120 × 540 points, allowing laptop screen resolutions without the previ
 1384-point minimum width. Existing workspace scroll areas handle constrained space;
 trackpad visualization retains its existing maximum size.
 
+Startup loads and compiles the saved Layout Editor document before input starts, including its authored buttons, labels and per-layer visibility; opening Config is not required. First-run bundled defaults persist their authored documents with other profile settings. Invalid/missing documents use the existing template fallback.
+
 Layout Editor replaces the keyboard visualizer in the same workspace while editing. The Add row has a layer selector: it previews that layer’s assignments and scopes newly added keys/columns to that layer, including mirrored counterparts. Existing keys without layer metadata remain shared across layers. Layer scope round-trips through settings and captures, filters recognition and visualization, and is committed with the document on Apply. The editor’s selected layer is only a local preview; both Apply and Cancel return the visualizer to persistent Layer 0.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
 settings column. Apply saves one geometry update and returns to the visualizer;

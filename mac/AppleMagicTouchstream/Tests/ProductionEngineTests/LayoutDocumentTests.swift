@@ -1,7 +1,44 @@
 import XCTest
+import OpenMultitouchSupport
 @testable import GlassToKeyRuntime
 
 final class LayoutDocumentTests: XCTestCase {
+    @MainActor func testStartupResolvesAuthoredButtonsWithoutOpeningConfigAndRejectsInvalidDocuments() throws {
+        let name = "AMT.StartupLayoutTests."+UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName:name))
+        defer { defaults.removePersistentDomain(forName:name) }
+        XCTAssertNil(GlassToKeyController.startupLayoutDocument(for:.sixByThree,defaults:defaults))
+        var doc = LayoutDocument()
+        doc.add(right:false,label:"Space",rect:.init(x:0.75,y:0.68,width:0.25,height:0.32))
+        doc.add(right:true,label:"Space",rect:.init(x:0,y:0.68,width:0.25,height:0.32))
+        doc.add(right:true,label:"0",rect:.init(x:0.3,y:0.65,width:0.27,height:0.17),layer:1)
+        defaults.set(try JSONEncoder().encode(["6x3":doc]),forKey:GlassToKeyDefaultsKeys.layoutDocuments)
+        let restored = try XCTUnwrap(GlassToKeyController.startupLayoutDocument(for:.sixByThree,defaults:defaults))
+        XCTAssertEqual(restored,doc)
+        let size = CGSize(width:160,height:115), base = ContentViewModel.Layout(keyRects:[],trackpadSize:.init(width:160,height:115))
+        let run = ProductionReplaySession(startTime:1)
+        run.engine.updateLayouts(leftLayout:restored.compile(right:false,base:base,size:size),rightLayout:restored.compile(right:true,base:base,size:size),leftLabels:restored.labels(right:false),rightLabels:restored.labels(right:true),trackpadSize:size,trackpadWidthMm:160)
+        run.engine.updateActiveDevices(leftIndex:0,rightIndex:1,leftDeviceID:"42",rightDeviceID:"43")
+        run.engine.updateKeyMappings([0:["left:0:0":KeyMapping(primary:KeyActionCatalog.action(for:"Back")!,hold:nil)]])
+        run.engine.updateKeyboardModeEnabled(true); run.engine.updateSnapRadiusPercent(0); run.engine.setListening(true)
+        for side in 0...1 {
+            let time = 1+Double(side), x:Float = side == 0 ? 0.875:0.125
+            let touch = OMSRawTouch(id:1,posX:x,posY:0.16,total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+            run.ingest(.init(sequence:UInt64(side*2+1),timestamp:time,deviceNumericID:side == 0 ? 42:43,deviceIndex:side,contacts:[],rawTouches:[touch]))
+            run.ingest(.init(sequence:UInt64(side*2+2),timestamp:time+0.05,deviceNumericID:side == 0 ? 42:43,deviceIndex:side,contacts:[],rawTouches:[]))
+        }
+        let codes = run.output.events.compactMap { event -> CGKeyCode? in
+            if case let .keyStroke(code,_,_) = event.kind { return code }; return nil
+        }
+        XCTAssertEqual(codes,[51,49],"Saved Back/Space must dispatch with no Config view ever created")
+        XCTAssertFalse(restored.compile(right:true,base:base,size:size).isVisible(.init(side:.right,row:2,column:0),on:0))
+        doc.keys[0].rect.width = 0
+        defaults.set(try JSONEncoder().encode(["6x3":doc]),forKey:GlassToKeyDefaultsKeys.layoutDocuments)
+        XCTAssertNil(GlassToKeyController.startupLayoutDocument(for:.sixByThree,defaults:defaults))
+        defaults.set(Data("corrupt".utf8),forKey:GlassToKeyDefaultsKeys.layoutDocuments)
+        XCTAssertNil(GlassToKeyController.startupLayoutDocument(for:.sixByThree,defaults:defaults))
+    }
+
     func testDeletedSlotsNeverMoveOtherBindingsAndNewKeysNeverReuseAddresses() throws {
         var doc = LayoutDocument()
         let a = doc.add(right: true, label: "A"), b = doc.add(right: true, label: "B")

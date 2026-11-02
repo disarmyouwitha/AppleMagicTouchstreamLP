@@ -1,11 +1,9 @@
 # NEXT:
 =======
-0. Implement Sequential macros:  Ctrl+X, (then) V, then =
+- If I want to bring the feel of the mac mouse and scrolling (like I have for Mac AMT would I need a profile from this mac? I think we implemented it with a default one.)
 ===
 # Steno Dictionary Menu Mode
 0. In STENO mode, when you edit a Dictionary entry.. we need a way for people to type normally into the Translation box? What do you suggest.
-===
-* build me a release dmg!
 ===
 # Human Tasks...?
 0. Have Codex create "Export Layout" button that will create an image from the Layer/Keys (can it do the legends on a separate layer? Or image?)

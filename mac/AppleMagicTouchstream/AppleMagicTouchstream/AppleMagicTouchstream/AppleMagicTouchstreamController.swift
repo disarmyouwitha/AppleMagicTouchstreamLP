@@ -147,7 +147,8 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.customButtons,
         GlassToKeyDefaultsKeys.keyMappings,
         GlassToKeyDefaultsKeys.shortcutActions,
-        GlassToKeyDefaultsKeys.keyGeometry
+        GlassToKeyDefaultsKeys.keyGeometry,
+        GlassToKeyDefaultsKeys.layoutDocuments
     ]
 
     let viewModel: ContentViewModel
@@ -248,6 +249,10 @@ final class GlassToKeyController: ObservableObject {
         if let encodedShortcutActions = ShortcutActionLibraryStorage.encode(profile.shortcutActions) {
             defaults.set(encodedShortcutActions, forKey: GlassToKeyDefaultsKeys.shortcutActions)
         }
+        if let documents = profile.layoutDocuments,
+           let encoded = try? JSONEncoder().encode(documents.filter { $0.value.isValid }) {
+            defaults.set(encoded,forKey:GlassToKeyDefaultsKeys.layoutDocuments)
+        }
         if let keyGeometry = profile.keyGeometryByLayout,
            let encodedGeometry = KeyGeometryStore.encode(KeyGeometryStore.normalized(keyGeometry)) {
             defaults.set(encodedGeometry, forKey: GlassToKeyDefaultsKeys.keyGeometry)
@@ -318,6 +323,11 @@ final class GlassToKeyController: ObservableObject {
         return PortableKeymapInterop.decodeBundledDefaultProfile(from: data)
     }
 
+    /// Startup must resolve the same saved document as Config, without creating a window.
+    static func startupLayoutDocument(for layout:TrackpadLayoutPreset,defaults:UserDefaults = .standard) -> LayoutDocument? {
+        LayoutDocumentStorage.decode(defaults.data(forKey:GlassToKeyDefaultsKeys.layoutDocuments) ?? Data())[layout.rawValue]
+    }
+
     private func configureFromDefaults() {
         viewModel.loadDevices()
         let layout = resolvedLayoutPreset()
@@ -377,11 +387,12 @@ final class GlassToKeyController: ObservableObject {
             rightLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
         }
 
+        let document = Self.startupLayoutDocument(for:layout)
         viewModel.configureLayouts(
-            leftLayout: leftLayout,
-            rightLayout: rightLayout,
-            leftLabels: layout.leftLabels,
-            rightLabels: layout.rightLabels,
+            leftLayout: document?.compile(right:false,base:leftLayout,size:trackpadSize) ?? leftLayout,
+            rightLayout: document?.compile(right:true,base:rightLayout,size:trackpadSize) ?? rightLayout,
+            leftLabels: document?.labels(right:false) ?? layout.leftLabels,
+            rightLabels: document?.labels(right:true) ?? layout.rightLabels,
             trackpadSize: trackpadSize,
             trackpadWidthMm: ContentView.trackpadWidthMM
         )
