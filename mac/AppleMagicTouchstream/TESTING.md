@@ -429,3 +429,10 @@ middle-click metadata, catalog/settings round-trips and Caps Word event-local
 capitalization, boundaries, shortcut isolation and lifecycle reset. These offline
 checks construct native events but never post them; native button/target acceptance
 requires user testing of the signed build.
+
+Hold-haptic regressions cover default-off settings, per-hand independence/Mirror
+Edit, corner and Both configuration, settings/capture round-trips, missing-field
+imports and explicit false. Offline recognizer/recording-sink tests check cancelled
+candidates, one trigger per cycle, all-up rearm, device targeting and fixed strength
+without pulsing hardware. Hardware acceptance requires enabling the checkbox and
+holding the selected chord; changing settings and early release must not pulse.

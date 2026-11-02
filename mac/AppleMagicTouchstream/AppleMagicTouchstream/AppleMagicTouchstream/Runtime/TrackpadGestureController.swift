@@ -89,6 +89,15 @@ final class TrackpadGestureController: ObservableObject {
         }
         configure()
     }
+    func setHapticOnHold(_ enabled:Bool,count:Int,scope:GestureHandScope) {
+        guard settings.holdAvailable(count:count,in:scope) else { return }
+        settings.setHapticOnHold(enabled,count:count,in:scope)
+        settings.save(to:.standard); configure()
+    }
+    func setTwoHandHoldHaptic(_ enabled:Bool,chord:TwoHandChord) {
+        var value = settings.twoHand; value.setHapticOnHold(enabled,for:chord)
+        settings.coordinated = value; settings.save(to:.standard); configure()
+    }
     func setHoldThreshold(_ seconds:Double,count:Int,scope:GestureHandScope) {
         guard settings.holdAvailable(count:count,in:scope) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
@@ -322,7 +331,7 @@ final class TrackpadGestureController: ObservableObject {
             twoFingerTapDevices: tap, fourFingerTapDevices:quad, fiveFingerTapDevices:quint, fiveFingerMoveDevices:five, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), recoverableKeyboardDevices:recoverableKeyboard, directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), recoverableKeyboardDevices:recoverableKeyboard, directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), holdHaptics:routed.mapValues(\.liveHoldHaptics), appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(five).union(quad).union(quint).union(tap).union(triple).union(thumb)

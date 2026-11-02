@@ -725,3 +725,9 @@ output and modifier transitions from the existing listen-only drag observer. Ord
 key codes/text are redacted. Captures include prehistory followed by incremental
 entries; they do not replay these records. The trace is diagnostic only and never
 clears modifiers or changes shared output ownership. See TESTING.md for coverage.
+
+Gesture Hold inspectors offer a per-assignment “Haptic on trigger” checkbox. It
+defaults off and uses fixed waveform 6 / level 0.25 at activation only. Independent
+per-hand, corner and coordinated Hold choices round-trip in the Mac gesture
+extension; missing older fields preserve current choices on import. Editing the
+checkbox does not pulse hardware. See GESTURE_ENGINE.md for output gates.

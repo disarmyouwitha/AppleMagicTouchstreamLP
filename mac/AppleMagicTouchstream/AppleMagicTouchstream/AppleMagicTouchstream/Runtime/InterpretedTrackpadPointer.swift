@@ -88,7 +88,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsCornerTimer:Bool { !cornerEligible.isEmpty && cornerSettings.values.contains { $0.enabled(.fourCorners) } }
         mutating func postCorner(_ trigger:TwoHandTrigger,device:UInt64,time:Double) {
             let action = cornerSettings[device]?.action(trigger) ?? .disabled
-            if action != .disabled { recognized(.corner(trigger),device:device,time:time) }
+            if action != .disabled {
+                recognized(.corner(trigger),device:device,time:time)
+                if trigger.phase == .hold { postHoldFeedback(enabled:cornerSettings[device]?.hapticOnHold(for:trigger.chord) == true,device:device,time:time) }
+            }
             if action == .openConfig { openConfiguration?() }
             else if devices.contains(device) { postDirectional(action,device:device,time:time,owner:.corners(device)) }
         }
@@ -101,8 +104,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         mutating func postCoordinated(_ trigger:TwoHandTrigger,time:Double) {
             let action = twoHandSettings.action(trigger)
             if action != .disabled {
-                if let device = twoHandPads.left { recognized(.coordinated(trigger),device:device,time:time) }
-                if let device = twoHandPads.right { recognized(.coordinated(trigger),device:device,time:time) }
+                if let device = twoHandPads.left {
+                    recognized(.coordinated(trigger),device:device,time:time)
+                    if trigger.phase == .hold && twoHandTrusted { postHoldFeedback(enabled:twoHandSettings.hapticOnHold(for:trigger.chord),device:device,time:time) }
+                }
+                if let device = twoHandPads.right {
+                    recognized(.coordinated(trigger),device:device,time:time)
+                    if trigger.phase == .hold && twoHandTrusted { postHoldFeedback(enabled:twoHandSettings.hapticOnHold(for:trigger.chord),device:device,time:time) }
+                }
             }
             if action == .openConfig { openConfiguration?() }
             else if twoHandTrusted, let device = twoHandPads.left { postDirectional(action,device:device,time:time,owner:.coordinated) }
@@ -120,6 +129,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var holds = GestureHoldRecognizer()
         var holdBindings:[UInt64:[Int:GestureAction]] = [:]
         var holdThresholds:[UInt64:[Int:Double]] = [:]
+        var holdHaptics:[UInt64:Set<Int>] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
             recognized(.hold(count),device:device,time:time)
@@ -129,7 +139,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); directionalStepper.reset(device:device)
             directionalRepeater.reset(device:device); shapeRepeater.reset(device:device); tracker.reset(device:device)
             finishScroll(device:device,cancelled:true)
-            if let action = holdBindings[device]?[count] { postDirectional(action,device:device,time:time) }
+            if let action = holdBindings[device]?[count], action != .disabled {
+                postDirectional(action,device:device,time:time)
+                postHoldFeedback(enabled:holdHaptics[device]?.contains(count) == true,device:device,time:time)
+            }
+        }
+        mutating func postHoldFeedback(enabled:Bool,device:UInt64,time:Double) {
+            guard enabled, devices.contains(device), takeForceFeedback(device:device,time:time) else { return }
+            GestureHoldHapticOutput.post(device:device,dispatch:DispatchService.shared)
         }
         var directionalStepper = GestureDirectionalStepper()
         var directionalRepeater = GestureDirectionalRepeater()
@@ -357,9 +374,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], recoverableKeyboardDevices:Set<UInt64> = [], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], holdThresholds: [UInt64:[Int:Double]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], recoverableKeyboardDevices:Set<UInt64> = [], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], holdThresholds: [UInt64:[Int:Double]] = [:], holdHaptics:[UInt64:Set<Int>] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.recoverableKeyboardDevices != recoverableKeyboardDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.recoverableKeyboardDevices != recoverableKeyboardDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.holdHaptics != holdHaptics || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             // Reconfiguration is per-device: adding/removing a connection does
@@ -371,7 +388,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 || state.doubleClickInterval != doubleClickInterval || state.scrollSensitivity != sensitivity
             for id in ids {
                 let changed = globallyChanged || state.bindings[id] != bindings[id]
-                    || state.holdBindings[id] != holdBindings[id] || state.holdThresholds[id] != holdThresholds[id]
+                    || state.holdBindings[id] != holdBindings[id] || state.holdThresholds[id] != holdThresholds[id] || state.holdHaptics[id] != holdHaptics[id]
                     || state.directionals[id] != directionalBindings[id] || state.zoomSensitivities[id] != zoomSensitivities[id]
                     || state.scrollProfiles[id] != profiles[id] || state.scrollSensitivities[id] != sensitivities[id]
                     || state.recoverableKeyboardDevices.contains(id) != recoverableKeyboardDevices.contains(id)
@@ -394,7 +411,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.recoverableKeyboardDevices = recoverableKeyboardDevices
             state.keyboardRecoveryNeedsDragObserver = Set(bindings.filter { $0.value.uses(.primaryDrag) }.keys)
             state.holdBindings = holdBindings
-            state.holdThresholds = holdThresholds
+            state.holdThresholds = holdThresholds; state.holdHaptics = holdHaptics
             state.directionals = directionalBindings
             state.appleShortcuts = appleShortcuts
             state.pinchDevices = pinchDevices

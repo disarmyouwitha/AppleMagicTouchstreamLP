@@ -136,6 +136,17 @@ The capture omits current per-hand settings; the 100 ms Shift/scroll assignments
 are explicit regression configuration corroborated by current saved preferences,
 not a claim of complete captured live-state or application event receipt.
 
+Each Hold assignment has an optional **Haptic on trigger** setting, default off.
+Per-pad count/Thumb+2/corner settings mirror only when Mirror Edit is enabled;
+coordinated Both Holds save their own chord setting. Feedback is submitted once
+at recognition (including timer activation), never while pending, on cancellation,
+on release, or merely when editing settings. It uses waveform 6 / level 0.25,
+targets the originating eligible pad (both pads for Both), and shares the existing
+per-pad 50 ms Force-feedback throttle. Native ownership/armed/AX/live gates remain;
+recognition timing, output ownership and release cleanup are unchanged. The shared
+dispatch queue records requests offline without native haptic output. Missing older
+profile fields preserve current imported choices and otherwise mean off.
+
 Pressure is an explicit override of same-pad movement: a configured Force crossing
 ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle.
 Clicks of the held drag button are suppressed while another pad owns that drag;

@@ -628,6 +628,7 @@ enum PortableKeymapInterop {
             if profile.handGestureSettings?.stenoHapticOnTouch == nil { profile.handGestureSettings?.stenoHapticOnTouch = current.stenoHapticOnTouch }
             if profile.handGestureSettings?.stenoHapticOnRelease == nil { profile.handGestureSettings?.stenoHapticOnRelease = current.stenoHapticOnRelease }
             if profile.handGestureSettings?.stenoForceThreshold == nil { profile.handGestureSettings?.stenoForceThreshold = current.stenoForceThreshold }
+            profile.handGestureSettings?.preserveMissingHoldHaptics(from:current)
             profile.handGestureSettings?.left.preserveMissingRepeatBehaviors(from:current.left)
             profile.handGestureSettings?.right.preserveMissingRepeatBehaviors(from:current.right)
         }

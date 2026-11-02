@@ -316,6 +316,13 @@ struct ForceClickHapticSettings: Equatable, Codable, Sendable {
     }
 }
 
+/// Shared dispatch adapter; recording sinks retain the request without pulsing hardware.
+enum GestureHoldHapticOutput {
+    static func post(device:UInt64,dispatch:DispatchService) {
+        dispatch.postHaptic(strength:ForceClickHapticSettings.fixed.level,deviceID:String(device))
+    }
+}
+
 enum GestureMovementMode: String, Codable, Sendable { case continuous, directional }
 enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Sendable {
     case up, down, left, right, upLeft, upRight, downLeft, downRight
@@ -439,6 +446,14 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     // Optional for old profiles; count-keyed, independent of Tap/Force actions.
     var holdActions: [String:GestureAction]?
     var holdThresholds: [String:Double]?
+    var holdHaptics:[String:Bool]?
+    func hapticOnHold(count:Int) -> Bool { holdAvailable(count:count) && holdHaptics?[String(count)] == true }
+    mutating func setHapticOnHold(_ enabled:Bool,count:Int) {
+        guard holdAvailable(count:count) else { return }
+        if holdHaptics == nil { holdHaptics = [:] }
+        holdHaptics?[String(count)] = enabled
+    }
+    var liveHoldHaptics:Set<Int> { Set((2...6).filter { hapticOnHold(count:$0) }) }
     func holdThreshold(count:Int) -> Double { GestureHoldTiming.validated(holdThresholds?[String(count)]) }
     mutating func setHoldThreshold(_ seconds:Double,count:Int) {
         guard holdAvailable(count:count) else { return }
@@ -478,6 +493,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         value.setAction(bindings.action(for:.fourCornersTap),for:.init(chord:.fourCorners,phase:.tap))
         value.setAction(holdAction(count:Self.cornersHoldKey),for:.init(chord:.fourCorners,phase:.hold))
         value.setHoldThreshold(holdThreshold(count:Self.cornersHoldKey),for:.fourCorners)
+        value.setHapticOnHold(hapticOnHold(count:Self.cornersHoldKey),for:.fourCorners)
         return value
     }
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
@@ -632,6 +648,23 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         guard holdAvailable(count:count,in:scope) else { return }
         if scope != .right { left.setHoldAction(action,count:count) }
         if scope != .left { right.setHoldAction(action,count:count) }
+    }
+    func hapticOnHold(count:Int,in scope:GestureHandScope) -> Bool? {
+        let a = left.hapticOnHold(count:count), b = right.hapticOnHold(count:count)
+        return scope == .left ? a:scope == .right ? b:a == b ? a:nil
+    }
+    mutating func setHapticOnHold(_ enabled:Bool,count:Int,in scope:GestureHandScope) {
+        if scope != .right { left.setHapticOnHold(enabled,count:count) }
+        if scope != .left { right.setHapticOnHold(enabled,count:count) }
+    }
+    mutating func preserveMissingHoldHaptics(from current:Self) {
+        left.holdHaptics = current.left.holdHaptics.map { $0.merging(left.holdHaptics ?? [:]) { _,new in new } } ?? left.holdHaptics
+        right.holdHaptics = current.right.holdHaptics.map { $0.merging(right.holdHaptics ?? [:]) { _,new in new } } ?? right.holdHaptics
+        if let old = current.twoHand.holdHaptics {
+            var both = twoHand
+            both.holdHaptics = old.merging(both.holdHaptics ?? [:]) { _,new in new }
+            coordinated = both
+        }
     }
     func holdThreshold(count:Int,in scope:GestureHandScope) -> Double? {
         let a = left.holdThreshold(count:count), b = right.holdThreshold(count:count)
@@ -846,6 +879,12 @@ struct TwoHandTrigger:Equatable,Sendable {
 struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     var assignments:[String:GestureAction] = [:]
     var holdThresholds:[String:Double]?
+    var holdHaptics:[String:Bool]?
+    func hapticOnHold(for chord:TwoHandChord) -> Bool { holdHaptics?[chord.rawValue] == true }
+    mutating func setHapticOnHold(_ enabled:Bool,for chord:TwoHandChord) {
+        if holdHaptics == nil { holdHaptics = [:] }
+        holdHaptics?[chord.rawValue] = enabled
+    }
     func holdThreshold(for chord:TwoHandChord) -> Double { GestureHoldTiming.validated(holdThresholds?[chord.rawValue]) }
     mutating func setHoldThreshold(_ seconds:Double,for chord:TwoHandChord) {
         if holdThresholds == nil { holdThresholds = [:] }
@@ -872,6 +911,7 @@ extension TwoHandGestureSettings {
     var stenoConfigurationOnly:Self {
         var value = Self()
         value.holdThresholds = holdThresholds
+        value.holdHaptics = holdHaptics
         value.setAction(.openConfig,for:.init(chord:.fourCorners,phase:.hold))
         return value
     }

@@ -1,11 +1,11 @@
 # NEXT:
 =======
-1. Implement actions: Missing TouchStream actions:
-2. Sequential macros:        Ctrl+X, (then) V, then =
-3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
+0. Implement Sequential macros:  Ctrl+X, (then) V, then =
 ===
 # Steno Dictionary Menu Mode
 0. In STENO mode, when you edit a Dictionary entry.. we need a way for people to type normally into the Translation box? What do you suggest.
+===
+* build me a release dmg!
 ===
 # Human Tasks...?
 0. Have Codex create "Export Layout" button that will create an image from the Layer/Keys (can it do the legends on a separate layer? Or image?)
