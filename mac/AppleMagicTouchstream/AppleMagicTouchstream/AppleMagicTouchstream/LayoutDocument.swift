@@ -8,6 +8,9 @@ struct LayoutDocument: Codable, Equatable {
         var row: Int
         var column: Int
         var label: String
+        // Missing means shared geometry on every layer (existing templates).
+        var layers:[Int]? = nil
+        func isVisible(on layer:Int) -> Bool { layers?.contains(layer) ?? true }
         var rect: NormalizedRect
         var group: UUID?
         var mirrorID: UUID? = nil
@@ -78,7 +81,9 @@ struct LayoutDocument: Codable, Equatable {
                 slots.insert("\(key.right):\(key.row):\(key.column)").inserted &&
                 [r.x,r.y,r.width,r.height,CGFloat(r.rotationDegrees)].allSatisfy(\.isFinite) &&
                 r.width > 0 && r.width <= 2 && r.height > 0 && r.height <= 2 &&
-                abs(r.x) <= 2 && abs(r.y) <= 2 && key.edges.count == 4 &&
+                abs(r.x) <= 2 && abs(r.y) <= 2 &&
+                (key.layers == nil || (!key.layers!.isEmpty && Set(key.layers!).count == key.layers!.count && key.layers!.allSatisfy { KeyLayerConfig.editableLayers.contains($0) })) &&
+                key.edges.count == 4 &&
                 key.edges.allSatisfy { $0.isFinite && abs($0) < 1 } &&
                 key.displayRect.width > 0 && key.displayRect.height > 0 &&
                 (key.group == nil || groupIDs.contains(key.group!)) &&
@@ -110,6 +115,11 @@ struct LayoutDocument: Codable, Equatable {
             stenoPointerMode: base.stenoPointerMode, stenoForceThreshold: base.stenoForceThreshold,
             stenoConnectionMode: base.stenoConnectionMode,
             stenoHapticTouch: base.stenoHapticTouch, stenoHapticRelease: base.stenoHapticRelease)
+        for key in keys where key.right == right {
+            if let layers = key.layers {
+                layout.keyLayers[GridKeyPosition(side:right ? .right:.left,row:key.row,column:key.column)] = Set(layers)
+            }
+        }
         for key in keys where key.right == right && key.edges.count == 4 {
             var rect = key.rect
             rect.x -= key.edges[0]; rect.y -= key.edges[1]
@@ -126,10 +136,10 @@ struct LayoutDocument: Codable, Equatable {
         }.map(\.id))
     }
 
-    func editorHit(at normalized: CGPoint, right: Bool, pad: CGSize) -> UUID? {
+    func editorHit(at normalized: CGPoint, right: Bool, pad: CGSize, layer:Int? = nil) -> UUID? {
         let point = CGPoint(x: normalized.x*pad.width,y: normalized.y*pad.height)
         var best: (UUID, CGFloat, CGFloat)?
-        for key in keys where key.right == right {
+        for key in keys where key.right == right && (layer.map { key.isVisible(on:$0) } ?? true) {
             let rect = key.displayRect
             let geometry = KeyHitGeometry(normalizedRect: rect,size: pad)
             guard geometry.contains(point) else { continue }
@@ -139,9 +149,9 @@ struct LayoutDocument: Codable, Equatable {
         return best?.0
     }
 
-    func editorMarquee(_ normalized: CGRect, right: Bool, groups: Bool, pad: CGSize) -> Set<UUID> {
+    func editorMarquee(_ normalized: CGRect, right: Bool, groups: Bool, pad: CGSize, layer:Int? = nil) -> Set<UUID> {
         let box = CGRect(x: normalized.minX*pad.width,y: normalized.minY*pad.height,width: normalized.width*pad.width,height: normalized.height*pad.height)
-        let ids = Set(keys.filter { $0.right == right && $0.displayRect.boundingRect(in: pad).intersects(box) }.map(\.id))
+        let ids = Set(keys.filter { key in key.right == right && (layer.map { key.isVisible(on:$0) } ?? true) && key.displayRect.boundingRect(in:pad).intersects(box) }.map(\.id))
         return groups ? expandedGroups(ids) : ids
     }
 
@@ -198,10 +208,10 @@ struct LayoutDocument: Codable, Equatable {
     }
 
     @discardableResult
-    mutating func addMirrored(right: Bool, label: String = "None", rect: NormalizedRect = NormalizedRect(x: 0.4,y: 0.4,width: 0.08,height: 0.18), group: UUID? = nil, oppositeGroup: UUID? = nil) -> UUID {
-        let source = add(right: right,label: label,rect: rect,group: group)
+    mutating func addMirrored(right: Bool, label: String = "None", rect: NormalizedRect = NormalizedRect(x: 0.4,y: 0.4,width: 0.08,height: 0.18), group: UUID? = nil, oppositeGroup: UUID? = nil, layer:Int? = nil) -> UUID {
+        let source = add(right:right,label:label,rect:rect,group:group,layer:layer)
         var reflected = rect; reflected.x = 1-rect.x-rect.width; reflected.rotationDegrees = -rect.rotationDegrees
-        let target = add(right: !right,label: label,rect: reflected,group: oppositeGroup)
+        let target = add(right:!right,label:label,rect:reflected,group:oppositeGroup,layer:layer)
         let i = keys.count-2, j = keys.count-1
         keys[i].mirrorID = target; keys[j].mirrorID = source
         return source
@@ -412,8 +422,8 @@ struct LayoutDocument: Codable, Equatable {
         }
     }
     @discardableResult
-    mutating func add(right: Bool, label: String = "None", rect: NormalizedRect = NormalizedRect(x: 0.4, y: 0.4, width: 0.08, height: 0.18), group: UUID? = nil) -> UUID {
-        let key = Key(right: right, row: nextRow, column: 0, label: label, rect: rect, group: group)
+    mutating func add(right: Bool, label: String = "None", rect: NormalizedRect = NormalizedRect(x: 0.4, y: 0.4, width: 0.08, height: 0.18), group: UUID? = nil, layer:Int? = nil) -> UUID {
+        let key = Key(right:right,row:nextRow,column:0,label:label,layers:layer.map { [KeyLayerConfig.clamped($0)] },rect:rect,group:group)
         nextRow += 1; keys.append(key); return key.id
     }
     mutating func remove(_ ids: Set<UUID>) {

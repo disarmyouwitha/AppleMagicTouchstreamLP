@@ -1,9 +1,5 @@
 # NEXT:
 =======
-Nice I have it setup in MY_KEYMAP can you 1. remove plank from the keymap (it is a depreciated layout) 
-2. I updated my 6x3 custom buttons in MY_KEYMAP.json can you make the changes to the other bundeled keymaps?
-3. 
-===
 0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
 > Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
 ^ Needs more testing

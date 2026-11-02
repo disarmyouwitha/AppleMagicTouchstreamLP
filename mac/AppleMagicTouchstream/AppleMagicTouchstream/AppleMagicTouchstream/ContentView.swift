@@ -622,6 +622,7 @@ struct ContentView: View {
         if let document = layoutEditorDocument, let template = layoutEditorTemplate {
             LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
                          onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer(),
+                         layerMappings:keyMappingsByLayer,initialLayer:viewModel.activeLayer,onApplyLayer:{ viewModel.setPersistentLayer($0) },
                          contactSnapshot:{ viewModel.snapshotTouchDataIfUpdated(since:$0) },onContactPreview:setLayoutContactPreview)
         }
     }
@@ -1242,8 +1243,8 @@ struct ContentView: View {
                             viewModel: viewModel,
                             showTouchStreamReference: showTouchStreamReference,
                             trackpadSize: trackpadSize,
-                            leftLayout: leftLayout,
-                            rightLayout: rightLayout,
+                            leftLayout:leftLayout.visible(on:viewModel.activeLayer,size:trackpadSize),
+                            rightLayout:rightLayout.visible(on:viewModel.activeLayer,size:trackpadSize),
                             leftBaseLabels: leftBaseLabels,
                             rightBaseLabels: rightBaseLabels,
                             leftGridLabelInfo: leftGridLabelInfo,

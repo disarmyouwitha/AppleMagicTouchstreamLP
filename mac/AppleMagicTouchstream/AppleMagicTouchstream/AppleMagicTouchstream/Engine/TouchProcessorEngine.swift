@@ -2177,7 +2177,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         layout: Layout,
         canvasSize: CGSize
     ) -> KeyBinding? {
-        guard let action = keyAction(for: position, label: label) else { return nil }
+        guard layout.isVisible(position,on:activeLayer), let action = keyAction(for:position,label:label) else { return nil }
         let holdAction = layout.allowHoldBindings
             ? holdAction(for: position)
             : nil

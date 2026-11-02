@@ -53,7 +53,7 @@ Hardware acceptance still includes Outer Corners opening Config, haptic feel,
 
 ## Layout editor verification
 
-`LayoutDocumentTests` cover binding identity, structural reconciliation, transforms,
+`LayoutDocumentTests` cover layer-scoped additions and mirrored counterparts, legacy shared keys, editor hit/marquee filtering, settings/capture round-trips, binding identity, structural reconciliation, transforms,
 history and settings/capture profile round-trips. `LayoutMirrorTests` cover reflected
 geometry deltas, asymmetric/persistent counterparts, paired duplication/deletion,
 independent single-pad geometry, rotated hit testing and box/group selection.

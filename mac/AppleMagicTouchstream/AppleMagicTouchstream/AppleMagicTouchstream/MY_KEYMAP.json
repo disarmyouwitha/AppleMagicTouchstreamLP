@@ -317,7 +317,7 @@
             "6" : "missionControl"
           },
           "holdThresholds" : {
-            "3" : 0.3,
+            "3" : 0.5,
             "4" : 0.1,
             "7" : 0.2
           },
@@ -2270,25 +2270,6 @@
                 0,
                 0
               ],
-              "id" : "6FC0D4AE-3FBF-4AC0-9C07-07353D18E13A",
-              "label" : "0",
-              "rect" : {
-                "height" : 0.15,
-                "width" : 0.25,
-                "x" : 0.32,
-                "y" : 0.7
-              },
-              "right" : true,
-              "row" : 4
-            },
-            {
-              "column" : 0,
-              "edges" : [
-                0,
-                0,
-                0,
-                0
-              ],
               "id" : "0D51D6C8-B960-4EA4-9F46-3C146D421AF0",
               "label" : "Space",
               "mirrorID" : "4F062E7D-8641-464E-94C7-A175D5CE7F03",
@@ -3253,6 +3234,1059 @@
             }
           ],
           "nextRow" : 4
+        },
+        "mobile-ortho-12x4" : {
+          "groups" : [
+            {
+              "id" : "DFAD17D5-F6CD-5A69-A93A-0CAC76730D1E",
+              "name" : "Right column 1"
+            },
+            {
+              "id" : "353C4938-B903-5CC7-8333-8C273CBFD447",
+              "name" : "Right column 2"
+            },
+            {
+              "id" : "A6E09CE6-A9FF-50FA-B841-5EB3C16F050A",
+              "name" : "Right column 3"
+            },
+            {
+              "id" : "C9C48678-6C0B-5191-8C8E-B11AC7C278A5",
+              "name" : "Right column 4"
+            },
+            {
+              "id" : "A3C1884B-30C8-5195-A633-6E1DBB7E2F97",
+              "name" : "Right column 5"
+            },
+            {
+              "id" : "27795DE1-1BA8-554F-8C95-D5CE35AC8A23",
+              "name" : "Right column 6"
+            },
+            {
+              "id" : "39A83032-7BE3-504A-994B-36C5A2848E8C",
+              "name" : "Right column 7"
+            },
+            {
+              "id" : "BC680AD0-0637-5931-9F81-AFE2D71DD28F",
+              "name" : "Right column 8"
+            },
+            {
+              "id" : "9629E689-E697-55AA-BB14-A00A6F94A57B",
+              "name" : "Right column 9"
+            },
+            {
+              "id" : "D30B81C8-14CA-5CDF-B77B-7A5638235CF2",
+              "name" : "Right column 10"
+            },
+            {
+              "id" : "8B9FB277-8184-5C4A-A2FF-062D5DC9C56A",
+              "name" : "Right column 11"
+            },
+            {
+              "id" : "D8D343F6-2345-5BFF-90E2-BF3B8D9C0456",
+              "name" : "Right column 12"
+            }
+          ],
+          "keys" : [
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "DFAD17D5-F6CD-5A69-A93A-0CAC76730D1E",
+              "id" : "4E339BAA-FA8F-5ACC-95C5-37870A8EB78B",
+              "label" : "1",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.0024999999999999953,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "DFAD17D5-F6CD-5A69-A93A-0CAC76730D1E",
+              "id" : "2C2DC630-DA74-5124-BA7E-DE230C43F5F7",
+              "label" : "Q",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.0024999999999999953,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "DFAD17D5-F6CD-5A69-A93A-0CAC76730D1E",
+              "id" : "785E5681-0491-5FAF-8BEB-21569B57C156",
+              "label" : "A",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.0024999999999999953,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "DFAD17D5-F6CD-5A69-A93A-0CAC76730D1E",
+              "id" : "D4B937AA-95CB-5616-9824-C54E281A4C9A",
+              "label" : "Z",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.0024999999999999953,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 1,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "353C4938-B903-5CC7-8333-8C273CBFD447",
+              "id" : "2F224125-F669-59A2-B44D-33718A88BC7B",
+              "label" : "2",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.08522727272727275,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 1,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "353C4938-B903-5CC7-8333-8C273CBFD447",
+              "id" : "C90FCBAF-3442-5FB0-B262-88CDD6CB8DE7",
+              "label" : "W",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.08522727272727275,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 1,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "353C4938-B903-5CC7-8333-8C273CBFD447",
+              "id" : "8329DC7A-CA5F-5B85-BC14-224EB5203F6A",
+              "label" : "S",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.08522727272727275,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 1,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "353C4938-B903-5CC7-8333-8C273CBFD447",
+              "id" : "2024F30D-A39F-58A9-BF86-9F0D9C8F5E0F",
+              "label" : "X",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.08522727272727275,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 2,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A6E09CE6-A9FF-50FA-B841-5EB3C16F050A",
+              "id" : "09187F94-CA3F-582D-BE5E-6A542A6E9A30",
+              "label" : "3",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.16795454545454547,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 2,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A6E09CE6-A9FF-50FA-B841-5EB3C16F050A",
+              "id" : "608EAABD-24AD-5A95-849D-FA8BD9166DAA",
+              "label" : "E",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.16795454545454547,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 2,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A6E09CE6-A9FF-50FA-B841-5EB3C16F050A",
+              "id" : "CF36BD59-179C-5752-B747-F67BC8314EDB",
+              "label" : "D",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.16795454545454547,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 2,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A6E09CE6-A9FF-50FA-B841-5EB3C16F050A",
+              "id" : "0092E37D-F8F6-5D35-8737-483A6EEF4BE9",
+              "label" : "C",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.16795454545454547,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 3,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "C9C48678-6C0B-5191-8C8E-B11AC7C278A5",
+              "id" : "40DF7983-0642-5CE6-B94E-54CEE985E5EC",
+              "label" : "4",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.25068181818181823,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 3,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "C9C48678-6C0B-5191-8C8E-B11AC7C278A5",
+              "id" : "A725DFDF-AA28-5085-930E-78CF9E6BDB02",
+              "label" : "R",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.25068181818181823,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 3,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "C9C48678-6C0B-5191-8C8E-B11AC7C278A5",
+              "id" : "2095526A-3FA1-5E11-8BDA-BFFC6DB576C6",
+              "label" : "F",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.25068181818181823,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 3,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "C9C48678-6C0B-5191-8C8E-B11AC7C278A5",
+              "id" : "DF34F8E5-6714-5BA1-99F7-0CBB7E39347F",
+              "label" : "V",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.25068181818181823,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 4,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A3C1884B-30C8-5195-A633-6E1DBB7E2F97",
+              "id" : "449ED4FD-B4F9-53D8-81D9-76693F8D1497",
+              "label" : "5",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.333409090909091,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 4,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A3C1884B-30C8-5195-A633-6E1DBB7E2F97",
+              "id" : "7AEEF660-F8C0-5327-862A-D93048155EEC",
+              "label" : "T",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.333409090909091,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 4,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A3C1884B-30C8-5195-A633-6E1DBB7E2F97",
+              "id" : "AC11570B-56A1-512D-9AD5-9DA21CE3B4BE",
+              "label" : "G",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.333409090909091,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 4,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "A3C1884B-30C8-5195-A633-6E1DBB7E2F97",
+              "id" : "5FA39BA9-CA7F-5D8D-B132-E87E3EDA9EB3",
+              "label" : "B",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.333409090909091,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 5,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "27795DE1-1BA8-554F-8C95-D5CE35AC8A23",
+              "id" : "D567F8E1-A0F4-5EA1-B4C8-BFEA1162C29C",
+              "label" : "6",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.41613636363636375,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 5,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "27795DE1-1BA8-554F-8C95-D5CE35AC8A23",
+              "id" : "0757BF00-A381-54A8-9975-182B53904993",
+              "label" : "Y",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.41613636363636375,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 5,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "27795DE1-1BA8-554F-8C95-D5CE35AC8A23",
+              "id" : "47AD9505-63E6-5B1D-AA79-A46757C608C9",
+              "label" : "H",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.41613636363636375,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 5,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "27795DE1-1BA8-554F-8C95-D5CE35AC8A23",
+              "id" : "B8D24D4F-EB1E-59AF-AC3A-CDA594F2BA13",
+              "label" : "N",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.41613636363636375,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 6,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "39A83032-7BE3-504A-994B-36C5A2848E8C",
+              "id" : "CEC6B68E-8800-5DA0-ADEC-C4477CD9B9FB",
+              "label" : "7",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.49886363636363634,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 6,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "39A83032-7BE3-504A-994B-36C5A2848E8C",
+              "id" : "0F60DBCB-836A-5FB2-A8CE-EC2CE5237229",
+              "label" : "U",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.49886363636363634,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 6,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "39A83032-7BE3-504A-994B-36C5A2848E8C",
+              "id" : "F6CA12E8-A4FE-5713-9342-C94FAF15943E",
+              "label" : "J",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.49886363636363634,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 6,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "39A83032-7BE3-504A-994B-36C5A2848E8C",
+              "id" : "4844C4F9-D3A6-57A1-95E1-00CCED207483",
+              "label" : "M",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.49886363636363634,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 7,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "BC680AD0-0637-5931-9F81-AFE2D71DD28F",
+              "id" : "1B7A75CA-A8D7-51B5-9443-EC4C524C8A7E",
+              "label" : "8",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.5815909090909092,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 7,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "BC680AD0-0637-5931-9F81-AFE2D71DD28F",
+              "id" : "8542D617-72D5-55AA-BA36-8E4FB2EE6571",
+              "label" : "I",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.5815909090909092,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 7,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "BC680AD0-0637-5931-9F81-AFE2D71DD28F",
+              "id" : "FFD10908-BA2F-5A57-B0CC-FE69865463EF",
+              "label" : "K",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.5815909090909092,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 7,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "BC680AD0-0637-5931-9F81-AFE2D71DD28F",
+              "id" : "AF912C66-9D9A-5346-A46B-CCB251214385",
+              "label" : ",",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.5815909090909092,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 8,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "9629E689-E697-55AA-BB14-A00A6F94A57B",
+              "id" : "EC4DF313-6857-5A4F-85E8-AA9E2780C010",
+              "label" : "9",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.6643181818181819,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 8,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "9629E689-E697-55AA-BB14-A00A6F94A57B",
+              "id" : "AF3F5E20-19A3-58F8-A280-727B034F8AD8",
+              "label" : "O",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.6643181818181819,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 8,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "9629E689-E697-55AA-BB14-A00A6F94A57B",
+              "id" : "F7C19FA7-3788-52D8-A59F-7F5F52A82EFA",
+              "label" : "L",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.6643181818181819,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 8,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "9629E689-E697-55AA-BB14-A00A6F94A57B",
+              "id" : "A175C886-FDA2-533B-9885-20BF77D550B6",
+              "label" : ".",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.6643181818181819,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 9,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D30B81C8-14CA-5CDF-B77B-7A5638235CF2",
+              "id" : "F5C51763-02B0-5F0E-881E-EFF6D25D25DB",
+              "label" : "0",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.7470454545454547,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 9,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D30B81C8-14CA-5CDF-B77B-7A5638235CF2",
+              "id" : "6CC7F98D-4B19-5D8A-AFFA-55DA7905870C",
+              "label" : "P",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.7470454545454547,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 9,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D30B81C8-14CA-5CDF-B77B-7A5638235CF2",
+              "id" : "6B963D61-A336-5014-9CF7-06E7185456FA",
+              "label" : ";",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.7470454545454547,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 9,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D30B81C8-14CA-5CDF-B77B-7A5638235CF2",
+              "id" : "44F3E491-4F3A-5400-803E-7BF4A2DBD188",
+              "label" : "\/",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.7470454545454547,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 10,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "8B9FB277-8184-5C4A-A2FF-062D5DC9C56A",
+              "id" : "BED165E9-B2B9-5EFD-B018-F5A1727C82D6",
+              "label" : "-",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.8297727272727273,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 10,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "8B9FB277-8184-5C4A-A2FF-062D5DC9C56A",
+              "id" : "0C5D57BC-E5AE-5FDD-867B-2B0F9B342690",
+              "label" : "[",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.8297727272727273,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 10,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "8B9FB277-8184-5C4A-A2FF-062D5DC9C56A",
+              "id" : "2DDD36BE-663E-5257-934D-934FFAFE7C83",
+              "label" : "'",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.8297727272727273,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 10,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "8B9FB277-8184-5C4A-A2FF-062D5DC9C56A",
+              "id" : "05D34157-8577-5676-9FA2-ED985BCFA973",
+              "label" : "Shift",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.8297727272727273,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 11,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D8D343F6-2345-5BFF-90E2-BF3B8D9C0456",
+              "id" : "88044619-529B-5AA9-9AF3-6D39D37EFC19",
+              "label" : "Back",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.9125000000000001,
+                "y" : 0.27703220191470845
+              },
+              "right" : true,
+              "row" : 0
+            },
+            {
+              "column" : 11,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D8D343F6-2345-5BFF-90E2-BF3B8D9C0456",
+              "id" : "806FF1A1-D7C0-53E6-B6DC-A0A252666664",
+              "label" : "]",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.9125000000000001,
+                "y" : 0.39909486510008707
+              },
+              "right" : true,
+              "row" : 1
+            },
+            {
+              "column" : 11,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D8D343F6-2345-5BFF-90E2-BF3B8D9C0456",
+              "id" : "401F5B57-06BD-5592-B012-B5C227E7E7A4",
+              "label" : "Ret",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.9125000000000001,
+                "y" : 0.5211575282854657
+              },
+              "right" : true,
+              "row" : 2
+            },
+            {
+              "column" : 11,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "group" : "D8D343F6-2345-5BFF-90E2-BF3B8D9C0456",
+              "id" : "575889FE-BF50-5BFA-917A-C60ACD8B2BDD",
+              "label" : "Space",
+              "rect" : {
+                "height" : 0.11096605744125326,
+                "width" : 0.084375,
+                "x" : 0.9125000000000001,
+                "y" : 0.6432201914708442
+              },
+              "right" : true,
+              "row" : 3
+            },
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "id" : "61F65836-BA49-40E3-A1B3-93AC861CA581",
+              "label" : "Space",
+              "rect" : {
+                "height" : 0.23,
+                "width" : 0.25,
+                "x" : 0.5,
+                "y" : 0.77
+              },
+              "right" : true,
+              "row" : 4
+            },
+            {
+              "column" : 0,
+              "edges" : [
+                0,
+                0,
+                0,
+                0
+              ],
+              "id" : "74382F6D-2CC3-402E-806A-4770DAE208AF",
+              "label" : "Back",
+              "rect" : {
+                "height" : 0.23,
+                "width" : 0.25,
+                "x" : 0.25,
+                "y" : 0.77
+              },
+              "right" : true,
+              "row" : 5
+            }
+          ],
+          "nextRow" : 6
         }
       },
       "LeftDeviceID" : "288230377507812716",
@@ -3263,7 +4297,7 @@
       "TwoFingerTapGestureAction" : "Left Click"
     }
   },
-  "KeymapJson" : "{\"Version\":2,\"Layouts\":{\"Blank\":{\"CustomButtons\":{\"0\":[],\"2\":[]},\"KeyGeometry\":{},\"Mappings\":{\"0\":{},\"1\":{},\"3\":{},\"2\":{}}},\"STENO\":{\"CustomButtons\":{\"0\":[]},\"Mappings\":{\"3\":{},\"1\":{},\"2\":{},\"0\":{}},\"KeyGeometry\":{}},\"6x4\":{\"CustomButtons\":{\"3\":[],\"1\":[],\"2\":[],\"0\":[]},\"Mappings\":{\"3\":{\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:4:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"1\":{\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:4:0\":{\"Primary\":{\"Label\":\"0\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\".\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"+\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"2\":{\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:4:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:5:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"0\":{\"left:0:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"left:2:2\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Hold\":{\"Label\":\"B\"},\"Primary\":{\"Label\":\"K\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"Emoji\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"left:3:2\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"S\"}},\"left:0:5\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"MO(1)\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"right:1:3\":{\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"left:3:3\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"Tab\"},\"HoldForceThreshold\":0},\"right:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:5:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0}}},\"KeyGeometry\":{}},\"TouchStream\":{\"CustomButtons\":{\"0\":[]},\"Mappings\":{\"0\":{\"right:3:1\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":{\"Label\":\"Cmd+V\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":{\"Label\":\"'\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":{\"Label\":\"`\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":{\"Label\":\"!\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":{\"Label\":\"Cmd+C\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":{\"Label\":\"_\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":{\"Label\":\"Cmd+X\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":{\"Label\":\"Cmd+Z\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":{\"Label\":\"Cmd+A\"},\"HoldForceThreshold\":0},\"left:2:6\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":{\"Label\":\"\\\"\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":{\"Label\":\"Cmd+S\"},\"HoldForceThreshold\":0},\"right:3:6\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0}},\"3\":{},\"1\":{},\"2\":{}},\"KeyGeometry\":{}},\"STENO Voyager\":{\"CustomButtons\":{\"0\":[]},\"KeyGeometry\":{},\"Mappings\":{\"2\":{},\"1\":{},\"3\":{},\"0\":{}}},\"6x3\":{\"CustomButtons\":{\"3\":[],\"0\":[],\"2\":[],\"1\":[]},\"Mappings\":{\"3\":{\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:4:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"0\":{\"left:0:0\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":{\"Label\":\"'\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\";\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"K\"},\"Hold\":{\"Label\":\"#\"},\"HoldForceThreshold\":0},\"left:4:0\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":{\"Label\":\"Cmd+S\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":{\"Label\":\"Cmd+C\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":{\"Label\":\"Cmd+Z\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":{\"Label\":\"{\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"/\"},\"Hold\":{\"Label\":\"\\\\\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\",\"},\"Hold\":{\"Label\":\"$\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":{\"Label\":\"*\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"P\"},\"Hold\":{\"Label\":\"Shift+Cmd+4\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":{\"Label\":\"Cmd+A\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":{\"Label\":\"@\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":{\"Label\":\"\\\"\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":{\"Label\":\"Cmd+X\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":{\"Label\":\"Cmd+F\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Tab\"},\"Hold\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":{\"Label\":\"]\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":{\"Label\":\"&\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\".\"},\"Hold\":{\"Label\":\"^\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":{\"Label\":\"[\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"L\"},\"Hold\":{\"Label\":\"~\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"Delete\"},\"Hold\":{\"Label\":\"Emoji\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":{\"Label\":\"Cmd+V\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":{\"Label\":\"(\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":{\"Label\":\"_\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":{\"Label\":\")\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"Ctrl\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":{\"Label\":\"!\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":{\"Label\":\"`\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"?\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":{\"Label\":\"}\"},\"HoldForceThreshold\":0}},\"1\":{\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"5\"}},\"left:4:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:2:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"right:2:3\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Voice\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"—\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"2\":{\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}},\"KeyGeometry\":{}},\"STENO single\":{\"CustomButtons\":{\"0\":[]},\"Mappings\":{\"1\":{},\"2\":{},\"0\":{},\"3\":{}},\"KeyGeometry\":{}},\"mobile\":{\"CustomButtons\":{},\"Mappings\":{\"3\":{},\"2\":{},\"1\":{},\"0\":{}},\"KeyGeometry\":{}}}}",
+  "KeymapJson" : "{\"Layouts\":{\"6x3\":{\"Mappings\":{\"1\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"6\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"9\"}},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"3\"}},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Voice\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"1\"}},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"=\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"+\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"2\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"—\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Left\"}}},\"2\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"3\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:4:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"0\":{\"right:1:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"~\"},\"Primary\":{\"Label\":\"L\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+F\"},\"Primary\":{\"Label\":\"O\"}},\"left:0:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"[\"},\"Primary\":{\"Label\":\"Q\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"!\"},\"Primary\":{\"Label\":\"J\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"*\"},\"Primary\":{\"Label\":\"I\"}},\"left:0:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"'\"},\"Primary\":{\"Label\":\"T\"}},\"left:2:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+Z\"},\"Primary\":{\"Label\":\"Z\"}},\"left:2:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"`\"},\"Primary\":{\"Label\":\"B\"}},\"right:3:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Esc\"},\"Primary\":{\"Label\":\"Tab\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\\\"},\"Primary\":{\"Label\":\"\\\/\"}},\"left:1:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"(\"},\"Primary\":{\"Label\":\"D\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\";\"}},\"left:2:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+X\"},\"Primary\":{\"Label\":\"X\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"^\"},\"Primary\":{\"Label\":\".\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"&\"},\"Primary\":{\"Label\":\"U\"}},\"left:0:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"}\"},\"Primary\":{\"Label\":\"R\"}},\"left:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Ctrl\"}},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\")\"}},\"left:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"#\"},\"Primary\":{\"Label\":\"K\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}},\"right:2:1\":{\"Primary\":{\"Label\":\"M\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"@\"}},\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+V\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"=\"},\"Primary\":{\"Label\":\"N\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+C\"},\"Primary\":{\"Label\":\"C\"}},\"left:1:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\"\"},\"Primary\":{\"Label\":\"G\"}},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"MO(1)\"}},\"left:4:0\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"Y\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"-\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Emoji\"},\"Primary\":{\"Label\":\"Delete\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Shift+Cmd+4\"},\"Primary\":{\"Label\":\"P\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"$\"},\"Primary\":{\"Label\":\",\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"_\"},\"Primary\":{\"Label\":\"H\"}},\"left:0:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"{\"},\"Primary\":{\"Label\":\"E\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"]\"}},\"left:1:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+S\"},\"Primary\":{\"Label\":\"S\"}},\"left:1:4\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+A\"},\"Primary\":{\"Label\":\"A\"}}}},\"KeyGeometry\":{},\"CustomButtons\":{\"2\":[],\"1\":[],\"3\":[],\"0\":[]}},\"6x4\":{\"Mappings\":{\"0\":{\"right:1:3\":{\"Primary\":{\"Label\":\"O\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"?\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"Esc\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"E\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"Emoji\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"Tab\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"R\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"X\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"F\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"MO(1)\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"C\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"D\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Hold\":{\"Label\":\"B\"},\"Primary\":{\"Label\":\"K\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"B\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"W\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"Q\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"Space\"},\"HoldForceThreshold\":0}},\"1\":{\"right:3:3\":{\"Primary\":{\"Label\":\"3\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"1\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\".\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"Up\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"6\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"+\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"Right\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"2\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"7\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"9\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"Down\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"=\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"4\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"5\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"-\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"3\":{\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}},\"2\":{\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:6:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:7:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[],\"1\":[],\"3\":[],\"2\":[]}},\"mobile\":{\"KeyGeometry\":{},\"CustomButtons\":{},\"Mappings\":{\"1\":{},\"0\":{},\"2\":{},\"3\":{}}},\"TouchStream\":{\"Mappings\":{\"0\":{\"right:3:6\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"_\"},\"Primary\":{\"Label\":\"H\"}},\"left:2:6\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"\\\"\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+S\"}},\"left:3:1\":{\"Primary\":{\"Label\":\"Z\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+Z\"}},\"left:3:3\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+C\"},\"Primary\":{\"Label\":\"C\"}},\"left:3:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+X\"},\"Primary\":{\"Label\":\"X\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"=\"},\"Primary\":{\"Label\":\"N\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"Y\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"-\"}},\"left:1:5\":{\"Primary\":{\"Label\":\"T\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"'\"}},\"left:3:4\":{\"Primary\":{\"Label\":\"V\"},\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+V\"}},\"left:3:5\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"`\"},\"Primary\":{\"Label\":\"B\"}},\"left:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"Cmd+A\"},\"Primary\":{\"Label\":\"A\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Hold\":{\"Label\":\"!\"},\"Primary\":{\"Label\":\"J\"}}},\"1\":{},\"2\":{},\"3\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[]}},\"STENO Voyager\":{\"Mappings\":{\"2\":{},\"1\":{},\"3\":{},\"0\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[]}},\"STENO\":{\"Mappings\":{\"1\":{},\"3\":{},\"0\":{},\"2\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[]}},\"mobile-ortho-12x4\":{\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[],\"3\":[],\"1\":[]},\"Mappings\":{\"0\":{\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"Primary\":{\"Label\":\"J\"},\"HoldForceThreshold\":0},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"L\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Emoji\"}},\"right:1:10\":{\"Primary\":{\"Label\":\":\"},\"HoldForceThreshold\":0},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Tab\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"T\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"W\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Y\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"I\"}},\"right:3:9\":{\"Primary\":{\"Label\":\"Left\"},\"HoldForceThreshold\":0},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"U\"}},\"right:5:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Back\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"R\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:1:5\":{\"Primary\":{\"Label\":\"G\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"E\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Right\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\".\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"V\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"C\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"P\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"F\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"N\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"H\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Esc\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"K\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Up\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Ctrl\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"M\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"B\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"A\"},\"HoldForceThreshold\":0},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"D\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"'\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"?\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Option\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"S\"},\"HoldForceThreshold\":0},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Z\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Down\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\",\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"O\"}},\"right:0:11\":{\"Primary\":{\"Label\":\"Back\"},\"HoldForceThreshold\":0},\"right:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Space\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Q\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Shift\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"X\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"Enter\"}}},\"3\":{\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:5:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:6\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"2\":{\"right:3:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:5:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:4\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:6\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:5\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:3\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:10\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:3:7\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:8\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:9\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:4:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:0:1\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:0\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:2:2\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}},\"right:1:11\":{\"HoldForceThreshold\":0,\"Primary\":{\"Label\":\"None\"}}},\"1\":{\"right:4:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0},\"right:2:11\":{\"Primary\":{\"Label\":\"Enter\"},\"HoldForceThreshold\":0},\"right:5:0\":{\"Primary\":{\"Label\":\"None\"},\"HoldForceThreshold\":0}}}},\"STENO single\":{\"Mappings\":{\"1\":{},\"0\":{},\"3\":{},\"2\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[]}},\"Blank\":{\"Mappings\":{\"3\":{},\"1\":{},\"2\":{},\"0\":{}},\"KeyGeometry\":{},\"CustomButtons\":{\"0\":[],\"2\":[]}}},\"Version\":2}",
   "Settings" : {
     "ActiveLayer" : 0,
     "AutocorrectEnabled" : true,
@@ -3919,6 +4953,116 @@
           "ScaleX" : 0.75,
           "ScaleY" : 0.75
         }
+      ],
+      "mobile-ortho-12x4" : [
+        {
+          "OffsetXPercent" : -3.5,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -2.7272727272727257,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -1.9545454545454541,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -1.1818181818181763,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : -0.4090909090909012,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 0.3636363636363794,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 1.136363636363637,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 1.9090909090909176,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 2.681818181818198,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 3.4545454545454675,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 4.227272727272741,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        },
+        {
+          "OffsetXPercent" : 5,
+          "OffsetYPercent" : 19,
+          "RotationDegrees" : 0,
+          "RowSpacingPercent" : 0,
+          "Scale" : 0.75,
+          "ScaleX" : 0.75,
+          "ScaleY" : 0.75
+        }
       ]
     },
     "DragCancelMm" : 8,
@@ -3959,7 +5103,8 @@
       "STENO Voyager" : 0.5,
       "STENO single" : 10,
       "TouchStream" : 10,
-      "mobile" : 10
+      "mobile" : 10,
+      "mobile-ortho-12x4" : 10
     },
     "KeyboardModeEnabled" : false,
     "LayoutPresetName" : "6x3",

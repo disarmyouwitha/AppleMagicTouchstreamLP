@@ -55,6 +55,28 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testLayerScopedGeometryDispatchesOnlyOnItsLayerAndSharedKeysRemain() {
+        let run = session(labels:["F","G"])
+        let size = CGSize(width:160,height:115)
+        var doc = LayoutDocument()
+        doc.add(right:false,label:"F",rect:.init(x:10/160,y:40/115,width:35/160,height:30/115),layer:1)
+        doc.add(right:false,label:"G",rect:.init(x:55/160,y:40/115,width:35/160,height:30/115))
+        let base = ContentViewModel.Layout(keyRects:[],trackpadSize:size)
+        let layout = doc.compile(right:false,base:base,size:size)
+        run.engine.updateLayouts(leftLayout:layout,rightLayout:base,leftLabels:doc.labels(right:false),rightLabels:[],trackpadSize:size,trackpadWidthMm:160)
+        for (index,layer) in [0,1,0].enumerated() {
+            run.engine.setPersistentLayer(layer)
+            let time = 1 + Double(index)
+            run.output.events.removeAll(); run.output.acceptedBindings.removeAll()
+            frame(run,time,[contact()]); frame(run,time+0.03,[])
+            XCTAssertEqual(keys(run).isEmpty,layer != 1)
+            XCTAssertEqual(run.output.acceptedBindings.isEmpty,layer != 1)
+            run.output.events.removeAll()
+            frame(run,time+0.1,[contact(key:1)]); frame(run,time+0.13,[])
+            XCTAssertFalse(keys(run).isEmpty,"Shared keys remain active on layer \(layer)")
+        }
+    }
+
     func testKeyboardFeedbackWaitsForAcceptanceAndGestureReservationNeverHighlights() {
         let typing = session()
         frame(typing,1,[contact()])

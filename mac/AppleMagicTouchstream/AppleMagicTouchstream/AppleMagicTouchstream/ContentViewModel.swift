@@ -839,6 +839,21 @@ final class ContentViewModel: ObservableObject {
 
     struct Layout {
         var authoredDisplayRects: [NormalizedRect: NormalizedRect] = [:]
+        var keyLayers:[GridKeyPosition:Set<Int>] = [:]
+        func isVisible(_ position:GridKeyPosition,on layer:Int) -> Bool { keyLayers[position]?.contains(layer) ?? true }
+        func visible(on layer:Int,size:CGSize) -> Layout {
+            guard !keyLayers.isEmpty else { return self }
+            var rects = normalizedKeyRects
+            for (position,layers) in keyLayers where !layers.contains(layer) {
+                guard rects.indices.contains(position.row),rects[position.row].indices.contains(position.column) else { continue }
+                rects[position.row][position.column] = NormalizedRect(x:0,y:0,width:0,height:0)
+            }
+            var visible = Layout(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:allowHoldBindings,isSteno:isSteno,
+                stenoPointerMode:stenoPointerMode,stenoForceThreshold:stenoForceThreshold,stenoConnectionMode:stenoConnectionMode,
+                stenoHapticTouch:stenoHapticTouch,stenoHapticRelease:stenoHapticRelease)
+            visible.authoredDisplayRects = authoredDisplayRects
+            return visible
+        }
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool

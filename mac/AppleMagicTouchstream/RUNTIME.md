@@ -133,7 +133,7 @@ size is 1120 × 540 points, allowing laptop screen resolutions without the previ
 1384-point minimum width. Existing workspace scroll areas handle constrained space;
 trackpad visualization retains its existing maximum size.
 
-Layout Editor replaces the keyboard visualizer in the same workspace while editing.
+Layout Editor replaces the keyboard visualizer in the same workspace while editing. The Add row has a layer selector: it previews that layer’s assignments and scopes newly added keys/columns to that layer, including mirrored counterparts. Existing keys without layer metadata remain shared across layers. Layer scope round-trips through settings and captures, filters recognition and visualization, and is committed with the document on Apply; Cancel leaves the live layer unchanged.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
 settings column. Apply saves one geometry update and returns to the visualizer;
 Cancel returns without publishing the staged document. Undo, Redo and Reset remain

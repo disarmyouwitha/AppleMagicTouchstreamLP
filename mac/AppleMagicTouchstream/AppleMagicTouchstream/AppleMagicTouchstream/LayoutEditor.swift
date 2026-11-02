@@ -9,6 +9,9 @@ struct LayoutEditor: View {
     let onApply: (LayoutDocument?) -> Void
     let onCancel: () -> Void
     let mappings: [String:KeyMapping]
+    let layerMappings:LayeredKeyMappings?
+    let onApplyLayer:(Int)->Void
+    @State private var editingLayer:Int
     @Binding var menuWidth: Double
     let contactSnapshot: (UInt64) -> ContentViewModel.TouchSnapshot?
     let onContactPreview: (Bool) -> Void
@@ -39,10 +42,12 @@ struct LayoutEditor: View {
 
     init(document: LayoutDocument, template: LayoutDocument, onApply: @escaping (LayoutDocument?) -> Void,
          onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = [], mappings: [String:KeyMapping] = [:],
+         layerMappings:LayeredKeyMappings? = nil,initialLayer:Int = 0,onApplyLayer:@escaping (Int)->Void = { _ in },
          contactSnapshot:@escaping (UInt64) -> ContentViewModel.TouchSnapshot? = { _ in nil },
          onContactPreview:@escaping (Bool) -> Void = { _ in }) {
         self.contactSnapshot = contactSnapshot; self.onContactPreview = onContactPreview
-        self.mappings = mappings
+        self.mappings = mappings; self.layerMappings = layerMappings; self.onApplyLayer = onApplyLayer
+        _editingLayer = State(initialValue:KeyLayerConfig.clamped(initialLayer))
         _document = State(initialValue:document)
         self.template = template; self.onApply = onApply; self.onCancel = onCancel; _menuWidth = menuWidth
         _selection = State(initialValue:initialSelection)
@@ -81,6 +86,10 @@ struct LayoutEditor: View {
             }
         }
         .onAppear { documentValid = document.isValid; refreshLegends() }
+        .onChange(of:editingLayer) { layer in
+            selection = selection.filter { id in document.keys.first { $0.id == id }?.isVisible(on:layer) == true }
+            refreshLegends()
+        }
         .onChange(of:showContacts) { onContactPreview($0) }
         .onDisappear { onContactPreview(false) }
         .onChange(of: mirror) { enabled in
@@ -121,7 +130,7 @@ struct LayoutEditor: View {
                 .help("Reset template geometry; Undo can restore your edits.").accessibilityLabel("Reset Template").disabled(dragStart != nil)
             Divider().frame(height: 20)
             Button("Cancel",action: onCancel).keyboardShortcut(.cancelAction)
-            Button { onApply(document) } label: { Label("Apply",systemImage: "checkmark") }
+            Button { onApplyLayer(editingLayer); onApply(document) } label: { Label("Apply",systemImage: "checkmark") }
                 .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!documentValid || dragStart != nil).accessibilityLabel("Apply")
         }
     }
@@ -184,7 +193,7 @@ struct LayoutEditor: View {
         }
         context.stroke(grid,with:.color(.secondary.opacity(0.15)),lineWidth:0.5)
         let paired = mirror ? document.pairedSelection(selection).subtracting(selection) : []
-        for key in document.keys where key.right == isRight {
+        for key in document.keys where key.right == isRight && key.isVisible(on:editingLayer) {
             let rect = key.displayRect.rect(in: size)
             var local = context
             local.translateBy(x:rect.midX,y:rect.midY)
@@ -235,7 +244,7 @@ struct LayoutEditor: View {
             let frameHandle = frame.map { resizePoint($0.rect,size:size) }
             if let frameHandle, hypot(value.startLocation.x-frameHandle.x,value.startLocation.y-frameHandle.y) < 10 {
                 right = isRight; dragKind = .resizeFrame(isRight); dragIDs = selection
-            } else if let id = document.editorHit(at:p,right:isRight,pad:CGSize(width:width,height:height)) {
+            } else if let id = document.editorHit(at:p,right:isRight,pad:CGSize(width:width,height:height),layer:editingLayer) {
                 let ids: Set<UUID> = [id]
                 if !ids.isSubset(of:selection) { select(ids,onRight:isRight,adding:adding) }
                 else { right = isRight }
@@ -263,7 +272,7 @@ struct LayoutEditor: View {
             let sx = min(max(value.startLocation.x/size.width,0),1), sy = min(max(value.startLocation.y/size.height,0),1)
             let rect = CGRect(x:min(x,sx),y:min(y,sy),width:abs(x-sx),height:abs(y-sy))
             marquee = rect
-            selection = marqueeBase.union(document.editorMarquee(rect,right:isRight,groups:false,pad:CGSize(width:width,height:height)))
+            selection = marqueeBase.union(document.editorMarquee(rect,right:isRight,groups:false,pad:CGSize(width:width,height:height),layer:editingLayer))
         }
     }
     private func resizeDrag(_ value: DragGesture.Value, size: CGSize, start: LayoutDocument,
@@ -334,8 +343,15 @@ struct LayoutEditor: View {
             }.frame(maxWidth:286,alignment:.leading)
             Divider()
             Text("Add").font(.subheadline.bold())
-            if mirror { Label("Both trackpads",systemImage:"rectangle.split.2x1").font(.caption).foregroundStyle(.secondary) }
-            else { Picker("Trackpad",selection:$right) { Text("Left").tag(false); Text("Right").tag(true) }.pickerStyle(.segmented) }
+            HStack(spacing:12) {
+                if mirror { Label("Both trackpads",systemImage:"rectangle.split.2x1").font(.caption).foregroundStyle(.secondary) }
+                else { Picker("Trackpad",selection:$right) { Text("Left").tag(false); Text("Right").tag(true) }.pickerStyle(.segmented) }
+                Spacer(minLength:0)
+                Picker("Layer",selection:$editingLayer) {
+                    ForEach(KeyLayerConfig.editableLayers,id:\.self) { Text("Layer \($0)").tag($0) }
+                }.pickerStyle(.menu).labelsHidden().accessibilityLabel("Layer").fixedSize().disabled(dragStart != nil)
+                    .help("Show this layer's assignments and add new keys or columns only to this layer.")
+            }
             ViewThatFits(in:.horizontal) {
                 HStack(spacing:8) { addKeyTool; addColumnControls }.fixedSize(horizontal:true,vertical:false)
                 VStack(alignment:.leading,spacing:10) { addKeyTool; addColumnControls }
@@ -455,7 +471,7 @@ struct LayoutEditor: View {
     }
 
     private func refreshLegends() {
-        legends = document.editorLegends(mappings:mappings)
+        legends = document.editorLegends(mappings:layerMappings.map { $0[editingLayer] ?? [:] } ?? mappings)
     }
     private func change(mirrorGeometry: Bool = true,_ action: () -> Void) {
         let old = document, ids = selection
@@ -508,7 +524,7 @@ struct LayoutEditor: View {
     }
     private func addKey() {
         change(mirrorGeometry:false) {
-            selection = [mirror ? document.addMirrored(right:right):document.add(right:right)]
+            selection = [mirror ? document.addMirrored(right:right,layer:editingLayer):document.add(right:right,layer:editingLayer)]
         }
     }
     private func addColumn() {
@@ -520,7 +536,7 @@ struct LayoutEditor: View {
             selection = []
             for n in 0..<columnCount {
                 let r = NormalizedRect(x:0.45,y:0.05+CGFloat(n)*0.9/CGFloat(columnCount),width:0.09,height:0.85/CGFloat(columnCount))
-                selection.insert(mirror ? document.addMirrored(right:right,rect:r,group:group.id,oppositeGroup:other.id):document.add(right:right,rect:r,group:group.id))
+                selection.insert(mirror ? document.addMirrored(right:right,rect:r,group:group.id,oppositeGroup:other.id,layer:editingLayer):document.add(right:right,rect:r,group:group.id,layer:editingLayer))
             }
         }
     }
