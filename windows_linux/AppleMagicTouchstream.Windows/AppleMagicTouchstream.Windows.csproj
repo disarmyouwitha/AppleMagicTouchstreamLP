@@ -23,6 +23,7 @@
     <EmbeddedResource Include="MotionProfiles/mac-motion.json" LogicalName="AppleMagicTouchstream.mac-motion.json" />
     <EmbeddedResource Include="WindowsDiagnostics/Fixtures/AppleScrollAccelerationVectors.json" />
     <EmbeddedResource Include="WindowsDiagnostics/Fixtures/CapturedMacMotionVectors.json" />
+    <EmbeddedResource Include="WindowsDiagnostics/Fixtures/RotationCountsMac.json" />
     <EmbeddedResource Include="Assets\AppleMagicTouchstreamHand.ico" />
     <EmbeddedResource Include="Assets\AppleMagicTouchstreamTrayHand.ico" />
     <Resource Include="Assets\LHS_TOUCHSTREAM_layout.png" />

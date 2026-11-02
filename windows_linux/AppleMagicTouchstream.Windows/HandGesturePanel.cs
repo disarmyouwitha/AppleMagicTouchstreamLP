@@ -121,7 +121,7 @@ internal sealed class HandGesturePanel : Grid
                 for(int count=1;count<=5;count++)
                 {
                     _pages.Add(new($"{count}-main",$"{count} FINGER{(count==1 ? "" : "S")}",count==1 ? "Force Click" : "Tap and Move",count));
-                    if(count>=2) _pages.Add(new($"{count}-shape",$"{count} FINGERS","Pinch and Spread",count,true));
+                    if(count>=2) _pages.Add(new($"{count}-shape",$"{count} FINGERS","Pinch, Spread, Rotate",count,true));
                     if(count==3) _pages.Add(new("thumb","3 FINGERS","Thumb + 2",3));
                     if(count==4) _pages.Add(new("corners","4 FINGERS","Outer Corners",4,Corners:true));
                 }
@@ -141,7 +141,8 @@ internal sealed class HandGesturePanel : Grid
             var heading=new Grid(); heading.ColumnDefinitions.Add(new() { Width=new(1,GridUnitType.Star) }); heading.ColumnDefinitions.Add(new() { Width=new(180) });
             heading.RowDefinitions.Add(new() { Height=GridLength.Auto }); heading.RowDefinitions.Add(new() { Height=GridLength.Auto });
             FrameworkElement demo=page.Chord is {} exampleChord ? new CoordinatedGestureDemonstration(exampleChord) : new GestureDemonstration(page.Count,page.Shape,page.Corners)
-            { Holding=_selected.StartsWith("Hold") || page.Corners,Force=_selected.EndsWith("Force"),Tapping=_selected.EndsWith("Tap") };
+            { Holding=_selected.StartsWith("Hold") || page.Corners,Force=_selected.EndsWith("Force"),Tapping=_selected.EndsWith("Tap"),
+                ShapeTrigger=Enum.TryParse<HandGestureTrigger>(_selected,out var demonstrationTrigger) ? demonstrationTrigger : null };
             demo.Width=170; demo.Height=120; Grid.SetColumn(demo,1); heading.Children.Add(demo);
             var title=new StackPanel(); title.Children.Add(Label(page.Chord!=null ? page.Title : $"{page.Count} finger{(page.Count==1 ? "" : "s")}",25,true)); title.Children.Add(Note(page.Title)); heading.Children.Add(title);
             heading.SizeChanged+=(_,e)=> { bool compact=e.NewSize.Width<380; Grid.SetColumnSpan(title,compact ? 2 : 1); Grid.SetColumn(demo,compact ? 0 : 1); Grid.SetRow(demo,compact ? 1 : 0); Grid.SetColumnSpan(demo,compact ? 2 : 1); };
@@ -157,9 +158,22 @@ internal sealed class HandGesturePanel : Grid
             }
             else if(page.Corners) AddCard(_pageContent,new("CornerHold","Hold",Corner:true));
             else if(page.Shape)
-            { var cards=new UniformGrid { Columns=2 }; _pageContent.Children.Add(cards); AddCard(cards,TriggerSlot(PerHandGestureSettings.Pinch(page.Count)!.Value,"Pinch")); AddCard(cards,TriggerSlot(PerHandGestureSettings.Pinch(page.Count,true)!.Value,"Spread")); }
+            {
+                _pageContent.Children.Add(Note("Choose independent pinch, spread and rotation actions."));
+                var cards=new UniformGrid { Columns=2 }; _pageContent.Children.Add(cards);
+                AddCard(cards,TriggerSlot(PerHandGestureSettings.Pinch(page.Count)!.Value,"Pinch"));
+                AddCard(cards,TriggerSlot(PerHandGestureSettings.Pinch(page.Count,true)!.Value,"Spread"));
+                AddCard(cards,TriggerSlot(PerHandGestureSettings.Rotation(page.Count)!.Value,"Rotate Left"));
+                AddCard(cards,TriggerSlot(PerHandGestureSettings.Rotation(page.Count,true)!.Value,"Rotate Right"));
+                foreach(string lifecycle in new[]{"Hold","Lift"})
+                {
+                    var content=new StackPanel(); content.Children.Add(Label(lifecycle,13,true));
+                    content.Children.Add(Note(lifecycle=="Hold" ? "Keeps the active shape gesture. No separate assignment." : "Ends the gesture. Lift all fingers to re-arm."));
+                    cards.Children.Add(new Border { Child=content,Padding=new(8),Margin=new(4),MinHeight=90,Opacity=.5,BorderBrush=Brushes.SlateGray,BorderThickness=new(1) });
+                }
+            }
             else if(page.Id=="thumb")
-            { _pageContent.Children.Add(Note("Thumb identity and rotation are deferred on Windows. The saved tap assignment remains available for compatibility.")); AddCard(_pageContent,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap")); }
+            { _pageContent.Children.Add(Note("Thumb identity is unavailable from Windows PTP. The saved thumb-specific tap remains available for compatibility. Three-finger Pinch, Spread and Rotate use their own shape page.")); AddCard(_pageContent,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap")); }
             else if(page.Count==1) AddCard(_pageContent,TriggerSlot(HandGestureTrigger.OneFingerForce,"Force Click"));
             else
             {
@@ -208,7 +222,8 @@ internal sealed class HandGesturePanel : Grid
     private void AddCard(Panel parent,Slot slot)
     {
         _slots[slot.Key]=slot; var content=new StackPanel(); content.Children.Add(Note(slot.Title)); content.Children.Add(Label(Display(slot),14,true));
-        content.Children.Add(Note(slot.IsHold ? "After the hold threshold" : slot.Trigger is {} trigger && PerHandGestureSettings.IsMovement(trigger) ? Active(slot) ? slot.Direction==null ? "Continuous" : "Directional" : "Inactive · click to switch" : "Once per gesture"));
+        content.Children.Add(Note(slot.IsHold ? "After the hold threshold" : slot.Trigger is {} trigger && PerHandGestureSettings.IsShape(trigger) ? ShapeBehavior(slot)
+            : slot.Trigger is {} movement && PerHandGestureSettings.IsMovement(movement) ? Active(slot) ? slot.Direction==null ? "Continuous" : "Directional" : "Inactive · click to switch" : "Once per gesture"));
         var card=new Button { Tag=slot.Key,Content=content,MinHeight=120,HorizontalContentAlignment=HorizontalAlignment.Stretch,VerticalContentAlignment=VerticalAlignment.Top,Padding=new(8),Margin=new(4),Background=new SolidColorBrush(Color.FromRgb(23,31,38)),BorderBrush=slot.Key==_selected ? Brushes.DeepSkyBlue : new SolidColorBrush(Color.FromRgb(48,62,73)),BorderThickness=new(slot.Key==_selected ? 2 : 1),Opacity=Active(slot) ? 1 : .55 };
         card.Click+=(_,_)=>
         {
@@ -254,10 +269,50 @@ internal sealed class HandGesturePanel : Grid
         if(value is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag) AddGain("Pointer sensitivity",0);
         if(value==HandGestureAction.Scroll) { AddGain("Scroll sensitivity",1); var natural=new CheckBox { Content="Natural scrolling",IsChecked=Hand.NaturalScrolling,Margin=new(0,8,0,12) }; natural.Click+=(_,_)=>Commit(()=>Apply(h=>h.NaturalScrolling=natural.IsChecked==true)); _inspector.Children.Add(natural); }
         if(value==HandGestureAction.Zoom) AddGain("Zoom sensitivity",2);
+        if(slot.Trigger is {} shape && PerHandGestureSettings.IsShape(shape))
+        {
+            if(value is {} assigned && assigned!=HandGestureAction.None && assigned!=HandGestureAction.Zoom) AddShapeRepeat(slot);
+            else _inspector.Children.Add(Note(ShapeBehavior(slot)));
+            _inspector.Children.Add(Label("Recognition",13,true));
+            _inspector.Children.Add(Note(PerHandGestureSettings.IsRotation(shape)
+                ? "Turn the contact group at least 3°. Rotation wins when angular travel dominates radial change. The activated direction stays latched until all fingers lift. Windows rotation runs assigned actions; use an app's shortcuts to rotate its content."
+                : "Pinch or spread the contact group at least 0.6 mm. Shape change must dominate translation. Zoom follows motion; other actions use the selected repeat behavior. The gesture stays latched through added or lifted fingers."));
+            _inspector.Children.Add(Note("Windows uses tracked contact geometry. Mac additionally requires a recognized thumb; Windows PTP supplies no thumb label."));
+        }
         var builder=new Expander { Header="Shortcut Builder",Foreground=TextColor,IsExpanded=_showBuilder || value==HandGestureAction.Custom,Margin=new(0,16,0,0) };
         builder.SetResourceReference(StyleProperty,"GestureSectionStyle");
         builder.Content=new GestureActionEditor(Custom(slot),label=>Commit(()=> { if(slot.Chord!=null) _settings.HandGesturesV1.Coordinated.CustomActions[slot.Key]=label; else Apply(h=>(h.CustomActions ??= new())[slot.Key]=label); Set(slot,HandGestureAction.Custom); _showBuilder=true; })); _inspector.Children.Add(builder);
     }
+    private string ShapeBehavior(Slot slot)
+    {
+        var action=Get(slot);
+        if(action==null) return "Mixed behavior";
+        if(action==HandGestureAction.None) return "No output";
+        if(action==HandGestureAction.Zoom) return "Follow motion";
+        var config=Hand.ShapeRepeat(slot.Trigger!.Value);
+        if(MirrorEdits && _settings.HandGesturesV1.Left.ShapeRepeat(slot.Trigger.Value)!=_settings.HandGesturesV1.Right.ShapeRepeat(slot.Trigger.Value)) return "Mixed behavior";
+        return config.Mode switch { HandShapeRepeatMode.Timed=>$"Repeat every {config.IntervalMilliseconds:0} ms",HandShapeRepeatMode.Motion=>"Repeat with motion",_=>"Once on activation" };
+    }
+    private void AddShapeRepeat(Slot slot)
+    {
+        var trigger=slot.Trigger!.Value;
+        var config=Hand.ShapeRepeat(trigger);
+        bool mixed=MirrorEdits && _settings.HandGesturesV1.Left.ShapeRepeat(trigger)!=_settings.HandGesturesV1.Right.ShapeRepeat(trigger);
+        _inspector.Children.Add(Label("Behavior",13,true));
+        var options=new List<ShapeRepeatOption> { new(HandShapeRepeatMode.Once,"Once"),new(HandShapeRepeatMode.Timed,"Repeat every ms"),new(HandShapeRepeatMode.Motion,"Repeat with motion") };
+        if(mixed) options.Insert(0,new(null,"Mixed"));
+        var repeat=new ComboBox { Tag="ShapeRepeatMode",DisplayMemberPath=nameof(ShapeRepeatOption.Title),ItemsSource=options,SelectedItem=options.First(o=>o.Mode==(mixed ? null : config.Mode)),MinHeight=30,Margin=new(0,0,0,12) };
+        repeat.SelectionChanged+=(_,_)=> { if(!_refreshing && repeat.SelectedItem is ShapeRepeatOption { Mode:{} mode })
+            Commit(()=>Apply(h=>(h.ShapeRepeats ??= new())[trigger]=(h.ShapeRepeat(trigger) with { Mode=mode }).Normalize())); };
+        _inspector.Children.Add(repeat);
+        if(!mixed && config.Mode==HandShapeRepeatMode.Timed)
+            AddNumber(_inspector,"Repeat interval (ms)",config.IntervalMilliseconds,20,5000,v=>Apply(h=>(h.ShapeRepeats ??= new())[trigger]=(h.ShapeRepeat(trigger) with { IntervalMilliseconds=v }).Normalize()));
+        _inspector.Children.Add(Note(mixed ? "Choose a behavior to apply it to both hands." : config.Mode switch {
+            HandShapeRepeatMode.Timed=>"Repeats while held, even when still. Lift all fingers to stop.",
+            HandShapeRepeatMode.Motion=>"Repeats with continued motion in the activated direction. Pausing stops output. Lift all fingers to re-arm.",
+            _=>"Fires once on activation and stays latched until all-up." }));
+    }
+    private sealed record ShapeRepeatOption(HandShapeRepeatMode? Mode,string Title);
     private double HoldTime(Slot s)=>s.Chord is {} chord ? _settings.HandGesturesV1.Coordinated.Milliseconds(chord) : s.Corner ? Hand.CornerMilliseconds(HandCornerChord.OuterCorners) : Hand.HoldMilliseconds(s.HoldCount);
     private void SetHoldTime(Slot s,double value)
     { if(s.Chord is {} chord) _settings.HandGesturesV1.Coordinated.HoldThresholds[chord]=value; else Apply(h=> { if(s.Corner) (h.CornerHoldThresholds ??= new())[HandCornerChord.OuterCorners]=value; else (h.HoldThresholds ??= new())[s.HoldCount]=value; }); }

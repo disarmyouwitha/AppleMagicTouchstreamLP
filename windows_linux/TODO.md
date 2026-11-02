@@ -1,11 +1,14 @@
 # Notes:
 =======
 0. Add Pinch, Spread, Rotate everywhere that mac/AppleMagicTouchstream allows. Make sure you are at Parity with Mac Gestures and Iterface.
-1. TEST MOUSE: The mouse feels INCREDIBLE with the imported mouse profile, I think I really want to lock in with that.I am noticing that the super fine motion, like when I am trying to move the mouse just a little. There can also be a little start-up lag; and it can be a little jittery when trying to place the cursor exactly, slowly. 
-> Test Precision fix
+1. Test Shortcut builder
+> The GUI is about the worst it could be. (screenshot) `Text` doesn't match "Key" or "app" format of label. No Hyper button.. Mac doesn't have one, right? I am also getting the error "choose key modifier or target" (and when it "fired" it only typed the first letter and stopped)
 2. Test Layout editor
-> Cleanup GUI
-3. Fully test STENO modes. 
+> Cleanup GUI (Make the column bigger? I think mac is like 333px? lol need room for all the new buttons.. lets see if we can take an eye to minimizing clutter)
+3. The drop-down menus need fancy menu's like mac where it is separated by category and searchable. 
+4. Fully test STENO modes. 
+> 
+* * * Keep monitoring Mouse for notes
 ===
 0. What is the thing that keeps making me switch back / turn off the program:
 > * * * OMG IT'S scrolling in the LIMS that kills me, lol. (pages it is perfect; this particular one I use every day is unusable because we implement our own scrolling logic? Maybe I would have better luck rewriting the LIMS logic. x.x but what to do about websites with bad mouse? Can we try a toggle where we turn off my scroll acceleration to see if that helps? Thoughts??)

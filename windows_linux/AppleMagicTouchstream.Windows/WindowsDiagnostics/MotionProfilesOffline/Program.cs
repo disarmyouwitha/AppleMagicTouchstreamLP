@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using AppleMagicTouchstream;
 MacMotionTests.Run();
+ShapeGestureParityTests.Run();
 WindowsAbsolutePointerTests.Run();
 RewriteParityTests.Run();
 if(!HandGestureTests.Run(out var failure))throw new Exception(failure);

@@ -15,6 +15,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Rewrite parity tests failed: "+error.Message); }
         try { MacMotionTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Mac motion tests failed: "+error.Message); }
+        try { ShapeGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Shape gesture parity tests failed: "+error.Message); }
         try { WindowsAbsolutePointerTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Windows absolute pointer tests failed: "+error.Message); }
         try { StenoPointerTests.Run(); }
@@ -25,6 +27,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Decoder session tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
+        try { ShapeGestureInterfaceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Shape gesture interface tests failed: "+error.Message); }
         try { BrandingMigrationTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Branding/migration tests failed: "+error.Message); }
         if (!HyperModifierTests.Run(out string hyperFailure))

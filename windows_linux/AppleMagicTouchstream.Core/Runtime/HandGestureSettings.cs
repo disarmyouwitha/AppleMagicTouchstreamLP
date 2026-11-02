@@ -8,11 +8,24 @@ public enum HandGestureTrigger
     TwoFingerSpread, ThreeFingerSpread, FourFingerSpread, FiveFingerSpread,
     OneFingerForce, TwoFingerForce, ThreeFingerForce, FourFingerForce, FiveFingerForce,
     // Append only: profiles have shipped with numeric enum identities.
-    FourFingerTap, FiveFingerTap, FiveFingerMove
+    FourFingerTap, FiveFingerTap, FiveFingerMove,
+    TwoFingerRotateLeft, ThreeFingerRotateLeft, FourFingerRotateLeft, FiveFingerRotateLeft,
+    TwoFingerRotateRight, ThreeFingerRotateRight, FourFingerRotateRight, FiveFingerRotateRight
 }
 public enum HandGestureAction { None, Pointer, PrimaryDrag, Scroll, PrimaryClick, DoubleClick, SecondaryClick, Zoom, NotificationCenter, TaskView, StartMenu, ShowDesktop,
     OpenConfig, ScrollUp, ScrollDown, PanLeft, PanRight, Back, Forward, Copy, Paste, Cut, Undo, Redo, SelectAll, Voice, Custom }
 public enum HandPointerResponse { AppleReference, ImportedApple, Fixed }
+public enum HandShapeRepeatMode { Once, Timed, Motion }
+public sealed record HandShapeRepeat
+{
+    public HandShapeRepeatMode Mode { get; init; }
+    public double IntervalMilliseconds { get; init; } = 80;
+    public static HandShapeRepeat Default { get; } = new();
+    public HandShapeRepeat Normalize() => this with {
+        Mode = Enum.IsDefined(Mode) ? Mode : HandShapeRepeatMode.Once,
+        IntervalMilliseconds = double.IsFinite(IntervalMilliseconds) ? Math.Clamp(Math.Round(IntervalMilliseconds,MidpointRounding.AwayFromZero),20,5000) : 80
+    };
+}
 public enum HandGestureScope { Left, Right, Both }
 public enum HandMovementDirection { Up, Down, Left, Right }
 public enum HandCornerChord { OuterCorners, InnerCorners, TopOuter, BottomOuter, TopInner, BottomInner }
@@ -67,6 +80,8 @@ public sealed class PerHandGestureSettings
     public double ScrollSensitivity { get; set; } = 1;
     public double ZoomSensitivity { get; set; } = 1;
     public Dictionary<HandGestureTrigger, HandGestureAction>? AdditionalActions { get; set; }
+    public Dictionary<HandGestureTrigger, HandShapeRepeat>? ShapeRepeats { get; set; }
+    public HandShapeRepeat ShapeRepeat(HandGestureTrigger trigger) => ShapeRepeats?.GetValueOrDefault(trigger) ?? HandShapeRepeat.Default;
     public Dictionary<string,string>? CustomActions { get; set; }
     public HashSet<string> HeldShortcuts { get; set; } = new();
     public Dictionary<int, HandGestureAction>? HoldActions { get; set; }
@@ -93,6 +108,7 @@ public sealed class PerHandGestureSettings
         clone.ImportedPointerProfile = ImportedPointerProfile?.Copy();
         clone.ImportedScrollProfile = ImportedScrollProfile?.Copy();
         clone.AdditionalActions = AdditionalActions == null ? null : new(AdditionalActions);
+        clone.ShapeRepeats = ShapeRepeats == null ? null : new(ShapeRepeats);
         clone.CustomActions = CustomActions == null ? null : new(CustomActions);
         clone.HeldShortcuts = new(HeldShortcuts ?? new());
         clone.HoldActions = HoldActions == null ? null : new(HoldActions);
@@ -103,6 +119,11 @@ public sealed class PerHandGestureSettings
         return clone;
     }
     public static bool IsPinch(HandGestureTrigger t) => t is >= HandGestureTrigger.TwoFingerPinch and <= HandGestureTrigger.FiveFingerSpread;
+    public static bool IsRotation(HandGestureTrigger t) => t is >= HandGestureTrigger.TwoFingerRotateLeft and <= HandGestureTrigger.FiveFingerRotateRight;
+    public static bool RotatesRight(HandGestureTrigger t) => t is >= HandGestureTrigger.TwoFingerRotateRight and <= HandGestureTrigger.FiveFingerRotateRight;
+    public static bool IsShape(HandGestureTrigger t) => IsPinch(t) || IsRotation(t);
+    public static HandGestureTrigger? Rotation(int count,bool right=false) => count is >= 2 and <= 5
+        ? (HandGestureTrigger)((int)(right ? HandGestureTrigger.TwoFingerRotateRight : HandGestureTrigger.TwoFingerRotateLeft)+count-2) : null;
     public static HandGestureTrigger? Pinch(int count, bool spread = false) => count is >= 2 and <= 5
         ? (HandGestureTrigger)((int)(spread ? HandGestureTrigger.TwoFingerSpread : HandGestureTrigger.TwoFingerPinch) + count - 2) : null;
     public static HandGestureTrigger? Force(int count) => count is >= 1 and <= 5 ? (HandGestureTrigger)((int)HandGestureTrigger.OneFingerForce+count-1) : null;
@@ -113,9 +134,10 @@ public sealed class PerHandGestureSettings
         || DispatchShortcutHelper.TryReadShortcut(label,out _,out _) || DispatchKeyResolver.TryResolveVirtualKey(label,out _));
     public static bool IsMovement(HandGestureTrigger t) => t is HandGestureTrigger.TwoFingerMove or HandGestureTrigger.ThreeFingerMove or HandGestureTrigger.FourFingerMove or HandGestureTrigger.FiveFingerMove;
     public static HandGestureTrigger? Movement(int count) => count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, 5 => HandGestureTrigger.FiveFingerMove, _ => null };
-    public static bool IsContinuous(HandGestureTrigger t) => IsPinch(t) || IsMovement(t);
+    public static bool IsContinuous(HandGestureTrigger t) => IsShape(t) || IsMovement(t);
     public static bool Allows(HandGestureTrigger t, HandGestureAction a) => Enum.IsDefined(t) && Enum.IsDefined(a) && (a == HandGestureAction.None
-        || (IsPinch(t) ? a == HandGestureAction.Zoom || IsDiscrete(a)
+        || (IsRotation(t) ? IsDiscrete(a)
+        : IsPinch(t) ? a == HandGestureAction.Zoom || IsDiscrete(a)
         : IsForce(t) ? IsDiscrete(a)
         : IsContinuous(t)
         ? a is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag or HandGestureAction.Scroll
@@ -141,6 +163,11 @@ public sealed class PerHandGestureSettings
     public void Normalize()
     {
         HeldShortcuts ??= new();
+        if (ShapeRepeats != null) foreach (var trigger in ShapeRepeats.Keys.ToArray())
+        {
+            if (!IsShape(trigger)) ShapeRepeats.Remove(trigger);
+            else ShapeRepeats[trigger]=(ShapeRepeats[trigger] ?? HandShapeRepeat.Default).Normalize();
+        }
         foreach (var t in Enum.GetValues<HandGestureTrigger>()) Set(t, Get(t));
         if (!Enum.IsDefined(PointerResponse)) PointerResponse = HandPointerResponse.AppleReference;
         if (PointerResponse == HandPointerResponse.ImportedApple && ImportedPointerProfile == null) PointerResponse = HandPointerResponse.AppleReference;
@@ -191,6 +218,7 @@ public sealed class HandGestureSettings
                 if (!result.Enabled(t))
                 {
                     result.Set(t,Right.Get(t)); copyCustom(t.ToString());
+                    if (PerHandGestureSettings.IsShape(t)) (result.ShapeRepeats ??= new())[t]=Right.ShapeRepeat(t);
                     if (PerHandGestureSettings.IsMovement(t))
                     {
                         result.DirectionalMovement?.Remove(t);

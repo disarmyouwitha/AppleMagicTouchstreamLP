@@ -6,6 +6,26 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
+- Every 2–5-finger shape page matches the current Mac catalog: **Pinch, Spread,
+  Rotate Left, Rotate Right**, plus automatic gray Hold/Lift lifecycle cards.
+  Shape demonstrations follow the selected direction. Left/Right, Mirror Edit,
+  searching, Shortcut Builder, recognition notes and persisted/exported settings
+  cover all eight rotation bindings. Rotation defaults to None; existing numeric
+  trigger identities and Pinch/Spread defaults remain unchanged.
+- Discrete shape actions support **Once**, **Repeat every ms** (20–5000 ms,
+  default 80), and **Repeat with motion**, matching Mac's 5-degree rotation and
+  logarithmic 6-percent scale steps. Reversal removes forward progress; pausing
+  stops motion repeats. Timed repeats require fresh frames. Late ticks emit at
+  most one action; lift, invalid/stale input, eligibility loss, reconfiguration
+  and teardown cancel the originating pad's repeat without affecting the other.
+  Continuous Zoom keeps following motion and does not use shortcut repeats.
+- Rotation competes with Pinch/Spread and translation at Mac's 3-degree,
+  0.75-mm arc threshold and angular/radial dominance ratios. Pending rotation
+  suppresses premature shape activation; competing translation requires agreement
+  from every tracked contact. The winning direction latches through reversal,
+  relabeling and count changes until all-up. Membership changes rebase geometry.
+  Real shape/movement activation beats a pending Hold on the same frame;
+  a configured Force crossing can override a shape and balance its output.
 - Optional captured-Mac motion response bundles both selected Mac trackpads' pointer
   and scroll curves, source sensitivity/direction, per-axis scroll history and the
   existing release momentum. It applies per hand, follows Mirror Edit, and also
@@ -83,7 +103,9 @@ with the shared 2 mm allowance. Partial lift before firing cancels acquisition.
 An activated held shortcut survives partial lift until all-up; replacement,
 rejoining or excessive motion releases invalid corner output.
 An activated motion/force/hold owner persists through membership changes until
-all-up; a pressure crossing cannot replace an activated drag.
+all-up. An explicitly configured reported-pressure Force can override a shape
+and own the remainder of that cycle. Established pointer/drag/scroll ownership
+retains Windows' accepted all-up priority.
 
 Three-finger movement follows Mac's evidenced acquisition policy: a visible fourth
 pre-contact defers activation only during the first 80 ms of the contact episode
@@ -97,7 +119,7 @@ competes with ordinary movement, three of the four IDs must project at least
 0.2 mm along the candidate translation, as on Mac; directional assignments and
 ordinary scrolling without a competing Hold retain their existing thresholds.
 
-Coordinated chords require two different selected devices, landing within 80 ms,
+Coordinated chords require two different selected devices, landing within one second,
 fresh samples within 150 ms and stationary original identities within 2 mm.
 Coordinated taps finish within 500 ms and 150 ms of the first partial lift.
 Rejoining, replacement, invalid data, stale input and loss of eligibility cancel
@@ -132,13 +154,18 @@ Existing serialized identities and capture formats remain unchanged.
 
 ## Remaining differences
 
-- Windows PTP reports do not provide trustworthy thumb/hand identity. Thumb+2,
-  its diagonal swipes/holds, and thumb-dependent rotation are unavailable. Existing
-  Thumb+2 tap assignments remain saved but inert on Windows. Pinch/spread retains
-  the previously accepted geometric Windows recognizer; it cannot enforce the
-  Mac's positive-thumb prerequisite.
-- Coordinated movement/directional gestures, growth of pending corner pairs
-  into larger chords, and thumb/rotation recognition remain outside this pass.
+- Windows PTP reports do not provide trustworthy thumb/hand identity. Thumb+2
+  diagonal swipes/holds remain unavailable; saved Thumb+2 tap assignments stay
+  inert. Pinch/Spread retains the accepted geometric Windows recognizer. Rotation
+  fits all tracked contacts around their centroid, using stable IDs and no guessed
+  thumb. If actual anatomical labels are supplied, it uses Mac's thumb-to-fingertip
+  centroid vector. Windows cannot enforce Mac's positive-thumb prerequisite.
+- Rotation runs assigned discrete actions/shortcuts. Windows has no equivalent
+  to Mac's native Rotate Content event; per user direction, no substitute native
+  action is offered. Applications can use their own rotation shortcuts.
+- Coordinated movement/directional gestures and thumb-specific recognition
+  remain separate work. Windows retains established pointer/drag/scroll ownership
+  when Force crosses, unlike Mac's broader Force override.
 - Mouse Takeover retains Windows' all-mouse hook and emergency
   Ctrl+Alt+R. It cannot reproduce Mac selected-device FLTR ownership. Windows shell
   3/4-finger actions may still conflict. No driver/settings changes are made.
@@ -151,6 +178,20 @@ Existing serialized identities and capture formats remain unchanged.
   the Mac host extension's gesture schema is not implemented.
 
 ## Verification and hardware handoff
+
+`ShapeGestureParityTests` verifies every 2–5-finger direction on both pads,
+signed repeat behavior, all-up/cancellation, shape/Force/Hold arbitration and
+settings cloning. `RotationCountsMac.json` projects all 1,875 frames from Mac's
+`rotation-counts.json` (SHA-256
+`2c6cdd8e7854bc2bd49330fb84e3f21086c41566ecc432fb54909f68474f6453`)
+into screen millimetres, preserving sequence numbers, anatomy and landing evidence.
+All 16 recorded shape trials select the same rotation family/direction as Mac
+with Pinch/Spread and movement competing, both with native labels and with labels
+removed to exercise Windows' actual input capability. WPF tests exercise all shape
+cards, Left/Right/Mirror repeat edits, settings save/load/export/import, mixed values
+and continuous-Zoom controls. Offline rendering can be enabled with
+`APPLEMAGICTOUCHSTREAM_SHAPE_PREVIEW_DIR`; it creates no live runtime or hooks.
+Live feel, timing and target-application shortcut behavior still need hardware testing.
 
 Build and full `--selftest` run against the Windows project. The suite includes
 the existing recorded tap/long-motion regressions and new hold/direction/chord,

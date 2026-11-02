@@ -70,6 +70,8 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
                         hand.Set(PerHandGestureSettings.Force(count)!.Value,HandGestureAction.None);
                         hand.Set(PerHandGestureSettings.Pinch(count)!.Value,HandGestureAction.None);
                         hand.Set(PerHandGestureSettings.Pinch(count,true)!.Value,HandGestureAction.None);
+                        hand.Set(PerHandGestureSettings.Rotation(count)!.Value,HandGestureAction.None);
+                        hand.Set(PerHandGestureSettings.Rotation(count,true)!.Value,HandGestureAction.None);
                         hand.Set(count==4 ? HandGestureTrigger.FourFingerTap:HandGestureTrigger.FiveFingerTap,HandGestureAction.None);
                         hand.HoldActions?.Remove(count);hand.DirectionalMovement?.Remove(PerHandGestureSettings.Movement(count)!.Value);
                     }
