@@ -396,3 +396,18 @@ and confirm Outline shows KAT/-S while no text reaches Translation or another ap
 Stop Recording, enter a translation using QWERTY or steno, and save. Check Stop
 while a chord is held, focus loss, timeout, Cancel and mode changes for leaked
 text or recording that remains armed. STENO force mouse must continue to work.
+
+### Layout Editor Show Contacts
+
+`LayoutContactPreviewTests` verifies no keyboard/STENO/haptic output during
+preview, pending-tap cancellation, held-contact all-up behavior when disabling,
+and normal fresh-input restoration using offline production replay.
+
+Hardware acceptance: enter Layout Editor, enable Show Contacts, place/roll fingers
+on each pad and verify the colored contacts align with the edited keys without
+typing or typing haptics. Confirm 2F pointer movement, clicks and 3F drag still
+work with the selected pads while 4F/5F gestures stay silent. Drag/select/resize
+geometry while contacts update; geometry and inspector must remain responsive. Turn
+the toggle off while fingers are held, then lift: no delayed key should dispatch.
+A fresh contact after all-up should restore ordinary editor input. Apply/Cancel,
+close/reopen config and ownership refresh must not leave preview suppression set.

@@ -687,3 +687,25 @@ errors, and permits correction; it is not historical uncorrected accuracy. New d
 resets all metrics. Free text is retained separately. Input and custom lists stay in
 view memory and are not exported, captured or stored in preferences. Input/custom
 list bounds keep scoring and prompt work off the recognition/output paths.
+
+### Layout Editor contact preview
+
+Show Contacts is a local, default-off editor toggle. It overlays each pad with
+anatomical contact colors/ellipses using the existing render snapshots, without
+modifying the staged layout. The overlay is a separate native view, with a 30 Hz
+common-mode timer, revision-only sampling, a 16-contact bound and 250 ms stale
+clear. Hiding/dismantling it stops the timer. Contact updates do not invalidate
+the editor document, key Canvas, selection, legends or inspector.
+
+While preview is on, the existing keymap editing runtime gate cancels pending/held
+keyboard and STENO output through shared cleanup, and returns after contact-state
+tracking without keyboard/STENO recognition or typing haptics. The gesture
+controller applies a temporary projection of saved settings: 1–3 finger gestures,
+including pointer/click/drag, remain available; 4–5 finger Tap/Move/directional,
+Force, Pinch/Spread/Rotate and Hold are disabled, as are per-pad four-corner Holds
+and coordinated four-fingers-per-hand actions. Lower-count coordinated inputs
+retain their assignments. Ownership/settings updates retain this projection until
+preview ends. Saved assignments are never changed. Enabling/disabling retains an all-up barrier
+so a held preview contact cannot become a key. Apply, Cancel and editor dismissal
+restore the normal input configuration. The toggle does not change saved keyboard,
+gesture, haptic or takeover preferences. Native selected-pad takeover is unchanged.

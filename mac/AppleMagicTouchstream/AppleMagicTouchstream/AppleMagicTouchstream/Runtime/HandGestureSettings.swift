@@ -909,3 +909,31 @@ extension GestureTrigger {
         (self == .fourCornersTap || self == .thumbTwoMove) ? value == .disabled : allowedActions.acceptsGestureAction(value)
     }
 }
+
+
+extension PerHandGestureSettings {
+    /// Editor-only projection. Saved assignments and all 1–3 contact inputs stay intact.
+    var layoutContactPreview:Self {
+        var value = self
+        for trigger in GestureTrigger.allCases {
+            let highCount = trigger.forceCount.map { $0 >= 4 } == true
+                || trigger.pinchCount.map { $0 >= 4 } == true
+                || trigger.rotationCount.map { $0 >= 4 } == true
+                || [.fourFingerMove,.fiveFingerMove,.fourFingerTap,.fiveFingerTap,.fourCornersTap].contains(trigger)
+            if highCount {
+                value.bindings[trigger] = .disabled
+                value.directionalMovement?[trigger.rawValue] = nil
+            }
+        }
+        for count in [4,5,Self.cornersHoldKey] { value.setHoldAction(.disabled,count:count) }
+        return value
+    }
+}
+
+extension TwoHandGestureSettings {
+    var layoutContactPreview:Self {
+        var value = self
+        for phase in TwoHandPhase.allCases { value.setAction(.disabled,for:.init(chord:.fourFingers,phase:phase)) }
+        return value
+    }
+}

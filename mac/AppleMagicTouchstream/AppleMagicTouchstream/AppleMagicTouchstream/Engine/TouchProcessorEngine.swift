@@ -788,6 +788,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
+        resetState(stopVoiceDictation:true)
+        layoutTransitionBlockedPads |= padsWithContacts
     }
 
     func setPersistentLayer(_ layer: Int) {
@@ -1142,6 +1144,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             let bit = UInt8(1) << (isLeftDevice ? 0:1)
             if touches.contains(where:{($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID != 6}) { padsWithContacts |= bit }
             else { padsWithContacts &= ~bit }
+        }
+        if keymapEditingEnabled {
+            layoutTransitionBlockedPads &= padsWithContacts
+            return nil // Contact preview observes telemetry only, including all-up cleanup.
         }
         let transitionBit = UInt8(1) << (isLeftDevice ? 0:1)
         if layoutTransitionBlockedPads & transitionBit != 0 {

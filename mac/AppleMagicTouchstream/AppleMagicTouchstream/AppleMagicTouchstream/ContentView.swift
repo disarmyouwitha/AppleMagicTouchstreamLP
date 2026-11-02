@@ -588,7 +588,13 @@ struct ContentView: View {
         }
     }
 
+    private func setLayoutContactPreview(_ enabled:Bool) {
+        viewModel.setKeymapEditingEnabled(enabled)
+        viewModel.gestures.setContactPreview(enabled)
+    }
+
     private func finishLayoutEditing() {
+        setLayoutContactPreview(false)
         editingLayout = false
         layoutEditorDocument = nil; layoutEditorTemplate = nil
         if layoutOption.isSteno { rebuildLayouts(); viewModel.updateCustomButtons(editingLayout && layoutOption.isSteno ? []:customButtons) }
@@ -615,7 +621,8 @@ struct ContentView: View {
     @ViewBuilder private var layoutEditorWorkspace: some View {
         if let document = layoutEditorDocument, let template = layoutEditorTemplate {
             LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
-                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer())
+                         onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer(),
+                         contactSnapshot:{ viewModel.snapshotTouchDataIfUpdated(since:$0) },onContactPreview:setLayoutContactPreview)
         }
     }
 
