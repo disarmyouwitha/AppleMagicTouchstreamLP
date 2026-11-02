@@ -144,13 +144,17 @@ internal static class HandGestureTests
             Check(restored.HandGesturesV1.Left.TwoFingerTap == HandGestureAction.None && restored.HandGesturesV1.Left.PointerSensitivity == 1,"invalid settings were not normalized");
             RunKeyboardArbitration();
             RunAccelerationAndScrollDirection();
+#if !AMT_PORTABLE_TESTS
             RunPanelPreferences();
+#endif
             RunFastPointerContinuity();
             RunCapturedTapLanding();
             RunCapturedMovingTaps();
             RunDragScrollArbitration();
+#if !AMT_PORTABLE_TESTS
             MacGesturePortTests.Run();
             MacGoldParityTests.Run();
+#endif
             failure = ""; return true;
         }
         catch (Exception ex) { failure = ex.Message; return false; }
@@ -328,6 +332,7 @@ internal static class HandGestureTests
         var huge = PointerMotionLimits.Constrain(double.MaxValue,-double.MaxValue);
         Check(double.IsFinite(huge.X) && Math.Abs(huge.X) <= 4096 && Math.Abs(huge.Y) <= 4096,"pathological output was not bounded");
     }
+#if !AMT_PORTABLE_TESTS
     private static void RunPanelPreferences()
     {
         var settings=new UserSettings();
@@ -373,6 +378,7 @@ internal static class HandGestureTests
         };
         foreach (var child in children) foreach (var found in Controls<T>(child)) yield return found;
     }
+#endif
     private static void RunAccelerationAndScrollDirection()
     {
         // The same cross-language golden vectors used by the Mac production tests.

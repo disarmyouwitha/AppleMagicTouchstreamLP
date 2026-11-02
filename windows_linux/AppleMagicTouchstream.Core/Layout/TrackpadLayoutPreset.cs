@@ -166,8 +166,9 @@ public sealed class TrackpadLayoutPreset
     public static TrackpadLayoutPreset TouchStream { get; } = new("touchstream", "TouchStream", 9, 6,
         Array.Empty<PointMm>(), TouchStreamLayoutDefinition.Labels(false), allowsColumnSettings:false);
     public static TrackpadLayoutPreset Steno { get; }=new("STENO","STENO",6,4,Array.Empty<PointMm>(),StenoLayoutDefinition.Labels(false,false),allowsColumnSettings:false);
-    public static TrackpadLayoutPreset StenoVoyager { get; }=new("STENO Voyager","STENO Voyager",6,4,SixByThree.ColumnAnchorsMm,StenoLayoutDefinition.Labels(true,false));
-    public bool IsSteno=>Name is "STENO" or "STENO Voyager";
+    public static TrackpadLayoutPreset StenoVoyager { get; }=new("STENO Voyager","Steno 6x3",6,4,SixByThree.ColumnAnchorsMm,StenoLayoutDefinition.Labels(true,false));
+    public static TrackpadLayoutPreset StenoSingle { get; }=new("STENO Single","Steno Single",10,4,Array.Empty<PointMm>(),StenoLayoutDefinition.SingleLabels(false),allowsColumnSettings:false);
+    public bool IsSteno=>Name is "STENO" or "STENO Voyager" or "STENO Single";
 
     public static TrackpadLayoutPreset[] All { get; } =
     {
@@ -179,6 +180,7 @@ public sealed class TrackpadLayoutPreset
         TouchStream,
         Steno,
         StenoVoyager,
+        StenoSingle,
         MobileOrthoTwelveByFour,
         Mobile
     };
@@ -203,7 +205,7 @@ public sealed class TrackpadLayoutPreset
     public bool UseFixedRightStaggeredQwerty { get; }
     public double FixedKeyScale { get; }
     public bool AllowsColumnSettings { get; }
-    public string[][] LeftLabels => IsSteno ? StenoLayoutDefinition.Labels(Name=="STENO Voyager",true)
+    public string[][] LeftLabels => Name=="STENO Single" ? StenoLayoutDefinition.SingleLabels(true):IsSteno ? StenoLayoutDefinition.Labels(Name=="STENO Voyager",true)
         : Name == "touchstream" ? TouchStreamLayoutDefinition.Labels(true) : Mirror(RightLabels);
 
     private TrackpadLayoutPreset(

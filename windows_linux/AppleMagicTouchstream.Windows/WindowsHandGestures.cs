@@ -41,53 +41,65 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         if ((e.Flags & 1) != 0 && e.ExtraInfo != NativeGestureOutput.EventTag && e.Message is 0x201 or 0x204 or 0x207 or 0x20B)
             Interlocked.Exchange(ref _buttonInterference,1);
     }
-    private void CheckButtonInterference()
+    private bool CheckButtonInterference()
     {
-        if (Interlocked.Exchange(ref _buttonInterference,0) == 0) return;
-        _output.Release(); _engine.Reset();
+        if (Interlocked.Exchange(ref _buttonInterference,0) == 0) return false;
+        _output.Release();_stenoPointer.Cancel();_engine.Reset();return true;
     }
     public string Status
     {
         get { lock (_sync) return _stenoMode ? "STENO pointer movement is enabled; lift both hands before the next chord." : $"{(_eligible() ? "Active" : "Native mouse · gesture protection active")} · frames {_frames:N0} · reserved {_reserved:N0}"; }
     }
-    public void Configure(UserSettings settings)
+    public void Configure(UserSettings settings,bool layoutEditor=false,bool showContacts=false)
     {
         lock (_sync)
         {
-            _stenoMode=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
+            _stenoMode=!layoutEditor && TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
             _lastTakeover=_eligible();
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
             _output.Release();
             var effective = CapturedMacMotionProfiles.Effective(settings.HandGesturesV1 ?? new());
-            _stenoPointer.Configure(settings.StenoPointerFingerCount,effective);
+            _stenoPointer.Configure(2,effective,settings.StenoForceThreshold);
+            if(layoutEditor && showContacts)
+            {
+                foreach(var hand in new[]{effective.Left,effective.Right})
+                {
+                    for(int count=4;count<=5;count++)
+                    {
+                        hand.Set(PerHandGestureSettings.Movement(count)!.Value,HandGestureAction.None);
+                        hand.Set(PerHandGestureSettings.Force(count)!.Value,HandGestureAction.None);
+                        hand.Set(PerHandGestureSettings.Pinch(count)!.Value,HandGestureAction.None);
+                        hand.Set(PerHandGestureSettings.Pinch(count,true)!.Value,HandGestureAction.None);
+                        hand.Set(count==4 ? HandGestureTrigger.FourFingerTap:HandGestureTrigger.FiveFingerTap,HandGestureAction.None);
+                        hand.HoldActions?.Remove(count);hand.DirectionalMovement?.Remove(PerHandGestureSettings.Movement(count)!.Value);
+                    }
+                    hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.None };
+                }
+                effective.Coordinated=new() { HoldActions=new() { [CoordinatedHandChord.OuterCorners]=HandGestureAction.None } };
+            }
             // Current PTP contacts cannot positively classify a thumb. An unavailable
             // input must not reserve a family whose usable bindings are all None.
             effective.Left.ThumbTwoTap = effective.Right.ThumbTwoTap = HandGestureAction.None;
-            _engine.Configure(effective, same);
+            if(_stenoMode)
+            {
+                var corners=new HandGestureSettings();
+                foreach(var hand in new[]{corners.Left,corners.Right})
+                {
+                    foreach(var trigger in Enum.GetValues<HandGestureTrigger>())hand.Set(trigger,HandGestureAction.None);
+                    hand.CornerHoldActions=new() { [HandCornerChord.OuterCorners]=HandGestureAction.OpenConfig };
+                }
+                corners.Left.CornerHoldThresholds=effective.Left.CornerHoldThresholds;
+                corners.Right.CornerHoldThresholds=effective.Right.CornerHoldThresholds;
+                corners.Coordinated.HoldActions[CoordinatedHandChord.OuterCorners]=HandGestureAction.OpenConfig;
+                corners.Coordinated.HoldThresholds=effective.Coordinated.HoldThresholds;
+                _engine.Configure(corners,same);
+            }
+            else _engine.Configure(effective, same);
             _output.ResetRemainders();
         }
     }
-    internal static int ReadContacts(in InputFrame frame, ushort maxX, ushort maxY, Span<HandGestureContact> contacts, out bool fourthContactPending)
-    {
-        int count = 0;
-        bool pendingContact = false;
-        for (int i = 0; i < frame.GetClampedContactCount(); i++)
-        {
-            var c = frame.GetContact(i);
-            if (!c.TipSwitch)
-            {
-                // PTP has no Mac anatomical labels or native hover phase.
-                // An in-range confident non-tip slot is the available landing
-                // evidence; it never counts as a touching finger or movement.
-                pendingContact |= c.Confidence && maxX > 0 && maxY > 0 && c.X <= maxX && c.Y <= maxY;
-                continue;
-            }
-            contacts[count++] = new(c.Id, maxX == 0 ? double.NaN : c.X * 160.0 / maxX,
-                maxY == 0 ? double.NaN : c.Y * 114.9 / maxY, Pressure:c.Pressure8, HasPressure:c.HasForceData);
-        }
-        fourthContactPending = count == 3 && pendingContact;
-        return count;
-    }
+    internal static int ReadContacts(in InputFrame frame,ushort maxX,ushort maxY,Span<HandGestureContact> contacts,out bool fourthContactPending)
+        =>HandGestureContactAdapter.ReadContacts(in frame,maxX,maxY,contacts,out fourthContactPending);
     public bool Process(TrackpadSide side, in InputFrame frame, ushort maxX, ushort maxY, long timestamp)
     {
         lock (_sync)
@@ -122,10 +134,14 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             int count=ReadContacts(in frame,maxX,maxY,contacts,out _);
             try
             {
+                if(CheckButtonInterference())return true;
                 _output.ObserveFrame(); _output.ThrowIfFaulted();
                 bool valid=frame.ContactCount<=InputFrame.MaxContacts && _eligible() && !_output.ForeignButtonDown;
-                return _stenoPointer.Process(side,contacts[..count],timestamp/(double)Stopwatch.Frequency,
+                if(_stenoPointer.HasOwner && count==0)_engine.Process(side,contacts[..count],timestamp/(double)Stopwatch.Frequency,Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,valid);
+                if(!_stenoPointer.HasOwner && _engine.Process(side,contacts[..count],timestamp/(double)Stopwatch.Frequency,Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,valid))return true;
+                bool claimed=_stenoPointer.Process(side,contacts[..count],timestamp/(double)Stopwatch.Frequency,
                     Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,valid);
+                if(claimed)_pointerActivity();return claimed;
             }
             catch(Exception error) { _stenoPointer.Cancel(); Fail(error); return true; }
         }
@@ -137,7 +153,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             if (_disposed) return;
             if(_stenoMode)
             {
-                try { _output.ThrowIfFaulted(); _stenoPointer.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,_eligible() && !_output.ForeignButtonDown); }
+                try { _output.ThrowIfFaulted(); if(!_stenoPointer.HasOwner)_engine.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,_eligible()); _stenoPointer.Tick(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency,_eligible() && !_output.ForeignButtonDown); }
                 catch(Exception error) { _stenoPointer.Cancel(); Fail(error); }
                 return;
             }
@@ -236,7 +252,7 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     }
     public void Tap(HandGestureAction action)
     {
-        if (_held || ForeignButtonDown) return;
+        if(ForeignButtonDown || _held && action!=HandGestureAction.SecondaryClick)return;
         if (action is HandGestureAction.ScrollUp or HandGestureAction.ScrollDown or HandGestureAction.PanLeft or HandGestureAction.PanRight)
         {
             Scroll(action == HandGestureAction.PanLeft ? 10 : action == HandGestureAction.PanRight ? -10 : 0,
@@ -256,7 +272,7 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
         long now=Stopwatch.GetTimestamp(); int index=(int)side;
         if (now-_lastForceHaptic[index]<Stopwatch.Frequency*.05) return;
         _lastForceHaptic[index]=now;
-        MagicTrackpadActuatorHaptics.TryVibrate(side);
+        MagicTrackpadActuatorHaptics.TryVibrate(side,force:true);
     }
     private static bool ModifierBusy => Down(0x10) || Down(0x11) || Down(0x12) || Down(0x5B) || Down(0x5C);
     private void Shortcut(HandGestureAction action)

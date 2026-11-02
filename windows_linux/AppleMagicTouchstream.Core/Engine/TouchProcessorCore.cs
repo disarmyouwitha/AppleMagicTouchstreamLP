@@ -316,7 +316,7 @@ internal sealed partial class TouchProcessorCore
         bool rebuildBindings =
             Math.Abs(normalized.SnapRadiusPercent - _config.SnapRadiusPercent) > 0.0001 ||
             Math.Abs(normalized.SnapAmbiguityRatio - _config.SnapAmbiguityRatio) > 0.0001;
-        if(IsSteno && normalized.StenoHaptics!=_config.StenoHaptics) CancelSteno();
+        if(IsSteno && (normalized.StenoHaptics!=_config.StenoHaptics || normalized.StenoHapticTouch!=_config.StenoHapticTouch || normalized.StenoHapticRelease!=_config.StenoHapticRelease)) CancelSteno();
         _config = normalized;
         RefreshGestureActionsFromConfig();
         if (rebuildBindings)
@@ -2086,9 +2086,10 @@ internal sealed partial class TouchProcessorCore
                     }
                 }
                 break;
+            case EngineActionKind.Text:
             case EngineActionKind.AppLaunch:
                 EnqueueDispatchEvent(
-                    DispatchEventKind.AppLaunch,
+                    action.Kind==EngineActionKind.Text ? DispatchEventKind.Text : DispatchEventKind.AppLaunch,
                     0,
                     DispatchMouseButton.None,
                     repeatToken: 0,
@@ -2167,6 +2168,7 @@ internal sealed partial class TouchProcessorCore
             case EngineActionKind.Modifier:
             case EngineActionKind.MouseButton:
             case EngineActionKind.KeyChord:
+            case EngineActionKind.Text:
             case EngineActionKind.AppLaunch:
                 ExtendTypingGrace(timestampTicks);
                 break;
@@ -2524,6 +2526,7 @@ internal sealed partial class TouchProcessorCore
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
             DispatchEventKind.ModifierDown or
+            DispatchEventKind.Text or
             DispatchEventKind.AppLaunch;
     }
 
@@ -2532,6 +2535,7 @@ internal sealed partial class TouchProcessorCore
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
             DispatchEventKind.ModifierDown or
+            DispatchEventKind.Text or
             DispatchEventKind.AppLaunch;
     }
 
@@ -5129,6 +5133,7 @@ internal sealed partial class TouchProcessorCore
             EngineActionKind.Modifier => DispatchEventKind.ModifierDown,
             EngineActionKind.MouseButton => DispatchEventKind.MouseButtonClick,
             EngineActionKind.AppLaunch => DispatchEventKind.AppLaunch,
+            EngineActionKind.Text => DispatchEventKind.Text,
             _ => DispatchEventKind.None
         };
     }
@@ -6985,6 +6990,7 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
 {
     private readonly Func<bool>? _stenoEligible;
     private int _layoutGeneration;
+    private bool _layoutEditorActive;
     private byte _postedDownPads;
     private readonly TouchProcessorCore _core;
     private readonly IHandGestureRuntime? _handGestures;
@@ -7032,6 +7038,20 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
         _thread.Start();
     }
 
+    public void SetLayoutEditor(bool active)
+    {
+        lock(_coreGate)
+        {
+            _layoutEditorActive=active;_keyboardArbiter?.Invalidate(true);_handGestures?.Cancel();_core.ResetState();
+            lock(_gate)
+            {
+                _layoutGeneration++;Interlocked.Add(ref _processedCount,_count);_head=_tail=_count=0;
+                _core.SetLayoutTransitionContacts(_postedDownPads);
+            }
+            _dispatchQueue?.Clear();
+            _dispatchQueue?.TryEnqueue(new(Stopwatch.GetTimestamp(),DispatchEventKind.ReleaseAllKeyboard,0,DispatchMouseButton.None,0,DispatchEventFlags.None,TrackpadSide.Left,"layout_editor"));
+        }
+    }
     public bool Post(TrackpadSide side, in InputFrame frame, ushort maxX, ushort maxY, long timestampTicks)
     {
         lock (_gate)
@@ -7342,7 +7362,8 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
             {
                 lock (_coreGate)
                 {
-                    if(_core.IsSteno)
+                    if(_layoutEditorActive) { _handGestures?.Tick(); }
+                    else if(_core.IsSteno)
                     {
                         if(_stenoEligible!=null) { _core.SetStenoAdmission(_stenoEligible()); _core.TickSteno(Stopwatch.GetTimestamp()); }
                         _handGestures?.Tick();
@@ -7359,7 +7380,12 @@ internal sealed class TouchProcessorActor : IDisposable,IEngineDispatchSink
                 if(frame.LayoutGeneration!=_layoutGeneration) { Interlocked.Increment(ref _processedCount); continue; }
                 if(Interlocked.Exchange(ref _proposalOverflow,0)!=0)
                 { _keyboardArbiter?.Invalidate(true); _handGestures?.Cancel(); _core.ResetState(); }
-                if(_core.IsSteno)
+                if(_layoutEditorActive)
+                {
+                    _handGestures?.Process(frame.Side,in payload,frame.MaxX,frame.MaxY,frame.TimestampTicks);
+                    _handGestures?.Tick();
+                }
+                else if(_core.IsSteno)
                 {
                     if(_stenoEligible!=null)
                     {

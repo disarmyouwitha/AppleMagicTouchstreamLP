@@ -26,7 +26,7 @@ internal sealed class HandGesturePanel : Grid
     private static readonly Brush TextColor=new SolidColorBrush(Color.FromRgb(225,231,235));
     private static readonly Brush Secondary=new SolidColorBrush(Color.FromRgb(151,169,182));
     private sealed record Page(string Id,string Group,string Title,int Count=0,bool Shape=false,bool Corners=false,CoordinatedHandChord? Chord=null);
-    private sealed record Slot(string Key,string Title,HandGestureTrigger? Trigger=null,int HoldCount=0,bool Corner=false,HandMovementDirection? Direction=null,CoordinatedHandChord? Chord=null,bool Hold=false)
+    private sealed record Slot(string Key,string Title,HandGestureTrigger? Trigger=null,int HoldCount=0,bool Corner=false,HandMovementDirection? Direction=null,CoordinatedHandChord? Chord=null,bool Hold=false,bool Force=false)
     { public bool IsHold=>HoldCount>0 || Corner || Hold; }
     internal HandGestureScope EditingScope { get=>_scope; set=>SetScope(value); }
     internal bool MirrorEdits { get=>_mirror.IsChecked==true; set=>_mirror.IsChecked=value; }
@@ -110,6 +110,8 @@ internal sealed class HandGesturePanel : Grid
         if(_refreshing) return; _refreshing=true;
         try
         {
+            bool steno=TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName).IsSteno;
+            _navigation.IsEnabled=_inspector.IsEnabled=!steno;_pageContent.Opacity=steno ? .45:1;
             _settings.HandGesturesV1.Normalize(); _mirror.IsEnabled=_scope!=HandGestureScope.Both;
             _pages.Clear(); _slots.Clear(); _pageContent.Children.Clear(); _inspector.Children.Clear(); _navigation.Items.Clear();
             if(_scope==HandGestureScope.Both)
@@ -135,7 +137,7 @@ internal sealed class HandGesturePanel : Grid
                 var row=new ListBoxItem { Tag=item,Content=Label(item.Title,13),Padding=new(10,7,10,1),Foreground=TextColor,Margin=new(0,0,0,3) };
                 row.SetResourceReference(StyleProperty,"GestureNavigationItemStyle"); _navigation.Items.Add(row); if(item==page) _navigation.SelectedItem=row;
             }
-            _pageContent.Children.Add(Note(_scope==HandGestureScope.Both ? "Gestures / Both hands" : $"Gestures / {ScopeTitle}"));
+            if(steno)_pageContent.Children.Add(Note("Configurable gestures are disabled in STENO. Mouse force actions and Outer Corners remain available."));
             var heading=new Grid(); heading.ColumnDefinitions.Add(new() { Width=new(1,GridUnitType.Star) }); heading.ColumnDefinitions.Add(new() { Width=new(180) });
             heading.RowDefinitions.Add(new() { Height=GridLength.Auto }); heading.RowDefinitions.Add(new() { Height=GridLength.Auto });
             FrameworkElement demo=page.Chord is {} exampleChord ? new CoordinatedGestureDemonstration(exampleChord) : new GestureDemonstration(page.Count,page.Shape,page.Corners)
@@ -151,6 +153,7 @@ internal sealed class HandGesturePanel : Grid
                 var cards=new UniformGrid { Columns=2 }; _pageContent.Children.Add(cards);
                 if(chord is CoordinatedHandChord.ThreeFingers or CoordinatedHandChord.FourFingers) AddCard(cards,new(chord+"/Tap","Tap",Chord:chord));
                 AddCard(cards,new(chord+"/Hold","Hold",Chord:chord,Hold:true));
+                if(chord is CoordinatedHandChord.ThreeFingers or CoordinatedHandChord.FourFingers) AddCard(cards,new(chord+"/Force","Force Click",Chord:chord,Force:true));
             }
             else if(page.Corners) AddCard(_pageContent,new("CornerHold","Hold",Corner:true));
             else if(page.Shape)
@@ -180,17 +183,17 @@ internal sealed class HandGesturePanel : Grid
     private HandGestureAction Get(PerHandGestureSettings hand,Slot s)=>s.Corner ? hand.CornerAction(HandCornerChord.OuterCorners) : s.HoldCount>0 ? hand.Hold(s.HoldCount) : s.Direction is {} d ? hand.DirectionalMovement?.GetValueOrDefault(s.Trigger!.Value)?.Get(d) ?? HandGestureAction.None : hand.Get(s.Trigger!.Value);
     private HandGestureAction? Get(Slot s)
     {
-        if(s.Chord is {} chord) return _settings.HandGesturesV1.Coordinated.Action(chord,s.Hold);
+        if(s.Chord is {} chord) return _settings.HandGesturesV1.Coordinated.Action(chord,s.Hold,s.Force);
         var left=Get(_settings.HandGesturesV1.Left,s); var right=Get(_settings.HandGesturesV1.Right,s);
         if(MirrorEdits && (left!=right || (left==HandGestureAction.Custom && (_settings.HandGesturesV1.Left.CustomActions?.GetValueOrDefault(s.Key)!=_settings.HandGesturesV1.Right.CustomActions?.GetValueOrDefault(s.Key)
             || s.IsHold && _settings.HandGesturesV1.Left.HeldShortcuts.Contains(s.Key)!=_settings.HandGesturesV1.Right.HeldShortcuts.Contains(s.Key))))) return null;
         return _scope==HandGestureScope.Right ? right : left;
     }
     private string? Custom(Slot s)=>s.Chord!=null ? _settings.HandGesturesV1.Coordinated.CustomActions.GetValueOrDefault(s.Key) : Hand.CustomActions?.GetValueOrDefault(s.Key);
-    private string Display(Slot s)=>Get(s) is {} action ? action==HandGestureAction.Custom ? AppLaunchActionHelper.GetDisplayLabel(Custom(s)) : ActionTitle(action) : "Mixed";
+    private string Display(Slot s)=>Get(s) is {} action ? action==HandGestureAction.Custom ? TextShortcutReference.TryRead(Custom(s),out _) ? "Saved text":AppLaunchActionHelper.GetDisplayLabel(Custom(s)) : ActionTitle(action) : "Mixed";
     private void Set(Slot s,HandGestureAction action)
     {
-        if(s.Chord is {} chord) { (s.Hold ? _settings.HandGesturesV1.Coordinated.HoldActions : _settings.HandGesturesV1.Coordinated.TapActions)[chord]=action; return; }
+        if(s.Chord is {} chord) { (s.Force ? _settings.HandGesturesV1.Coordinated.ForceActions : s.Hold ? _settings.HandGesturesV1.Coordinated.HoldActions : _settings.HandGesturesV1.Coordinated.TapActions)[chord]=action; return; }
         Apply(hand=>
         {
             if(s.Corner) (hand.CornerHoldActions ??= new())[HandCornerChord.OuterCorners]=action;
@@ -227,8 +230,8 @@ internal sealed class HandGesturePanel : Grid
         {
             AddNumber(_inspector,"Hold threshold (ms)",HoldTime(slot),100,5000,v=>SetHoldTime(slot,v));
             bool held=slot.Chord!=null ? _settings.HandGesturesV1.Coordinated.HeldShortcuts.Contains(slot.Key) : Hand.HeldShortcuts.Contains(slot.Key);
-            bool available(PerHandGestureSettings hand)=>Get(hand,slot)==HandGestureAction.Custom && hand.CustomActions?.GetValueOrDefault(slot.Key) is {} label && !AppLaunchActionHelper.TryParse(label,out _);
-            bool canHold=slot.Chord!=null ? value==HandGestureAction.Custom && Custom(slot) is {} label && !AppLaunchActionHelper.TryParse(label,out _)
+            bool available(PerHandGestureSettings hand)=>Get(hand,slot)==HandGestureAction.Custom && hand.CustomActions?.GetValueOrDefault(slot.Key) is {} label && !AppLaunchActionHelper.TryParse(label,out _) && !TextShortcutReference.TryRead(label,out _);
+            bool canHold=slot.Chord!=null ? value==HandGestureAction.Custom && Custom(slot) is {} label && !AppLaunchActionHelper.TryParse(label,out _) && !TextShortcutReference.TryRead(label,out _)
                 : MirrorEdits ? available(_settings.HandGesturesV1.Left) && available(_settings.HandGesturesV1.Right) : available(Hand);
             bool? heldValue=held;
             if(slot.Chord==null && MirrorEdits && _settings.HandGesturesV1.Left.HeldShortcuts.Contains(slot.Key)!=_settings.HandGesturesV1.Right.HeldShortcuts.Contains(slot.Key)) heldValue=null;

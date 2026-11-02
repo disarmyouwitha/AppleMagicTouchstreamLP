@@ -317,11 +317,13 @@
           <TextBlock Text="Release: Ctrl+Alt+R" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
           <TextBlock x:Name="MouseTakeoverStatusText" Text="Off" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="500" />
         </WrapPanel>
+        <TextBlock x:Name="SavedTextOutputStatus" Foreground="#8b949e" FontSize="12" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
     <Grid x:Name="KeyboardWorkspace" Grid.Row="2" Margin="16">
       <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected, ElementName=GestureSettingsTab}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
       <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <Grid x:Name="LayoutEditorHost" Grid.ColumnSpan="3" Panel.ZIndex="10" Visibility="Collapsed" />
       <ScrollViewer x:Name="TrackpadScrollViewer" Grid.Column="0" Margin="0,0,12,0" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
         <Grid x:Name="TrackpadWorkspace" MinWidth="360" MinHeight="580">
           <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
@@ -373,8 +375,9 @@
                   <TextBlock Text="Layout" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <local:ExplicitSelectionComboBox x:Name="LayoutPresetCombo" Grid.Column="1" Height="26" Margin="8,0,0,0" />
                 </Grid>
+                <Button x:Name="OpenLayoutEditorButton" Content="▣ Layout Editor" Margin="0,8,0,0" Height="30" />
                 <local:StenoConnectionPanel x:Name="StenoPanel" Visibility="Collapsed" />
-                <Expander IsExpanded="False" Margin="0,8,0,0">
+                <Expander IsExpanded="False" Margin="0,8,0,0" Visibility="Collapsed">
                   <Expander.Header>
                     <TextBlock Text="Column Tuning" Foreground="#8b949e" FontSize="12" />
                   </Expander.Header>
@@ -519,8 +522,8 @@
                       <TextBlock Grid.Row="3" Grid.Column="0" Text="Force Instead of Hold" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
                       <TextBox x:Name="KeymapHoldForceBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" ToolTip="0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached." />
 
-                      <TextBlock Grid.Row="4" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
-                      <TextBox x:Name="KeyRotationBox" Grid.Row="4" Grid.Column="1" Height="24" Margin="8,8,0,0" />
+                      <TextBlock Grid.Row="4" Grid.Column="0" Visibility="Collapsed" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                      <TextBox Visibility="Collapsed" x:Name="KeyRotationBox" Grid.Row="4" Grid.Column="1" Height="24" Margin="8,8,0,0" />
                     </Grid>
                     <Border Margin="0,12,0,0"
                             Padding="12"
@@ -650,6 +653,7 @@
                                   Height="28"
                                   Margin="8,0,0,0" />
                         </Grid>
+                        <local:TextShortcutEditor x:Name="KeyboardTextShortcutEditor" />
                         <Grid Margin="0,10,0,0">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -664,7 +668,7 @@
                         </Grid>
                       </StackPanel>
                     </Border>
-                    <Expander x:Name="CustomButtonsExpander" IsExpanded="False" Margin="0,12,0,0">
+                    <Expander Visibility="Collapsed" x:Name="CustomButtonsExpander" IsExpanded="False" Margin="0,12,0,0">
                       <Expander.Header>
                         <Border Margin="10,0,0,0"
                                 Padding="8,2"

@@ -55,7 +55,7 @@ public sealed class HandGestureEngine
     private readonly IHandGestureOutput _output;
     private readonly CoordinatedHandGestureEngine _coordinated = new();
     private readonly PerHandGestureSettings[] _settings = [new(), new()];
-    private TrackpadSide? _dragOwner;
+    private byte _dragOwners;
     private long _epoch;
     public HandGestureEngine(IHandGestureOutput output) { _output = output; }
 
@@ -78,7 +78,7 @@ public sealed class HandGestureEngine
         _epoch++;
         for (int i=0;i<2;i++) { _output.HeldAssignment(i,null); Cancel(_pads[i]); }
         _output.HeldAssignment(2,null); _coordinated.Reset();
-        if (_dragOwner != null) { _output.PrimaryButton(false); _dragOwner = null; }
+        if (_dragOwners != 0) { _output.PrimaryButton(false); _dragOwners = 0; }
     }
     public void Cancel(TrackpadSide side) { EndOwner(side,_pads[(int)side]); Cancel(_pads[(int)side]); _coordinated.Cancel(_output); }
     private static void Cancel(Pad p)
@@ -95,6 +95,7 @@ public sealed class HandGestureEngine
     private static void CancelTaps(Pad p) { p.Two.Cancel(); p.Three.Cancel(); p.Four.Cancel(); p.Five.Cancel(); }
     private void Emit(PerHandGestureSettings settings,HandGestureAction action,string slot,int heldOwner=-1)
     {
+        if(_dragOwners!=0 && action is HandGestureAction.PrimaryClick or HandGestureAction.DoubleClick)return;
         if (action == HandGestureAction.Custom)
         { if (settings.CustomActions?.GetValueOrDefault(slot) is {} label)
             { if (heldOwner>=0 && settings.HeldShortcuts.Contains(slot) && !AppLaunchActionHelper.TryParse(label,out _)) _output.HeldAssignment(heldOwner,label);
@@ -105,7 +106,8 @@ public sealed class HandGestureEngine
     {
         _output.HeldAssignment((int)side,null);
         p.Owner = null; p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
-        if (_dragOwner == side) { _output.PrimaryButton(false); _dragOwner = null; }
+        byte bit=(byte)(1<<(int)side);
+        if((_dragOwners&bit)!=0){_dragOwners&=(byte)~bit;if(_dragOwners==0)_output.PrimaryButton(false);}
     }
     public void Tick(double hostTime, bool eligible)
     {
@@ -179,7 +181,7 @@ public sealed class HandGestureEngine
             Cancel(p); p.Reserved = count > 0; p.Blocked = count > 0;
             return true;
         }
-        if (!eligible || !valid || (_dragOwner.HasValue && _dragOwner != side))
+        if (!eligible || !valid)
         {
             EndOwner(side, p); Cancel(p);
             if (count == 0) { p.Blocked = p.ForceBlocked = p.HoldBlocked = false; p.Two.Clear(); p.Three.Clear(); p.Four.Clear(); p.Five.Clear(); }
@@ -226,10 +228,10 @@ public sealed class HandGestureEngine
             var threeTrigger = p.Thumb.Complete();
             p.CycleClaimed |= two && enabled(HandGestureTrigger.TwoFingerTap) || three && threeTrigger.HasValue && enabled(threeTrigger.Value)
                 || four && enabled(HandGestureTrigger.FourFingerTap) || five && enabled(HandGestureTrigger.FiveFingerTap);
-            if (two && enabled(HandGestureTrigger.TwoFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.TwoFingerTap),nameof(HandGestureTrigger.TwoFingerTap));
-            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value) && _dragOwner == null) Emit(settings,settings.Get(threeTrigger.Value),threeTrigger.Value.ToString());
-            if (four && enabled(HandGestureTrigger.FourFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FourFingerTap),nameof(HandGestureTrigger.FourFingerTap));
-            if (five && enabled(HandGestureTrigger.FiveFingerTap) && _dragOwner == null) Emit(settings,settings.Get(HandGestureTrigger.FiveFingerTap),nameof(HandGestureTrigger.FiveFingerTap));
+            if (two && enabled(HandGestureTrigger.TwoFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.TwoFingerTap),nameof(HandGestureTrigger.TwoFingerTap));
+            if (three && threeTrigger.HasValue && enabled(threeTrigger.Value)) Emit(settings,settings.Get(threeTrigger.Value),threeTrigger.Value.ToString());
+            if (four && enabled(HandGestureTrigger.FourFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.FourFingerTap),nameof(HandGestureTrigger.FourFingerTap));
+            if (five && enabled(HandGestureTrigger.FiveFingerTap)) Emit(settings,settings.Get(HandGestureTrigger.FiveFingerTap),nameof(HandGestureTrigger.FiveFingerTap));
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
             p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset();
@@ -358,7 +360,7 @@ public sealed class HandGestureEngine
                 else if (settings.Get(trigger.Value) == HandGestureAction.PrimaryDrag)
                 {
                     foreach (var pad in _pads) pad.Momentum.Cancel();
-                    _output.PrimaryButton(true); _dragOwner = side;
+                    if(_dragOwners==0)_output.PrimaryButton(true);_dragOwners|=(byte)(1<<(int)side);
                 }
             }
         }

@@ -4,20 +4,25 @@ namespace AppleMagicTouchstream;
 
 public sealed class KeyLayout
 {
-    public KeyLayout(NormalizedRect[][] rects, string[][] labels,bool isSteno=false)
+    public KeyLayout(NormalizedRect[][] rects, string[][] labels,bool isSteno=false,bool physicalRotation=false)
     {
         Rects = rects;
         Labels = labels;
-        HitGeometries = BuildHitGeometries(rects);
+        UsePhysicalRotation=physicalRotation;
+        HitGeometries = BuildHitGeometries(rects,physicalRotation);
         IsSteno=isSteno;
     }
 
     public NormalizedRect[][] Rects { get; }
     public string[][] Labels { get; }
     public bool IsSteno { get; }
+    public bool UsePhysicalRotation {get;}
+    public NormalizedRect[][]? DisplayRects { get; init; }
+    public Dictionary<(int Row,int Column),int[]> KeyLayers { get; init; }=new();
+    public bool Visible(int row,int column,int layer)=>!KeyLayers.TryGetValue((row,column),out var layers) || Array.IndexOf(layers,layer)>=0;
     public KeyHitGeometry[][] HitGeometries { get; }
 
-    private static KeyHitGeometry[][] BuildHitGeometries(NormalizedRect[][] rects)
+    private static KeyHitGeometry[][] BuildHitGeometries(NormalizedRect[][] rects,bool physical)
     {
         KeyHitGeometry[][] geometries = new KeyHitGeometry[rects.Length][];
         for (int row = 0; row < rects.Length; row++)
@@ -26,7 +31,7 @@ public sealed class KeyLayout
             geometries[row] = new KeyHitGeometry[rowRects.Length];
             for (int col = 0; col < rowRects.Length; col++)
             {
-                geometries[row][col] = KeyHitGeometry.FromRect(rowRects[col]);
+                geometries[row][col] = physical ? KeyHitGeometry.FromPhysicalRect(rowRects[col]):KeyHitGeometry.FromRect(rowRects[col]);
             }
         }
 
@@ -48,6 +53,13 @@ public readonly record struct KeyHitGeometry(
     double Area,
     bool IsRotated)
 {
+    public double InputScaleX {get;init;}=1;
+    public double InputScaleY {get;init;}=1;
+    public static KeyHitGeometry FromPhysicalRect(NormalizedRect rect)
+    {
+        var physical=FromRect(rect with {X=rect.X*160,Y=rect.Y*114.9,Width=rect.Width*160,Height=rect.Height*114.9});
+        return physical with {InputScaleX=160,InputScaleY=114.9,MinX=physical.MinX/160,MaxX=physical.MaxX/160,MinY=physical.MinY/114.9,MaxY=physical.MaxY/114.9,Area=rect.Width*rect.Height};
+    }
     public static KeyHitGeometry FromRect(NormalizedRect rect)
     {
         double centerX = rect.CenterX;
@@ -118,8 +130,8 @@ public readonly record struct KeyHitGeometry(
 
     private (double X, double Y) ToLocal(double x, double y)
     {
-        double translatedX = x - CenterX;
-        double translatedY = y - CenterY;
+        double translatedX = x*InputScaleX - CenterX;
+        double translatedY = y*InputScaleY - CenterY;
         if (!IsRotated)
         {
             return (translatedX, translatedY);

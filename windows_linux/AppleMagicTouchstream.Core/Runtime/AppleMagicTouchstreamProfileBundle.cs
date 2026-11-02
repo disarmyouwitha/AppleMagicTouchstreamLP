@@ -71,7 +71,17 @@ public sealed class AppleMagicTouchstreamProfileBundle
             return false;
         }
 
+        Dictionary<string,LayoutDocument>? macDocuments=null;
+        if(HostExtensions?.TryGetValue("mac",out var mac)==true && mac.TryGetProperty("LayoutDocuments",out var authored))
+        {
+            try{macDocuments=authored.Deserialize<Dictionary<string,LayoutDocument>>(LayoutDocument.JsonOptions);}
+            catch(JsonException){error="The Mac layout document is invalid.";return false;}
+            if(macDocuments?.Any(p=>p.Value==null || !p.Value.IsValid())==true){error="The Mac layout document contains invalid geometry or identities.";return false;}
+        }
+        if(Settings.LayoutDocuments?.Any(p=>p.Value==null || !p.Value.IsValid())==true)
+        { error="The layout document contains invalid geometry or identities.";return false; }
         UserSettings importedSettings = Settings.Clone();
+        if(macDocuments!=null)foreach(var pair in macDocuments)if(!importedSettings.LayoutDocuments.ContainsKey(pair.Key))importedSettings.LayoutDocuments[pair.Key]=pair.Value.Copy();
         importedSettings.NormalizeRanges();
 
         if (!keymap.TryImportFromJson(KeymapJson, out string keymapError))

@@ -211,44 +211,35 @@ left/generic modifiers share an index; right-side/AltGr semantics remain intact.
 See AppleMagicTouchstream.Core/HYPER_MODIFIERS.md. Focused Linux validation is
 `selftest --hyper`; it does not access evdev/uinput or write host settings.
 
-## Windows STENO
+## Windows layouts, STENO and saved Text
 
-- Windows exposes STENO and STENO Voyager, ported from Mac. Mac transport stays unchanged.
-- Shared chord accumulation, Gemini PR encoding and per-layout mappings live in Core.
-  Both pads all-up emits once; all intersecting regions include a 1.5 mm edge expansion.
-  Ordinary typing/gesture paths are bypassed. Hold/ordinary keyboard assignments are inert.
-- Windows output requires Mouse Takeover. The bounded keyboard dispatch pump sends typed
-  generation-gated strokes to a loopback-only endpoint (127.0.0.1:31572). No COM driver.
-  Invalid/stale/overflowed input, device loss, Refresh, layout/keymap/layer changes and
-  teardown cancel strokes and wait for all-up. Disconnected/full output drops strokes.
-- PloverPlugin contains the driver-free machine plugin, reproducible wheel builder,
-  installer and isolated Python transport tests. Build its wheel before the Windows app
-  after changing plugin source. Self-tests use a private ephemeral socket and never
-  open the live Plover port or inject input. Hardware verification remains manual.
-- Windows Raw Input currently reports up to five contacts per pad; keep that ingestion
-  limit separate from the 42 Gemini PR wire keys and Mac's larger contact capacity.
-
-- The STENO panel installs the bundled Plover plugin on an explicit button click,
-  displays completion/failure, and offers a saved/exported Pointer movement selector.
-  STENO pointer acquisition uses 2 mm translation; two-finger mode requires coherent
-  movement from both contacts. Larger cohorts cannot become the pointer after partial
-  lift. One- and two-finger force presses left-click. Mouse Takeover stays required. Mac is unchanged.
-
-- Outside STENO, keep gesture recognition/arbitration active with Mouse Takeover
-  off, while gating synthetic gesture output at publication and dispatch. Native
-  gestures must not fall through into typing/haptics. Takeover changes cancel
-  existing gesture cycles; known all-up pads may acquire immediately, held pads
-  must lift. STENO still requires Takeover and retains its separate pointer policy.
-
-- STENO haptics offer Off / key contact / chord release, defaulting to key contact
-  and respecting the global haptic switch/strength. Feedback uses typed, generation-
-  gated dispatch events, never frame-thread I/O. Held keys do not repeat feedback;
-  chord-release feedback covers participating pads and is cancelled with pointer
-  acquisition or input/lifecycle faults. The choice saves/exports with settings.
-- Layout and STENO selectors disable text search, ignore closed wheel/selection
-  keys and clear focus after closing. Plover output must not change app settings.
-
-- STENO 1F and 2F force presses always map to primary click, independently of
-  the selected pointer count. Use reported pressure >=130; never infer force.
-  Emit one click/feedback per all-up cycle, cancel the whole pending steno chord,
-  and block clicks after partial lift, substitution, stale or invalid input.
+Current implementation and acceptance checklist: AppleMagicTouchstream.Windows/WINDOWS_REWRITE.md.
+- Compile authored layout documents only on configuration/Apply. Stable key and
+  mirror IDs are independent of geometry. Preserve per-hand actions and layer
+  visibility; legacy custom buttons migrate only in the editor draft until Apply.
+- Layout Editor is inline, both pads, fixed 1 mm snap, Mirror Edit default on,
+  with bounded history and isolated 30 Hz contact overlay. No keyboard/STENO
+  dispatch while editing; ordinary gestures return temporarily. Show Contacts
+  suppresses 4F/5F gesture candidates, retaining normal mouse gestures.
+- STENO offers Asterisk, 6x3 and RHS Single behind one main picker. Ordinary key
+  actions/configurable gestures stay inert; only STN_* assignments form chords.
+  Outer Corners remains Open Config. Fixed 2F pointer, 1F force drag, 2F force
+  primary, 3F force secondary, 4F latched force scroll/momentum. Owners remain
+  through all-up/count changes; final shared drag owner releases the button.
+- Built-in Javelin Lapwing is default; Plover data and loopback Plover plugin are
+  alternatives. Mouse Takeover/live generation/focus gates still apply. Native
+  translation is serial and never posts input itself. Bundled dictionary edits
+  require Save As. Never ship personal dictionaries. Preserve native licenses.
+- Independent settled touch/release haptics cancel with pending chords. Force
+  feedback is fixed; all haptics remain dispatch-queued and live-only.
+- Both 3+3/4+4 force uses reported pressure only, bounded 1 second cohort join
+  and 150 ms force-crossing skew, latched through both-all-up. Never replace an
+  activated independent owner. Pending corner pairs may grow before firing.
+- Saved Text uses DPAPI CurrentUser with no plaintext fallback, opaque refs in
+  settings/captures, hidden-by-default editor and worker decryption. Another
+  same-user process is not excluded by DPAPI. Type Unicode through the existing
+  output pump without clipboard use; cancel on focus/lifecycle/generation loss.
+- ATPCAP bytes remain unchanged; the additive settings companion contains initial
+  documents/refs, never secrets. Replay is output-free and never reads the vault.
+- Windows PTP remains five contacts per pad; do not infer thumb anatomy/force.
+  Tests use host translation/private ephemeral sockets, never live Plover/input.

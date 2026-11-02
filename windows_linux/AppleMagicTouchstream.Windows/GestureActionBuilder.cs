@@ -40,6 +40,7 @@ internal sealed class GestureActionEditor : StackPanel
         var arguments=new TextBox { MinHeight=28, Padding=new(5),Text=AppLaunchActionHelper.TryParse(current,out var existing) ? existing.Arguments : "" };
         System.Windows.Automation.AutomationProperties.SetName(arguments,"Application arguments"); root.Children.Add(arguments);
         root.Children.Add(new TextBlock { Text="Leave the target empty to use the shortcut. Modifier-only shortcuts use Key: None. Hold cards can keep shortcut keys pressed until release.", TextWrapping=TextWrapping.Wrap, Foreground=Brushes.LightSlateGray, Margin=new(0,10,0,8) });
+        var textEditor=new TextShortcutEditor(); textEditor.Configure(current,label=>applied(label)); root.Children.Add(textEditor);
         var error=new TextBlock { TextWrapping=TextWrapping.Wrap, Foreground=Brushes.Salmon }; root.Children.Add(error);
         var actions=new StackPanel { Orientation=Orientation.Horizontal, HorizontalAlignment=HorizontalAlignment.Right, Margin=new(0,12,0,0) }; root.Children.Add(actions);
         var apply=new Button { Content="Apply",Padding=new(14,6,14,6) }; actions.Children.Add(apply);

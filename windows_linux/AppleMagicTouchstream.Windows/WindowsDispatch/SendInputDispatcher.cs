@@ -53,6 +53,7 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
     private bool _suppressPhysicalOutput;
     private bool _disposed;
 
+    internal event Action<ulong>? StenoStrokeObserved;
     internal WindowsStenoConnection? StenoConnection { get; set; }
 
     public SendInputDispatcher()
@@ -79,6 +80,7 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
 
     internal void SetPhysicalOutputSuppressed(bool suppressed)
     {
+        Interlocked.Increment(ref _savedTextGeneration);
         _suppressPhysicalOutput = suppressed;
     }
 
@@ -94,6 +96,8 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
 
     public void NotifyPointerActivity()
     {
+        Interlocked.Increment(ref _savedTextGeneration);
+        Interlocked.Exchange(ref _stenoResetRequested,1);
         Interlocked.Exchange(ref _autocorrectPointerActivityPending, 1);
     }
 
@@ -129,6 +133,8 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
 
         ConsumePendingPointerActivity();
         ConsumeGestureKeyboardRelease();
+        if(dispatchEvent.Kind!=DispatchEventKind.StenoHaptic) CancelSavedText();
+        if(dispatchEvent.Kind is not (DispatchEventKind.StenoHaptic or DispatchEventKind.StenoStroke))CancelStenoText();
 
         switch (dispatchEvent.Kind)
         {
@@ -136,7 +142,8 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
                 if(!_suppressPhysicalOutput) StenoConnection?.TryFeedback(in dispatchEvent,static side=> { _=MagicTrackpadActuatorHaptics.TryVibrate(side); });
                 return;
             case DispatchEventKind.StenoStroke:
-                if(!_suppressPhysicalOutput) StenoConnection?.Send(in dispatchEvent);
+                if(!_suppressPhysicalOutput)
+                {if(StenoConnection?.CanOutput(dispatchEvent.StenoGeneration)==true)StenoStrokeObserved?.Invoke(dispatchEvent.StenoMask);DispatchSteno(dispatchEvent);}
                 break;
             case DispatchEventKind.ReleaseAllKeyboard:
                 GestureKeyboardSession?.ReleaseAll(); ConsumeGestureKeyboardRelease(); ReleaseAllHeldKeys(); break;
@@ -144,6 +151,9 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
             case DispatchEventKind.GestureShortcutUp:
             case DispatchEventKind.GestureShortcutTap:
                 HandleGestureKeyboard(dispatchEvent); break;
+            case DispatchEventKind.GestureText:
+            case DispatchEventKind.Text:
+                BeginSavedText(dispatchEvent); break;
             case DispatchEventKind.AppLaunch:
                 HandleAppLaunch(dispatchEvent);
                 break;
@@ -357,6 +367,9 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
 
     public void Tick(long nowTicks)
     {
+        TickSavedText(nowTicks);
+        if(Interlocked.Exchange(ref _stenoResetRequested,0)!=0)CancelStenoText();
+        TickStenoText();
         if (_disposed)
         {
             return;
@@ -391,6 +404,7 @@ internal sealed partial class SendInputDispatcher : IInputDispatcher, IAutocorre
         }
 
         _disposed = true;
+        CancelSavedText();CancelStenoText();
         _autocorrect.Dispose();
         ReleaseGestureLeases();
         ReleaseAllHeldKeys();

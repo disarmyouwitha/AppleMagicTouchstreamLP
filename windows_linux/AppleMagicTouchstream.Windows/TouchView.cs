@@ -14,6 +14,8 @@ public sealed class TouchView : FrameworkElement
     public double TrackpadHeightMm { get; set; } = 114.9;
     public string? EmptyMessage { get; set; }
     public KeyLayout? Layout { get; set; }
+    internal Dictionary<(int Row,int Column),long> FlashKeys {get;}=new();
+    public int ActiveLayer { get; set; }
     public NormalizedRect? HighlightedKey { get; set; }
     public NormalizedRect? SelectedKey { get; set; }
     public SurfaceCustomButton[] CustomButtons { get; set; } = Array.Empty<SurfaceCustomButton>();
@@ -274,22 +276,26 @@ public sealed class TouchView : FrameworkElement
             NormalizedRect[] rowRects = Layout.Rects[row];
             for (int col = 0; col < rowRects.Length; col++)
             {
-                Rect rect = rowRects[col].ToRect(pad);
-                DrawKeyRect(dc, rowRects[col], rect, ShowTouchStreamReference ? _referenceKeyFill : _keyFillBrush, _keyStrokePen);
+                if(rowRects[col].Width<=0 || rowRects[col].Height<=0 || !Layout.Visible(row,col,ActiveLayer))continue;
+                var display=Layout.DisplayRects?[row][col] ?? rowRects[col];
+                Rect rect = display.ToRect(pad);
+                DrawKeyRect(dc, display, rect, ShowTouchStreamReference ? _referenceKeyFill : _keyFillBrush, _keyStrokePen);
 
+                if(FlashKeys.TryGetValue((row,col),out var until))
+                {double opacity=Math.Clamp((until-System.Diagnostics.Stopwatch.GetTimestamp())/(System.Diagnostics.Stopwatch.Frequency*.5),0,1);if(opacity>0){dc.PushOpacity(opacity);DrawKeyRect(dc,display,rect,_hitFillBrush,_hitStrokePen);dc.Pop();}}
                 if (HighlightedKey.HasValue && RectEquals(rowRects[col], HighlightedKey.Value))
                 {
-                    DrawKeyRect(dc, rowRects[col], rect, _hitFillBrush, _hitStrokePen);
+                    DrawKeyRect(dc, display, rect, _hitFillBrush, _hitStrokePen);
                 }
                 if (SelectedKey.HasValue && RectEquals(rowRects[col], SelectedKey.Value))
                 {
-                    DrawKeyRect(dc, rowRects[col], rect, _selectedFillBrush, _selectedStrokePen);
+                    DrawKeyRect(dc, display, rect, _selectedFillBrush, _selectedStrokePen);
                 }
 
                 if (LabelMatrix != null && row < LabelMatrix.Length && col < LabelMatrix[row].Length)
                 {
                     string label = GeminiPRPacket.Display(LabelMatrix[row][col]);
-                    DrawKeyLabel(dc, rowRects[col], rect, label);
+                    DrawKeyLabel(dc, display, rect, label);
                 }
             }
         }
@@ -448,7 +454,7 @@ public sealed class TouchView : FrameworkElement
         }
 
         double aspect = TrackpadWidthMm <= 0 || TrackpadHeightMm <= 0 ? 1.0 : TrackpadWidthMm / TrackpadHeightMm;
-        double width = inner.Width;
+        double width = Math.Min(inner.Width,TrackpadWidthMm*2.7);
         double height = width / aspect;
         if (height > inner.Height)
         {

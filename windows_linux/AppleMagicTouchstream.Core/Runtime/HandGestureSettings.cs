@@ -21,18 +21,19 @@ public enum CoordinatedHandChord { ThreeFingers, FourFingers, OuterCorners, Inne
 public sealed class CoordinatedGestureSettings
 {
     public Dictionary<CoordinatedHandChord, HandGestureAction> TapActions { get; set; } = new();
+    public Dictionary<CoordinatedHandChord, HandGestureAction> ForceActions { get; set; } = new();
     public Dictionary<CoordinatedHandChord, HandGestureAction> HoldActions { get; set; } = new();
     public Dictionary<CoordinatedHandChord, double> HoldThresholds { get; set; } = new();
     public Dictionary<string, string> CustomActions { get; set; } = new();
     public HashSet<string> HeldShortcuts { get; set; } = new();
-    public HandGestureAction Action(CoordinatedHandChord chord, bool hold) => ((hold ? HoldActions : TapActions)?.GetValueOrDefault(chord,
-        hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)
-        ?? (hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)) is {} action
+    public HandGestureAction Action(CoordinatedHandChord chord, bool hold, bool force=false) => ((force ? ForceActions : hold ? HoldActions : TapActions)?.GetValueOrDefault(chord,
+        !force && hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)
+        ?? (!force && hold && chord==CoordinatedHandChord.OuterCorners ? HandGestureAction.OpenConfig : HandGestureAction.None)) is {} action
         && PerHandGestureSettings.IsDiscrete(action) && (hold || chord is CoordinatedHandChord.ThreeFingers or CoordinatedHandChord.FourFingers)
         ? action : HandGestureAction.None;
     public double Milliseconds(CoordinatedHandChord chord) => HoldThresholds?.GetValueOrDefault(chord, 500) is {} value && double.IsFinite(value)
         ? Math.Clamp(value,100,5000) : 500;
-    public CoordinatedGestureSettings Clone() => new() { TapActions = new(TapActions ?? new()), HoldActions = new(HoldActions ?? new()), HoldThresholds = new(HoldThresholds ?? new()), CustomActions = new(CustomActions ?? new()), HeldShortcuts = new(HeldShortcuts ?? new()) };
+    public CoordinatedGestureSettings Clone() => new() { ForceActions = new(ForceActions ?? new()), TapActions = new(TapActions ?? new()), HoldActions = new(HoldActions ?? new()), HoldThresholds = new(HoldThresholds ?? new()), CustomActions = new(CustomActions ?? new()), HeldShortcuts = new(HeldShortcuts ?? new()) };
 }
 
 public sealed class HandDirectionalSettings
@@ -108,7 +109,7 @@ public sealed class PerHandGestureSettings
     public static bool IsSystemAction(HandGestureAction a) => a is >= HandGestureAction.NotificationCenter and <= HandGestureAction.ShowDesktop;
     public static bool IsForce(HandGestureTrigger t) => t is >= HandGestureTrigger.OneFingerForce and <= HandGestureTrigger.FiveFingerForce;
     public static bool IsDiscrete(HandGestureAction a) => Enum.IsDefined(a) && a is not (HandGestureAction.Pointer or HandGestureAction.PrimaryDrag or HandGestureAction.Scroll or HandGestureAction.Zoom);
-    public static bool IsValidCustom(string? label) => !string.IsNullOrWhiteSpace(label) && (AppLaunchActionHelper.TryParse(label,out _)
+    public static bool IsValidCustom(string? label) => !string.IsNullOrWhiteSpace(label) && (TextShortcutReference.TryRead(label,out _) || AppLaunchActionHelper.TryParse(label,out _)
         || DispatchShortcutHelper.TryReadShortcut(label,out _,out _) || DispatchKeyResolver.TryResolveVirtualKey(label,out _));
     public static bool IsMovement(HandGestureTrigger t) => t is HandGestureTrigger.TwoFingerMove or HandGestureTrigger.ThreeFingerMove or HandGestureTrigger.FourFingerMove or HandGestureTrigger.FiveFingerMove;
     public static HandGestureTrigger? Movement(int count) => count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, 5 => HandGestureTrigger.FiveFingerMove, _ => null };

@@ -219,84 +219,11 @@ Hardware sequence:
 For optional visual QA, set `APPLEMAGICTOUCHSTREAM_PREVIEW_XAML` to MainWindow.xaml and
 `APPLEMAGICTOUCHSTREAM_PREVIEW_DIR` to an output directory before running `--selftest`.
 
-## STENO / Plover (Windows)
+## Current layout / STENO rewrite
 
-STENO and STENO Voyager now share Mac's geometry, 1.5 mm expanded hit regions,
-rolling two-hand chord accumulation and both-pads-up emission. Layout mappings save
-independently and export/import with settings. Ordinary keyboard/gesture recognition
-pauses in STENO; only STN_* primary assignments contribute to chords.
-
-Windows uses the bundled PloverPlugin machine over local TCP, with no COM driver.
-Mac remains unchanged. See [plugin setup](PloverPlugin/README.md). Mouse Takeover
-must be enabled for live Windows strokes. Invalid/stale input, overflow, device loss,
-Refresh and reconfiguration cancel the cycle; lift both hands before the next stroke.
-Disconnected output is dropped, never queued for reconnect.
-
-Automated checks cover wire vectors, layouts/mappings, two-hand all-up, seams,
-cancellation, mode transitions, transport framing, disconnect/reconnect and plugin
-packaging. Manual checklist: install/restart Plover, choose AppleMagicTouchstream,
-select each STENO layout, confirm connection and stroke monitor output; test upper/
-lower seams, rolling chords across both pads, rapid repeated chords, disconnect
-while held, Refresh/reselection, Ctrl+Alt+R, leaving STENO, saved mappings and export/
-import. Windows currently accepts five contacts per pad. Real trackpad/Plover typing
-feel has not yet been verified by these automated tests.
-
-### Windows STENO pointer prototype
-
-The STENO panel now offers Install / update Plover plugin and Pointer movement:
-One finger / Two fingers. The latter defaults to two and persists through restart,
-clone and settings export/import. This is a Windows experiment; Mac is unchanged.
-Mouse Takeover remains required. Movement acquires after 2 mm; two-finger mode
-requires both fingers translating together. Stationary one-finger strokes remain
-valid. Pointer acquisition cancels the entire pending two-hand stroke through
-all-up. A larger chord cannot acquire the pointer after partial lift. One- and two-finger force presses left-click; Ctrl+Alt+R still releases Takeover for normal mouse use.
-
-Automated tests cover both counts, stationary jitter, coherent movement, settling
-one finger, spread, stale input, permission changes, setting changes while held,
-partial lifts, whole-chord cancellation through the actor, fresh single-key strokes
-and settings export/import. Hardware testing must compare both modes for false
-acquisition during rolling chords, pointer feel and repeated transitions back to
-steno. Plugin installation is an explicit user action and does not launch Plover
-or enable its output automatically.
-
-### Native mouse gesture protection
-
-Outside STENO, Mouse Takeover controls synthetic output rather than whether hand
-gestures are recognized. Native two-finger movement/taps retain keyboard arbitration
-so they do not also type or trigger typing haptics. Unclaimed typing rollover and
-established keyboard ownership remain unchanged. Gesture output is gated both
-before queue publication and on dispatch. A Takeover transition cancels active
-gestures; held contacts must lift before reacquisition. Tests cover native movement,
-taps, typing rollover, fresh reactivation and mid-gesture activation. STENO remains
-Takeover-only. Native Windows gesture behavior itself is unchanged.
-
-### STENO feedback and settings selectors
-
-STENO offers Off / On key contact / On chord release. Key contact is the default;
-newly contacted keys pulse their pad once (simultaneous keys coalesce), holds do
-not repeat, and completed-chord release pulses each participating pad. The global
-haptic enable/strength still apply. Generation-gated feedback runs on the dispatch
-pump and does not require Plover to be connected. Pointer/lifecycle cancellation
-prevents release feedback. Contact feedback may occur before a later movement
-acquires the pointer; choose release feedback to avoid that initial contact pulse.
-The mode clones, persists and exports/imports with settings.
-
-Layout and STENO selectors disable text search, ignore closed selection keys and
-mouse wheel changes, and clear focus after closing. This prevents Plover output
-from selecting layouts or pointer modes as the user tests strokes. Open selectors
-still support deliberate arrow-key selection, F4/Alt+Down and mouse selection.
-Automated checks cover feedback timing, both pads, repeat suppression, global
-disable, cancelled release, export/import, stale-generation dispatch and closed
-selector wheel/text rejection. Hardware checks: compare contact/release feel;
-select 1F/2F mode and then type in Plover without changing the selected layout.
-
-### STENO force clicking
-
-One- and two-finger force presses now left-click in both STENO layouts and either
-pointer count. They use reported pressure >=130, emit one balanced click with
-force feedback, and cancel the pending chord through all-up. Holds cannot repeat
-clicks; partial lifts from larger chords and stale/invalid/unavailable pressure
-cannot produce a click. Automated tests cover both counts in both pointer modes,
-pressure threshold, holds/repress, missing pressure, Takeover off, stale input,
-partial lifts and actor-level chord cancellation. Hardware check: move the pointer,
-force press to open/select a layout or option, lift, then resume normal steno.
+See [Windows rewrite contracts, implementation and acceptance](WINDOWS_REWRITE.md)
+for the current three layouts, inline editor, built-in translators, dictionary
+manager, fixed force mouse policy, Both force and encrypted Shortcut Text.
+This replaces the former optional 1F pointer and single-choice haptic prototype.
+Windows native/UI/hardware acceptance remains required after the Mac-host offline
+suite and cross-build. Mac source and live behavior are unchanged.

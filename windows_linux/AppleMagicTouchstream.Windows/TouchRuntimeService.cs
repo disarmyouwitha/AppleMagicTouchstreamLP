@@ -20,6 +20,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private DispatchEventQueue? _dispatchQueue;
     private DispatchEventPump? _dispatchPump;
     private SendInputDispatcher? _sendInputDispatcher;
+    internal string? SavedTextStatus=>_sendInputDispatcher?.SavedTextStatus;
     private InputSinkWindow? _inputSink;
     private IRuntimeFrameObserver? _frameObserver;
     private long _rawInputPauseUntilTicks;
@@ -33,6 +34,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private ButtonEdgeTracker _rightButtonTracker;
 
     private WindowsHandGestures? _handGestures;
+    internal event Action<ulong>? StenoStrokeObserved;
     public string HandGestureStatus => _handGestures?.Status ?? "Unavailable";
     public WindowsStenoConnection StenoConnection { get; }=new();
     private UserSettings _settings;
@@ -73,10 +75,11 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchCore.UseUnifiedInputPolicy();
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.StenoStrokeObserved+=mask=>StenoStrokeObserved?.Invoke(mask);
             _sendInputDispatcher.StenoConnection=StenoConnection;
             _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
                 () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason),_dispatchQueue,_sendInputDispatcher);
-            _handGestures.Configure(_settings);
+            _handGestures.Configure(_settings,_editorActive,_editorContacts);
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
@@ -112,7 +115,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
             MouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedSelectedTrackpad);
             MouseTakeover.Start();
-            StenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true);
+            StenoConnection.Configure(_preset.IsSteno,_touchCore.StenoOutput,()=>MouseTakeover?.Enabled==true,_settings);
             _started = true;
             return true;
         }
@@ -136,7 +139,7 @@ internal sealed class TouchRuntimeService : IDisposable
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
-        _handGestures?.Configure(_settings);
+        _handGestures?.Configure(_settings,_editorActive,_editorContacts);
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
         _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
         _keymap = keymap;
@@ -157,8 +160,13 @@ internal sealed class TouchRuntimeService : IDisposable
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));
-        StenoConnection.Configure(_preset.IsSteno,_touchCore!.StenoOutput,()=>MouseTakeover?.Enabled==true);
+        StenoConnection.Configure(_preset.IsSteno,_touchCore!.StenoOutput,()=>MouseTakeover?.Enabled==true,_settings);
     }
+
+    public void RecordStenoStroke(Action<ulong>? callback){_touchActor?.CancelStenoCycle();StenoConnection.SetRecorder(callback);}
+    private bool _editorActive,_editorContacts;
+    public void SetLayoutEditor(bool active,bool showContacts)
+    { _editorActive=active;_editorContacts=showContacts;_handGestures?.Configure(_settings,active,showContacts);_touchActor?.SetLayoutEditor(active); }
 
     public void UpdateDeviceSelections(string? leftPath, string? rightPath)
     {
@@ -258,7 +266,7 @@ internal sealed class TouchRuntimeService : IDisposable
         if(!string.Equals(_rightRoute.DevicePath,rightPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
-        _handGestures?.Configure(_settings);
+        _handGestures?.Configure(_settings,_editorActive,_editorContacts);
         _leftButtonTracker.Reset();
         _rightButtonTracker.Reset();
 

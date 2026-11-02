@@ -9,6 +9,10 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { JavelinParityTests.Run();StenoTransportParityTests.Run(); }
+        catch(Exception error) {return new SelfTestResult(false,"Native Javelin parity tests failed: "+error.Message);}
+        try { RewriteParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Rewrite parity tests failed: "+error.Message); }
         try { MacMotionTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Mac motion tests failed: "+error.Message); }
         try { StenoPointerTests.Run(); }

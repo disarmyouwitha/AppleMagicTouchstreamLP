@@ -3,6 +3,9 @@
 Captured Mac pointer/scroll experiment: [setup and verification](MotionProfiles/README.md).
 AppleMagicTouchstream for Windows.
 
+Current Mac-parity layouts, inline editor, built-in STENO translators and encrypted
+Shortcut Text: [implementation and Windows test checklist](WINDOWS_REWRITE.md).
+
 ## Usage
 The tray and application use the Mac hand silhouette in black. Keyboard typing stays available; configured multi-finger gestures reserve their contact cycles. The former Keyboard/Mouse mode and colored mode indicators are removed. Old mode settings and typing-toggle bindings cannot switch Windows into mouse-only or keyboard-only operation. See [Windows input policy](WINDOWS_INPUT_POLICY.md).
 

@@ -9,12 +9,19 @@ namespace AppleMagicTouchstream;
 public sealed class UserSettings
 {
     public HandGestureSettings HandGesturesV1 { get; set; } = new();
+    public Dictionary<string,LayoutDocument> LayoutDocuments { get; set; }=new(StringComparer.OrdinalIgnoreCase);
     public string? LeftDevicePath { get; set; }
     public string? RightDevicePath { get; set; }
     public int ActiveLayer { get; set; }
+    public string StenoConnectionMode {get;set;}="javelin";
+    public Dictionary<string,List<StenoDictionarySource>> JavelinDictionaries {get;set;}=new();
+    public string StenoLayoutVariantName { get; set; }="STENO";
     public string LayoutPresetName { get; set; } = "6x3";
     public int StenoPointerFingerCount { get; set; } = 2;
-    public StenoHapticMode StenoHaptics { get; set; } = StenoHapticMode.KeyContact;
+    public StenoHapticMode StenoHaptics { get; set; } = StenoHapticMode.Off;
+    public bool? StenoHapticTouch { get; set; }
+    public bool? StenoHapticRelease { get; set; }
+    public double StenoForceThreshold { get; set; }=130;
     public Dictionary<string, string>? DecoderProfilesByDevicePath { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool VisualizerEnabled { get; set; } = true;
     public bool KeyboardModeEnabled { get; set; }
@@ -121,12 +128,17 @@ public sealed class UserSettings
         }
 
         HandGesturesV1 = (source.HandGesturesV1 ?? new()).Clone();
+        LayoutDocuments=(source.LayoutDocuments ?? new()).Where(p=>p.Value!=null && p.Value.IsValid()).ToDictionary(p=>p.Key,p=>p.Value.Copy(),StringComparer.OrdinalIgnoreCase);
         LeftDevicePath = source.LeftDevicePath;
         RightDevicePath = source.RightDevicePath;
         ActiveLayer = source.ActiveLayer;
         LayoutPresetName = source.LayoutPresetName;
+        StenoLayoutVariantName=source.StenoLayoutVariantName;
+        StenoConnectionMode=source.StenoConnectionMode;
+        JavelinDictionaries=(source.JavelinDictionaries ?? new()).Where(p=>p.Value!=null).ToDictionary(p=>p.Key,p=>p.Value.Select(v=>v.Copy()).ToList());
         StenoPointerFingerCount = source.StenoPointerFingerCount;
         StenoHaptics = source.StenoHaptics;
+        StenoHapticTouch=source.StenoHapticTouch;StenoHapticRelease=source.StenoHapticRelease;StenoForceThreshold=source.StenoForceThreshold;
         DecoderProfilesByDevicePath = CloneDecoderProfiles(source.DecoderProfilesByDevicePath);
         VisualizerEnabled = source.VisualizerEnabled;
         KeyboardModeEnabled = source.KeyboardModeEnabled;
@@ -293,6 +305,8 @@ public sealed class UserSettings
     public bool NormalizeRanges()
     {
         bool changed = false;
+        double stenoForce=double.IsFinite(StenoForceThreshold) ? Math.Clamp(StenoForceThreshold,1,500):130;
+        if(stenoForce!=StenoForceThreshold){StenoForceThreshold=stenoForce;changed=true;}
         if(!Enum.IsDefined(StenoHaptics)) { StenoHaptics=StenoHapticMode.KeyContact; changed=true; }
         if(StenoPointerFingerCount is not (1 or 2)) { StenoPointerFingerCount=2; changed=true; }
 

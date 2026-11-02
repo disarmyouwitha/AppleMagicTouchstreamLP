@@ -24,6 +24,7 @@ internal sealed class WindowsGestureKeyboardSession
     { _queue=queue; _dispatcher=dispatcher; _eligible=eligible; _physical=physical; dispatcher.GestureKeyboardSession=this; }
     public bool Accepts(in DispatchEvent e)=>e.GestureGeneration==Interlocked.Read(ref _generation) && _eligible()
         && Stopwatch.GetTimestamp()-e.TimestampTicks<Stopwatch.Frequency*.15;
+    public bool AcceptsTextGeneration(long generation)=>generation==Interlocked.Read(ref _generation) && _eligible();
     public void SetHeld(int owner,string? label)
     {
         if((uint)owner>=3) return;
@@ -34,7 +35,7 @@ internal sealed class WindowsGestureKeyboardSession
             _held[owner]=label; Post(label==null ? DispatchEventKind.GestureShortcutUp : DispatchEventKind.GestureShortcutDown,owner,label ?? "");
         }
     }
-    public void Tap(string label) { lock(_gate) Post(DispatchEventKind.GestureShortcutTap,3,label); }
+    public void Tap(string label) { lock(_gate) Post(TextShortcutReference.TryRead(label,out _) ? DispatchEventKind.GestureText : DispatchEventKind.GestureShortcutTap,3,label); }
     private void Post(DispatchEventKind kind,int owner,string label)
     {
         var e=new DispatchEvent(Stopwatch.GetTimestamp(),kind,0,DispatchMouseButton.None,(ulong)owner+1,DispatchEventFlags.None,
