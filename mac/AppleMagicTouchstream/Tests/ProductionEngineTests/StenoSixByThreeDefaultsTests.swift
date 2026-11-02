@@ -52,7 +52,9 @@ import XCTest
                 if let embedded = map["KeymapJson"] as? String, let data = embedded.data(using:.utf8), let value = try? JSONSerialization.jsonObject(with:data) { check(value) }
             } else if let list = object as? [Any] { for value in list { check(value) } }
         }
-        for name in ["DEFAULT_KEYMAP.json","MY_KEYMAP.json","TOUCHSTERAM_KEYMAP.json"] {
+        // MY_KEYMAP is user-authored and may retain old preference entries;
+        // factory templates must not reintroduce retired layouts.
+        for name in ["DEFAULT_KEYMAP.json","TOUCHSTERAM_KEYMAP.json"] {
             check(try JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/"+name))))
         }
     }

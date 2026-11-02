@@ -43,10 +43,14 @@ final class TouchStreamTemplateTests:XCTestCase {
         XCTAssertEqual(result.handGestureSettings?.stenoConnectionMode,.serial)
         XCTAssertEqual(result.handGestureSettings?.stenoHapticOnTouch,true)
         XCTAssertEqual(result.handGestureSettings?.stenoForceThreshold,147)
-        XCTAssertEqual(result.columnSettingsByLayout,current.columnSettingsByLayout)
+        let factoryData = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/DEFAULT_KEYMAP.json"))
+        let factory = try XCTUnwrap(PortableKeymapInterop.decodeBundledDefaultProfile(from:factoryData))
+        XCTAssertEqual(result.columnSettingsByLayout["6x3"],factory.columnSettingsByLayout["6x3"])
+        XCTAssertEqual(result.columnSettingsByLayout.filter { $0.key != "6x3" },current.columnSettingsByLayout.filter { $0.key != "6x3" })
+        XCTAssertEqual(result.layoutDocuments?["6x3"],factory.layoutDocuments?["6x3"])
         XCTAssertEqual(result.leftDeviceID,current.leftDeviceID)
         XCTAssertEqual(result.runAtStartupEnabled,current.runAtStartupEnabled)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
-        XCTAssertEqual(Set(try XCTUnwrap(json["Settings"] as? [String:Any]).keys),["ActiveLayer","LayoutPresetName"])
+        XCTAssertEqual(Set(try XCTUnwrap(json["Settings"] as? [String:Any]).keys),["ActiveLayer","LayoutPresetName","ColumnSettingsByLayout","KeyPaddingPercentByLayout"])
     }
 }

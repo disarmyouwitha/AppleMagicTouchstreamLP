@@ -1,7 +1,8 @@
 # NEXT:
 =======
-0. Hey in the Layout Editor sometimes it would be nice to be able to see where your fingers land on the keys. We should have a "show contacts" that will show touch contacts without dispatching any keys. (Please make sure the layout editor does not get laggy)
-1. I need to fix my 6x3 layout to match my actual keys, lmao.
+0. Hey, I noticed in the Layout Editor that it doesn't display my Custom Buttons that were added before we moved the function to the Layout Editor.. Why? Do I need to re-create the buttons with the new editor and re-export? (Can you set up the buttons for me and I will Import?)
+1. Set up custom buttons in Layout Editor / make sure special space/backspace continuous still works / make sure MO() layer buttons still work.
+===
 2. THEN fix Steno 6x3 to match my actual keys. 
 3. Then re-export MY_KEYMAP.json and DEFAULT_KEYMAP.JSON
 ===

@@ -53,6 +53,11 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
         let profile = try defaultProfile(), size = CGSize(width:432,height:310.23)
         for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour] {
             let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
+            if let authored = profile.layoutDocuments?[preset.rawValue] {
+                XCTAssertTrue(authored.isValid)
+                XCTAssertEqual(doc,authored,"An authored template takes priority over legacy column settings")
+                continue
+            }
             XCTAssertEqual(doc.keys.count,preset.rows*preset.columns*2)
             let mappings = profile.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]
             for key in doc.keys {
