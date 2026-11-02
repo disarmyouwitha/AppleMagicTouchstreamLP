@@ -676,7 +676,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         combo.DropDownClosed -= OnActionComboDropDownClosed;
         combo.LostKeyboardFocus -= OnActionComboLostKeyboardFocus;
         combo.IsEditable = false;
-        combo.IsTextSearchEnabled = true;
+        combo.IsTextSearchEnabled = false;
         combo.StaysOpenOnEdit = false;
         ClearActionComboFilter(view);
     }

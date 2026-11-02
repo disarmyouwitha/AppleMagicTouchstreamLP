@@ -506,18 +506,18 @@
                       <ComboBox x:Name="LayerCombo" Grid.Row="0" Grid.Column="1" Height="26" Margin="8,0,0,0" />
 
                       <TextBlock Grid.Row="1" Grid.Column="0" Text="Primary Action" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
-                      <ComboBox x:Name="KeymapPrimaryCombo" Grid.Row="1" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                        <ComboBox.GroupStyle>
+                      <local:SearchableActionComboBox x:Name="KeymapPrimaryCombo" PickerTitle="Primary Action" Grid.Row="1" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="480" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                        <local:SearchableActionComboBox.GroupStyle>
                           <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                        </ComboBox.GroupStyle>
-                      </ComboBox>
+                        </local:SearchableActionComboBox.GroupStyle>
+                      </local:SearchableActionComboBox>
 
                       <TextBlock Grid.Row="2" Grid.Column="0" Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
-                      <ComboBox x:Name="KeymapHoldCombo" Grid.Row="2" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                        <ComboBox.GroupStyle>
+                      <local:SearchableActionComboBox x:Name="KeymapHoldCombo" PickerTitle="Hold Action" Grid.Row="2" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="480" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                        <local:SearchableActionComboBox.GroupStyle>
                           <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                        </ComboBox.GroupStyle>
-                      </ComboBox>
+                        </local:SearchableActionComboBox.GroupStyle>
+                      </local:SearchableActionComboBox>
 
                       <TextBlock Grid.Row="3" Grid.Column="0" Text="Force Instead of Hold" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
                       <TextBox x:Name="KeymapHoldForceBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" ToolTip="0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached." />
@@ -612,7 +612,7 @@
                                      Foreground="#8b949e"
                                      FontSize="12"
                                      VerticalAlignment="Center" />
-                          <ComboBox x:Name="GestureShortcutKeyCombo"
+                          <local:SearchableActionComboBox x:Name="GestureShortcutKeyCombo" PickerTitle="Shortcut Key"
                                     Grid.Column="1"
                                     Height="28"
                                     Margin="8,0,0,0"
@@ -620,10 +620,10 @@
                                     SelectedValuePath="Value"
                                     MaxDropDownHeight="420"
                                     ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                            <ComboBox.GroupStyle>
+                            <local:SearchableActionComboBox.GroupStyle>
                               <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                            </ComboBox.GroupStyle>
-                          </ComboBox>
+                            </local:SearchableActionComboBox.GroupStyle>
+                          </local:SearchableActionComboBox>
                           <Button x:Name="GestureShortcutApplyButton"
                                   Grid.Column="2"
                                   Content="Apply"

@@ -334,9 +334,10 @@ internal static class MacGoldParityTests
         ui.SelectSlot(nameof(HandGestureTrigger.TwoFingerTap));
         var searchCombo=FindCombos(ui).Single(c=>Equals(c.Tag,HandGestureTrigger.TwoFingerTap));
         ui.FilterActionOptions(searchCombo,"paste");
-        Check(searchCombo.Items.Count==1 && uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.PrimaryClick,
+        var picker=(SearchableActionComboBox)searchCombo;
+        Check(picker.ResultsView!.Cast<SearchableActionComboBox.Choice>().Count()==1 && uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.PrimaryClick,
             "searching actions changed the live binding or failed to filter");
-        searchCombo.SelectedIndex=0;
+        picker.Choose(picker.ResultsView!.Cast<SearchableActionComboBox.Choice>().Single());
         Check(uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.Paste && uiSettings.HandGesturesV1.Right.TwoFingerTap==HandGestureAction.PrimaryClick,
             "choosing a search result did not respect the selected hand");
         MacGoldPreview.RenderIfRequested();

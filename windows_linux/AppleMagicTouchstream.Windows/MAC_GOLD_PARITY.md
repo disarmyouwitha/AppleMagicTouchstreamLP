@@ -53,6 +53,17 @@ This is a substantial functional port; the remaining differences below are real.
   Hold shortcuts can fire once or keep their keys down until release. Other actions
   fire once. Windows Voice uses the
   explicit Win+H invocation. Nothing starts recording during build/replay/tests.
+- Gesture actions, keyboard Primary/Hold actions and shortcut-key selectors use
+  the same Mac-style action panel: dedicated search, categorized sections, current
+  selection checkmarks, result counts and an empty-results message. Search matches
+  titles, categories and semantic shortcut/key labels without changing the saved
+  assignment. Arrows/Page keys browse; Enter or a result click chooses; Escape,
+  Done or outside dismissal cancels. Closed selectors ignore incidental text,
+  navigation and wheel input. Keyboard catalog and STENO restrictions remain intact.
+  `ActionPickerTests` verifies the actual WPF templates, both catalogs, explicit
+  commits, handed settings, shortcut keys, source filters and selection isolation.
+  Set `APPLEMAGICTOUCHSTREAM_MENU_PREVIEW_DIR` during `--selftest` to render the
+  popup contents offline without creating a runtime or posting input.
 - Four/five-finger taps, five-finger movement and per-count 2–5-finger Hold.
   New taps/movement/ordinary holds default to None. Hold thresholds are independent,
   default 500 ms, editable from 100–5000 ms.

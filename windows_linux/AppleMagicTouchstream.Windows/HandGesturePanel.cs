@@ -237,8 +237,10 @@ internal sealed class HandGesturePanel : Grid
         _inspector.Children.Add(Label("Action",20,true)); _inspector.Children.Add(Note(ScopeTitle+" · "+slot.Title));
         var allowed=Enum.GetValues<HandGestureAction>().Where(a=>slot.Direction!=null || slot.IsHold || slot.Chord!=null ? PerHandGestureSettings.IsDiscrete(a) : PerHandGestureSettings.Allows(slot.Trigger!.Value,a));
         var options=allowed.Select(a=>new ActionOption(a,ActionTitle(a))).ToList(); var value=Get(slot); if(value==null) options.Insert(0,new(null,"Mixed"));
-        var combo=new ComboBox { Tag=slot.Trigger,DisplayMemberPath=nameof(ActionOption.Title),MinHeight=30,MaxDropDownHeight=380,ItemsSource=options,SelectedItem=options.FirstOrDefault(o=>o.Action==value),Margin=new(0,0,0,12) };
-        MakeSearchable(combo,options); _inspector.Children.Add(combo);
+        var combo=new SearchableActionComboBox { PickerTitle="Gesture Action",Tag=slot.Trigger,DisplayMemberPath=nameof(ActionOption.Title),MinHeight=30,ItemsSource=options,SelectedItem=options.FirstOrDefault(o=>o.Action==value),Margin=new(0,0,0,12),
+            CategorySelector=item=>item is ActionOption { Action:{} a } ? ActionPickerCategories.Gesture(a) : "General",
+            SearchTextSelector=item=>item is ActionOption { Action:{} a } ? a+" "+WindowsGestureShortcutPlan.Assignment(a) : "Mixed" };
+        _inspector.Children.Add(combo);
         combo.SelectionChanged+=(_,_)=> { if(_refreshing || combo.SelectedItem is not ActionOption { Action:{} action }) return;
             if(action==HandGestureAction.Custom) { _showBuilder=true; Rebuild(); } else Commit(()=>Set(slot,action)); };
         if(slot.IsHold)
@@ -348,16 +350,8 @@ internal sealed class HandGesturePanel : Grid
             +" "+string.Join(" ",(Hand.CustomActions ?? new()).Where(p=>p.Key.StartsWith(prefix) || p.Key=="Hold"+page.Count).Select(p=>AppLaunchActionHelper.GetDisplayLabel(p.Value)));
     }
     private sealed record ActionOption(HandGestureAction? Action,string Title);
-    private void MakeSearchable(ComboBox combo,List<ActionOption> options)
-    {
-        combo.IsEditable=true; combo.IsTextSearchEnabled=false; combo.StaysOpenOnEdit=true; var selected=combo.SelectedItem;
-        combo.ItemsSource=new System.Windows.Data.ListCollectionView(options); combo.SelectedItem=selected;
-        combo.AddHandler(TextBoxBase.TextChangedEvent,new TextChangedEventHandler((_,e)=> { if(_refreshing || !combo.IsKeyboardFocusWithin || e.OriginalSource is not TextBox edit) return;
-            if(combo.SelectedItem is ActionOption current && current.Title==edit.Text) return; FilterActionOptions(combo,edit.Text); combo.IsDropDownOpen=true; }));
-        combo.DropDownClosed+=(_,_)=> { if(_refreshing || combo.SelectedItem!=null) return; _refreshing=true; try { ((System.Windows.Data.ListCollectionView)combo.ItemsSource).Filter=null; combo.SelectedItem=selected; } finally { _refreshing=false; } };
-    }
     internal void FilterActionOptions(ComboBox combo,string query)
-    { bool before=_refreshing; _refreshing=true; try { if(combo.ItemsSource is System.Windows.Data.ListCollectionView view) view.Filter=o=>o is ActionOption option && option.Title.Contains(query.Trim(),StringComparison.OrdinalIgnoreCase); combo.SelectedItem=null; combo.Text=query; } finally { _refreshing=before; } }
+    { if(combo is SearchableActionComboBox picker) picker.SetQuery(query); }
     internal static string Title(HandGestureTrigger trigger)=>trigger.ToString();
     internal static string ActionTitle(HandGestureAction action)=>action switch
     { HandGestureAction.None=>"None",HandGestureAction.Pointer=>"Move Pointer",HandGestureAction.PrimaryDrag=>"Drag / Select",HandGestureAction.Scroll=>"Scroll / Pan",HandGestureAction.PrimaryClick=>"Primary Click",HandGestureAction.SecondaryClick=>"Secondary Click",HandGestureAction.DoubleClick=>"Double-Click",HandGestureAction.NotificationCenter=>"Notification Center",HandGestureAction.TaskView=>"Task View",HandGestureAction.StartMenu=>"Start Menu",HandGestureAction.ShowDesktop=>"Show Desktop",HandGestureAction.OpenConfig=>"Open Config",HandGestureAction.Custom=>"Custom Shortcut / App / File / URL…",HandGestureAction.Voice=>"Voice",_=>action.ToString() };

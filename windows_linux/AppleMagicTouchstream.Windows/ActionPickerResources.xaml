@@ -1,0 +1,57 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AppleMagicTouchstream">
+  <Style x:Key="ActionPickerScrollBar" TargetType="ScrollBar">
+    <Setter Property="Width" Value="7"/><Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+      <Track x:Name="PART_Track" IsDirectionReversed="True" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{Binding Value,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
+        <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+        <Track.Thumb><Thumb Background="#40576a" MinHeight="24"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="{TemplateBinding Background}" CornerRadius="3" Margin="1"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+        <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+      </Track>
+    </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="{x:Type local:SearchableActionComboBox}">
+    <Setter Property="Foreground" Value="#e7edf2"/><Setter Property="Background" Value="#131c25"/>
+    <Setter Property="BorderBrush" Value="#3a4c5c"/><Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Template"><Setter.Value>
+      <ControlTemplate TargetType="{x:Type local:SearchableActionComboBox}">
+        <Grid>
+          <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6"/>
+          <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
+            <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="⌄" Foreground="#a7bacb" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,3"/></Border></ControlTemplate></ToggleButton.Template>
+          </ToggleButton>
+          <ContentPresenter IsHitTestVisible="False" Margin="10,2,30,2" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+          <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" VerticalOffset="6" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+            <Border x:Name="MenuPanel" Width="460" MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="#121b24" BorderBrush="#465c70" BorderThickness="1" CornerRadius="12" Padding="16" TextElement.Foreground="#e7edf2">
+              <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel><TextBlock Text="{TemplateBinding PickerTitle}" FontWeight="SemiBold" FontSize="16"/><TextBlock Margin="0,4,0,0" Foreground="#9aafc0" FontSize="11"><Run Text="Current: "/><Run Text="{Binding CurrentActionTitle,RelativeSource={RelativeSource TemplatedParent}}"/></TextBlock></StackPanel>
+                  <Button x:Name="PART_Done" Grid.Column="1" Content="Done" Padding="10,4" Focusable="False" VerticalAlignment="Top" Foreground="#d8e7f2" Background="#233443" BorderBrush="#40566a"/>
+                </Grid>
+                <Border Grid.Row="1" Background="#0c141c" BorderBrush="#3d556c" BorderThickness="1" CornerRadius="7" Padding="10,8" Margin="0,0,0,10">
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="⌕" FontSize="17" Foreground="#8ba7be" VerticalAlignment="Center"/>
+                    <Grid Grid.Column="1"><TextBox x:Name="PART_Search" Background="Transparent" Foreground="#edf5fa" CaretBrush="#edf5fa" BorderThickness="0" Padding="0" FontSize="13" AutomationProperties.Name="Filter actions"/>
+                      <TextBlock Text="Filter actions…" Foreground="#8197aa" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text,ElementName=PART_Search}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    </Grid>
+                  </Grid>
+                </Border>
+                <Grid Grid.Row="2" MinHeight="160">
+                  <ListBox x:Name="PART_Results" ItemsSource="{TemplateBinding ResultsView}" Background="Transparent" BorderThickness="0" Foreground="#e7edf2" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" KeyboardNavigation.TabNavigation="None" VirtualizingPanel.IsVirtualizingWhenGrouping="True" AutomationProperties.Name="Matching actions">
+                    <ListBox.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource ActionPickerScrollBar}"/></ListBox.Resources>
+                    <ListBox.GroupStyle><GroupStyle><GroupStyle.HeaderTemplate><DataTemplate><TextBlock Text="{Binding Name}" Foreground="#8faec7" FontSize="11" FontWeight="SemiBold" Margin="8,14,0,7"/></DataTemplate></GroupStyle.HeaderTemplate></GroupStyle></ListBox.GroupStyle>
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Row" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#253b4d"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#204563"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="✓" Foreground="#71c1fa" FontWeight="Bold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Hidden"/><Style.Triggers><DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock Grid.Column="1" Text="{Binding Title}" TextWrapping="Wrap"/></Grid></DataTemplate></ListBox.ItemTemplate>
+                  </ListBox>
+                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems,ElementName=PART_Results}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="No matching actions" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Try a different search." Foreground="#8da6bb" Margin="0,6,0,0" HorizontalAlignment="Center"/></StackPanel>
+                </Grid>
+                <Grid Grid.Row="3" Margin="0,12,0,0"><TextBlock Text="{TemplateBinding ResultCountText}" Foreground="#8197aa" FontSize="11"/><TextBlock Text="↑ ↓ browse    Enter choose    Esc cancel" Foreground="#8197aa" FontSize="11" HorizontalAlignment="Right"/></Grid>
+              </Grid>
+            </Border>
+          </Popup>
+        </Grid>
+        <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#7197b7"/></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#71c1fa"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate>
+    </Setter.Value></Setter>
+  </Style>
+</ResourceDictionary>

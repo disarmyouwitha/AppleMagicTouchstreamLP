@@ -29,6 +29,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { ShapeGestureInterfaceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Shape gesture interface tests failed: "+error.Message); }
+        try { ActionPickerTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Action picker tests failed: "+error.Message); }
         try { BrandingMigrationTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Branding/migration tests failed: "+error.Message); }
         if (!HyperModifierTests.Run(out string hyperFailure))
