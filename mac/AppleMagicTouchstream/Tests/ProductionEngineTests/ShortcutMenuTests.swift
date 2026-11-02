@@ -3,6 +3,43 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 @MainActor final class ShortcutMenuTests: XCTestCase {
+    func testCapsWordQueueCleanupCancelsModeAndNeverOwnsShift() {
+        let scheduler = ReplayTouchEngineScheduler(startTime:1)
+        let output = ProductionReplaySession.Output()
+        let dispatch = DispatchService(recordingWith:scheduler) { output.events.append($0) }
+        dispatch.postCapsWordToggle()
+        dispatch.postKeyStroke(code:0,flags:[])
+        dispatch.clearQueue()
+        dispatch.postKeyStroke(code:0,flags:[])
+        let flags = output.events.compactMap { event -> CGEventFlags? in
+            if case let .keyStroke(_,flags,_) = event.kind { return flags }; return nil
+        }
+        XCTAssertEqual(flags,[.maskShift,[]])
+        XCTAssertEqual(dispatch.heldGestureFlags,[])
+        XCTAssertTrue(KeyActionCatalog.primaryActionGroups.flatMap(\.actions).contains { $0.kind == .capsWord })
+    }
+
+    func testCapsWordTerminatorsDigitsBackspaceAndShortcutIsolation() {
+        var caps = CapsWordState()
+        caps.toggle()
+        XCTAssertEqual(caps.flags(code:0,flags:[]),.maskShift)
+        for code:CGKeyCode in [18,27,51,117] { XCTAssertEqual(caps.flags(code:code,flags:[]),[]) }
+        XCTAssertTrue(caps.active)
+        XCTAssertEqual(caps.flags(code:9,flags:.maskCommand),.maskCommand)
+        XCTAssertFalse(caps.active)
+        for code:CGKeyCode in [49,36,43,47] {
+            caps.toggle()
+            XCTAssertEqual(caps.flags(code:code,flags:[]),[])
+            XCTAssertFalse(caps.active)
+        }
+        caps.toggle(); caps.toggle(); XCTAssertFalse(caps.active)
+        caps.toggle(); caps.reset(); XCTAssertFalse(caps.active)
+        caps.toggle()
+        XCTAssertEqual(caps.flags(code:0,flags:[],down:false),[])
+        XCTAssertEqual(caps.flags(code:56,flags:.maskShift),.maskShift)
+        XCTAssertTrue(caps.active)
+    }
+
     func testMenusIncludeVoiceAndDictationWithoutInjectedModifiers() {
         let actions = KeyActionCatalog.shortcutMenuActions(savedLabels: [])
         XCTAssertEqual(actions.map(\.pickerText), ["Screenshot", "Dictation", "Voice", "Emoji"])

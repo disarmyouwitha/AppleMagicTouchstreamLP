@@ -109,6 +109,60 @@ final class ThreeFingerDragTests: XCTestCase {
         XCTAssertNil(try JSONDecoder().decode(RuntimeGestureOutputDiagnostic.self,from:JSONSerialization.data(withJSONObject:legacy)).modifierHistory)
     }
 
+    func testSecondaryAndMiddleDragsReserveMatchingUpAndShareOnlySameButton() throws {
+        for (button,downType,dragType,upType) in [(CGMouseButton.right,CGEventType.rightMouseDown,CGEventType.rightMouseDragged,CGEventType.rightMouseUp),(.center,.otherMouseDown,.otherMouseDragged,.otherMouseUp)] {
+            var drag = PrimaryDragOutput()
+            let down = try XCTUnwrap(drag.begin(device:1,location:.init(x:10,y:20),flags:.maskCommand,button:button))
+            XCTAssertEqual(down.type,downType)
+            XCTAssertEqual(down.getIntegerValueField(.mouseEventButtonNumber),Int64(button.rawValue))
+            XCTAssertFalse(drag.join(device:2,button:.left))
+            XCTAssertNil(drag.begin(device:2,location:.zero,flags:[],button:.left))
+            XCTAssertEqual(drag.owner,1)
+            XCTAssertTrue(drag.join(device:2,button:button))
+            let moved = try XCTUnwrap(drag.movePointer(location:.init(x:15,y:25),delta:.init(x:5,y:5),flags:[]))
+            XCTAssertEqual(moved.type,dragType)
+            XCTAssertEqual(moved.getIntegerValueField(.mouseEventButtonNumber),Int64(button.rawValue))
+            XCTAssertNil(drag.end(device:1))
+            XCTAssertEqual(drag.owner,2)
+            let up = try XCTUnwrap(drag.end(device:2))
+            XCTAssertEqual(up.type,upType)
+            XCTAssertEqual(up.location,.init(x:15,y:25))
+            XCTAssertEqual(up.flags,[])
+            XCTAssertNil(drag.end())
+            XCTAssertTrue(drag.owners.isEmpty)
+            // Lifecycle cancellation releases the matching button through the same path.
+            _ = drag.begin(device:1,location:.zero,flags:[],button:button)
+            XCTAssertEqual(drag.end()?.type,upType)
+        }
+    }
+    func testMiddleClickAndNewActionCatalogRoundTrip() throws {
+        var clicks = PrimaryTapClickOutput()
+        let events = try XCTUnwrap(GestureTapActionOutput.events(action:.middleClick,location:.init(x:5,y:10),time:1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
+        XCTAssertEqual(events.map(\.type),[.otherMouseDown,.otherMouseUp])
+        XCTAssertTrue(events.allSatisfy { $0.getIntegerValueField(.mouseEventButtonNumber) == 2 && $0.flags == .maskShift })
+        var settings = HandGestureSettings()
+        settings.setAction(.middleClick,for:.twoFingerTap,in:.left)
+        settings.setAction(.secondaryDrag,for:.threeFingerMove,in:.left)
+        settings.setAction(.middleDrag,for:.threeFingerMove,in:.right)
+        settings.setAction(.capsWord,for:.fourFingerTap,in:.left)
+        var profile = AppKeymapProfile.defaultProfile()
+        profile.handGestureSettings = settings
+        let action = try XCTUnwrap(KeyActionCatalog.action(for:"Caps Word"))
+        XCTAssertEqual(action.kind,.capsWord)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(profile)) as? [String:Any])
+        object["keyMappingsByLayout"] = ["6x3":["0":["left:0:0":["primary":["label":"Caps Word","keyCode":0,"flags":0,"kind":"capsWord"],"holdForceThreshold":0]]]]
+        profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+        let decoded = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(decoded.handGestureSettings,settings)
+        XCTAssertEqual(decoded.keyMappingsByLayout?["6x3"]?[0]?["left:0:0"]?.primary,action)
+        for action in [GestureAction.secondaryDrag,.middleDrag] {
+            XCTAssertTrue(action.requiresPointerProfile)
+            XCTAssertTrue(GestureTrigger.threeFingerMove.allowedActions.contains(action))
+            XCTAssertFalse(GestureTrigger.twoFingerTap.allowedActions.contains(action))
+        }
+        XCTAssertTrue(GestureTrigger.twoFingerTap.allowedActions.contains(.middleClick))
+    }
+
     private func touches(_ count: Int = 3, dx: Float = 0, triangular: Bool = false, thumb: Bool = false) -> [OMSRawTouch] {
         (0..<count).map { index in
             let telemetry: OMSTouchTelemetry? = thumb ? OMSTouchTelemetry(

@@ -785,6 +785,7 @@ final class ContentViewModel: ObservableObject {
         case brightnessUpSmall
         case brightnessDownSmall
         case voice
+        case capsWord
         case typingToggle
         case chordalShift
         case gestureTwoFingerTap
@@ -2043,6 +2044,7 @@ enum KeyActionKind: String, Codable, Sendable {
     case brightnessUpSmall
     case brightnessDownSmall
     case voice
+    case capsWord
     case typingToggle
     case chordalShift
     case gestureTwoFingerTap
@@ -2314,6 +2316,7 @@ enum LayoutCustomButtonStorage {
 enum KeyActionCatalog {
     static let altGrLabel = "AltGr"
     static let voiceLabel = "Voice"
+    static let capsWordLabel = "Caps Word"
     static let dictationLabel = "Dictation"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
@@ -2593,6 +2596,7 @@ enum KeyActionCatalog {
     ]
 
     private static let modeActions: [KeyAction] = [
+        KeyAction(label:capsWordLabel,keyCode:0,flags:0,kind:.capsWord),
         KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle)
     ]
 
@@ -2691,6 +2695,7 @@ enum KeyActionCatalog {
                 volumeDownLabel,
             ]),
             (dashedHeader("Modifiers & Modes"), [
+                capsWordLabel,
                 "Hyper",
                 "Shift",
                 "Ctrl",
@@ -2853,6 +2858,7 @@ enum KeyActionCatalog {
             return noneAction
         }
 
+        if normalizedLabel == capsWordLabel { return KeyAction(label:capsWordLabel,keyCode:0,flags:0,kind:.capsWord) }
         if normalizedLabel == voiceLabel {
             return KeyAction(label: voiceLabel, keyCode: 0, flags: 0, kind: .voice)
         }

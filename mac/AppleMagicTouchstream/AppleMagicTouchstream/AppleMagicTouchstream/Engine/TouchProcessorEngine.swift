@@ -924,6 +924,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return "brightnessUpSmall"
         case .brightnessDownSmall:
             return "brightnessDownSmall"
+        case .capsWord:return "capsWord"
         case .voice:
             return "voice"
         case .typingToggle:
@@ -1455,7 +1456,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                      .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
                      .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall,
                      .chordalShift,
-                     .voice,
+                     .voice, .capsWord,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
                      .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
@@ -2246,6 +2247,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:"Text (Keychain)",
                 action:.textPaste(action.label),position:position,customButtonID:customButtonID,side:side,
                 holdAction:holdAction,holdForceThreshold:holdForceThreshold)
+        case .capsWord:
+            return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:action.label,action:.capsWord,position:position,customButtonID:customButtonID,side:side,holdAction:holdAction,holdForceThreshold:holdForceThreshold)
         case .voice:
             return KeyBinding(rect: rect, normalizedRect: normalizedRect, canvasSize: canvasSize,
                 label: action.label, action: .voice, position: position, customButtonID: customButtonID,
@@ -3094,6 +3097,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postTextPaste(label,sourceSequence:currentDispatchSourceSequence())
         case let .appLaunch(label):
             dispatchService.postAppLaunch(label, sourceSequence: currentDispatchSourceSequence())
+        case .capsWord:
+            dispatchService.postCapsWordToggle(sourceSequence:currentDispatchSourceSequence())
         case .voice:
             dispatchService.postVoiceToggle(sourceSequence: currentDispatchSourceSequence())
         case .chordalShift, .typingToggle, .volumeUpSmall, .volumeDownSmall,

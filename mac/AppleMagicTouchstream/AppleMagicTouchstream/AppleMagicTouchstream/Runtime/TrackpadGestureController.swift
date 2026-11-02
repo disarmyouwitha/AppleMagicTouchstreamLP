@@ -254,7 +254,7 @@ final class TrackpadGestureController: ObservableObject {
             if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Paused: \(action.title) is unavailable on this macOS version." }
             if action.requiresPointerProfile && pointerProfiles[id] == nil { return "Paused: tracking profile unavailable." }
             if action == .scroll && scrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
-            if action == .primaryDrag && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
+            if action.dragButton != nil && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
             return "Active"
         }
         if scope != .both { return hand(scope) }

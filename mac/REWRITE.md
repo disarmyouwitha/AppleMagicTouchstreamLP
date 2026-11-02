@@ -1,11 +1,11 @@
 # NEXT:
 =======
-2. Implement actions: Missing TouchStream actions:
+1. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
 > Middle click and drag	    Mouse3 click or held drag
 > Secondary drag	        Mouse2 down → movement → release
 > Caps Word	                Capitalize the next word, then automatically stop
-> Sequential macros:        Ctrl+X, (then) V, then =
+2. Sequential macros:        Ctrl+X, (then) V, then =
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
 # Steno Dictionary Menu Mode

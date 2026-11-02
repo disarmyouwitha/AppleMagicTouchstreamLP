@@ -222,34 +222,35 @@ enum ThreeFingerRowChord {
     }
 }
 
-/// One global primary-button owner. All methods are confined to the live output
+/// One shared native drag button (primary, secondary or middle) and its pad owners. All methods are confined to the live output
 /// lock (or an offline test). The reserved up event exists before down is returned.
 struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var owner: UInt64?
     private(set) var owners:Set<UInt64> = Set(minimumCapacity:2)
     private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
+    private(set) var button:CGMouseButton = .left
     // CGEvent stores source metadata, but does not retain the CGEventSource.
     // Keep this private table alive for the output owner's lifetime, including
     // after end() returns and while WindowServer is processing queued releases.
     private let source = CGEventSource(stateID:.privateState)
     var eventSource:CGEventSource? { owner == nil ? nil : source }
     var diagnosticSourceID: CGEventSourceStateID? { source?.sourceStateID }
-    mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
+    mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags, button:CGMouseButton = .left) -> CGEvent? {
         guard owner == nil, location.x.isFinite, location.y.isFinite,
               let source = self.source,
-              let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
-              let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        owner = device; owners.insert(device); self.location = location; releaseEvent = up
-        Self.configure(down,flags:flags,pressure:1)
-        Self.configure(up,flags:flags,pressure:0)
+              let down = CGEvent(mouseEventSource:source,mouseType:button == .left ? .leftMouseDown : button == .right ? .rightMouseDown:.otherMouseDown,mouseCursorPosition:location,mouseButton:button),
+              let up = CGEvent(mouseEventSource:source,mouseType:button == .left ? .leftMouseUp : button == .right ? .rightMouseUp:.otherMouseUp,mouseCursorPosition:location,mouseButton:button) else { return nil }
+        owner = device; owners.insert(device); self.location = location; releaseEvent = up; self.button = button
+        Self.configure(down,flags:flags,pressure:1,button:button)
+        Self.configure(up,flags:flags,pressure:0,button:button)
         return down
     }
     mutating func move(device: UInt64, location: CGPoint, delta: CGPoint, flags: CGEventFlags) -> CGEvent? {
         guard owners.contains(device), location.x.isFinite, location.y.isFinite,
               delta.x.isFinite, delta.y.isFinite,
-              let event = CGEvent(mouseEventSource:source,mouseType:.leftMouseDragged,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        Self.configure(event,flags:flags,pressure:1)
+              let event = CGEvent(mouseEventSource:source,mouseType:button == .left ? .leftMouseDragged : button == .right ? .rightMouseDragged:.otherMouseDragged,mouseCursorPosition:location,mouseButton:button) else { return nil }
+        Self.configure(event,flags:flags,pressure:1,button:button)
         event.setDoubleValueField(.mouseEventDeltaX,value:delta.x)
         event.setDoubleValueField(.mouseEventDeltaY,value:delta.y)
         self.location = location
@@ -257,9 +258,9 @@ struct PrimaryDragOutput: @unchecked Sendable {
         return event
     }
     func hasOtherOwner(than device:UInt64) -> Bool { owners.contains { $0 != device } }
-    /// Another drag can share the one system primary button without a second down.
-    mutating func join(device:UInt64) -> Bool {
-        guard owner != nil else { return false }
+    /// Another pad can share the same button without a second down.
+    mutating func join(device:UInt64,button:CGMouseButton = .left) -> Bool {
+        guard self.button == button, owner != nil else { return false }
         owners.insert(device); return true
     }
     /// Either pad's pointer can move a drag without becoming a button owner.
@@ -279,10 +280,10 @@ struct PrimaryDragOutput: @unchecked Sendable {
         owner = nil; owners.removeAll(keepingCapacity:true); self.location = nil; releaseEvent = nil
         return up
     }
-    private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {
+    private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double,button:CGMouseButton) {
         event.flags = flags
         event.setIntegerValueField(.mouseEventClickState,value:1)
-        event.setIntegerValueField(.mouseEventButtonNumber,value:0)
+        event.setIntegerValueField(.mouseEventButtonNumber,value:Int64(button.rawValue))
         event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         event.setDoubleValueField(.mouseEventPressure,value:pressure)
     }
@@ -430,6 +431,16 @@ enum GestureTapActionOutput {
             guard let sequence = PrimaryTapClickOutput.doubleClickEvents(location:location,flags:flags) else { return nil }
             clicks.reset()
             return [sequence.first.down,sequence.first.up,sequence.second.down,sequence.second.up]
+        case .middleClick:
+            guard let down = CGEvent(mouseEventSource:mouseEventSource,mouseType:.otherMouseDown,mouseCursorPosition:location,mouseButton:.center),
+                  let up = CGEvent(mouseEventSource:mouseEventSource,mouseType:.otherMouseUp,mouseCursorPosition:location,mouseButton:.center) else { return nil }
+            for event in [down,up] {
+                event.flags = flags
+                event.setIntegerValueField(.mouseEventButtonNumber,value:2)
+                event.setIntegerValueField(.mouseEventClickState,value:1)
+                event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+            }
+            clicks.reset(); return [down,up]
         case .secondaryClick:
             guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags,source:mouseEventSource) else { return nil }
             clicks.reset()

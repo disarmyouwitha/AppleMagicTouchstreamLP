@@ -140,10 +140,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
-        func primaryClickConflicts(_ action:GestureAction) -> Bool {
-            drag.owner != nil && (action == .primaryClick || action == .primaryDoubleClick)
+        func dragClickConflicts(_ action:GestureAction) -> Bool {
+            drag.owner != nil && action.clickButton == drag.button
         }
-        var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { $0.uses(.primaryDrag) } }
+        var needsDragObserver: Bool { !stenoDevices.isEmpty || bindings.values.contains { ($0.uses(.primaryDrag) || $0.uses(.secondaryDrag) || $0.uses(.middleDrag)) } }
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) || $0.uses(.rotate) || ($0.shapeRepeats?.values.contains { $0.mode == .timed } ?? false) } }
         var needsScrollTimer: Bool {
             bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
@@ -167,7 +167,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             case .thumbTwoTap: enabled = thumbTwoTapDevices.contains(device)
             default: enabled = trigger.forceCount != nil && devices.contains(device)
             }
-            return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
+            return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device).dragButton == nil || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
             recognized(.gesture(trigger),device:device,time:time)
@@ -182,7 +182,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             DispatchService.shared.releaseGestureShortcut(owner)
         }
         mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double,direction:GestureMovementDirection? = nil,owner:GestureShortcutOwner? = nil) {
-            guard action != .disabled, !primaryClickConflicts(action) else { return }
+            guard action != .disabled, !dragClickConflicts(action) else { return }
             if action.isDirectionalScroll {
                 guard let direction, scrollProfiles[device] != nil else { return }
                 if directionalScrollEngines[device]?.matches(direction:direction,action:action) != true {
@@ -194,6 +194,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
                 return
             }
+            if action == .capsWord { DispatchService.shared.postCapsWordToggle(); return }
             if action == .voice { DispatchService.shared.postVoiceToggle(); return }
             if let shortcut = action.shortcutAssignment {
                 let owner = owner ?? .pad(device)
@@ -872,13 +873,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             let forceBindings = state.bindings[device] ?? GestureActionBindings()
             let dragOnAnotherPad = state.drag.hasOtherOwner(than:device)
+            let heldDragButton = state.drag.button
             if let trigger = state.forceClicks.recognize(device:device,time:time,contacts:contacts,
                     enabled:{ trigger in
                         let action = forceBindings.action(for:trigger)
-                        return action != .disabled && !(dragOnAnotherPad && (action == .primaryClick || action == .primaryDoubleClick))
+                        return action != .disabled && !(dragOnAnotherPad && action.clickButton == heldDragButton)
                     }),
                let location = CGEvent(source:nil)?.location,
-               let events = forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil || state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
+               let events = (forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger) == .capsWord) || forceBindings.action(for:trigger).shortcutAssignment != nil || state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
                     ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                         time:hostTime,doubleClickInterval:state.doubleClickInterval,
                         flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),clicks:&state.clicks,
@@ -888,7 +890,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.rotateOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
-                if forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
+                if (forceBindings.action(for:trigger) == .voice || forceBindings.action(for:trigger) == .capsWord) || forceBindings.action(for:trigger).shortcutAssignment != nil { state.postDirectional(forceBindings.action(for:trigger),device:device,time:hostTime) }
                 for event in events { event.post(tap:state.appleShortcuts[forceBindings.action(for:trigger)]?.eventTap ?? .cghidEventTap) }
                 if state.appleShortcuts[forceBindings.action(for:trigger)]?.postDock() == true { state.clicks.reset() }
                 if state.takeForceFeedback(device:device,time:hostTime) {
@@ -1041,13 +1043,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             let motion = update.gesture.flatMap { gesture in update.millimetres.map { (gesture:gesture,millimetres:$0) } }
             let motionAction = update.gesture.map { state.action($0,device:device) } ?? .disabled
-            if motionAction == .primaryDrag && update.phase == .began {
+            if let button = motionAction.dragButton, update.phase == .began {
                 state.finishScroll(device:device,cancelled:true)
                 if state.drag.owner != nil {
-                    guard state.drag.join(device:device) else { state.reset(device:device); return nil }
+                    guard state.drag.join(device:device,button:button) else { state.reset(device:device); return nil }
                 } else {
                     guard let location = CGEvent(source:nil)?.location,
-                          let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags)) else {
+                          let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState).union(DispatchService.shared.heldGestureFlags),button:button) else {
                         state.reset(device:device)
                         state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                         return nil

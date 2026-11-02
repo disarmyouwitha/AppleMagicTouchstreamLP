@@ -72,6 +72,23 @@ enum KeyboardModifierDiagnostics {
     }
 }
 
+/// Event-local Shift only: Caps Word never owns or holds a native modifier.
+struct CapsWordState {
+    private(set) var active = false
+    mutating func toggle() { active.toggle() }
+    mutating func reset() { active = false }
+    mutating func flags(code:CGKeyCode,flags:CGEventFlags,down:Bool = true) -> CGEventFlags {
+        guard active,down else { return flags }
+        if ModifierDiagnosticRing.modifierCode(code) != nil { return flags }
+        guard flags.intersection([.maskCommand,.maskControl,.maskAlternate]).isEmpty else { active = false; return flags }
+        switch code {
+        case 0...9,11...17,31,32,34,35,37,38,40,45,46: return flags.union(.maskShift)
+        case 18...23,25,26,27,28,29,51,117: return flags
+        default: active = false; return flags
+        }
+    }
+}
+
 enum InputMonitoringPermission {
     static func hasListenAccess() -> Bool {
         CGPreflightListenEventAccess()
@@ -781,6 +798,7 @@ final class DispatchService: @unchecked Sendable {
         case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
+        case capsWordToggle
         case leftClick(clickCount: Int)
         case rightClick
         case middleClick
@@ -892,7 +910,8 @@ final class DispatchService: @unchecked Sendable {
         sourceSequence: UInt64? = nil
     ) {
         shortcutKeys.withLock { keys in
-            let combined = flags.union(keys.flags)
+            let inherited = flags.union(keys.flags)
+            let combined = capsWord.withLock { $0.flags(code:code,flags:inherited) }
             if keys.owns(code) {
                 enqueue(.key(code:code,flags:combined,keyDown:true,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
             } else {
@@ -911,8 +930,15 @@ final class DispatchService: @unchecked Sendable {
     ) {
         shortcutKeys.withLock { keys in
             guard let edge = keys.keyboardEdge(code:code,flags:flags,down:keyDown) else { return }
-            enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
+            let outputFlags = capsWord.withLock { $0.flags(code:edge.code,flags:edge.flags,down:edge.down) }
+            enqueue(.key(code:edge.code,flags:outputFlags,keyDown:edge.down,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
         }
+    }
+
+    private let capsWord = OSAllocatedUnfairLock(initialState:CapsWordState())
+    func postCapsWordToggle(sourceSequence:UInt64? = nil) {
+        capsWord.withLock { $0.toggle() }
+        enqueue(.capsWordToggle,sourceSequence:sourceSequence)
     }
 
     var heldGestureFlags:CGEventFlags { shortcutKeys.withLock { $0.flags } }
@@ -925,7 +951,8 @@ final class DispatchService: @unchecked Sendable {
                     enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
                 }
             }
-        } else if action.kind == .textPaste { postTextPaste(action.label) }
+        } else if action.kind == .capsWord { postCapsWordToggle() }
+        else if action.kind == .textPaste { postTextPaste(action.label) }
         else if action.kind == .appLaunch { postAppLaunch(action.label) }
         else { postKeyStroke(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags)) }
     }
@@ -1106,6 +1133,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func clearQueue() {
+        capsWord.withLock { $0.reset() }
         if keyDispatcher != nil {
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.cancel()
@@ -1294,6 +1322,8 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
+        case .capsWordToggle:
+            break // State changes at submission; replay records the same action without native input.
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
@@ -1365,6 +1395,8 @@ final class DispatchService: @unchecked Sendable {
                 status: status,
                 sourceSequence: command.sourceSequence
             )
+        case .capsWordToggle:
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("capsWordToggle"),status:status,sourceSequence:command.sourceSequence)
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)

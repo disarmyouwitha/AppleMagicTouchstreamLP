@@ -422,3 +422,10 @@ geometry while contacts update; geometry and inspector must remain responsive. T
 the toggle off while fingers are held, then lift: no delayed key should dispatch.
 A fresh contact after all-up should restore ordinary editor input. Apply/Cancel,
 close/reopen config and ownership refresh must not leave preview suppression set.
+
+TouchStream action regressions verify matching Mouse2/Mouse3 down/drag/up events,
+reserved release, same-button sharing, rejection of conflicting drag ownership,
+middle-click metadata, catalog/settings round-trips and Caps Word event-local
+capitalization, boundaries, shortcut isolation and lifecycle reset. These offline
+checks construct native events but never post them; native button/target acceptance
+requires user testing of the signed build.

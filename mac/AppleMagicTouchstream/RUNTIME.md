@@ -157,6 +157,15 @@ existing group metadata, bindings and counterpart links are retained.
 Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
 displayScale) and shrink together when needed. Tool buttons retain their compact
 90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
+Caps Word is a keyboard/gesture action that toggles capitalization for AMT’s next
+word. It adds event-local Shift to ANSI letter keys, without owning a native Shift
+key. Digits, hyphen/underscore and Backspace/Delete continue the word; spaces,
+Return and other punctuation end it. Command/Control/Option shortcuts end it without
+altering their flags. Invoking Caps Word again cancels it. Lifecycle queue cleanup
+also clears it. Physical typing and built-in STENO translation are not transformed.
+The catalog kind/gesture identity round-trips through settings and captures; offline
+replay records the action and resulting letter flags without native output.
+
 Key rotation is edited in Layout Editor; Keymap Tuning contains action assignments only.
 The editor selects individual keys regardless of saved group metadata; Group/Ungroup
 controls are removed. Mirror Edit sits beside the Layout Editor title. The column count sits beside Add
