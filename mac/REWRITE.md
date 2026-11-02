@@ -1,7 +1,8 @@
 # NEXT:
 =======
-0. Hey, I noticed in the Layout Editor that it doesn't display my Custom Buttons that were added before we moved the function to the Layout Editor.. Why? Do I need to re-create the buttons with the new editor and re-export? (Can you set up the buttons for me and I will Import?)
-1. Set up custom buttons in Layout Editor / make sure special space/backspace continuous still works / make sure MO() layer buttons still work.
+Nice I have it setup in MY_KEYMAP can you 1. remove plank from the keymap (it is a depreciated layout) 
+2. I updated my 6x3 custom buttons in MY_KEYMAP.json can you make the changes to the other bundeled keymaps?
+3. 
 ===
 0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
 > Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
