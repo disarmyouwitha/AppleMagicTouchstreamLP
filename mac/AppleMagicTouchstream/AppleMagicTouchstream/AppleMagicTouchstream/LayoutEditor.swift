@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import OpenMultitouchSupport
 
 /// Inline, staged authoring workspace. Canvas gestures never publish live geometry.
 struct LayoutEditor: View {
@@ -8,7 +9,12 @@ struct LayoutEditor: View {
     let onApply: (LayoutDocument?) -> Void
     let onCancel: () -> Void
     let mappings: [String:KeyMapping]
+    let layerMappings:LayeredKeyMappings?
+    @State private var editingLayer:Int
     @Binding var menuWidth: Double
+    let contactSnapshot: (UInt64) -> ContentViewModel.TouchSnapshot?
+    let onContactPreview: (Bool) -> Void
+    @State private var showContacts = false
     @State private var selection = Set<UUID>()
     @State private var mirror = true
     private let snapMM: CGFloat = 1
@@ -34,8 +40,13 @@ struct LayoutEditor: View {
     }
 
     init(document: LayoutDocument, template: LayoutDocument, onApply: @escaping (LayoutDocument?) -> Void,
-         onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = [], mappings: [String:KeyMapping] = [:]) {
-        self.mappings = mappings
+         onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = [], mappings: [String:KeyMapping] = [:],
+         layerMappings:LayeredKeyMappings? = nil,initialLayer:Int = 0,
+         contactSnapshot:@escaping (UInt64) -> ContentViewModel.TouchSnapshot? = { _ in nil },
+         onContactPreview:@escaping (Bool) -> Void = { _ in }) {
+        self.contactSnapshot = contactSnapshot; self.onContactPreview = onContactPreview
+        self.mappings = mappings; self.layerMappings = layerMappings
+        _editingLayer = State(initialValue:KeyLayerConfig.clamped(initialLayer))
         _document = State(initialValue:document)
         self.template = template; self.onApply = onApply; self.onCancel = onCancel; _menuWidth = menuWidth
         _selection = State(initialValue:initialSelection)
@@ -74,6 +85,12 @@ struct LayoutEditor: View {
             }
         }
         .onAppear { documentValid = document.isValid; refreshLegends() }
+        .onChange(of:editingLayer) { layer in
+            selection = selection.filter { id in document.keys.first { $0.id == id }?.isVisible(on:layer) == true }
+            refreshLegends()
+        }
+        .onChange(of:showContacts) { onContactPreview($0) }
+        .onDisappear { onContactPreview(false) }
         .onChange(of: mirror) { enabled in
             if enabled { selection = Set(document.keys.filter { selection.contains($0.id) && $0.right == right }.map(\.id)) }
         }
@@ -92,6 +109,12 @@ struct LayoutEditor: View {
         HStack(spacing:12) {
             Label("Layout Editor",systemImage:"square.and.pencil").font(.headline)
             mirrorToggle
+            Button { showContacts.toggle() } label: {
+                Label("Show Contacts",systemImage:"hand.point.up.left")
+            }.buttonStyle(.bordered).tint(showContacts ? .accentColor:nil)
+                .background(showContacts ? Color.accentColor.opacity(0.16):Color.clear,in:RoundedRectangle(cornerRadius:6))
+                .accessibilityValue(showContacts ? "On":"Off")
+                .help("Show finger placement without typing. Mouse and 1–3 finger gestures stay available; 4–5 finger gestures are paused.")
         }.fixedSize()
     }
     private var editorActions: some View {
@@ -140,6 +163,13 @@ struct LayoutEditor: View {
                 Canvas { context,size in drawPad(&context,size:size,isRight:isRight) }
                     .background(Color.primary.opacity(0.025))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay {
+                        if showContacts {
+                            LayoutContactOverlay(isRight:isRight,snapshot:contactSnapshot)
+                                .allowsHitTesting(false).accessibilityHidden(true)
+                                .clipShape(RoundedRectangle(cornerRadius:10))
+                        }
+                    }
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.6)))
                     .contentShape(Rectangle())
                     .gesture(DragGesture(minimumDistance: 0,coordinateSpace: .local)
@@ -162,7 +192,7 @@ struct LayoutEditor: View {
         }
         context.stroke(grid,with:.color(.secondary.opacity(0.15)),lineWidth:0.5)
         let paired = mirror ? document.pairedSelection(selection).subtracting(selection) : []
-        for key in document.keys where key.right == isRight {
+        for key in document.keys where key.right == isRight && key.isVisible(on:editingLayer) {
             let rect = key.displayRect.rect(in: size)
             var local = context
             local.translateBy(x:rect.midX,y:rect.midY)
@@ -213,7 +243,7 @@ struct LayoutEditor: View {
             let frameHandle = frame.map { resizePoint($0.rect,size:size) }
             if let frameHandle, hypot(value.startLocation.x-frameHandle.x,value.startLocation.y-frameHandle.y) < 10 {
                 right = isRight; dragKind = .resizeFrame(isRight); dragIDs = selection
-            } else if let id = document.editorHit(at:p,right:isRight,pad:CGSize(width:width,height:height)) {
+            } else if let id = document.editorHit(at:p,right:isRight,pad:CGSize(width:width,height:height),layer:editingLayer) {
                 let ids: Set<UUID> = [id]
                 if !ids.isSubset(of:selection) { select(ids,onRight:isRight,adding:adding) }
                 else { right = isRight }
@@ -241,7 +271,7 @@ struct LayoutEditor: View {
             let sx = min(max(value.startLocation.x/size.width,0),1), sy = min(max(value.startLocation.y/size.height,0),1)
             let rect = CGRect(x:min(x,sx),y:min(y,sy),width:abs(x-sx),height:abs(y-sy))
             marquee = rect
-            selection = marqueeBase.union(document.editorMarquee(rect,right:isRight,groups:false,pad:CGSize(width:width,height:height)))
+            selection = marqueeBase.union(document.editorMarquee(rect,right:isRight,groups:false,pad:CGSize(width:width,height:height),layer:editingLayer))
         }
     }
     private func resizeDrag(_ value: DragGesture.Value, size: CGSize, start: LayoutDocument,
@@ -312,8 +342,15 @@ struct LayoutEditor: View {
             }.frame(maxWidth:286,alignment:.leading)
             Divider()
             Text("Add").font(.subheadline.bold())
-            if mirror { Label("Both trackpads",systemImage:"rectangle.split.2x1").font(.caption).foregroundStyle(.secondary) }
-            else { Picker("Trackpad",selection:$right) { Text("Left").tag(false); Text("Right").tag(true) }.pickerStyle(.segmented) }
+            HStack(spacing:12) {
+                if mirror { Label("Both trackpads",systemImage:"rectangle.split.2x1").font(.caption).foregroundStyle(.secondary) }
+                else { Picker("Trackpad",selection:$right) { Text("Left").tag(false); Text("Right").tag(true) }.pickerStyle(.segmented) }
+                Spacer(minLength:0)
+                Picker("Layer",selection:$editingLayer) {
+                    ForEach(KeyLayerConfig.editableLayers,id:\.self) { Text("Layer \($0)").tag($0) }
+                }.pickerStyle(.menu).labelsHidden().accessibilityLabel("Layer").fixedSize().disabled(dragStart != nil)
+                    .help("Show this layer's assignments and add new keys or columns only to this layer.")
+            }
             ViewThatFits(in:.horizontal) {
                 HStack(spacing:8) { addKeyTool; addColumnControls }.fixedSize(horizontal:true,vertical:false)
                 VStack(alignment:.leading,spacing:10) { addKeyTool; addColumnControls }
@@ -433,7 +470,7 @@ struct LayoutEditor: View {
     }
 
     private func refreshLegends() {
-        legends = document.editorLegends(mappings:mappings)
+        legends = document.editorLegends(mappings:layerMappings.map { $0[editingLayer] ?? [:] } ?? mappings)
     }
     private func change(mirrorGeometry: Bool = true,_ action: () -> Void) {
         let old = document, ids = selection
@@ -486,7 +523,7 @@ struct LayoutEditor: View {
     }
     private func addKey() {
         change(mirrorGeometry:false) {
-            selection = [mirror ? document.addMirrored(right:right):document.add(right:right)]
+            selection = [mirror ? document.addMirrored(right:right,layer:editingLayer):document.add(right:right,layer:editingLayer)]
         }
     }
     private func addColumn() {
@@ -498,7 +535,7 @@ struct LayoutEditor: View {
             selection = []
             for n in 0..<columnCount {
                 let r = NormalizedRect(x:0.45,y:0.05+CGFloat(n)*0.9/CGFloat(columnCount),width:0.09,height:0.85/CGFloat(columnCount))
-                selection.insert(mirror ? document.addMirrored(right:right,rect:r,group:group.id,oppositeGroup:other.id):document.add(right:right,rect:r,group:group.id))
+                selection.insert(mirror ? document.addMirrored(right:right,rect:r,group:group.id,oppositeGroup:other.id,layer:editingLayer):document.add(right:right,rect:r,group:group.id,layer:editingLayer))
             }
         }
     }
@@ -587,5 +624,69 @@ struct LayoutNumericField: View {
         guard let number = Double(text), number.isFinite, !positive || number > 0 else { invalid = true; return }
         if number != value { onCommit(number) }
         draft = number.formatted(.number.precision(.fractionLength(2)))
+    }
+}
+
+
+/// A separate native drawing surface: touches never invalidate LayoutEditor's
+/// document, legends, selection or key Canvas. One bounded poll per pad at 30 Hz,
+/// no work/timer while hidden, no recognition or hit testing on the render path.
+private struct LayoutContactOverlay:NSViewRepresentable {
+    let isRight:Bool
+    let snapshot:(UInt64) -> ContentViewModel.TouchSnapshot?
+    func makeNSView(context:Context) -> LayoutContactView {
+        let view = LayoutContactView(); view.isRight = isRight; view.snapshot = snapshot; view.start(); return view
+    }
+    func updateNSView(_ view:LayoutContactView,context:Context) { view.snapshot = snapshot; view.isRight = isRight }
+    static func dismantleNSView(_ view:LayoutContactView,coordinator:()) { view.stop() }
+}
+
+@MainActor private final class LayoutContactView:NSView {
+    var isRight = false
+    var snapshot:((UInt64) -> ContentViewModel.TouchSnapshot?)?
+    private var revision:UInt64 = 0
+    private var touches:[OMSTouchData] = []
+    private var timer:Timer?
+    private var lastUpdate = Date.distantPast
+    override var isFlipped:Bool { true }
+    override func hitTest(_ point:NSPoint) -> NSView? { nil }
+    func start() {
+        guard timer == nil else { return }
+        let timer = Timer(timeInterval:1/30,repeats:true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sample() }
+        }
+        timer.tolerance = 0.006; self.timer = timer; RunLoop.main.add(timer,forMode:.common)
+        sample()
+    }
+    func stop() { timer?.invalidate(); timer = nil; snapshot = nil; touches = [] }
+    private func sample() {
+        guard window?.isVisible != false else { return }
+        if let next = snapshot?(revision) {
+            revision = next.revision
+            touches = Array((isRight ? next.right:next.left).lazy.filter {
+                ($0.state == .making || $0.state == .touching) &&
+                $0.position.x.isFinite && $0.position.y.isFinite &&
+                (0...1).contains($0.position.x) && (0...1).contains($0.position.y)
+            }.prefix(16))
+            lastUpdate = Date(); needsDisplay = true
+        } else if !touches.isEmpty && Date().timeIntervalSince(lastUpdate)>0.25 {
+            touches = []; needsDisplay = true
+        }
+    }
+    override func draw(_ dirtyRect:NSRect) {
+        for touch in touches {
+            let center = CGPoint(x:CGFloat(touch.position.x)*bounds.width,y:(1-CGFloat(touch.position.y))*bounds.height)
+            let major = touch.axis.major.isFinite ? max(0,CGFloat(touch.axis.major)):0
+            let minor = touch.axis.minor.isFinite ? max(0,CGFloat(touch.axis.minor)):0
+            let width = min(bounds.width/3,max(9,major*bounds.width/100))
+            let height = min(bounds.height/3,max(9,minor*bounds.width/100))
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.cgContext.translateBy(x:center.x,y:center.y)
+            if touch.angle.isFinite { NSGraphicsContext.current?.cgContext.rotate(by:CGFloat(-touch.angle)) }
+            let path = NSBezierPath(ovalIn:CGRect(x:-width/2,y:-height/2,width:width,height:height))
+            AnatomicalFingerPalette.color(fingerID:touch.telemetry?.fingerID).withAlphaComponent(0.75).setFill(); path.fill()
+            NSColor.white.withAlphaComponent(0.9).setStroke(); path.lineWidth = 1; path.stroke()
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 }

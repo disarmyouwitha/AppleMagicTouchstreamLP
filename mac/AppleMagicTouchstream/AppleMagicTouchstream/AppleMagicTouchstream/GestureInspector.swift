@@ -1510,6 +1510,8 @@ struct GestureActionChooser:View {
         var seen:Set<GestureAction> = []
         return KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
             .compactMap { action -> GestureAction? in
+                if action.kind == .capsWord { return actions.contains(.capsWord) ? .capsWord:nil }
+                if action.kind == .middleClick { return actions.contains(.middleClick) ? .middleClick:nil }
                 if action.kind == .voice { return actions.contains(.voice) ? .voice : nil }
                 guard action.kind == .key || action.kind == .appLaunch || action.kind == .textPaste else { return nil }
                 return .shortcut(.init(label:action.storageLabel))
@@ -1518,8 +1520,9 @@ struct GestureActionChooser:View {
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
-            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
-            ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
+            ("Movement",[.pointer,.primaryDrag,.secondaryDrag,.middleDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
+            ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick]),
+            ("Keyboard",[.capsWord]),
             ("System",GestureAction.appleShortcuts + GestureAction.nativeDiscreteActions),
             ("Sound & Display",GestureAction.mediaActions + GestureAction.smallStepActions),
             ("Application",[.openConfig])]
@@ -1696,7 +1699,7 @@ struct ShortcutActionBuilder:View {
     }()
     static func shortcutKeyPickerGroups(savedLabels:[String]) -> [SearchableActionGroup<String>] {
         let shortcuts = KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
-            .filter { [.key,.appLaunch,.textPaste,.voice].contains($0.kind) }.map(\.storageLabel)
+            .filter { [.key,.appLaunch,.textPaste,.voice,.capsWord,.middleClick].contains($0.kind) }.map(\.storageLabel)
         return shortcutKeyGroups + (shortcuts.isEmpty ? []:[.init(title:"Shortcuts",actions:shortcuts)])
     }
     private func selectShortcutKey(_ label:String) {

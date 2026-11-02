@@ -133,7 +133,7 @@ size is 1120 × 540 points, allowing laptop screen resolutions without the previ
 1384-point minimum width. Existing workspace scroll areas handle constrained space;
 trackpad visualization retains its existing maximum size.
 
-Layout Editor replaces the keyboard visualizer in the same workspace while editing.
+Layout Editor replaces the keyboard visualizer in the same workspace while editing. The Add row has a layer selector: it previews that layer’s assignments and scopes newly added keys/columns to that layer, including mirrored counterparts. Existing keys without layer metadata remain shared across layers. Layer scope round-trips through settings and captures, filters recognition and visualization, and is committed with the document on Apply. The editor’s selected layer is only a local preview; both Apply and Cancel return the visualizer to persistent Layer 0.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
 settings column. Apply saves one geometry update and returns to the visualizer;
 Cancel returns without publishing the staged document. Undo, Redo and Reset remain
@@ -157,6 +157,16 @@ existing group metadata, bindings and counterpart links are retained.
 Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
 displayScale) and shrink together when needed. Tool buttons retain their compact
 90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
+Caps Word is a keyboard/gesture action that toggles capitalization for AMT’s next
+word. It adds event-local Shift to ANSI letter keys, without owning a native Shift
+key. Digits, hyphen/underscore and Backspace/Delete continue the word; spaces,
+Return and other punctuation end it. Command/Control/Option shortcuts end it without
+altering their flags. Invoking Caps Word again cancels it. Lifecycle queue cleanup
+also clears it. Physical typing and built-in STENO translation are not transformed.
+The catalog kind/gesture identity round-trips through settings and captures; offline
+replay records the action and resulting letter flags without native output.
+
+Key rotation is edited in Layout Editor; Keymap Tuning contains action assignments only.
 The editor selects individual keys regardless of saved group metadata; Group/Ungroup
 controls are removed. Mirror Edit sits beside the Layout Editor title. The column count sits beside Add
 Column. Dragging and shared frame resizing always use a 1 mm grid, independently of
@@ -375,9 +385,9 @@ is app-local and does not require an acceleration profile or Accessibility for
 its own action; normal selected/owned/armed/takeover gates remain. Leaving STENO
 restores the ordinary gesture assignments.
 
-The Connection selector offers the existing Gemini PR Serial endpoint and a
-**Plover Plugin** loopback connection. The plugin is the default for missing/new preferences; an explicitly saved serial
-choice stays serial. Plugin mode listens only on `127.0.0.1:31572`, with the same HELLO/READY
+The Connection selector offers Gemini PR Serial, a **Plover Plugin** loopback
+connection, **Built-in Javelin (Lapwing)**, and **Built-in Javelin (Plover)**. Built-in Javelin (Lapwing) is the default for missing/new preferences; explicitly
+saved plugin or serial choices remain unchanged. Plugin mode listens only on `127.0.0.1:31572`, with the same HELLO/READY
 handshake and six-byte Gemini PR frames as the Windows plugin. It automatically
 reconnects, bounds setup time/output buffering, rejects invalid setup or commands,
 and drops disconnected/full output rather than storing strokes for reconnect.
@@ -399,6 +409,89 @@ installation, without starting Plover's GUI or changing its settings.
 After installation, restart Plover and choose AppleMagicTouchstream
 under Configure → Machine. The source/builder and usage are in
 [PloverPlugin](PloverPlugin/README.md); the Windows copy remains intact.
+
+**Built-in Javelin (Lapwing)** and **Built-in Javelin (Plover)** are self-contained backends.
+Touch recognition and completed-chord masks are unchanged. A pinned Javelin C++
+core (7efd1e13a74f00ba4d2e793198546e6dc83c7fbe) translates strokes on the existing
+serial output queue; normal keyboard/gesture frames never enter it. Bundled
+Lapwing AIO 1.5.0 JSON dictionaries load only when its option is enabled, with
+commands → numbers → UK additions → proper nouns → base priority. Plover's stock
+5.4.2 commands/main JSON dictionaries are bundled separately, with their GPL
+license and source/version/checksum manifest. Plover uses the same native engine
+and output path, with the standard basic number-key fallback; Lapwing keeps its
+own explicit number dictionary. Both drawn S
+keys produce S; star and number aliases collapse to their shared steno bits.
+The host emitter returns Unicode/backspace edits and never posts native input.
+Live DispatchService verifies generation, Accessibility, secure-input state and
+focused target before serialized output. AX capture/verification stays on the
+main actor, while the output pump preserves stroke order. Replay remains
+recording-only and does not load dictionaries or translate/post text.
+
+Multi-stroke translation, standard affix/case/punctuation formatting and star undo
+use the real Javelin engine. English suffix spelling uses a conservative host
+rule subset. Python/modal dictionaries, raw keyboard shortcuts, plugin macros,
+Plover commands and extended functions are inert in this prototype, including
+reserving their JSON outlines against lower-priority fallthrough. Keep the Plover
+option for those extensions. No personal dictionary or Plover preferences ship.
+Focus changes, STENO mouse clicks/drag acquisition, queue resets and transport or
+mode changes discard translation history without output. A STENO force-click
+provides an explicit history boundary after moving the cursor with another device
+or editing text within the same field; there is no manual reset button. This prototype does not monitor physical
+keyboard/mouse input or promise to track those edits. Dictionary versions, hashes
+and MIT/PolyForm Noncommercial notices ship under `Resources/Javelin`.
+
+STENO 6x3's main 6×3 grid uses the regular 6x3 offsets, scales and padding from
+bundled DEFAULT_KEYMAP.json, cached as configuration data. Its old neutral-column,
+0.5% padding seed resolves to that geometry too; explicit non-neutral tuning and
+authored layout documents remain independent. The steno key identities and thumb
+keys are unchanged. Asterisk and Single geometry are unaffected. The retired 5x3
+and 5x4 presets are removed from the picker, template code and bundled keymaps;
+use Layout Editor to remove/add columns within an authored document instead.
+
+**Dictionaries…** opens the manager for the selected built-in profile. Each
+profile has an independently saved, ordered dictionary list; higher enabled rows
+win. Load accepts local JSON dictionaries; New/Edit support searchable outline and
+translation rows; Export writes portable JSON. Removing a user dictionary removes
+only the reference, never the file. Removing a dictionary preserves all remaining
+checkbox states, including when the last custom dictionary is removed. Batch imports validate all files before
+changing the list. Imported files remain at the selected paths and can be reloaded
+after external edits. The local catalog lives at Application Support/
+AppleMagicTouchstream/StenoDictionaries/catalog.json; it contains paths and enabled
+states, with no dictionary contents added to settings or capture formats.
+
+**Record Stroke** sits below Outline. It captures completed AMT chords before
+translation, formats canonical steno notation and joins successive strokes with
+`/` (up to 31). Stop Recording focuses Translation for normal text entry. Recording
+never posts its chords to Javelin, the Plover plugin or the serial endpoint. A UUID
+is stamped on queued recording commands, so stopped, replaced or cancelled
+recordings cannot fall through to native output. Contact state is observed only
+in STENO: a chord already held when Record starts is discarded through all-up;
+a chord held when Stop occurs is still discarded at completion. STENO force mouse,
+scroll and corner arbitration remain unchanged. Normal keyboard frames do not run
+recording logic. Replay cannot arm a recorder or mutate a live recording lease.
+
+Recording ends on Stop, 31 strokes, a 30-second timeout, editor dismissal, app/window
+focus loss, mode changes, dictionary reload and output lifecycle reset. Raw capture
+changes only the editor draft; Add/Update Entry and Save Dictionary retain the
+existing validation and save-copy rules. Translation accepts ordinary text, so users
+can use QWERTY, already-defined steno strokes or fingerspelling after recording.
+
+Bundled dictionaries stay read-only. Editing a bundled dictionary asks for a
+Save As location before opening a draft; Cancel writes nothing. Saving writes the
+copy atomically, inserts it at the original priority, and disables the original
+bundled dictionary. Thus deleting a copied entry does not fall through to the old
+bundled value. All dictionary writes/exports reject destinations within the app
+or bundled resource folder, including symlink aliases. Editing saves ordinary
+JSON outside the signed app. Open/save errors remain visible. Dictionary changes
+reload only the active matching built-in backend on the output queue, invalidating
+queued strokes and resetting translation history. Normal recognition is unchanged.
+
+JSON loading validates file/entry/translation bounds, complete canonical steno
+outlines, conflicting aliases and balanced formatting braces. Unsupported commands
+remain inert. The native host append path bounds accumulated text; overflow cancels
+the edit and resets history without posting partial output. Search and JSON file
+work run off the main/input queues. Replay never loads a user dictionary or emits
+translated text. See Sources/JavelinBridge/README.md for vendor provenance/patches.
 
 The shared output queue sends six-byte packets using
 [Plover's Gemini PR wire order](https://github.com/openstenoproject/plover/blob/main/plover/machine/gemini_pr.py).
@@ -604,3 +697,31 @@ errors, and permits correction; it is not historical uncorrected accuracy. New d
 resets all metrics. Free text is retained separately. Input and custom lists stay in
 view memory and are not exported, captured or stored in preferences. Input/custom
 list bounds keep scoring and prompt work off the recognition/output paths.
+
+### Layout Editor contact preview
+
+Show Contacts is a local, default-off editor toggle. It overlays each pad with
+anatomical contact colors/ellipses using the existing render snapshots, without
+modifying the staged layout. The overlay is a separate native view, with a 30 Hz
+common-mode timer, revision-only sampling, a 16-contact bound and 250 ms stale
+clear. Hiding/dismantling it stops the timer. Contact updates do not invalidate
+the editor document, key Canvas, selection, legends or inspector.
+
+While preview is on, the existing keymap editing runtime gate cancels pending/held
+keyboard and STENO output through shared cleanup, and returns after contact-state
+tracking without keyboard/STENO recognition or typing haptics. The gesture
+controller applies a temporary projection of saved settings: 1–3 finger gestures,
+including pointer/click/drag, remain available; 4–5 finger Tap/Move/directional,
+Force, Pinch/Spread/Rotate and Hold are disabled, as are per-pad four-corner Holds
+and coordinated four-fingers-per-hand actions. Lower-count coordinated inputs
+retain their assignments. Ownership/settings updates retain this projection until
+preview ends. Saved assignments are never changed. Enabling/disabling retains an all-up barrier
+so a held preview contact cannot become a key. Apply, Cancel and editor dismissal
+restore the normal input configuration. The toggle does not change saved keyboard,
+gesture, haptic or takeover preferences. Native selected-pad takeover is unchanged.
+
+Modifier diagnostics keep a bounded, memory-only history of live AMT modifier-bearing
+output and modifier transitions from the existing listen-only drag observer. Ordinary
+key codes/text are redacted. Captures include prehistory followed by incremental
+entries; they do not replay these records. The trace is diagnostic only and never
+clears modifiers or changes shared output ownership. See TESTING.md for coverage.

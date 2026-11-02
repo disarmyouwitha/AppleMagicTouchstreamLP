@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import OpenMultitouchSupport
 
 enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
@@ -64,9 +65,9 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var allowedActions: [GestureAction] {
         if self == .fourCornersTap || self == .thumbTwoMove { return [.disabled] }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
-        if isRotation { return [.disabled,.rotate,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.smartZoom,.pageBack,.pageForward,.lookUp,.previousSpace,.nextSpace,.voice] + GestureAction.smallStepActions + GestureAction.mediaActions
+        if isRotation { return [.disabled,.rotate,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick] + GestureAction.oneShotActions }
+        if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick] + GestureAction.oneShotActions }
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.secondaryDrag,.middleDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick,.capsWord,.smartZoom,.pageBack,.pageForward,.lookUp,.previousSpace,.nextSpace,.voice] + GestureAction.smallStepActions + GestureAction.mediaActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -88,19 +89,23 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
 typealias GestureFeature = GestureTrigger
 
 enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresentable, Sendable {
-    case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
+    case disabled, pointer, primaryDrag, secondaryDrag, middleDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick, middleClick, capsWord
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
     case openConfig, voice, smartZoom, lookUp, previousSpace, nextSpace, pageBack, pageForward, rotate
     case scrollUp, scrollDown, panLeft, panRight
     case playPause, previousTrack, nextTrack, mute
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
     case shortcut(GestureShortcutAssignment)
-    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.lookUp,.previousSpace,.nextSpace,.pageBack,.pageForward,.rotate,.playPause,.previousTrack,.nextTrack,.mute,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    static let allCases: [Self] = [.disabled,.pointer,.primaryDrag,.secondaryDrag,.middleDrag,.scroll,.zoom,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick,.capsWord,.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.smartZoom,.lookUp,.previousSpace,.nextSpace,.pageBack,.pageForward,.rotate,.playPause,.previousTrack,.nextTrack,.mute,.openConfig,.voice,.scrollUp,.scrollDown,.panLeft,.panRight,.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     var rawValue: String {
         switch self {
         case .disabled: return "disabled"
         case .pointer: return "pointer"
         case .primaryDrag: return "primaryDrag"
+        case .secondaryDrag:return "secondaryDrag"
+        case .middleDrag:return "middleDrag"
+        case .middleClick:return "middleClick"
+        case .capsWord:return "capsWord"
         case .scroll: return "scroll"
         case .zoom: return "zoom"
         case .smartZoom: return "smartZoom"
@@ -153,11 +158,11 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     func encode(to encoder:any Encoder) throws { var box = encoder.singleValueContainer(); try box.encode(rawValue) }
     var shortcutAssignment:GestureShortcutAssignment? { if case let .shortcut(value) = self { return value }; return nil }
     var isHeldShortcut:Bool { shortcutAssignment?.holdUntilRelease == true }
-    var isDiscreteOutput:Bool { isAppleShortcut || Self.nativeDiscreteActions.contains(self) || self == .voice || shortcutAssignment != nil }
+    var isDiscreteOutput:Bool { isAppleShortcut || Self.nativeDiscreteActions.contains(self) || (self == .voice || self == .capsWord) || shortcutAssignment != nil }
     static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
     static let mediaActions:[Self] = [.playPause,.previousTrack,.nextTrack,.mute]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
-    static var oneShotActions: [Self] { appleShortcuts + nativeDiscreteActions + mediaActions + smallStepActions + [.voice] }
+    static var oneShotActions: [Self] { appleShortcuts + nativeDiscreteActions + mediaActions + smallStepActions + [.voice,.capsWord] }
     static let nativeDiscreteActions:[Self] = [.smartZoom,.pageBack,.pageForward]
     static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop,.lookUp,.previousSpace,.nextSpace]
     var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) || Self.smallStepActions.contains(self) || Self.mediaActions.contains(self) }
@@ -181,6 +186,10 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
         case .launchpad: return "Launch Pad"
         case .showDesktop: return "Show Desktop"
         case .disabled: return "None"; case .pointer: return "Move Pointer"
+        case .secondaryDrag:return "Secondary Drag"
+        case .middleDrag:return "Middle Drag"
+        case .middleClick:return "Middle Click"
+        case .capsWord:return "Caps Word"
         case .primaryDrag: return "Drag / Select"; case .scroll: return "Scroll / Pan"
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"
         case .zoom: return "Zoom"
@@ -200,7 +209,9 @@ enum GestureAction: CaseIterable, Identifiable, Hashable, Codable, RawRepresenta
     }
     var isDirectionalScroll:Bool { Self.directionalScrollActions.contains(self) }
     var isHorizontalPan:Bool { self == .panLeft || self == .panRight }
-    var requiresPointerProfile: Bool { self == .pointer || self == .primaryDrag }
+    var clickButton:CGMouseButton? { switch self { case .primaryClick,.primaryDoubleClick:return .left; case .secondaryClick:return .right; case .middleClick:return .center; default:return nil } }
+    var dragButton:CGMouseButton? { switch self { case .primaryDrag:return .left; case .secondaryDrag:return .right; case .middleDrag:return .center; default:return nil } }
+    var requiresPointerProfile: Bool { self == .pointer || dragButton != nil }
 }
 enum GestureSensitivity: Sendable { case pointer, scroll, zoom }
 
@@ -367,7 +378,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
         trigger == .thumbTwoMove ? GestureMovementDirection.diagonals : GestureMovementDirection.cardinals
     }
     static let liveTriggers = triggers
-    static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions + GestureAction.directionalScrollActions
+    static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick] + GestureAction.oneShotActions + GestureAction.directionalScrollActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]
     var repeatOverrides: [String:Bool]? // Decode compatibility with the original checkbox.
@@ -585,7 +596,7 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
     var stenoConnectionMode:StenoConnectionMode?
-    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .plugin }
+    var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .defaultMode }
     var stenoHapticOnTouch:Bool?
     var stenoHapticOnRelease:Bool?
     var stenoForceThreshold:Double?
@@ -840,7 +851,7 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
         if holdThresholds == nil { holdThresholds = [:] }
         holdThresholds?[chord.rawValue] = GestureHoldTiming.validated(seconds)
     }
-    static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick]+GestureAction.oneShotActions
+    static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick]+GestureAction.oneShotActions
     func action(_ trigger:TwoHandTrigger) -> GestureAction {
         guard !trigger.chord.isCorner || trigger.phase == .hold else { return .disabled }
         let value = assignments[trigger.key] ?? (trigger.chord == .fourCorners && trigger.phase == .hold ? .openConfig : .disabled)
@@ -907,5 +918,33 @@ extension Array where Element == GestureAction {
 extension GestureTrigger {
     func accepts(_ value:GestureAction) -> Bool {
         (self == .fourCornersTap || self == .thumbTwoMove) ? value == .disabled : allowedActions.acceptsGestureAction(value)
+    }
+}
+
+
+extension PerHandGestureSettings {
+    /// Editor-only projection. Saved assignments and all 1–3 contact inputs stay intact.
+    var layoutContactPreview:Self {
+        var value = self
+        for trigger in GestureTrigger.allCases {
+            let highCount = trigger.forceCount.map { $0 >= 4 } == true
+                || trigger.pinchCount.map { $0 >= 4 } == true
+                || trigger.rotationCount.map { $0 >= 4 } == true
+                || [.fourFingerMove,.fiveFingerMove,.fourFingerTap,.fiveFingerTap,.fourCornersTap].contains(trigger)
+            if highCount {
+                value.bindings[trigger] = .disabled
+                value.directionalMovement?[trigger.rawValue] = nil
+            }
+        }
+        for count in [4,5,Self.cornersHoldKey] { value.setHoldAction(.disabled,count:count) }
+        return value
+    }
+}
+
+extension TwoHandGestureSettings {
+    var layoutContactPreview:Self {
+        var value = self
+        for phase in TwoHandPhase.allCases { value.setAction(.disabled,for:.init(chord:.fourFingers,phase:phase)) }
+        return value
     }
 }

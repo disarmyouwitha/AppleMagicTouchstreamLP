@@ -53,7 +53,7 @@ Hardware acceptance still includes Outer Corners opening Config, haptic feel,
 
 ## Layout editor verification
 
-`LayoutDocumentTests` cover binding identity, structural reconciliation, transforms,
+`LayoutDocumentTests` cover layer-scoped additions and mirrored counterparts, legacy shared keys, editor hit/marquee filtering, settings/capture round-trips, binding identity, structural reconciliation, transforms,
 history and settings/capture profile round-trips. `LayoutMirrorTests` cover reflected
 geometry deltas, asymmetric/persistent counterparts, paired duplication/deletion,
 independent single-pad geometry, rotated hit testing and box/group selection.
@@ -197,6 +197,17 @@ history. Mouse edges optionally retain their actual event modifier flags; live
 frame snapshots also retain combined/HID flags, the app's owned keyboard flags,
 and an eight-bit L/R Shift/Option/Control/Command key-down mask. These additions
 record no ordinary key contents. Missing older fields mean unknown, not zero.
+A fixed 256-entry in-memory modifier history retains AMT-submitted modifier-bearing
+keyboard/media events, their restoring edges, and flags-changed events seen by the
+existing live drag observer. It records modifier codes only (ordinary key codes and
+text are discarded), flags, event timestamps, source PID/state ID and interpreter tag.
+Observed source identity does not prove physical origin. Observation has the same
+coverage/health limits as the existing drag observer; no new observer, polling timer,
+permission request or ordinary-key subscription is added. Normal recognition and
+modifier ownership/cleanup do not consult this history. Each new live capture gets
+the retained history on its first frame; subsequent frames contain only new entries,
+with sequence numbers and an overwrite count. Unchanged frames omit modifierHistory;
+older captures without it remain unknown. Replay never records into this live history.
 Replay never polls live button/modifier state or emits these recorded edges. Old
 records without this optional evidence remain readable; the v5 envelope is unchanged.
 This evidence distinguishes an omitted release from state remaining down after an
@@ -350,3 +361,71 @@ without posting system input. Hardware: use Practice below the pads,
 complete a round with normal typing and Plover, correct a word using backspace, then
 start a new round. Verify Free type retains its own text and practice does not alter
 keyboard/gesture/STENO recognition or create an external connection.
+
+### Embedded Javelin prototype
+
+`JavelinTests` runs the native Javelin core without Plover or native event output:
+Gemini-to-stroke aliases, dictionary priority, multi-stroke replacement, affixes,
+punctuation/case, star undo, independent instances, reset, inert unsupported
+commands, connection serialization, and bundled Lapwing loading/translation.
+
+Hardware acceptance: quit Plover, select STENO → Connection → Built-in Javelin
+(Lapwing), wait for Lapwing ready, type words and multi-stroke outlines into a
+scratch text field, then test punctuation, suffixes and star undo. Change fields
+and confirm undo does not delete previous-field text; use a STENO force-click after
+manual cursor edits. Test mode changes, takeover release, sleep and replay exit
+for stale output. Existing STENO mouse, corners, haptics and chord cancellation
+should behave identically. Python/modal dictionaries and raw keyboard commands
+require the Plover connection. Offline tests never launch input or type text.
+
+`JavelinDictionaryTests` exercises the Plover text/number backend, strict outline
+and translation validation, alias conflicts, portable JSON, bundled save-copy
+protection (including symlinks), original-file preservation, catalog reopen,
+profile isolation, priority/enable/remove/export, atomic batch import, and native
+output overflow cancellation. The tests use temporary files and never post input.
+
+UI acceptance: choose either built-in connection, open Dictionaries…, load or
+create a JSON dictionary, edit/search entries, change priority and enabled state,
+and test translations. Edit a bundled dictionary, cancel Save As and confirm no
+file changes; repeat with a user location and Save Dictionary, confirming the
+original is disabled and untouched. Delete an entry in the copy and check that
+the old bundled translation does not return. Export and reload the JSON in Plover
+or AMT. Editing/canceling a draft must preserve committed files and the app's signature.
+
+### Raw dictionary stroke recording and STENO 6x3 alignment
+
+`StenoStrokeRecordingTests` checks canonical multi-stroke capture, alias collapse,
+31-stroke bounds, stale/replaced leases, held chords crossing Record/Stop, and
+replay isolation without posting native input. `StenoSixByThreeDefaultsTests`
+compares all 18 main keys on both hands with DEFAULT_KEYMAP.json's regular 6x3
+geometry, including old neutral seeds and editor reset; it verifies independent
+tuning and that retired 5x3/5x4 entries are absent from bundled keymaps.
+
+Hardware acceptance: select STENO 6x3 and compare its main keys with the regular
+6x3 layout. Open Dictionaries → Edit/New, press Record Stroke, play KAT then -S,
+and confirm Outline shows KAT/-S while no text reaches Translation or another app.
+Stop Recording, enter a translation using QWERTY or steno, and save. Check Stop
+while a chord is held, focus loss, timeout, Cancel and mode changes for leaked
+text or recording that remains armed. STENO force mouse must continue to work.
+
+### Layout Editor Show Contacts
+
+`LayoutContactPreviewTests` verifies no keyboard/STENO/haptic output during
+preview, pending-tap cancellation, held-contact all-up behavior when disabling,
+and normal fresh-input restoration using offline production replay.
+
+Hardware acceptance: enter Layout Editor, enable Show Contacts, place/roll fingers
+on each pad and verify the colored contacts align with the edited keys without
+typing or typing haptics. Confirm 2F pointer movement, clicks and 3F drag still
+work with the selected pads while 4F/5F gestures stay silent. Drag/select/resize
+geometry while contacts update; geometry and inspector must remain responsive. Turn
+the toggle off while fingers are held, then lift: no delayed key should dispatch.
+A fresh contact after all-up should restore ordinary editor input. Apply/Cancel,
+close/reopen config and ownership refresh must not leave preview suppression set.
+
+TouchStream action regressions verify matching Mouse2/Mouse3 down/drag/up events,
+reserved release, same-button sharing, rejection of conflicting drag ownership,
+middle-click metadata, catalog/settings round-trips and Caps Word event-local
+capitalization, boundaries, shortcut isolation and lifecycle reset. These offline
+checks construct native events but never post them; native button/target acceptance
+requires user testing of the signed build.

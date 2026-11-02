@@ -55,6 +55,42 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testLayerScopedGeometryDispatchesOnlyOnItsLayerAndSharedKeysRemain() {
+        let run = session(labels:["F","G"])
+        let size = CGSize(width:160,height:115)
+        var doc = LayoutDocument()
+        doc.add(right:false,label:"F",rect:.init(x:10/160,y:40/115,width:35/160,height:30/115),layer:1)
+        doc.add(right:false,label:"G",rect:.init(x:55/160,y:40/115,width:35/160,height:30/115))
+        let base = ContentViewModel.Layout(keyRects:[],trackpadSize:size)
+        let layout = doc.compile(right:false,base:base,size:size)
+        run.engine.updateLayouts(leftLayout:layout,rightLayout:base,leftLabels:doc.labels(right:false),rightLabels:[],trackpadSize:size,trackpadWidthMm:160)
+        for (index,layer) in [0,1,0].enumerated() {
+            run.engine.setPersistentLayer(layer)
+            let time = 1 + Double(index)
+            run.output.events.removeAll(); run.output.acceptedBindings.removeAll()
+            frame(run,time,[contact()]); frame(run,time+0.03,[])
+            XCTAssertEqual(keys(run).isEmpty,layer != 1)
+            XCTAssertEqual(run.output.acceptedBindings.isEmpty,layer != 1)
+            run.output.events.removeAll()
+            frame(run,time+0.1,[contact(key:1)]); frame(run,time+0.13,[])
+            XCTAssertFalse(keys(run).isEmpty,"Shared keys remain active on layer \(layer)")
+        }
+    }
+
+    func testCapsWordUppercasesAMTWordWithoutHoldingShiftAndStopsAtBoundary() {
+        let run = session(labels:["Caps Word","F","Space"])
+        frame(run,1,[contact()]); frame(run,1.03,[])
+        frame(run,1.1,[contact(key:1)]); frame(run,1.13,[])
+        frame(run,1.2,[contact(key:2)]); frame(run,1.23,[])
+        frame(run,1.3,[contact(key:1)]); frame(run,1.33,[])
+        let strokes = run.output.events.compactMap { event -> (CGKeyCode,CGEventFlags)? in
+            if case let .keyStroke(code,flags,_) = event.kind { return (code,flags) }; return nil
+        }
+        XCTAssertEqual(strokes.map { $0.0 },[3,49,3])
+        XCTAssertEqual(strokes.map { $0.1 },[.maskShift,[],[]])
+        XCTAssertFalse(run.output.events.contains { if case .key = $0.kind { return true }; return false },"Caps Word never posts held modifier edges")
+    }
+
     func testKeyboardFeedbackWaitsForAcceptanceAndGestureReservationNeverHighlights() {
         let typing = session()
         frame(typing,1,[contact()])
@@ -839,7 +875,7 @@ final class ProductionEngineTests: XCTestCase {
 
     func testActionCatalogOffersOnlySupportedBootstrapActions() {
         let allowed: Set<KeyActionKind> = [.key, .leftClick, .doubleClick, .rightClick,
-            .middleClick, .volumeUp, .volumeDown, .voice, .layerMomentary, .layerToggle, .none, .steno]
+            .middleClick, .volumeUp, .volumeDown, .voice, .capsWord, .layerMomentary, .layerToggle, .none, .steno]
         for group in KeyActionCatalog.primaryActionGroups {
             for action in group.actions { XCTAssertTrue(allowed.contains(action.kind), action.label) }
         }

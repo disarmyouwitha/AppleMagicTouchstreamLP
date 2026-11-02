@@ -106,10 +106,11 @@ struct StenoConnectionPanel:View {
     @Binding var hapticTouch:Bool
     @Binding var hapticRelease:Bool
     @StateObject private var installer = PloverPluginInstaller()
-    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.plugin),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false),layoutPreset:Binding<TrackpadLayoutPreset> = .constant(.steno)) {
+    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.defaultMode),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false),layoutPreset:Binding<TrackpadLayoutPreset> = .constant(.steno)) {
         _layoutPreset = layoutPreset
         _forceThreshold = forceThreshold; _connectionMode = connectionMode; _hapticTouch = hapticTouch; _hapticRelease = hapticRelease
     }
+    @State private var showDictionaries = false
     @State private var draftThreshold:Double = 130
     @State private var isEditingThreshold = false
     var body:some View {
@@ -155,6 +156,14 @@ struct StenoConnectionPanel:View {
                             .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                     }
                     Text("Sent: \(plugin.sent) · Dropped: \(plugin.dropped)").font(.caption2).foregroundStyle(.secondary)
+                } else if connectionMode.isBuiltIn {
+                    let native = JavelinBackend.shared.snapshot
+                    Text(native.error ?? (native.ready ? "\(connectionMode.dictionaryProfile.title) ready" : "Loading \(connectionMode.dictionaryProfile.title)…"))
+                        .font(.caption.weight(.semibold)).foregroundStyle(native.ready ? Color.green:Color.red)
+                    Text("Built-in Javelin · \(connectionMode.dictionaryProfile.title) · Plover can be closed.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Button("Dictionaries…") { showDictionaries = true }
+                        .sheet(isPresented:$showDictionaries) { JavelinDictionaryManager(profile:connectionMode.dictionaryProfile) }
                 } else {
                     Text(status.error ?? (status.path == nil ? "Preparing serial port…" : status.connected ? "Serial reader connected" : "Waiting for Plover"))
                         .font(.caption).foregroundStyle(status.error == nil ? Color.secondary:Color.red)

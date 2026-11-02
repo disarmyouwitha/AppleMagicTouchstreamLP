@@ -246,6 +246,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         startUptimeNanoseconds: UInt64
     ) {
         runSync {
+            InterpretedTrackpadPointer.shared.beginCaptureDiagnostics()
             self.captureSession = RuntimeCaptureSessionState(
                 configuration: configuration,
                 startUptimeNanoseconds: startUptimeNanoseconds

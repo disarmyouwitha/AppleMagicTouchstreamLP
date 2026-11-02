@@ -1,0 +1,17 @@
+{
+  "lapwingVersion": "1.5.0",
+  "dictionaries": [
+    "lapwing-commands.json",
+    "lapwing-numbers.json",
+    "lapwing-uk-additions.json",
+    "lapwing-proper-nouns.json",
+    "lapwing-base.json"
+  ],
+  "sha256": {
+    "lapwing-commands.json": "6160e19084c77381f66aeda72473d807bcf3ea7f0c6303a37189ca60bf59ff3d",
+    "lapwing-numbers.json": "d104b9d6f8ea7935bdf3129d69bcdc4100e2b55fa717b41be2307043a4bd4b73",
+    "lapwing-uk-additions.json": "e6d3190d0417c9912b34ebf9a3d02be08935d5c1c1b46bb47f0b580ed21717d3",
+    "lapwing-proper-nouns.json": "d04c113941476ab8e1c25b13d4a49957d37b4c3163e0e05791a3b3af2e2db716",
+    "lapwing-base.json": "ee06b6910e5e9176d41c565a86d99a6c00d9dfe38417e0a0b51e0095f1da4454"
+  }
+}

@@ -785,6 +785,7 @@ final class ContentViewModel: ObservableObject {
         case brightnessUpSmall
         case brightnessDownSmall
         case voice
+        case capsWord
         case typingToggle
         case chordalShift
         case gestureTwoFingerTap
@@ -839,6 +840,21 @@ final class ContentViewModel: ObservableObject {
 
     struct Layout {
         var authoredDisplayRects: [NormalizedRect: NormalizedRect] = [:]
+        var keyLayers:[GridKeyPosition:Set<Int>] = [:]
+        func isVisible(_ position:GridKeyPosition,on layer:Int) -> Bool { keyLayers[position]?.contains(layer) ?? true }
+        func visible(on layer:Int,size:CGSize) -> Layout {
+            guard !keyLayers.isEmpty else { return self }
+            var rects = normalizedKeyRects
+            for (position,layers) in keyLayers where !layers.contains(layer) {
+                guard rects.indices.contains(position.row),rects[position.row].indices.contains(position.column) else { continue }
+                rects[position.row][position.column] = NormalizedRect(x:0,y:0,width:0,height:0)
+            }
+            var visible = Layout(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:allowHoldBindings,isSteno:isSteno,
+                stenoPointerMode:stenoPointerMode,stenoForceThreshold:stenoForceThreshold,stenoConnectionMode:stenoConnectionMode,
+                stenoHapticTouch:stenoHapticTouch,stenoHapticRelease:stenoHapticRelease)
+            visible.authoredDisplayRects = authoredDisplayRects
+            return visible
+        }
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
@@ -852,7 +868,7 @@ final class ContentViewModel: ObservableObject {
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
@@ -868,7 +884,7 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .serial, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
@@ -2028,6 +2044,7 @@ enum KeyActionKind: String, Codable, Sendable {
     case brightnessUpSmall
     case brightnessDownSmall
     case voice
+    case capsWord
     case typingToggle
     case chordalShift
     case gestureTwoFingerTap
@@ -2299,6 +2316,7 @@ enum LayoutCustomButtonStorage {
 enum KeyActionCatalog {
     static let altGrLabel = "AltGr"
     static let voiceLabel = "Voice"
+    static let capsWordLabel = "Caps Word"
     static let dictationLabel = "Dictation"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
@@ -2578,6 +2596,7 @@ enum KeyActionCatalog {
     ]
 
     private static let modeActions: [KeyAction] = [
+        KeyAction(label:capsWordLabel,keyCode:0,flags:0,kind:.capsWord),
         KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle)
     ]
 
@@ -2676,6 +2695,7 @@ enum KeyActionCatalog {
                 volumeDownLabel,
             ]),
             (dashedHeader("Modifiers & Modes"), [
+                capsWordLabel,
                 "Hyper",
                 "Shift",
                 "Ctrl",
@@ -2838,6 +2858,7 @@ enum KeyActionCatalog {
             return noneAction
         }
 
+        if normalizedLabel == capsWordLabel { return KeyAction(label:capsWordLabel,keyCode:0,flags:0,kind:.capsWord) }
         if normalizedLabel == voiceLabel {
             return KeyAction(label: voiceLabel, keyCode: 0, flags: 0, kind: .voice)
         }

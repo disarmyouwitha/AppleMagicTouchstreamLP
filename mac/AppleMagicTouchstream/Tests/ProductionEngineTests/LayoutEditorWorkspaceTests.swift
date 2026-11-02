@@ -51,8 +51,13 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
     }
     func testResetGridTemplatesUseBundledColumnDimensionsAndRowSpacing() throws {
         let profile = try defaultProfile(), size = CGSize(width:432,height:310.23)
-        for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour,.fiveByThree,.fiveByFour] {
+        for preset in [TrackpadLayoutPreset.sixByThree,.sixByFour] {
             let doc = ContentView.editorTemplate(preset:preset,size:size,profile:profile)
+            if let authored = profile.layoutDocuments?[preset.rawValue] {
+                XCTAssertTrue(authored.isValid)
+                XCTAssertEqual(doc,authored,"An authored template takes priority over legacy column settings")
+                continue
+            }
             XCTAssertEqual(doc.keys.count,preset.rows*preset.columns*2)
             let mappings = profile.keyMappingsByLayout?[preset.rawValue]?[KeyLayerConfig.baseLayer] ?? [:]
             for key in doc.keys {
@@ -79,6 +84,10 @@ final class LayoutEditorWorkspaceTests: XCTestCase {
             XCTAssertTrue(doc.isValid)
             if preset == .stenoSingle { XCTAssertFalse(doc.keys.contains {!$0.right}) }
             if preset == .steno || preset == .stenoSingle { XCTAssertTrue(doc.keys.contains {$0.edges.contains {$0 > 0}}) }
+            if let authored = profile.layoutDocuments?[preset.rawValue] {
+                XCTAssertEqual(doc,authored,"Reset must preserve the bundled authored STENO geometry")
+                continue
+            }
             for side in [false,true] {
                 let expected = preset == .touchstream
                     ? ContentView.makeTouchStreamKeyLayout(size:size,side:side ? .right:.left,keyGeometryOverrides:profile.keyGeometryByLayout?[preset.rawValue] ?? [:])

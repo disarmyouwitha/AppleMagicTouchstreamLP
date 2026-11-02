@@ -129,4 +129,48 @@ final class LayoutDocumentTests: XCTestCase {
         let captured = try JSONDecoder().decode(AppKeymapProfile.self,from: JSONEncoder().encode(profile))
         XCTAssertEqual(captured.layoutDocuments,profile.layoutDocuments)
     }
+    @MainActor func testLayerScopedKeysRoundTripCompileAndFilterEditorHits() throws {
+        var doc = LayoutDocument()
+        let shared = doc.add(right:true,label:"A",rect:.init(x:0.1,y:0.2,width:0.1,height:0.2))
+        let scoped = doc.addMirrored(right:true,label:"B",rect:.init(x:0.4,y:0.2,width:0.1,height:0.2),layer:2)
+        let pad = CGSize(width:160,height:115)
+        XCTAssertTrue(doc.isValid)
+        XCTAssertTrue(doc.keys.first { $0.id == shared }!.isVisible(on:0))
+        XCTAssertTrue(doc.keys.filter { $0.id != shared }.allSatisfy { $0.layers == [2] })
+        XCTAssertNil(doc.editorHit(at:.init(x:0.45,y:0.3),right:true,pad:pad,layer:0))
+        XCTAssertEqual(doc.editorHit(at:.init(x:0.45,y:0.3),right:true,pad:pad,layer:2),scoped)
+        XCTAssertEqual(doc.editorMarquee(.init(x:0,y:0,width:1,height:1),right:true,groups:false,pad:pad,layer:0),[shared])
+        let copies = doc.duplicate([scoped])
+        XCTAssertTrue(doc.keys.filter { copies.contains($0.id) }.allSatisfy { $0.layers == [2] })
+        let base = ContentViewModel.Layout(keyRects:[],trackpadSize:pad)
+        let layout = doc.compile(right:true,base:base,size:pad)
+        let position = GridKeyPosition(side:.right,row:1,column:0)
+        XCTAssertFalse(layout.isVisible(position,on:0))
+        XCTAssertTrue(layout.isVisible(position,on:2))
+        XCTAssertEqual(layout.visible(on:0,size:pad).keyRects[1][0].width,0)
+        XCTAssertGreaterThan(layout.visible(on:2,size:pad).keyRects[1][0].width,0)
+        XCTAssertGreaterThan(layout.visible(on:0,size:pad).keyRects[0][0].width,0)
+        var profile = AppKeymapProfile.defaultProfile()
+        profile.layoutDocuments = [TrackpadLayoutPreset.sixByThree.rawValue:doc]
+        let exported = try PortableKeymapInterop.exportBundle(from:profile)
+        let restored = try PortableKeymapInterop.importProfile(from:exported,currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.layoutDocuments,profile.layoutDocuments)
+        XCTAssertEqual(try JSONDecoder().decode(LayoutDocument.self,from:JSONEncoder().encode(doc)),doc)
+        var invalid = doc
+        invalid.keys[0].layers = []
+        XCTAssertFalse(invalid.isValid)
+        invalid.keys[0].layers = [4]
+        XCTAssertFalse(invalid.isValid)
+        invalid.keys[0].layers = [1,1]
+        XCTAssertFalse(invalid.isValid)
+    }
+    func testLegacyKeysWithoutLayerFieldRemainShared() throws {
+        var doc = LayoutDocument()
+        doc.add(right:true,label:"A")
+        let data = try JSONEncoder().encode(doc)
+        XCTAssertFalse(String(decoding:data,as:UTF8.self).contains("layers"))
+        let restored = try JSONDecoder().decode(LayoutDocument.self,from:data)
+        XCTAssertTrue(KeyLayerConfig.editableLayers.allSatisfy { restored.keys[0].isVisible(on:$0) })
+    }
+
 }

@@ -1,23 +1,19 @@
 # NEXT:
 =======
-0. Sometimes I feel like Command gets stuck (or I have to press it on my physical keyboard to get AMT mouse events unstuck..) Or maybe it is Shift that is stuck? Not sure if this is AMT issue or me issue..
-> Is shift not being released from 4F hold gesture (?) grasping at straws here.. I can't control when it happens.
-^ Needs more testing
-===
-1. Experiment time! Would it be a big deal to do something like a minimal Javelin where we run the state machine in our app instead of plover? (So you wouldn't need to install plover / plugin?) https://github.com/jthlim/javelin-steno
-===
-2. Implement actions: Missing TouchStream actions:
-> Missing capability	    Command/output
-> Middle click and drag	    Mouse3 click or held drag
-> Secondary drag	        Mouse2 down → movement → release
-> Caps Word	                Capitalize the next word, then automatically stop
-> Sequential macros:        Ctrl+X, (then) V, then =
+1. Implement actions: Missing TouchStream actions:
+2. Sequential macros:        Ctrl+X, (then) V, then =
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
+# Steno Dictionary Menu Mode
+0. In STENO mode, when you edit a Dictionary entry.. we need a way for people to type normally into the Translation box? What do you suggest.
+===
 # Human Tasks...?
-0. make 6x3 decal girl template in gimp with layers for ppl to edit
-> Layers for: Center legends vs top-right legends / sublegend layer
+0. Have Codex create "Export Layout" button that will create an image from the Layer/Keys (can it do the legends on a separate layer? Or image?)
+> Should "Hold" actions be shown too?
+1. make 6x3 decal girl template in gimp with layers for ppl to edit
+> Options for: Center legends vs top-right legends / sublegend layer
 > Outline of where to line up for Decal Girl template
+2. Test on Decal girl site!
 ===
 
 

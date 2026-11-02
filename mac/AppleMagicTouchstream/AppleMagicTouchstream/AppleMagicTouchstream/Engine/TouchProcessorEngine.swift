@@ -788,6 +788,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
+        resetState(stopVoiceDictation:true)
+        layoutTransitionBlockedPads |= padsWithContacts
     }
 
     func setPersistentLayer(_ layer: Int) {
@@ -922,6 +924,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return "brightnessUpSmall"
         case .brightnessDownSmall:
             return "brightnessDownSmall"
+        case .capsWord:return "capsWord"
         case .voice:
             return "voice"
         case .typingToggle:
@@ -1143,6 +1146,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if touches.contains(where:{($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID != 6}) { padsWithContacts |= bit }
             else { padsWithContacts &= ~bit }
         }
+        if keymapEditingEnabled {
+            layoutTransitionBlockedPads &= padsWithContacts
+            return nil // Contact preview observes telemetry only, including all-up cleanup.
+        }
         let transitionBit = UInt8(1) << (isLeftDevice ? 0:1)
         if layoutTransitionBlockedPads & transitionBit != 0 {
             if padsWithContacts & transitionBit == 0 { layoutTransitionBlockedPads &= ~transitionBit }
@@ -1150,6 +1157,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return nil // A mode change cannot turn held contacts into a fresh chord/key tap.
         }
         if isStenoLayout {
+            // Publish contact completion after stamping any completed chord. This
+            // preserves recording ownership through the final all-up frame.
+            let recordingContactsActive = padsWithContacts != 0
+            if recordingContactsActive { dispatchService.updateStenoRecordingContacts(active:true) }
+            defer { if !recordingContactsActive { dispatchService.updateStenoRecordingContacts(active:false) } }
             let side:TrackpadSide = isLeftDevice ? .left:.right
             let index = bindings(for:side,layout:isLeftDevice ? leftLayout:rightLayout,
                 labels:isLeftDevice ? leftLabels:rightLabels,canvasSize:trackpadSize)
@@ -1444,7 +1456,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                      .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
                      .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall,
                      .chordalShift,
-                     .voice,
+                     .voice, .capsWord,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
                      .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
@@ -2166,7 +2178,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         layout: Layout,
         canvasSize: CGSize
     ) -> KeyBinding? {
-        guard let action = keyAction(for: position, label: label) else { return nil }
+        guard layout.isVisible(position,on:activeLayer), let action = keyAction(for:position,label:label) else { return nil }
         let holdAction = layout.allowHoldBindings
             ? holdAction(for: position)
             : nil
@@ -2235,6 +2247,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:"Text (Keychain)",
                 action:.textPaste(action.label),position:position,customButtonID:customButtonID,side:side,
                 holdAction:holdAction,holdForceThreshold:holdForceThreshold)
+        case .capsWord:
+            return KeyBinding(rect:rect,normalizedRect:normalizedRect,canvasSize:canvasSize,label:action.label,action:.capsWord,position:position,customButtonID:customButtonID,side:side,holdAction:holdAction,holdForceThreshold:holdForceThreshold)
         case .voice:
             return KeyBinding(rect: rect, normalizedRect: normalizedRect, canvasSize: canvasSize,
                 label: action.label, action: .voice, position: position, customButtonID: customButtonID,
@@ -3083,6 +3097,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postTextPaste(label,sourceSequence:currentDispatchSourceSequence())
         case let .appLaunch(label):
             dispatchService.postAppLaunch(label, sourceSequence: currentDispatchSourceSequence())
+        case .capsWord:
+            dispatchService.postCapsWordToggle(sourceSequence:currentDispatchSourceSequence())
         case .voice:
             dispatchService.postVoiceToggle(sourceSequence: currentDispatchSourceSequence())
         case .chordalShift, .typingToggle, .volumeUpSmall, .volumeDownSmall,

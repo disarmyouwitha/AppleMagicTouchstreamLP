@@ -12,6 +12,7 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
+        .library(name: "JavelinBridge", targets: ["JavelinBridge"]),
         .library(
             name: "OpenMultitouchSupportBridge",
             targets: ["OpenMultitouchSupportXCF"]
@@ -26,6 +27,7 @@ let package = Package(
         )
     ],
     targets: [
+        .target(name: "JavelinBridge", path: "Sources/JavelinBridge", exclude: ["LICENSE.txt", "README.md", "Vendor/processor/fake_processor.cc"], publicHeadersPath: "include", cxxSettings: [.headerSearchPath("Vendor"), .define("JAVELIN_BOARD_CONFIG", to: "<stddef.h>"), .define("AMT_HOST_EMITTER", to: "1")]),
         .target(
             name: "OpenMultitouchSupportXCF",
             path: "Framework/OpenMultitouchSupportXCF",
@@ -53,11 +55,11 @@ let package = Package(
         // Compile the app's production sources directly, without launching its UI.
         .target(
             name: "GlassToKeyRuntime",
-            dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit"],
+            dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit", "JavelinBridge"],
             path: "AppleMagicTouchstream/AppleMagicTouchstream",
             exclude: ["AppleMagicTouchstreamApp.swift", "Assets.xcassets", "AppleMagicTouchstream.entitlements",
-                      "DEFAULT_KEYMAP.json", "MY_KEYMAP.json", "TOUCHSTERAM_KEYMAP.json"],
-            resources: [.copy("Resources")],
+                      "MY_KEYMAP.json", "TOUCHSTERAM_KEYMAP.json"],
+            resources: [.copy("Resources"), .copy("DEFAULT_KEYMAP.json")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
@@ -91,5 +93,6 @@ let package = Package(
             dependencies: ["ReplayFixtureKit", "OpenMultitouchSupport"],
             path: "Tests/ReplayFixtureKitTests"
         )
-    ]
+    ],
+    cxxLanguageStandard: .cxx20
 ) 
