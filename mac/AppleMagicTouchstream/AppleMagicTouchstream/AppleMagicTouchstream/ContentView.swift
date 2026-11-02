@@ -304,15 +304,6 @@ struct ContentView: View {
         formatter.maximum = NSNumber(value: ContentView.columnSpacingPercentRange.upperBound)
         return formatter
     }()
-    fileprivate static let rotationDegreesFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 1
-        formatter.minimum = NSNumber(value: ContentView.rotationDegreesRange.lowerBound)
-        formatter.maximum = NSNumber(value: ContentView.rotationDegreesRange.upperBound)
-        return formatter
-    }()
     fileprivate static let snapRadiusPercentFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -594,6 +585,7 @@ struct ContentView: View {
     }
 
     private func finishLayoutEditing() {
+        viewModel.setPersistentLayer(KeyLayerConfig.baseLayer)
         setLayoutContactPreview(false)
         editingLayout = false
         layoutEditorDocument = nil; layoutEditorTemplate = nil
@@ -622,7 +614,7 @@ struct ContentView: View {
         if let document = layoutEditorDocument, let template = layoutEditorTemplate {
             LayoutEditor(document:document,template:template,onApply:applyEditedLayout,
                          onCancel:finishLayoutEditing,menuWidth:$menuColumnWidth,mappings:keyMappingsForActiveLayer(),
-                         layerMappings:keyMappingsByLayer,initialLayer:viewModel.activeLayer,onApplyLayer:{ viewModel.setPersistentLayer($0) },
+                         layerMappings:keyMappingsByLayer,initialLayer:viewModel.activeLayer,
                          contactSnapshot:{ viewModel.snapshotTouchDataIfUpdated(since:$0) },onContactPreview:setLayoutContactPreview)
         }
     }
@@ -1072,12 +1064,6 @@ struct ContentView: View {
             onUpdateKeyMapping: { key, update in
                 updateKeyMappingAndSelection(key: key, update: update)
             },
-            keyRotationDegrees: { key in
-                keyRotationDegrees(for: key)
-            },
-            onUpdateKeyRotation: { key, rotationDegrees in
-                updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
-            },
             onSaveShortcutLibraryAction: saveShortcutLibraryAction
         )
     }
@@ -1373,8 +1359,6 @@ struct ContentView: View {
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
-        let keyRotationDegrees: (SelectedGridKey) -> Double
-        let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
 
         var body: some View {
@@ -1420,8 +1404,6 @@ struct ContentView: View {
                             onClearTouchState: onClearTouchState,
                             onUpdateButton: onUpdateButton,
                             onUpdateKeyMapping: onUpdateKeyMapping,
-                            keyRotationDegrees: keyRotationDegrees,
-                            onUpdateKeyRotation: onUpdateKeyRotation,
                             onSaveShortcutLibraryAction: onSaveShortcutLibraryAction
                         )
                     } label: {
@@ -1779,8 +1761,6 @@ struct ContentView: View {
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
-        let keyRotationDegrees: (SelectedGridKey) -> Double
-        let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
         @State private var actionBuilderTarget: ActionBuilderTarget = .primary
         @State private var managingShortcuts = false
@@ -1906,22 +1886,6 @@ struct ContentView: View {
                 return "key:\(selection.key.storageKey)"
             }
             return "none"
-        }
-
-        private var keyRotationBinding: Binding<Double> {
-            Binding(
-                get: {
-                    guard let selection = keySelection else { return 0.0 }
-                    return keyRotationDegrees(selection.key)
-                },
-                set: { newValue in
-                    guard let selection = keySelection else { return }
-                    onUpdateKeyRotation(
-                        selection.key,
-                        ContentView.normalizedRotationDegrees(newValue)
-                    )
-                }
-            )
         }
 
         private var selectedPrimaryAction: KeyAction {
@@ -2069,14 +2033,6 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .disabled(!hasEditableSelection)
                     .help("0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached.")
-                }
-                EqualSplitFormRow(alwaysHorizontal: true) {
-                    Text("Key Rotation (0-360 deg)")
-                } field: {
-                    TextField("", value: keyRotationBinding, formatter: ContentView.rotationDegreesFormatter)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: .infinity)
-                        .disabled(keySelection == nil)
                 }
                 subsectionHeader("Shortcut Builder")
                 VStack(alignment:.leading,spacing:8) {
@@ -3890,55 +3846,6 @@ struct ContentView: View {
         update: (inout KeyMapping) -> Void
     ) {
         updateKeyMapping(for: key, update)
-        refreshKeyInspectorSelection()
-    }
-
-    private func keyRotationDegrees(for key: SelectedGridKey) -> Double {
-        if let authored = authoredLayout?.keys.first(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) { return authored.rect.rotationDegrees }
-        return keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
-    }
-
-    private func updateKeyRotation(
-        for key: SelectedGridKey,
-        rotationDegrees: Double
-    ) {
-        let normalized = Self.normalizedRotationDegrees(rotationDegrees)
-        if var document = authoredLayout,
-           let i = document.keys.firstIndex(where: { $0.right == (key.side == .right) && $0.row == key.row && $0.column == key.column }) {
-            document.keys[i].rect.rotationDegrees = normalized
-            var documents = layoutDocuments; documents[layoutOption.rawValue] = document
-            layoutDocuments = documents
-            storedLayoutDocuments = (try? JSONEncoder().encode(documents)) ?? Data()
-            rebuildLayouts(); return
-        }
-        if normalized <= 0.000_01 {
-            let existing = keyGeometryOverrides[key.storageKey]
-            let widthScale = existing?.widthScale ?? 1.0
-            let heightScale = existing?.heightScale ?? 1.0
-            if abs(widthScale - 1.0) <= 0.000_01 && abs(heightScale - 1.0) <= 0.000_01 {
-                keyGeometryOverrides.removeValue(forKey: key.storageKey)
-            } else {
-                keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(
-                    rotationDegrees: 0.0,
-                    widthScale: widthScale,
-                    heightScale: heightScale
-                )
-            }
-            return
-        }
-        let existing = keyGeometryOverrides[key.storageKey]
-        keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(
-            rotationDegrees: normalized,
-            widthScale: existing?.widthScale ?? 1.0,
-            heightScale: existing?.heightScale ?? 1.0
-        )
-    }
-
-    private func updateKeyRotationAndSelection(
-        for key: SelectedGridKey,
-        rotationDegrees: Double
-    ) {
-        updateKeyRotation(for: key, rotationDegrees: rotationDegrees)
         refreshKeyInspectorSelection()
     }
 

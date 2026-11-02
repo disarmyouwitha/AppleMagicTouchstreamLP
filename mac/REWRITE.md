@@ -5,7 +5,6 @@
 ^ Needs more testing
 # I GOT A PCAP!! It was stuck when trying to 2F click apps in my docked menu (it would open the app in finder instead) I tried clicking shift on physical keyboard but it didnt fix I had to do command on physical keyboard and then 2F click started working correctly. (It is not currently stuck)
 ===
-1. Have Codex create "Export Layout" button (can it do the legends on a separate layer? Or image?)
 2. Implement actions: Missing TouchStream actions:
 > Missing capability	    Command/output
 > Middle click and drag	    Mouse3 click or held drag
@@ -18,7 +17,8 @@
 0. In STENO mode, when you edit a Dictionary entry.. we need a way for people to type normally into the Translation box? What do you suggest.
 ===
 # Human Tasks...?
-0. Have Codex create "Export Layout" button (can it do the legends on a separate layer? Or image?)
+0. Have Codex create "Export Layout" button that will create an image from the Layer/Keys (can it do the legends on a separate layer? Or image?)
+> Should "Hold" actions be shown too?
 1. make 6x3 decal girl template in gimp with layers for ppl to edit
 > Options for: Center legends vs top-right legends / sublegend layer
 > Outline of where to line up for Decal Girl template

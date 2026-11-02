@@ -133,7 +133,7 @@ size is 1120 × 540 points, allowing laptop screen resolutions without the previ
 1384-point minimum width. Existing workspace scroll areas handle constrained space;
 trackpad visualization retains its existing maximum size.
 
-Layout Editor replaces the keyboard visualizer in the same workspace while editing. The Add row has a layer selector: it previews that layer’s assignments and scopes newly added keys/columns to that layer, including mirrored counterparts. Existing keys without layer metadata remain shared across layers. Layer scope round-trips through settings and captures, filters recognition and visualization, and is committed with the document on Apply; Cancel leaves the live layer unchanged.
+Layout Editor replaces the keyboard visualizer in the same workspace while editing. The Add row has a layer selector: it previews that layer’s assignments and scopes newly added keys/columns to that layer, including mirrored counterparts. Existing keys without layer metadata remain shared across layers. Layer scope round-trips through settings and captures, filters recognition and visualization, and is committed with the document on Apply. The editor’s selected layer is only a local preview; both Apply and Cancel return the visualizer to persistent Layer 0.
 Both trackpads remain visible side by side. Its inspector uses the normal resizable
 settings column. Apply saves one geometry update and returns to the visualizer;
 Cancel returns without publishing the staged document. Undo, Redo and Reset remain
@@ -157,6 +157,7 @@ existing group metadata, bindings and counterpart links are retained.
 Trackpad canvases cap at the same size as the visualizer (physical dimensions ×
 displayScale) and shrink together when needed. Tool buttons retain their compact
 90-point width and wrap into up to three columns, with Rotate Right below Rotate Left.
+Key rotation is edited in Layout Editor; Keymap Tuning contains action assignments only.
 The editor selects individual keys regardless of saved group metadata; Group/Ungroup
 controls are removed. Mirror Edit sits beside the Layout Editor title. The column count sits beside Add
 Column. Dragging and shared frame resizing always use a 1 mm grid, independently of

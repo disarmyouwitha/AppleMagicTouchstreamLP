@@ -10,7 +10,6 @@ struct LayoutEditor: View {
     let onCancel: () -> Void
     let mappings: [String:KeyMapping]
     let layerMappings:LayeredKeyMappings?
-    let onApplyLayer:(Int)->Void
     @State private var editingLayer:Int
     @Binding var menuWidth: Double
     let contactSnapshot: (UInt64) -> ContentViewModel.TouchSnapshot?
@@ -42,11 +41,11 @@ struct LayoutEditor: View {
 
     init(document: LayoutDocument, template: LayoutDocument, onApply: @escaping (LayoutDocument?) -> Void,
          onCancel: @escaping () -> Void, menuWidth: Binding<Double>, initialSelection: Set<UUID> = [], mappings: [String:KeyMapping] = [:],
-         layerMappings:LayeredKeyMappings? = nil,initialLayer:Int = 0,onApplyLayer:@escaping (Int)->Void = { _ in },
+         layerMappings:LayeredKeyMappings? = nil,initialLayer:Int = 0,
          contactSnapshot:@escaping (UInt64) -> ContentViewModel.TouchSnapshot? = { _ in nil },
          onContactPreview:@escaping (Bool) -> Void = { _ in }) {
         self.contactSnapshot = contactSnapshot; self.onContactPreview = onContactPreview
-        self.mappings = mappings; self.layerMappings = layerMappings; self.onApplyLayer = onApplyLayer
+        self.mappings = mappings; self.layerMappings = layerMappings
         _editingLayer = State(initialValue:KeyLayerConfig.clamped(initialLayer))
         _document = State(initialValue:document)
         self.template = template; self.onApply = onApply; self.onCancel = onCancel; _menuWidth = menuWidth
@@ -130,7 +129,7 @@ struct LayoutEditor: View {
                 .help("Reset template geometry; Undo can restore your edits.").accessibilityLabel("Reset Template").disabled(dragStart != nil)
             Divider().frame(height: 20)
             Button("Cancel",action: onCancel).keyboardShortcut(.cancelAction)
-            Button { onApplyLayer(editingLayer); onApply(document) } label: { Label("Apply",systemImage: "checkmark") }
+            Button { onApply(document) } label: { Label("Apply",systemImage: "checkmark") }
                 .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!documentValid || dragStart != nil).accessibilityLabel("Apply")
         }
     }
