@@ -15,6 +15,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Rewrite parity tests failed: "+error.Message); }
         try { MacMotionTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Mac motion tests failed: "+error.Message); }
+        try { WindowsAbsolutePointerTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Windows absolute pointer tests failed: "+error.Message); }
         try { StenoPointerTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Steno pointer tests failed: "+error.Message); }
         try { StenoTests.Run(); }

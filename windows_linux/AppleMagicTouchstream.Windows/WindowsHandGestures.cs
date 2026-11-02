@@ -223,7 +223,7 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
         // Clamp to an actual monitor, including negative origins and gaps.
         if (GetMonitorInfo(MonitorFromPoint(new Point { X = _queuedX, Y = _queuedY }, 2), out var monitor))
         { _queuedX = Math.Clamp(_queuedX, monitor.Monitor.Left, monitor.Monitor.Right-1); _queuedY = Math.Clamp(_queuedY, monitor.Monitor.Top, monitor.Monitor.Bottom-1); }
-        _inputs[0] = Input(0xC001, (int)Math.Round((_queuedX-left)*65535.0/(width-1)), (int)Math.Round((_queuedY-top)*65535.0/(height-1)));
+        _inputs[0] = Input(0xC001, WindowsAbsolutePointer.Normalize(_queuedX,left,width), WindowsAbsolutePointer.Normalize(_queuedY,top,height));
         Send(1);
     }
     public void Scroll(double xPoints, double yPoints)

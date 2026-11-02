@@ -1,10 +1,11 @@
 # Notes:
 =======
-fucking terrible. I had to control alt delete out of the app. I want to get rid of the dropdown and the code behind 1F mouse. I want to lock in on 2F
-0. I just added a bunch of changes to mac/AppleMagicTouchstream so copy how it works from there!
-===
-0. Need a better menu for selecting keys/shortcut keys
-1. steno keys should be at the at the bottom in their own section
+0. Add Pinch, Spread, Rotate everywhere that mac/AppleMagicTouchstream allows. Make sure you are at Parity with Mac Gestures and Iterface.
+1. TEST MOUSE: The mouse feels INCREDIBLE with the imported mouse profile, I think I really want to lock in with that.I am noticing that the super fine motion, like when I am trying to move the mouse just a little. There can also be a little start-up lag; and it can be a little jittery when trying to place the cursor exactly, slowly. 
+> Test Precision fix
+2. Test Layout editor
+> Cleanup GUI
+3. Fully test STENO modes. 
 ===
 0. What is the thing that keeps making me switch back / turn off the program:
 > * * * OMG IT'S scrolling in the LIMS that kills me, lol. (pages it is perfect; this particular one I use every day is unusable because we implement our own scrolling logic? Maybe I would have better luck rewriting the LIMS logic. x.x but what to do about websites with bad mouse? Can we try a toggle where we turn off my scroll acceleration to see if that helps? Thoughts??)

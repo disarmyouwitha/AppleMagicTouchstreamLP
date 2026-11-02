@@ -23,6 +23,8 @@
     <EmbeddedResource Include="../../Assets/MacTemplateSettings.json" LogicalName="AppleMagicTouchstream.MacTemplateSettings.json" />
     <EmbeddedResource Include="../../Assets/MacLayoutTemplates.json" LogicalName="AppleMagicTouchstream.MacLayoutTemplates.json" />
     <Compile Include="../MacMotionTests.cs" Link="MacMotionTests.cs" />
+    <Compile Include="../../WindowsAbsolutePointer.cs" Link="WindowsAbsolutePointer.cs" />
+    <Compile Include="../WindowsAbsolutePointerTests.cs" Link="WindowsAbsolutePointerTests.cs" />
     <Compile Include="../../CapturedMacMotionProfiles.cs" Link="CapturedMacMotionProfiles.cs" />
     <EmbeddedResource Include="../../MotionProfiles/mac-motion.json" LogicalName="AppleMagicTouchstream.mac-motion.json" />
     <EmbeddedResource Include="../Fixtures/AppleScrollAccelerationVectors.json" />
