@@ -943,11 +943,16 @@ final class StenoMouseTests:XCTestCase {
         view.cacheDisplay(in:view.bounds,to:bitmap)
         try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:URL(fileURLWithPath:path))
     }
-    func testPluginIsDefaultAndSerialChoiceRemainsExplicit() {
-        XCTAssertEqual(HandGestureSettings().resolvedStenoConnectionMode,.plugin)
-        var settings = HandGestureSettings(); settings.stenoConnectionMode = .serial
-        XCTAssertEqual(settings.resolvedStenoConnectionMode,.serial)
-        XCTAssertEqual(StenoLayoutDefinition.layout(preset:.steno,side:.left,size:.init(width:432,height:310)).stenoConnectionMode,.plugin)
+    func testJavelinIsDefaultAndSavedConnectionChoicesRemainExplicit() throws {
+        XCTAssertEqual(HandGestureSettings().resolvedStenoConnectionMode,.javelin)
+        XCTAssertEqual(StenoConnectionMode.allCases.first,.javelin)
+        for mode in StenoConnectionMode.allCases {
+            var settings = HandGestureSettings(); settings.stenoConnectionMode = mode
+            let restored = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings))
+            XCTAssertEqual(restored.resolvedStenoConnectionMode,mode)
+        }
+        XCTAssertEqual(StenoLayoutDefinition.layout(preset:.steno,side:.left,size:.init(width:432,height:310)).stenoConnectionMode,.javelin)
+        XCTAssertEqual(ContentViewModel.Layout(normalizedKeyRects:[],trackpadSize:.init(width:432,height:310)).stenoConnectionMode,.javelin)
     }
     func testMousePanelPreview() throws {
         guard let path = ProcessInfo.processInfo.environment["STENO_MOUSE_PREVIEW_PATH"] else { return }

@@ -485,6 +485,8 @@ struct GestureInspectorPanel: View {
             twoHandStatus:{controller.twoHandStatus($0)},
             setHoldAction:{controller.setHoldAction($0,count:$1,scope:$2)},
             setHoldThreshold:{controller.setHoldThreshold($0,count:$1,scope:$2)},
+            setHoldHaptic:{controller.setHapticOnHold($0,count:$1,scope:$2)},
+            setTwoHandHoldHaptic:{controller.setTwoHandHoldHaptic($0,chord:$1)},
             setTwoHandHoldThreshold:{controller.setTwoHandHoldThreshold($0,chord:$1)},
             holdStatus:{controller.holdStatus(count:$0,scope:$1)},
             setShapeRepeat:{controller.setShapeRepeat($0,for:$1,scope:$2)},
@@ -507,6 +509,8 @@ struct GestureAssignmentWorkspace: View {
     let twoHandStatus:(TwoHandTrigger)->String
     let setHoldAction:(GestureAction,Int,GestureHandScope)->Void
     let setHoldThreshold:(Double,Int,GestureHandScope)->Void
+    let setHoldHaptic:(Bool,Int,GestureHandScope)->Void
+    let setTwoHandHoldHaptic:(Bool,TwoHandChord)->Void
     let setTwoHandHoldThreshold:(Double,TwoHandChord)->Void
     let holdStatus:(Int,GestureHandScope)->String
     let setShapeRepeat:(GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void
@@ -538,6 +542,8 @@ struct GestureAssignmentWorkspace: View {
          twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."},
          setHoldAction:@escaping (GestureAction,Int,GestureHandScope)->Void = {_,_,_ in},
          setHoldThreshold:@escaping (Double,Int,GestureHandScope)->Void = {_,_,_ in},
+         setHoldHaptic:@escaping (Bool,Int,GestureHandScope)->Void = {_,_,_ in},
+         setTwoHandHoldHaptic:@escaping (Bool,TwoHandChord)->Void = {_,_ in},
          setTwoHandHoldThreshold:@escaping (Double,TwoHandChord)->Void = {_,_ in},
          holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 500 ms. Fires once until all-up."},
          setShapeRepeat:@escaping (GestureShapeRepeat,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
@@ -549,6 +555,7 @@ struct GestureAssignmentWorkspace: View {
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
         self.setDirectionalRepeat = setDirectionalRepeat
         self.setDirectionalRepeatBehavior = setDirectionalRepeatBehavior
+        self.setHoldHaptic = setHoldHaptic; self.setTwoHandHoldHaptic = setTwoHandHoldHaptic
         self.setHoldAction = setHoldAction; self.holdStatus = holdStatus
         self.setHoldThreshold = setHoldThreshold; self.setTwoHandHoldThreshold = setTwoHandHoldThreshold
         self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
@@ -767,6 +774,8 @@ struct GestureAssignmentWorkspace: View {
                 Text("\(twoHandChord.title) · Both hands").font(.caption).foregroundStyle(.secondary)
                 GestureActionChooser(value:settings.twoHand.action(twoHandTrigger),actions:TwoHandGestureSettings.allowedActions) { setTwoHandAction($0,twoHandTrigger) }
                 if twoHandPhase == .hold {
+                    Toggle("Haptic on trigger",isOn:Binding(get:{settings.twoHand.hapticOnHold(for:twoHandChord)},set:{setTwoHandHoldHaptic($0,twoHandChord)}))
+                        .toggleStyle(.checkbox)
                     holdBehavior(settings.twoHand.action(twoHandTrigger)) { setTwoHandAction($0,twoHandTrigger) }
                     GestureHoldThresholdField(value:settings.twoHand.holdThreshold(for:twoHandChord)) { setTwoHandHoldThreshold($0,twoHandChord) }
                         .id("threshold.both.\(twoHandChord.rawValue)")
@@ -1010,6 +1019,8 @@ struct GestureAssignmentWorkspace: View {
             }.disabled(!holdEditable)
             holdBehavior(value) { if holdEditable { setHoldAction($0,holdKey,editingScope) } }
                 .disabled(!holdEditable)
+            Toggle("Haptic on trigger",isOn:Binding(get:{settings.hapticOnHold(count:holdKey,in:editingScope) == true},set:{if holdEditable { setHoldHaptic($0,holdKey,editingScope) }}))
+                .toggleStyle(.checkbox).disabled(!holdEditable)
             GestureHoldThresholdField(value:settings.holdThreshold(count:holdKey,in:editingScope)) {
                 if holdEditable { setHoldThreshold($0,holdKey,editingScope) }
             }.disabled(!holdEditable).id("threshold.\(editingScope.rawValue).\(holdKey)")
@@ -1510,6 +1521,8 @@ struct GestureActionChooser:View {
         var seen:Set<GestureAction> = []
         return KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
             .compactMap { action -> GestureAction? in
+                if action.kind == .capsWord { return actions.contains(.capsWord) ? .capsWord:nil }
+                if action.kind == .middleClick { return actions.contains(.middleClick) ? .middleClick:nil }
                 if action.kind == .voice { return actions.contains(.voice) ? .voice : nil }
                 guard action.kind == .key || action.kind == .appLaunch || action.kind == .textPaste else { return nil }
                 return .shortcut(.init(label:action.storageLabel))
@@ -1518,8 +1531,9 @@ struct GestureActionChooser:View {
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
             ("General",[.disabled]),
-            ("Movement",[.pointer,.primaryDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
-            ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick]),
+            ("Movement",[.pointer,.primaryDrag,.secondaryDrag,.middleDrag,.scroll,.zoom,.rotate,.scrollUp,.scrollDown,.panLeft,.panRight]),
+            ("Mouse Buttons",[.primaryClick,.primaryDoubleClick,.secondaryClick,.middleClick]),
+            ("Keyboard",[.capsWord]),
             ("System",GestureAction.appleShortcuts + GestureAction.nativeDiscreteActions),
             ("Sound & Display",GestureAction.mediaActions + GestureAction.smallStepActions),
             ("Application",[.openConfig])]
@@ -1696,7 +1710,7 @@ struct ShortcutActionBuilder:View {
     }()
     static func shortcutKeyPickerGroups(savedLabels:[String]) -> [SearchableActionGroup<String>] {
         let shortcuts = KeyActionCatalog.shortcutMenuActions(savedLabels:savedLabels)
-            .filter { [.key,.appLaunch,.textPaste,.voice].contains($0.kind) }.map(\.storageLabel)
+            .filter { [.key,.appLaunch,.textPaste,.voice,.capsWord,.middleClick].contains($0.kind) }.map(\.storageLabel)
         return shortcutKeyGroups + (shortcuts.isEmpty ? []:[.init(title:"Shortcuts",actions:shortcuts)])
     }
     private func selectShortcutKey(_ label:String) {

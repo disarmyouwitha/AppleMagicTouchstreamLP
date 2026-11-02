@@ -14,6 +14,13 @@ final class TrackpadGestureController: ObservableObject {
     private var takeoverEnabled = false
     private var armed = false
     private var stenoMode = false
+    private var contactPreview = false
+    func setContactPreview(_ enabled:Bool) {
+        guard contactPreview != enabled else { return }
+        contactPreview = enabled
+        InterpretedTrackpadPointer.shared.stop()
+        configure()
+    }
     func setStenoMode(_ enabled:Bool) {
         guard stenoMode != enabled else { return }
         InterpretedTrackpadPointer.shared.stop()
@@ -81,6 +88,15 @@ final class TrackpadGestureController: ObservableObject {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
         }
         configure()
+    }
+    func setHapticOnHold(_ enabled:Bool,count:Int,scope:GestureHandScope) {
+        guard settings.holdAvailable(count:count,in:scope) else { return }
+        settings.setHapticOnHold(enabled,count:count,in:scope)
+        settings.save(to:.standard); configure()
+    }
+    func setTwoHandHoldHaptic(_ enabled:Bool,chord:TwoHandChord) {
+        var value = settings.twoHand; value.setHapticOnHold(enabled,for:chord)
+        settings.coordinated = value; settings.save(to:.standard); configure()
     }
     func setHoldThreshold(_ seconds:Double,count:Int,scope:GestureHandScope) {
         guard settings.holdAvailable(count:count,in:scope) else { return }
@@ -247,7 +263,7 @@ final class TrackpadGestureController: ObservableObject {
             if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Paused: \(action.title) is unavailable on this macOS version." }
             if action.requiresPointerProfile && pointerProfiles[id] == nil { return "Paused: tracking profile unavailable." }
             if action == .scroll && scrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
-            if action == .primaryDrag && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
+            if action.dragButton != nil && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
             return "Active"
         }
         if scope != .both { return hand(scope) }
@@ -283,7 +299,7 @@ final class TrackpadGestureController: ObservableObject {
             statusRevision &+= 1; return
         }
         let shortcuts = AppleShortcutPlan.load()
-        let routed = settings.routed(to: pads)
+        let routed = settings.routed(to:pads).mapValues { contactPreview ? $0.layoutContactPreview:$0 }
         let eligible = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: AXIsProcessTrusted(), selected: Set(routed.keys), owned: owned)
         func devicesFor(_ trigger: GestureTrigger) -> Set<UInt64> {
@@ -315,11 +331,11 @@ final class TrackpadGestureController: ObservableObject {
             twoFingerTapDevices: tap, fourFingerTapDevices:quad, fiveFingerTapDevices:quint, fiveFingerMoveDevices:five, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), recoverableKeyboardDevices:recoverableKeyboard, directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), recoverableKeyboardDevices:recoverableKeyboard, directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), holdHaptics:routed.mapValues(\.liveHoldHaptics), appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(five).union(quad).union(quint).union(tap).union(triple).union(thumb)
-        output.configureTwoHand(pads:pads,settings:settings.twoHand,
+        output.configureTwoHand(pads:pads,settings:contactPreview ? settings.twoHand.layoutContactPreview:settings.twoHand,
             eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),
             trusted:AXIsProcessTrusted())
         let keyboardPads = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,

@@ -125,21 +125,34 @@ final class PloverConnection:@unchecked Sendable {
 }
 
 enum StenoConnectionMode:String,CaseIterable,Codable,Sendable,Identifiable {
-    case serial, plugin
+    case javelin, javelinPlover, plugin, serial
+    static let defaultMode:Self = .javelin
+    var isBuiltIn:Bool { self == .javelin || self == .javelinPlover }
+    var dictionaryProfile:JavelinDictionaryProfile { self == .javelinPlover ? .plover:.lapwing }
     var id:String { rawValue }
-    var title:String { self == .plugin ? "Plover Plugin":"Gemini PR Serial" }
+    var title:String { switch self { case .javelinPlover: "Built-in Javelin (Plover)"; case .plugin: "Plover Plugin"; case .serial: "Gemini PR Serial"; case .javelin: "Built-in Javelin (Lapwing)" } }
 }
 
 enum StenoOutputConnection {
     static func configure(enabled:Bool,mode:StenoConnectionMode) {
-        if enabled && mode == .plugin { GeminiPRPort.shared.stop(); PloverConnection.shared.start() }
-        else if enabled { PloverConnection.shared.stop(); GeminiPRPort.shared.start() }
-        else { GeminiPRPort.shared.stop(); PloverConnection.shared.stop() }
+        if !enabled || mode != .plugin { PloverConnection.shared.stop() }
+        if !enabled || mode != .serial { GeminiPRPort.shared.stop() }
+        if !enabled || !mode.isBuiltIn { JavelinBackend.shared.stop() }
+        guard enabled else { return }
+        switch mode {
+        case .plugin: PloverConnection.shared.start()
+        case .serial: GeminiPRPort.shared.start()
+        case .javelin, .javelinPlover: JavelinBackend.shared.start(profile:mode.dictionaryProfile)
+        }
     }
-    static func flush() { GeminiPRPort.shared.flush(); PloverConnection.shared.flush() }
-    static func stop() { GeminiPRPort.shared.stop(); PloverConnection.shared.stop() }
+    static func flush() { GeminiPRPort.shared.flush(); PloverConnection.shared.flush(); JavelinBackend.shared.reset() }
+    static func stop() { GeminiPRPort.shared.stop(); PloverConnection.shared.stop(); JavelinBackend.shared.stop() }
     static func send(_ mask:UInt64,mode:StenoConnectionMode) {
-        if mode == .plugin { _ = PloverConnection.shared.send(mask) } else { _ = GeminiPRPort.shared.send(mask) }
+        switch mode {
+        case .plugin: _ = PloverConnection.shared.send(mask)
+        case .serial: _ = GeminiPRPort.shared.send(mask)
+        case .javelin, .javelinPlover: break // Host edits use DispatchService's focus/generation-gated path.
+        }
     }
 }
 

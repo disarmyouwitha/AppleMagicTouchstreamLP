@@ -564,6 +564,69 @@ extension GestureHoldTests {
             }
         }
     }
+    func testHoldHapticsDefaultOffMirrorIndependenceAndSettingsRoundTrip() throws {
+        var settings = HandGestureSettings()
+        for key in 2...7 { XCTAssertEqual(settings.hapticOnHold(count:key,in:.both),false) }
+        for chord in TwoHandChord.allCases { XCTAssertFalse(settings.twoHand.hapticOnHold(for:chord)) }
+        settings.setHapticOnHold(true,count:4,in:.left)
+        XCTAssertNil(settings.hapticOnHold(count:4,in:.both))
+        XCTAssertFalse(settings.right.hapticOnHold(count:4))
+        settings.setHapticOnHold(true,count:6,in:.both)
+        settings.setHapticOnHold(true,count:7,in:.left)
+        settings.setHapticOnHold(true,count:1,in:.both)
+        XCTAssertFalse(settings.left.hapticOnHold(count:1))
+        XCTAssertEqual(settings.left.liveHoldHaptics,[4,6])
+        XCTAssertEqual(settings.right.liveHoldHaptics,[6])
+        XCTAssertTrue(settings.left.singlePadCorners.hapticOnHold(for:.fourCorners))
+        XCTAssertTrue(settings.left.singlePadCorners.stenoConfigurationOnly.hapticOnHold(for:.fourCorners))
+        var both = settings.twoHand
+        both.setHapticOnHold(true,for:.threeFingers)
+        settings.coordinated = both
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,settings)
+        XCTAssertEqual(try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(settings)),settings)
+        var old = HandGestureSettings()
+        old.setHoldAction(.missionControl,count:3,in:.left)
+        var oldProfile = AppKeymapProfile.defaultProfile(); oldProfile.handGestureSettings = old
+        let preserved = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:oldProfile),currentProfile:profile)
+        XCTAssertEqual(preserved.handGestureSettings?.left.holdHaptics,settings.left.holdHaptics)
+        XCTAssertEqual(preserved.handGestureSettings?.twoHand.holdHaptics,settings.twoHand.holdHaptics)
+        old.setHapticOnHold(false,count:4,in:.left)
+        oldProfile.handGestureSettings = old
+        let explicit = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:oldProfile),currentProfile:profile)
+        XCTAssertEqual(explicit.handGestureSettings?.left.hapticOnHold(count:4),false)
+        XCTAssertEqual(explicit.handGestureSettings?.left.hapticOnHold(count:6),true)
+    }
+    func testHoldHapticRecordingFiresOnlyOnActivatedHoldAndRearmsAfterAllUp() {
+        for enabled in [false,true] {
+            let scheduler = ReplayTouchEngineScheduler(startTime:1)
+            let output = ProductionReplaySession.Output()
+            let dispatch = DispatchService(recordingWith:scheduler) { output.events.append($0) }
+            var settings = PerHandGestureSettings(), recognizer = GestureHoldRecognizer()
+            settings.setHoldAction(.missionControl,count:4)
+            settings.setHapticOnHold(enabled,count:4)
+            func observe(_ time:Double,_ contacts:[OMSRawTouch],motion:Bool = false) {
+                if let count = recognizer.observe(device:42,time:time,now:time,contacts:contacts,motionClaimed:motion,actions:settings.liveHoldActions),settings.hapticOnHold(count:count) {
+                    GestureHoldHapticOutput.post(device:42,dispatch:dispatch)
+                }
+            }
+            // A cancelled candidate never emits trigger feedback.
+            observe(1,touches(4)); observe(1.1,[],motion:true)
+            XCTAssertTrue(output.events.isEmpty)
+            for start in [2.0,3.0] {
+                for step in 0...7 { observe(start+Double(step)*0.1,touches(4)) }
+                observe(start+0.8,[])
+            }
+            let haptics = output.events.compactMap { event -> String? in
+                if case let .haptic(strength,deviceID) = event.kind {
+                    XCTAssertEqual(strength,0.25); return deviceID
+                }; return nil
+            }
+            XCTAssertEqual(haptics,enabled ? ["42","42"]:[])
+        }
+    }
+
     func testHoldThresholdDefaultsMirrorValidationAndPortableRoundTrip() throws {
         var settings = HandGestureSettings()
         for key in 2...7 { XCTAssertEqual(settings.left.holdThreshold(count:key),0.5) }

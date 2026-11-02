@@ -252,7 +252,7 @@ final class AdditionalChordTests:XCTestCase {
 @MainActor
 final class SearchableGestureActionTests:XCTestCase {
     func testSearchFiltersSupportedActionsAndMixedChoicesDoNotMutateSettings() {
-        for actions in [GestureDirectionalAssignments.allowedActions,GestureTrigger.fourFingerTap.allowedActions,TwoHandGestureSettings.allowedActions,PerHandGestureSettings.holdActions(for:6)] {
+        for actions in [GestureTrigger.threeFingerMove.allowedActions,GestureDirectionalAssignments.allowedActions,GestureTrigger.fourFingerTap.allowedActions,TwoHandGestureSettings.allowedActions,PerHandGestureSettings.holdActions(for:6)] {
             let groups = GestureActionChooser.groups(actions)
             let shortcutChoices = GestureActionChooser.shortcutActions(actions,savedLabels:[])
             XCTAssertEqual(Set(groups.flatMap(\.actions) + shortcutChoices).intersection(Set(actions)),Set(actions))

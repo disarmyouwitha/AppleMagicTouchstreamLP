@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        ACE300000000000000000002 /* StenoStrokeRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE300000000000000000001; };
+        ACE200000000000000000202 /* JavelinDictionaryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE200000000000000000201; };
+        ACE200000000000000000102 /* JavelinDictionaries.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE200000000000000000101; };
+        ACE100000000000000000002 /* JavelinBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE100000000000000000001; };
+        ACE100000000000000000004 /* Javelin dictionaries in Resources */ = {isa = PBXBuildFile; fileRef = ACE100000000000000000003; };
+        ACE100000000000000000006 /* JavelinBridge in Frameworks */ = {isa = PBXBuildFile; productRef = ACE100000000000000000005; };
         AC9200000000000000000102 /* TOUCHSTERAM_KEYMAP.json in Resources */ = {isa = PBXBuildFile; fileRef = AC9200000000000000000101; };
         AC9100000000000000000102 /* TypingPractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9100000000000000000101; };
         AC8100000000000000000202 /* LayoutEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8100000000000000000201; };
@@ -54,6 +60,11 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        ACE300000000000000000001 /* StenoStrokeRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/StenoStrokeRecording.swift; sourceTree = "<group>"; };
+        ACE200000000000000000201 /* JavelinDictionaryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinDictionaryEditor.swift; sourceTree = "<group>"; };
+        ACE200000000000000000101 /* JavelinDictionaries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinDictionaries.swift; sourceTree = "<group>"; };
+        ACE100000000000000000001 /* JavelinBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime/JavelinBackend.swift; sourceTree = "<group>"; };
+        ACE100000000000000000003 /* Javelin dictionaries */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppleMagicTouchstream/Resources/Javelin; sourceTree = SOURCE_ROOT; };
         AC9200000000000000000101 /* TOUCHSTERAM_KEYMAP.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TOUCHSTERAM_KEYMAP.json; sourceTree = "<group>"; };
         AC9100000000000000000101 /* TypingPractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingPractice.swift; sourceTree = "<group>"; };
         AC8100000000000000000201 /* LayoutEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEditor.swift; sourceTree = "<group>"; };
@@ -107,6 +118,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */,
+                ACE100000000000000000006 /* JavelinBridge in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -170,6 +182,10 @@
                 AC7300000000000000000C01 /* Steno.swift */,
                 AC7300000000000000000D01 /* GeminiPRPort.swift */,
                 AC7400000000000000000101 /* PloverConnection.swift */,
+                ACE100000000000000000001 /* JavelinBackend.swift */,
+                ACE300000000000000000001 /* StenoStrokeRecording.swift */,
+                ACE200000000000000000201 /* JavelinDictionaryEditor.swift */,
+                ACE200000000000000000101 /* JavelinDictionaries.swift */,
                 AC7400000000000000000201 /* Plover plugin wheel */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppleMagicTouchstreamDefaultsKeys.swift */,
 				31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */,
@@ -229,6 +245,7 @@
 			);
 			name = AppleMagicTouchstream;
 			packageProductDependencies = (
+                ACE100000000000000000005 /* JavelinBridge */,
 				315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */,
 			);
 			productName = AppleMagicTouchstream;
@@ -277,6 +294,7 @@
 			buildActionMask = 2147483647;
 			files = (
                 AC7400000000000000000202 /* Plover plugin wheel in Resources */,
+                ACE100000000000000000004 /* Javelin dictionaries in Resources */,
 				CBAA00000000000000000002 /* LHS_TOUCHSTREAM_layout.png in Resources */,
                 CBAA00000000000000000004 /* RHS_TOUCHSTREAM_layout.png in Resources */,
                 77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
@@ -319,6 +337,10 @@
                 AC7300000000000000000C02 /* Steno.swift in Sources */,
                 AC7300000000000000000D02 /* GeminiPRPort.swift in Sources */,
                 AC7400000000000000000102 /* PloverConnection.swift in Sources */,
+                ACE100000000000000000002 /* JavelinBackend.swift in Sources */,
+                ACE300000000000000000002 /* StenoStrokeRecording.swift in Sources */,
+                ACE200000000000000000202 /* JavelinDictionaryEditor.swift in Sources */,
+                ACE200000000000000000102 /* JavelinDictionaries.swift in Sources */,
 				5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */,
 				D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */,
 				3C193E5CB3384DBB97B4BD76 /* LegacyMobileLayout.swift in Sources */,
@@ -547,6 +569,7 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+        ACE100000000000000000005 /* JavelinBridge */ = {isa = XCSwiftPackageProductDependency; package = 315FA11B2F4A890900FAE9EC; productName = JavelinBridge; };
 		315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 315FA11B2F4A890900FAE9EC /* OpenMultitouchSupport */;

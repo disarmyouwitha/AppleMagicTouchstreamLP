@@ -49,6 +49,46 @@ enum KeyboardStrokeOutput {
     }
 }
 
+/// Read-only rolling diagnostics. Only actual live submission/observation calls this;
+/// constructing events and replay do not touch the history or start an observer.
+enum KeyboardModifierDiagnostics {
+    private static let history = OSAllocatedUnfairLock(initialState:ModifierDiagnosticRing())
+    static func record(_ event:CGEvent,origin:RuntimeModifierTraceEntry.Origin) {
+        let keyboard = event.type == .keyDown || event.type == .keyUp || event.type == .flagsChanged
+        let code = keyboard ? ModifierDiagnosticRing.modifierCode(CGKeyCode(truncatingIfNeeded:event.getIntegerValueField(.keyboardEventKeycode))):nil
+        let entry = RuntimeModifierTraceEntry(origin:origin,timestamp:origin == .submitted ? DispatchTime.now().uptimeNanoseconds:event.timestamp,type:event.type.rawValue,
+            modifierKeyCode:code,flagsRawValue:event.flags.rawValue,
+            sourcePID:event.getIntegerValueField(.eventSourceUnixProcessID),
+            sourceID:event.getIntegerValueField(.eventSourceStateID),
+            tagged:event.getIntegerValueField(.eventSourceUserData) == SelectedTrackpadEventPolicy.interpreterTag)
+        history.withLock { $0.record(entry) }
+    }
+    static func snapshot(since sequence:UInt64?) -> RuntimeModifierHistory? {
+        history.withLock { $0.snapshot(since:sequence) }
+    }
+    static func post(_ event:CGEvent,tap:CGEventTapLocation = .cghidEventTap) {
+        record(event,origin:.submitted)
+        event.post(tap:tap)
+    }
+}
+
+/// Event-local Shift only: Caps Word never owns or holds a native modifier.
+struct CapsWordState {
+    private(set) var active = false
+    mutating func toggle() { active.toggle() }
+    mutating func reset() { active = false }
+    mutating func flags(code:CGKeyCode,flags:CGEventFlags,down:Bool = true) -> CGEventFlags {
+        guard active,down else { return flags }
+        if ModifierDiagnosticRing.modifierCode(code) != nil { return flags }
+        guard flags.intersection([.maskCommand,.maskControl,.maskAlternate]).isEmpty else { active = false; return flags }
+        switch code {
+        case 0...9,11...17,31,32,34,35,37,38,40,45,46: return flags.union(.maskShift)
+        case 18...23,25,26,27,28,29,51,117: return flags
+        default: active = false; return flags
+        }
+    }
+}
+
 enum InputMonitoringPermission {
     static func hasListenAccess() -> Bool {
         CGPreflightListenEventAccess()
@@ -290,8 +330,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             guard let events = KeyboardStrokeOutput.events(code:code,flags:flags,
                     restoringFlags:restoringFlags,source:source) else { return }
             let keyDown = events.down, keyUp = events.up
-            keyDown.post(tap: .cghidEventTap)
-            keyUp.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(keyDown)
+            KeyboardModifierDiagnostics.post(keyUp)
             if code == Self.globeKeyCode { AutocorrectEngine.shared.invalidate(); return }
             AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: true, altAscii: altAscii)
         }
@@ -336,7 +376,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 return
             }
             configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
-            event.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(event)
             AutocorrectEngine.shared.recordDispatchedKey(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii)
         }
     }
@@ -488,8 +528,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         guard let source = ensureEventSource(),
               let pair = TextShortcutTypingPlan.events(stroke,
                 restoringFlags:CGEventSource.flagsState(.combinedSessionState).union(heldFlags),source:source) else { return false }
-        pair.down.post(tap:.cghidEventTap)
-        pair.up.post(tap:.cghidEventTap)
+        KeyboardModifierDiagnostics.post(pair.down)
+        KeyboardModifierDiagnostics.post(pair.up)
         return true
     }
 
@@ -524,8 +564,8 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                     unicodeString: baseAddress
                 )
             }
-            keyDown.post(tap: .cghidEventTap)
-            keyUp.post(tap: .cghidEventTap)
+            KeyboardModifierDiagnostics.post(keyDown)
+            KeyboardModifierDiagnostics.post(keyUp)
         }
     }
 
@@ -569,7 +609,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         )?.cgEvent else {
             return
         }
-        event.post(tap: .cgSessionEventTap)
+        KeyboardModifierDiagnostics.post(event,tap:.cgSessionEventTap)
     }
 
     @inline(__always)
@@ -753,11 +793,12 @@ final class DispatchService: @unchecked Sendable {
     private enum CommandPayload:Sendable {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, heldFlags:CGEventFlags)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
-        case stenoStroke(UInt64,UInt64)
+        case stenoStroke(UInt64,UInt64,UUID?)
         case stenoPointer(StenoPointerUpdate,UInt64,Double,UInt64)
         case textPaste(String,UInt64)
         case appLaunch(String)
         case voiceToggle
+        case capsWordToggle
         case leftClick(clickCount: Int)
         case rightClick
         case middleClick
@@ -827,7 +868,7 @@ final class DispatchService: @unchecked Sendable {
         var drops: UInt64 = 0
         var nextCommandID: UInt64 = 1
         var stenoEnabled = false
-        var stenoConnectionMode = StenoConnectionMode.serial
+        var stenoConnectionMode = StenoConnectionMode.defaultMode
         var stenoHapticTouch = false, stenoHapticRelease = false
         var stenoForceThreshold:Float = 130
         var stenoPointerMode = StenoPointerMode.disabled
@@ -869,7 +910,8 @@ final class DispatchService: @unchecked Sendable {
         sourceSequence: UInt64? = nil
     ) {
         shortcutKeys.withLock { keys in
-            let combined = flags.union(keys.flags)
+            let inherited = flags.union(keys.flags)
+            let combined = capsWord.withLock { $0.flags(code:code,flags:inherited) }
             if keys.owns(code) {
                 enqueue(.key(code:code,flags:combined,keyDown:true,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
             } else {
@@ -888,8 +930,15 @@ final class DispatchService: @unchecked Sendable {
     ) {
         shortcutKeys.withLock { keys in
             guard let edge = keys.keyboardEdge(code:code,flags:flags,down:keyDown) else { return }
-            enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
+            let outputFlags = capsWord.withLock { $0.flags(code:edge.code,flags:edge.flags,down:edge.down) }
+            enqueue(.key(code:edge.code,flags:outputFlags,keyDown:edge.down,altAscii:altAscii,token:token),sourceSequence:sourceSequence)
         }
+    }
+
+    private let capsWord = OSAllocatedUnfairLock(initialState:CapsWordState())
+    func postCapsWordToggle(sourceSequence:UInt64? = nil) {
+        capsWord.withLock { $0.toggle() }
+        enqueue(.capsWordToggle,sourceSequence:sourceSequence)
     }
 
     var heldGestureFlags:CGEventFlags { shortcutKeys.withLock { $0.flags } }
@@ -902,7 +951,8 @@ final class DispatchService: @unchecked Sendable {
                     enqueue(.key(code:edge.code,flags:edge.flags,keyDown:edge.down,altAscii:0,token:nil),sourceSequence:nil)
                 }
             }
-        } else if action.kind == .textPaste { postTextPaste(action.label) }
+        } else if action.kind == .capsWord { postCapsWordToggle() }
+        else if action.kind == .textPaste { postTextPaste(action.label) }
         else if action.kind == .appLaunch { postAppLaunch(action.label) }
         else { postKeyStroke(code:action.keyCode,flags:CGEventFlags(rawValue:action.flags)) }
     }
@@ -919,11 +969,14 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func configureStenoMode(_ enabled:Bool,pointerMode:StenoPointerMode = .disabled,forceThreshold:Float = 130,
-                            connectionMode:StenoConnectionMode = .serial,hapticTouch:Bool = false,hapticRelease:Bool = false) {
+                            connectionMode:StenoConnectionMode = .defaultMode,hapticTouch:Bool = false,hapticRelease:Bool = false) {
         let connectionChanged = stateLock.withLockUnchecked { state in
             let changed = state.stenoEnabled != enabled || state.stenoConnectionMode != connectionMode
             if changed || state.stenoPointerMode != pointerMode || state.stenoForceThreshold != forceThreshold
-                || state.stenoHapticTouch != hapticTouch || state.stenoHapticRelease != hapticRelease { state.stenoGeneration &+= 1 }
+                || state.stenoHapticTouch != hapticTouch || state.stenoHapticRelease != hapticRelease {
+                state.stenoGeneration &+= 1
+                if keyDispatcher != nil { StenoStrokeRecorder.shared.reset() }
+            }
             state.stenoEnabled = enabled; state.stenoPointerMode = pointerMode; state.stenoForceThreshold = forceThreshold
             state.stenoConnectionMode = connectionMode; state.stenoHapticTouch = hapticTouch; state.stenoHapticRelease = hapticRelease
             return changed
@@ -950,7 +1003,25 @@ final class DispatchService: @unchecked Sendable {
         guard mask != 0, mask & ~GeminiPRPacket.keyMask == 0 else { return }
         let generation = stateLock.withLockUnchecked { $0.stenoEnabled ? $0.stenoGeneration:nil }
         guard let generation else { return }
-        enqueue(.stenoStroke(mask,generation),sourceSequence:sourceSequence)
+        let recording = keyDispatcher == nil ? nil:StenoStrokeRecorder.shared.routingID
+        enqueue(.stenoStroke(mask,generation,recording),sourceSequence:sourceSequence)
+    }
+
+    func updateStenoRecordingContacts(active:Bool) {
+        guard keyDispatcher != nil else { return } // Replay never mutates a live recording.
+        StenoStrokeRecorder.shared.observeContacts(active:active)
+    }
+
+    func beginStenoStrokeRecording(id:UUID,receive:@escaping @Sendable (StenoStrokeRecorder.Event)->Void) -> Bool {
+        guard keyDispatcher != nil else { return false }
+        let armed = stateLock.withLockUnchecked { state in
+            guard state.stenoEnabled, state.stenoConnectionMode.isBuiltIn else { return false }
+            state.stenoGeneration &+= 1
+            StenoStrokeRecorder.shared.begin(id:id,receive:receive)
+            return true
+        }
+        if armed { dispatchQueue.async { JavelinBackend.shared.reset() } }
+        return armed
     }
 
     func postTextPaste(_ label:String,sourceSequence:UInt64? = nil) {
@@ -1046,7 +1117,7 @@ final class DispatchService: @unchecked Sendable {
                 begin: { AutocorrectEngine.shared.invalidate() },
                 post: { event in
                     event.timestamp = DispatchTime.now().uptimeNanoseconds
-                    event.post(tap: .cghidEventTap)
+                    KeyboardModifierDiagnostics.post(event)
                 }, pause: { Thread.sleep(forTimeInterval: $0) }))
         }
     }
@@ -1062,12 +1133,14 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func clearQueue() {
+        capsWord.withLock { $0.reset() }
         if keyDispatcher != nil {
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.cancel()
             TextShortcutTypingOutput.shared.cancel()
         }
         let cancelledCommands = stateLock.withLockUnchecked { state in
+            if keyDispatcher != nil { StenoStrokeRecorder.shared.reset() }
             state.stenoGeneration &+= 1; state.stenoHapticGeneration &+= 1
             let pending = state.queue.removeAll()
             // A queue reset may discard work, but must deliver already accepted
@@ -1134,6 +1207,20 @@ final class DispatchService: @unchecked Sendable {
 
     private func drainQueue() {
         while let command = popNextCommand() {
+            if case let .stenoStroke(mask,generation,recording) = command.payload, let recording, keyDispatcher != nil {
+                if stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }) {
+                    _ = StenoStrokeRecorder.shared.consume(mask,id:recording)
+                }
+                // A recording command never falls through to a translator, even after Stop.
+                emitRecordedEvent(for:command,status:.cancelled)
+                continue
+            }
+            if case let .stenoStroke(mask,generation,_) = command.payload,
+               stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }),
+               keyDispatcher != nil {
+                dispatchJavelin(mask,generation:generation,command:command)
+                return // Preserve ordering while the main actor validates the text destination.
+            }
             if case let .textPaste(label,generation) = command.payload {
                 AutocorrectEngine.shared.invalidate()
                 TextShortcutTypingOutput.shared.request(label,generation:generation) { [weak self] pasted in
@@ -1145,6 +1232,66 @@ final class DispatchService: @unchecked Sendable {
             }
             dispatch(command)
         }
+    }
+
+    func reloadJavelinDictionaries(profile:JavelinDictionaryProfile) {
+        guard keyDispatcher != nil else { return }
+        dispatchQueue.async { [self] in
+            let mode = stateLock.withLockUnchecked { state -> StenoConnectionMode? in
+                guard state.stenoEnabled, state.stenoConnectionMode.isBuiltIn,
+                      state.stenoConnectionMode.dictionaryProfile == profile else { return nil }
+                state.stenoGeneration &+= 1
+                StenoStrokeRecorder.shared.reset()
+                return state.stenoConnectionMode
+            }
+            guard let mode else { return }
+            JavelinBackend.shared.start(profile:mode.dictionaryProfile,force:true)
+        }
+    }
+
+    private func javelinIsCurrent(_ generation:UInt64) -> Bool {
+        stateLock.withLockUnchecked { $0.stenoEnabled && $0.stenoGeneration == generation && $0.stenoConnectionMode.isBuiltIn }
+    }
+
+    private func dispatchJavelin(_ mask:UInt64,generation:UInt64,command:Command) {
+        AutocorrectEngine.shared.invalidate()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let ticket = JavelinFocusTicket(generation:generation) else {
+                self.dispatchQueue.async { self.finishJavelin(command,posted:false) }; return
+            }
+            let reset = ticket.needsReset
+            self.dispatchQueue.async {
+                guard self.javelinIsCurrent(generation) else { self.finishJavelin(command,posted:false); return }
+                if reset { JavelinBackend.shared.reset() }
+                guard let edit = JavelinBackend.shared.translate(mask), edit.backspaces <= 4096, edit.text.utf8.count <= 65536 else {
+                    self.finishJavelin(command,posted:false); return
+                }
+                Task { @MainActor in
+                    let valid = ticket.isCurrent()
+                    self.dispatchQueue.async {
+                        guard valid, self.javelinIsCurrent(generation), AXIsProcessTrusted(),
+                              !IsSecureEventInputEnabled(), NSRunningApplication(processIdentifier:ticket.pid)?.isActive == true else {
+                            self.finishJavelin(command,posted:false); return
+                        }
+                        for _ in 0..<edit.backspaces {
+                            self.keyDispatcher?.postKeyStrokeImmediate(code:51,flags:[],altAscii:0,token:nil,heldFlags:self.heldGestureFlags)
+                        }
+                        var posted = true
+                        for stroke in TextShortcutTypingPlan.strokes(edit.text) {
+                            if self.keyDispatcher?.postSavedTextStrokeImmediate(stroke,heldFlags:self.heldGestureFlags) != true { posted = false; break }
+                        }
+                        self.finishJavelin(command,posted:posted)
+                    }
+                }
+            }
+        }
+    }
+
+    private func finishJavelin(_ command:Command,posted:Bool) {
+        if !posted { JavelinBackend.shared.reset() }
+        emitRecordedEvent(for:command,status:posted ? .posted:.cancelled)
+        drainQueue()
     }
 
     private func popNextCommand() -> Command? {
@@ -1175,6 +1322,8 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
+        case .capsWordToggle:
+            break // State changes at submission; replay records the same action without native input.
         case .voiceToggle:
             AutocorrectEngine.shared.invalidate()
             VoiceDictationOutput.toggle()
@@ -1187,8 +1336,11 @@ final class DispatchService: @unchecked Sendable {
             guard stateLock.withLockUnchecked({ $0.stenoEnabled && $0.stenoGeneration == generation }) else {
                 emitRecordedEvent(for:command,status:.cancelled); return
             }
+            if update.click != nil || update.dragBegan {
+                if stateLock.withLockUnchecked({ $0.stenoConnectionMode.isBuiltIn }) { JavelinBackend.shared.reset() }
+            }
             InterpretedTrackpadPointer.shared.postStenoPointer(update,device:device,time:time)
-        case let .stenoStroke(mask,generation):
+        case let .stenoStroke(mask,generation,_):
             guard let mode = stateLock.withLockUnchecked({ state -> StenoConnectionMode? in
                 state.stenoEnabled && state.stenoGeneration == generation ? state.stenoConnectionMode:nil
             }) else { emitRecordedEvent(for:command,status:.cancelled); return }
@@ -1243,12 +1395,14 @@ final class DispatchService: @unchecked Sendable {
                 status: status,
                 sourceSequence: command.sourceSequence
             )
+        case .capsWordToggle:
+            return makeDispatchEvent(commandID:command.id,kind:.systemKey("capsWordToggle"),status:status,sourceSequence:command.sourceSequence)
         case .voiceToggle:
             return makeDispatchEvent(commandID: command.id, kind: .systemKey("voiceToggle"),
                 status: status, sourceSequence: command.sourceSequence)
         case let .stenoPointer(update,device,_,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey("StenoMouse:\(device):\(update.scrollBegan ? "scrollBegin" : update.scrollEnded ? "scrollEnd" : update.scrolling ? "scroll" : update.dragBegan ? "dragBegin" : update.click == .primary ? "click" : update.click == .secondary ? "rightClick" : update.reset ? "reset" : update.dragging ? "dragMove" : "move")"),status:status,sourceSequence:command.sourceSequence)
-        case let .stenoStroke(mask,_):
+        case let .stenoStroke(mask,_,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(GeminiPRPacket.recordingLabel(for:mask)),status:status,sourceSequence:command.sourceSequence)
         case let .textPaste(label,_):
             return makeDispatchEvent(commandID:command.id,kind:.systemKey(label),status:status,sourceSequence:command.sourceSequence)

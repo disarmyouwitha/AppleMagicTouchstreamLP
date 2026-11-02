@@ -154,6 +154,61 @@ struct RuntimeGestureMouseEdge: Codable, Sendable, Equatable {
     var flagsRawValue: UInt64? = nil
 }
 
+/// No text or ordinary key codes. Source identity is evidence, not proof of physical origin.
+struct RuntimeModifierTraceEntry: Codable, Sendable, Equatable {
+    enum Origin:String,Codable,Sendable { case submitted, observed }
+    var sequence:UInt64 = 0
+    var origin:Origin
+    var timestamp:UInt64
+    var type:UInt32
+    var modifierKeyCode:CGKeyCode?
+    var flagsRawValue:UInt64
+    var sourcePID:Int64
+    var sourceID:Int64
+    var tagged:Bool
+}
+struct RuntimeModifierHistory: Codable, Sendable, Equatable {
+    var throughSequence:UInt64
+    var droppedEntries:UInt64
+    var entries:[RuntimeModifierTraceEntry]
+}
+/// Fixed storage; snapshots copy only at the capture boundary, never on input.
+struct ModifierDiagnosticRing {
+    static let capacity = 256
+    private var entries = [RuntimeModifierTraceEntry?](repeating:nil,count:capacity)
+    private var revision:UInt64 = 0
+    private var lastSubmittedFlags:UInt64 = 0
+    static func modifierCode(_ code:CGKeyCode) -> CGKeyCode? {
+        (54...63).contains(code) ? code:nil
+    }
+    mutating func record(_ entry:RuntimeModifierTraceEntry) {
+        var entry = entry
+        entry.modifierKeyCode = entry.modifierKeyCode.flatMap(Self.modifierCode)
+        if entry.origin == .submitted {
+            let flags = CGEventFlags(rawValue:entry.flagsRawValue).intersection([.maskShift,.maskControl,.maskAlternate,.maskCommand,.maskSecondaryFn,.maskAlphaShift]).rawValue
+            guard entry.modifierKeyCode != nil || flags != 0 || flags != lastSubmittedFlags else { return }
+            lastSubmittedFlags = flags
+        }
+        revision &+= 1
+        entry.sequence = revision
+        entries[Int((revision-1) % UInt64(Self.capacity))] = entry
+    }
+    func snapshot(since cursor:UInt64?) -> RuntimeModifierHistory? {
+        guard cursor != revision else { return nil }
+        let first = revision > UInt64(Self.capacity) ? revision-UInt64(Self.capacity)+1:1
+        let requested = cursor.map { $0 < revision ? $0+1:1 } ?? 1
+        let start = max(first,requested)
+        var copied:[RuntimeModifierTraceEntry] = []
+        if start <= revision {
+            copied.reserveCapacity(Int(revision-start+1))
+            for sequence in start...revision {
+                if let entry = entries[Int((sequence-1) % UInt64(Self.capacity))] { copied.append(entry) }
+            }
+        }
+        return RuntimeModifierHistory(throughSequence:revision,droppedEntries:first > requested ? first-requested:0,entries:copied)
+    }
+}
+
 struct RuntimeGestureOutputDiagnostic: Codable, Sendable, Equatable {
     var dragOwner: UInt64?
     var dragOwnerCount: Int
@@ -169,6 +224,7 @@ struct RuntimeGestureOutputDiagnostic: Codable, Sendable, Equatable {
     var ownedKeyboardFlagsRawValue: UInt64? = nil
     // Bits: L/R Shift, L/R Option, L/R Control, L/R Command. No ordinary keys.
     var hidModifierKeys: UInt16? = nil
+    var modifierHistory:RuntimeModifierHistory? = nil
 }
 
 struct ProcessedFrameRecord: Codable, Sendable {

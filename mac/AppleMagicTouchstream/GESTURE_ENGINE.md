@@ -136,12 +136,30 @@ The capture omits current per-hand settings; the 100 ms Shift/scroll assignments
 are explicit regression configuration corroborated by current saved preferences,
 not a claim of complete captured live-state or application event receipt.
 
+Each Hold assignment has an optional **Haptic on trigger** setting, default off.
+Per-pad count/Thumb+2/corner settings mirror only when Mirror Edit is enabled;
+coordinated Both Holds save their own chord setting. Feedback is submitted once
+at recognition (including timer activation), never while pending, on cancellation,
+on release, or merely when editing settings. It uses waveform 6 / level 0.25,
+targets the originating eligible pad (both pads for Both), and shares the existing
+per-pad 50 ms Force-feedback throttle. Native ownership/armed/AX/live gates remain;
+recognition timing, output ownership and release cleanup are unchanged. The shared
+dispatch queue records requests offline without native haptic output. Missing older
+profile fields preserve current imported choices and otherwise mean off.
+
 Pressure is an explicit override of same-pad movement: a configured Force crossing
 ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle.
-Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
-secondary/system actions remain independent.
+Clicks of the held drag button are suppressed while another pad owns that drag;
+unrelated mouse buttons and system actions remain independent.
 
-Primary drag uses a retained private source. Secondary clicks borrow that source
+Primary, Secondary Drag and Middle Drag use the same retained private source and
+reserved release lifecycle. Movement activation, count-change continuation, all-up,
+stale/invalid cancellation and selected/owned/armed/AX/live gates are unchanged.
+The chosen button is fixed at activation. Pads can join only the same button; a
+conflicting button request cannot replace a fired owner. Either pad’s pointer can
+move the shared cursor. The last owner releases the matching native button once.
+These are movement-only actions; taps/Force/Hold offer Middle Click as a balanced
+Mouse3 pair, not a held drag. Secondary and middle clicks borrow the drag source
 while a drag is active; standalone secondary clicks retain their private source
 through posting. Both right-button edges are prepared before posting; right-click
 never releases another pad's primary-button owner. Ordinary pointer, primary tap,
