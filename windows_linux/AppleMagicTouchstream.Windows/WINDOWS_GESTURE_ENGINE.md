@@ -46,11 +46,11 @@ Source references: Mac `Engine/GestureSessionEngine.swift`, `Engine/GestureKeybo
 
 **Motion (updated after hardware feedback):** movement and drag now default to the same parametric Apple acceleration equations as Mac, with the recorded reference coefficients from Mac `ApplePointerAccelerationTests.installedExample()`: resolution 400, acceleration index 3, multiplier 48545/65536, linear 1, parabolic 123208/65536, cubic 23593/65536, linear tangent 7 and root tangent 12. These are a reference preset, not a query of this user's active Mac/Windows tracking setting. The Mac cross-language golden vectors pass against the C# model to 1e-9 tolerance. It retains the Mac contact-mm-to-count hypothesis (resolution/25.4, with sensitivity before acceleration), rate/multiplier behavior, 96/67 output scale, and finite-value safeguards. The Windows screen-space limit differs as described in the fast-motion fix below.
 
-The Pointer response menu offers Apple acceleration (Mac reference), Fixed 6 px/mm, and an imported Mac profile when present. Both pointer movement and dragging use the selected response. Imported profiles are validated and persisted per hand; Both applies the selection to both hands. This does not reproduce proprietary upstream processing or guarantee identical visual travel across Mac points/Windows pixels and display scales.
+The Action inspector offers **Use captured Mac pointer and scroll** for Pointer/Drag and Scroll assignments. It is opt-in, independent per hand, and follows Mirror Edit. Enabling restores the source Mac's sensitivity/direction; those controls remain adjustable. The selected response also serves STENO pointer movement. Disabling restores the accepted reference pointer/fixed-scroll response. Profiles are bundled and validated once on the configuration path. See [MotionProfiles/README.md](MotionProfiles/README.md) for capture provenance and testing. No proprietary upstream processing or identical visual travel across display scales is claimed.
 
 Pointer injection uses absolute virtual-desktop coordinates to avoid adding Windows relative-mouse acceleration. Subpixel remainders are retained; drag positions accumulate from the last queued destination and clamp to the nearest display.
 
-**Scrolling:** fixed 6 scroll points/mm precedes the same momentum model. The per-hand **Natural scrolling** checkbox reverses both axes and momentum; Both displays an indeterminate state when hands differ. Existing direction is preserved by default (checked); uncheck to use the opposite direction. Ten points map to one Windows wheel detent (120 units); fractional units are retained. Vertical sign follows natural scrolling; horizontal sign is reversed for Windows' wheel convention. The current SendInput wheel adapter does not expose macOS pixel-scroll phase/momentum fields, and application handling of small wheel deltas varies. Test direction, pan, speed, and momentum in actual Windows applications.
+**Scrolling:** the captured-Mac option uses the Mac per-axis parametric history/acceleration model and contact-mm-to-count conversion. The legacy option uses fixed 6 scroll points/mm. Both feed the same momentum model. Touching either pad brakes a released coast without clicking. The per-hand **Natural scrolling** checkbox reverses both axes and momentum; Both displays an indeterminate state when hands differ. Existing direction is preserved by default (checked); uncheck to use the opposite direction. Ten points map to one Windows wheel detent (120 units); fractional units are retained. Vertical sign follows natural scrolling; horizontal sign is reversed for Windows' wheel convention. The current SendInput wheel adapter does not expose macOS pixel-scroll phase/momentum fields, and application handling of small wheel deltas varies. Test direction, pan, speed, and momentum in actual Windows applications.
 
 **Anatomy:** PTP tracking IDs identify contacts, not fingers. The current decoders provide no positive thumb/fingertip/hand classification. The spread-thumb recognizer therefore cannot safely choose Secondary Click. Its assignment menu remains editable (None and all mouse click actions), with a visible unavailability note; its inactive effective binding does not reserve three-finger input by itself. Unknown three-contact taps use the ordinary three-finger tap action, matching Mac's unknown-identity fallback. No guessed thumb classification or speculative driver report was added.
 
@@ -101,15 +101,14 @@ No driver/device/input-setting changes or speculative hardware commands are part
 
 The user reports that four-finger scrolling and the three-finger recognition feel good; scrolling runs opposite their preference, and the initial fixed pointer/drag response feels poor. This update adds configurable direction and Apple reference acceleration. The three-finger activation geometry is unchanged from Mac; the visible label is now simply "3-finger movement" with the compact-row explanation in its tooltip.
 
-### Importing the user's Mac settings later
+### Capturing the user's Mac settings
 
-No driver binaries are required. From the repository root on the Mac, run the existing read-only snapshot helper:
-
-```sh
-# Preserved Apple acceleration equations and provenance: mac/RESEARCH_ARCHIVE.md
-```
-
-Copy `pointer-settings.json` to Windows, choose Left/Right/Both in Gestures, and use **Import Mac tracking profile…**. When the snapshot contains multiple devices, select the desired profile. Successful import selects the imported response; later choose Mac reference or Fixed to compare. The app stores only profile parameters/device ID, not the snapshot's serial/OS metadata. Snapshot values are provider/global observations and may differ from user/service overrides used by the live Mac reader; if the imported response differs, a targeted export through the live reader is the next check. No Mac access is needed to use the reference preset now.
+The read-only exporter, captured pointer + scroll profiles, and production-model
+parity vectors are maintained with this repository. The Windows build explicitly
+embeds the snapshot, so no separate file copy is needed after building. See
+[MotionProfiles/README.md](MotionProfiles/README.md). The old pointer-only snapshot
+parser remains available to shared consumers; the current Windows UI uses the
+bundled paired profiles rather than a pointer-only import menu.
 
 ### Richer Windows scrolling: promising, separate experiment
 

@@ -57,10 +57,9 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             _stenoMode=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno;
             _lastTakeover=_eligible();
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
-            _output.Release(); _stenoPointer.Configure(settings.StenoPointerFingerCount);
-            var effective = (settings.HandGesturesV1 ?? new()).Clone();
-            // Windows uses the accepted Apple reference curve for movement and drag.
-            effective.Left.PointerResponse = effective.Right.PointerResponse = HandPointerResponse.AppleReference;
+            _output.Release();
+            var effective = CapturedMacMotionProfiles.Effective(settings.HandGesturesV1 ?? new());
+            _stenoPointer.Configure(settings.StenoPointerFingerCount,effective);
             // Current PTP contacts cannot positively classify a thumb. An unavailable
             // input must not reserve a family whose usable bindings are all None.
             effective.Left.ThumbTwoTap = effective.Right.ThumbTwoTap = HandGestureAction.None;

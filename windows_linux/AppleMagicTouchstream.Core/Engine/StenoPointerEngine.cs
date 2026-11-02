@@ -7,7 +7,8 @@ public sealed class StenoPointerEngine
     private sealed class Pad
     {
         public readonly HandGestureContact[] Origin=new HandGestureContact[2],Previous=new HandGestureContact[2];
-        public readonly ApplePointerAccelerator Accelerator=new(ApplePointerProfile.Reference);
+        public ApplePointerAccelerator Accelerator=new(ApplePointerProfile.Reference);
+        public double Sensitivity=1;
         public bool Pair,Blocked,Claimed,ForceBlocked,ForceFired;
         public readonly uint[] ForceIds=new uint[2];
         public int ForceCount;
@@ -17,7 +18,16 @@ public sealed class StenoPointerEngine
     private readonly Pad[] _pads=[new(),new()];
     private readonly IHandGestureOutput _output;
     private int _fingers=2;
-    public void Configure(int fingers) { _fingers=fingers==1 ? 1 : 2; Cancel(); }
+    public void Configure(int fingers,HandGestureSettings? motion=null)
+    {
+        _fingers=fingers==1 ? 1 : 2; Cancel();
+        for(int i=0;i<2;i++)
+        {
+            var hand=i==0 ? motion?.Left : motion?.Right;
+            _pads[i].Accelerator=new(hand is { PointerResponse:HandPointerResponse.ImportedApple, ImportedPointerProfile:{} profile } ? profile : ApplePointerProfile.Reference);
+            _pads[i].Sensitivity=hand?.PointerSensitivity ?? 1;
+        }
+    }
     public StenoPointerEngine(IHandGestureOutput output) { _output=output; }
     public void Cancel(TrackpadSide? side=null)
     {
@@ -98,7 +108,7 @@ public sealed class StenoPointerEngine
         }
         if(p.Claimed)
         {
-            var delta=p.Accelerator.Millimetres(time,dx,dy,1);
+            var delta=p.Accelerator.Millimetres(time,dx,dy,p.Sensitivity);
             if(delta is {} move && double.IsFinite(move.X) && double.IsFinite(move.Y))
             { var bounded=PointerMotionLimits.Constrain(move.X,move.Y); _output.Move(bounded.X,bounded.Y); }
             else { CancelPointer(p); p.ForceBlocked=true; }

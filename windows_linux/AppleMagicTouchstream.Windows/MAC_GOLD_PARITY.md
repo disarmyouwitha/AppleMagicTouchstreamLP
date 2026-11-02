@@ -6,6 +6,14 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
+- Optional captured-Mac motion response bundles both selected Mac trackpads' pointer
+  and scroll curves, source sensitivity/direction, per-axis scroll history and the
+  existing release momentum. It applies per hand, follows Mirror Edit, and also
+  serves STENO pointer movement. Either pad can brake a released scroll. The legacy
+  reference pointer/fixed-scroll response remains available. See
+  [MotionProfiles/README.md](MotionProfiles/README.md). Mac production parity vectors
+  and the portable offline runner verify the numerical model; Windows hardware/UI
+  acceptance and application wheel behavior remain manual checks.
 - Top-level **Gestures / Keyboard** workspace selector, in Mac order. Keyboard
   remains the default. Device/takeover controls span both workspaces. Gestures hides
   the visualizer and keyboard inspector and presents navigation, assignment cards

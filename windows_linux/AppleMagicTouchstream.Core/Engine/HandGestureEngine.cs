@@ -40,6 +40,7 @@ public sealed class HandGestureEngine
         public HandGestureEvidence Evidence;
         public HandGestureTrigger? Owner;
         public ApplePointerAccelerator? Accelerator;
+        public AppleScrollAccelerator? ScrollAccelerator;
         public readonly CountTap Two = new(2), Three = new(3), Four = new(4), Five = new(5);
         public readonly HandGestureContact[] HoldOrigin = new HandGestureContact[5];
         public int HoldCount;
@@ -67,6 +68,7 @@ public sealed class HandGestureEngine
         for (int i = 0; i < 2; i++)
         {
             var config = _settings[i];
+            _pads[i].ScrollAccelerator = config.ImportedScrollProfile is {} scroll ? new(scroll) : null;
             _pads[i].Accelerator = config.PointerResponse == HandPointerResponse.Fixed ? null
                 : new ApplePointerAccelerator(config.PointerResponse == HandPointerResponse.ImportedApple ? config.ImportedPointerProfile! : ApplePointerProfile.Reference);
         }
@@ -84,7 +86,7 @@ public sealed class HandGestureEngine
         p.CycleClaimed=true;
         p.Owner = null; p.PreviousCount = 0; p.TravelX = p.TravelY = 0;
         p.PendingCount = 0; p.Blocked = true; p.SawFour = false;
-        CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset();
+        CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
         p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
         p.CornerPending = false;
         p.Shape.Reset(); p.ForceBlocked = true; p.ForceClaimed = false;
@@ -102,7 +104,7 @@ public sealed class HandGestureEngine
     private void EndOwner(TrackpadSide side, Pad p)
     {
         _output.HeldAssignment((int)side,null);
-        p.Owner = null; p.Accelerator?.Reset();
+        p.Owner = null; p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
         if (_dragOwner == side) { _output.PrimaryButton(false); _dragOwner = null; }
     }
     public void Tick(double hostTime, bool eligible)
@@ -204,8 +206,12 @@ public sealed class HandGestureEngine
             // Match the Mac motion guard: never pass a discontinuous jump to output.
             EndOwner(side, p); Cancel(p); return reserved;
         }
-        if (count > 0 && p.Momentum.IsCoasting)
-        { p.Momentum.Cancel(); CancelTaps(p); p.HoldBlocked = true; }
+        if (count > 0)
+        {
+            bool braked=false;
+            foreach(var pad in _pads) if(pad.Momentum.IsCoasting) { pad.Momentum.Cancel(); braked=true; }
+            if(braked) { CancelTaps(p); p.HoldBlocked=true; }
+        }
         if (count == 0)
         {
             bool scrolling = p.Owner.HasValue && settings.Get(p.Owner.Value) == HandGestureAction.Scroll;
@@ -376,11 +382,12 @@ public sealed class HandGestureEngine
             }
             else if (action == HandGestureAction.Scroll)
             {
-                // Windows adapter uses 6 scroll points/mm; no installed Apple profile exists here.
-                double scrollSign = settings.NaturalScrolling ? 1 : -1;
-                double x = dx * 6 * settings.ScrollSensitivity * scrollSign, y = dy * 6 * settings.ScrollSensitivity * scrollSign;
-                if (Math.Abs(x) < 150 && Math.Abs(y) < 150)
-                { p.Momentum.Observe(x, y, time); _output.Scroll(x, y); }
+                double sign = settings.NaturalScrolling ? 1 : -1;
+                (double X,double Y)? scroll = p.ScrollAccelerator is {} accelerator
+                    ? accelerator.Millimetres(time,dx,dy,settings.ScrollSensitivity,settings.NaturalScrolling)
+                    : (dx*6*settings.ScrollSensitivity*sign,dy*6*settings.ScrollSensitivity*sign);
+                if (scroll is {} value && double.IsFinite(value.X) && double.IsFinite(value.Y) && Math.Abs(value.X)<150 && Math.Abs(value.Y)<150)
+                { p.Momentum.Observe(value.X, value.Y, time); _output.Scroll(value.X, value.Y); }
                 else { EndOwner(side, p); Cancel(p); }
             }
             else if (action is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag)

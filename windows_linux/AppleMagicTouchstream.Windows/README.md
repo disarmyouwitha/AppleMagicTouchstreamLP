@@ -1,4 +1,6 @@
 ## AppleMagicTouchstream
+
+Captured Mac pointer/scroll experiment: [setup and verification](MotionProfiles/README.md).
 AppleMagicTouchstream for Windows.
 
 ## Usage

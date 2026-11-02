@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../AppleMagicTouchstream.Core/AppleMagicTouchstream.Core.csproj" />
+    <Compile Include="../MacMotionTests.cs" Link="MacMotionTests.cs" />
+    <Compile Include="../../CapturedMacMotionProfiles.cs" Link="CapturedMacMotionProfiles.cs" />
+    <EmbeddedResource Include="../../MotionProfiles/mac-motion.json" LogicalName="AppleMagicTouchstream.mac-motion.json" />
+    <EmbeddedResource Include="../Fixtures/AppleScrollAccelerationVectors.json" />
+    <EmbeddedResource Include="../Fixtures/CapturedMacMotionVectors.json" />
+  </ItemGroup>
+</Project>

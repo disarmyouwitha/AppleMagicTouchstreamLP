@@ -59,6 +59,8 @@ public sealed class PerHandGestureSettings
     public HandGestureAction ThumbTwoTap { get; set; } = HandGestureAction.SecondaryClick;
     public HandPointerResponse PointerResponse { get; set; } = HandPointerResponse.AppleReference;
     public ApplePointerProfile? ImportedPointerProfile { get; set; }
+    public AppleScrollProfile? ImportedScrollProfile { get; set; }
+    public bool UseCapturedMacMotion { get; set; }
     public bool NaturalScrolling { get; set; } = true;
     public double PointerSensitivity { get; set; } = 1;
     public double ScrollSensitivity { get; set; } = 1;
@@ -88,6 +90,7 @@ public sealed class PerHandGestureSettings
     {
         var clone = (PerHandGestureSettings)MemberwiseClone();
         clone.ImportedPointerProfile = ImportedPointerProfile?.Copy();
+        clone.ImportedScrollProfile = ImportedScrollProfile?.Copy();
         clone.AdditionalActions = AdditionalActions == null ? null : new(AdditionalActions);
         clone.CustomActions = CustomActions == null ? null : new(CustomActions);
         clone.HeldShortcuts = new(HeldShortcuts ?? new());
