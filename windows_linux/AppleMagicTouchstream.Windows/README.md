@@ -25,6 +25,8 @@ If Ctrl+Alt+R is occupied, AMT tries Ctrl+Alt+F10, then F9 and F8 with the same 
 
 The decoder supports the older 50-byte reports and MagicTrackpad2ForWindows v2.2's 112-byte USB/Bluetooth MT2 report (21-byte contacts with reported pressure). Auto learns the layout for the current connection; learned choices are not saved as decoder overrides. Refresh or reconnect clears the learned layout.
 
+With the extended driver, the contact preview uses measured, rotated touch ellipses and the Mac palette: thumb orange, index blue, middle green, ring purple, pinky pink, palm gray, unknown black. Pressure appears at the contact; nearby labels show the tracking ID, reported finger classification, physical axes/angle, Size and position-derived velocity in mm/s. Velocity resets on lift, ID changes, stale frames and replay rewind. Size is the driver's raw Size field, not macOS density. Older packets keep neutral circles without invented anatomy or pressure. These telemetry fields affect the preview only; keyboard/gesture classification and capture formats are unchanged.
+
 ### Pin Tray Icon
 - Windows 11:
   - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `AppleMagicTouchstream`.

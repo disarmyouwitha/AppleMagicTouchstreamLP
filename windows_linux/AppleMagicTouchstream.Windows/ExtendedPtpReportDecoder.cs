@@ -39,7 +39,12 @@ internal static class ExtendedPtpReportDecoder
             for (int previous=0;previous<i;previous++)
                 if (frame.GetContact(previous).Id==id) return false;
             // Actual reported pressure; vendor State is not Apple's phase field.
-            frame.SetContact(i,new ContactFrame(id,x,y,flags,(byte)pressure,Phase:0,HasForceData:true));
+            var telemetry=new ContactTelemetry(
+                BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(offset+9,2)),
+                BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(offset+11,2)),
+                payload[offset+15],payload[offset+16],payload[offset+17],
+                payload[offset+18],payload[offset+19],payload[offset+20]);
+            frame.SetContact(i,new ContactFrame(id,x,y,flags,(byte)pressure,Phase:0,HasForceData:true,Telemetry:telemetry));
         }
         result=new(TrackpadReportKind.PtpExtended,0,payload[0],TrackpadDecoderProfile.Legacy,frame);
         return true;

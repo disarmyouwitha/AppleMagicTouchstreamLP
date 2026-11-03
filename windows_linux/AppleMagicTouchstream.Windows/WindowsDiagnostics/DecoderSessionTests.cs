@@ -102,7 +102,8 @@ internal static class DecoderSessionTests
             var contact=decoded.Frame.GetContact(i);
             Check(contact.Id==i+10 && contact.X==1000+i*1500 && contact.Y==500+i*1000
                 && contact.TipSwitch && contact.Confidence && contact.HasForceData
-                && contact.Pressure8==100+i && contact.Phase8==0,
+                && contact.Pressure8==100+i && contact.Phase8==0
+                && contact.Telemetry==new ContactTelemetry(400,500,40,60,30,4,2,4),
                 "extended PTP contact fields/stride are wrong");
         }
         packet[108]=1;

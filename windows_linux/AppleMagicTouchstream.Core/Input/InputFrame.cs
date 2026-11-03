@@ -9,7 +9,8 @@ public readonly record struct ContactFrame(
     byte Flags,
     byte Pressure = 0,
     byte Phase = 0,
-    bool HasForceData = true)
+    bool HasForceData = true,
+    ContactTelemetry? Telemetry = null)
 {
     public bool TipSwitch => (Flags & 0x02) != 0;
     public bool Confidence => (Flags & 0x01) != 0;
@@ -22,7 +23,7 @@ public readonly record struct ContactFrame(
     public static ContactFrame FromPtpContact(in PtpContact contact)
     {
         // Do not attempt to synthesize pressure from legacy/open-source PTP flag bits.
-        // Only the official decoder path may populate Pressure/Phase from known fields.
+        // Decoders with known pressure fields populate them separately.
         return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, Pressure: 0, Phase: 0, HasForceData: false);
     }
 }

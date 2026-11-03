@@ -67,6 +67,11 @@ public sealed class TouchState
     {
         lock (_lock)
         {
+            Span<TouchContact> previous=stackalloc TouchContact[PtpReport.MaxContacts];
+            int previousCount=_contactCount;
+            _contacts.AsSpan(0,previousCount).CopyTo(previous);
+            long deltaTicks=report.ArrivalQpcTicks-_lastFrameTicks;
+            bool continuous=_lastFrameTicks>0 && deltaTicks>0 && deltaTicks<=_stateStaleTicks;
             _lastFrameTicks = report.ArrivalQpcTicks;
             _contactCount = 0;
             int count = report.GetClampedContactCount();
@@ -82,10 +87,24 @@ public sealed class TouchState
                 byte rawPressure = c.Pressure8;
                 byte rawPressure6 = (byte)(rawPressure >> 2);
                 byte rawPhase = c.Phase8;
-                ObservePressureSampleCore(rawPressure6);
-                byte pressure = _pressureCapability == PressureCapability.Supported ? rawPressure : (byte)0;
+                // Extended PTP has a real pressure usage on USB and Bluetooth.
+                // A transport-name hint must not hide that positive evidence.
+                if(c.HasForceData && c.Telemetry.HasValue) _pressureCapability=PressureCapability.Supported;
+                else ObservePressureSampleCore(rawPressure6);
+                byte pressure = c.HasForceData && _pressureCapability == PressureCapability.Supported ? rawPressure : (byte)0;
 
-                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence, pressure, rawPhase);
+                double vx=0,vy=0; bool hasVelocity=false;
+                if(continuous)
+                    for(int p=0;p<previousCount;p++)
+                        if(previous[p].Id==c.Id)
+                        {
+                            double seconds=deltaTicks/(double)Stopwatch.Frequency;
+                            vx=(c.X-(double)previous[p].X)/seconds;
+                            vy=(c.Y-(double)previous[p].Y)/seconds;
+                            hasVelocity=true; break;
+                        }
+                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence,
+                    pressure, rawPhase,c.Telemetry,c.HasForceData,vx,vy,hasVelocity);
                 if (c.X > _maxX) _maxX = c.X;
                 if (c.Y > _maxY) _maxY = c.Y;
             }
@@ -232,7 +251,8 @@ public sealed class TouchState
     }
 }
 
-public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence, byte Pressure, byte Phase)
+public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence, byte Pressure, byte Phase,
+    ContactTelemetry? Telemetry=null,bool HasForceData=true,double VelocityX=0,double VelocityY=0,bool HasVelocity=false)
 {
     public byte Pressure8 => Pressure;
     public byte Pressure6 => (byte)(Pressure >> 2);
