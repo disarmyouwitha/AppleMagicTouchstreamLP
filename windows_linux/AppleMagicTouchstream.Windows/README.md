@@ -1,6 +1,6 @@
 ## AppleMagicTouchstream
 
-Captured Mac pointer/scroll experiment: [setup and verification](MotionProfiles/README.md).
+Default captured Mac pointer/scroll response: [setup and verification](MotionProfiles/README.md).
 AppleMagicTouchstream for Windows.
 
 Current Mac-parity layouts, inline editor, built-in STENO translators and encrypted

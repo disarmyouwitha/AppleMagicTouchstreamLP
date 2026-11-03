@@ -80,7 +80,6 @@ public sealed class PerHandGestureSettings
     public HandPointerResponse PointerResponse { get; set; } = HandPointerResponse.AppleReference;
     public ApplePointerProfile? ImportedPointerProfile { get; set; }
     public AppleScrollProfile? ImportedScrollProfile { get; set; }
-    public bool UseCapturedMacMotion { get; set; }
     public bool NaturalScrolling { get; set; } = true;
     public double PointerSensitivity { get; set; } = 1;
     public double ScrollSensitivity { get; set; } = 1;

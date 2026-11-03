@@ -32,26 +32,14 @@ internal static class CapturedMacMotionProfiles
         return devices;
     }
     internal static Device For(TrackpadSide side)=>Profiles.Value.Single(d=>d.Side==(side==TrackpadSide.Left ? "left" : "right"));
-    internal static void Select(PerHandGestureSettings settings,TrackpadSide side,bool enabled)
-    {
-        settings.UseCapturedMacMotion=enabled;
-        if(!enabled) return;
-        var profile=For(side);
-        settings.PointerSensitivity=profile.PointerSensitivity;
-        settings.ScrollSensitivity=profile.ScrollSensitivity;
-        settings.NaturalScrolling=profile.Scroll.Natural;
-    }
     internal static HandGestureSettings Effective(HandGestureSettings settings)
     {
         var effective=settings.Clone();
         foreach(var side in new[] { TrackpadSide.Left,TrackpadSide.Right })
         {
             var hand=side==TrackpadSide.Left ? effective.Left : effective.Right;
-            // Retain the accepted Windows reference/fixed-scroll response unless
-            // the user explicitly chooses the captured Mac option.
-            hand.PointerResponse=HandPointerResponse.AppleReference;
-            hand.ImportedScrollProfile=null;
-            if(!hand.UseCapturedMacMotion) continue;
+            // Windows uses the captured response for both hands, retaining
+            // per-hand sensitivity and scrolling direction.
             var profile=For(side);
             hand.PointerResponse=HandPointerResponse.ImportedApple;
             hand.ImportedPointerProfile=profile.Pointer.Copy();

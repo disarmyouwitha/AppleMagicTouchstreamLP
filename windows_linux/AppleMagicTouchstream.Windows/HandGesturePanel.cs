@@ -328,15 +328,6 @@ internal sealed class HandGesturePanel : Grid
             }
             else AddNumber(_inspector,"Repeat ms (0 = once)",Hand.DirectionalMovement?.GetValueOrDefault(slot.Trigger!.Value)?.Repeat(direction) ?? 0,0,5000,v=>Apply(h=>Directions(h,slot.Trigger!.Value).RepeatMilliseconds[direction]=v));
         }
-        if(value is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag or HandGestureAction.Scroll)
-        {
-            bool? captured=Hand.UseCapturedMacMotion;
-            if(MirrorEdits && _settings.HandGesturesV1.Left.UseCapturedMacMotion!=_settings.HandGesturesV1.Right.UseCapturedMacMotion) captured=null;
-            var motion=new CheckBox { Content="Use captured Mac pointer and scroll",Tag="CapturedMacMotion",IsThreeState=true,IsChecked=captured,Margin=new(0,8,0,12),
-                ToolTip="Use the bundled profiles captured from your Mac. Enabling also restores its sensitivity and scrolling direction; these remain adjustable below." };
-            motion.Click+=(_,_)=>Commit(()=>Apply(h=>CapturedMacMotionProfiles.Select(h,ReferenceEquals(h,_settings.HandGesturesV1.Left) ? TrackpadSide.Left : TrackpadSide.Right,motion.IsChecked==true)));
-            _inspector.Children.Add(motion);
-        }
         if(value is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag) AddGain("Pointer sensitivity",0);
         if(value==HandGestureAction.Scroll) { AddGain("Scroll sensitivity",1); var natural=new CheckBox { Content="Natural scrolling",IsChecked=Hand.NaturalScrolling,Margin=new(0,8,0,12) }; natural.Click+=(_,_)=>Commit(()=>Apply(h=>h.NaturalScrolling=natural.IsChecked==true)); _inspector.Children.Add(natural); }
         if(value==HandGestureAction.Zoom) AddGain("Zoom sensitivity",2);

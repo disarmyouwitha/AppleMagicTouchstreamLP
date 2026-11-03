@@ -85,28 +85,29 @@ internal static class MacMotionTests
             Near(output.Y,new AppleScrollAxis(p.Vertical with { AlgorithmRate=90 }).Points(1,.01*p.Vertical.Resolution/25.4)!.Value,"vertical profile/rate was ignored");
         }
         var saved=new HandGestureSettings();
-        CapturedMacMotionProfiles.Select(saved.Left,TrackpadSide.Left,true);
         saved.Left.PointerSensitivity=1.25; saved.Left.ScrollSensitivity=.75;
+        saved.Right.PointerSensitivity=.5; saved.Right.ScrollSensitivity=1.5; saved.Right.NaturalScrolling=false;
         var effective=CapturedMacMotionProfiles.Effective(saved);
         Check(effective.Left.PointerResponse==HandPointerResponse.ImportedApple && effective.Left.ImportedScrollProfile!=null,"captured response not selected");
-        Check(effective.Right.PointerResponse==HandPointerResponse.AppleReference && effective.Right.ImportedScrollProfile==null,"independent hand changed");
+        Check(effective.Right.PointerResponse==HandPointerResponse.ImportedApple && effective.Right.ImportedScrollProfile!=null,"captured response is not the default on both hands");
+        Near(effective.Right.PointerSensitivity,.5,"configuration discarded independent pointer gain");
+        Near(effective.Right.ScrollSensitivity,1.5,"configuration discarded independent scroll gain");
+        Check(effective.Left.NaturalScrolling && !effective.Right.NaturalScrolling,"configuration discarded per-hand scrolling direction");
         Near(effective.Left.ScrollSensitivity,.75,"configuration discarded user gain");
         Check(saved.Left.ImportedScrollProfile==null,"runtime mutated saved settings");
         var restored=JsonSerializer.Deserialize<HandGestureSettings>(JsonSerializer.Serialize(effective))!.Clone();
-        Check(restored.Left.UseCapturedMacMotion && restored.Left.ImportedScrollProfile!.Vertical.Resolution==effective.Left.ImportedScrollProfile!.Vertical.Resolution,"profile settings did not round-trip");
+        Check(restored.Left.ImportedScrollProfile!.Vertical.Resolution==effective.Left.ImportedScrollProfile!.Vertical.Resolution,"profile settings did not round-trip");
         Check(!ReferenceEquals(restored.Left.ImportedScrollProfile!.Vertical.Curves,effective.Left.ImportedScrollProfile!.Vertical.Curves),"profile clone shares mutable array");
         var bundle=AppleMagicTouchstreamProfileBundle.Create(new UserSettings { HandGesturesV1=effective },KeymapStore.LoadBundledDefault());
         var serialized=JsonSerializer.Deserialize<AppleMagicTouchstreamProfileBundle>(bundle.SerializeToJson())!;
         Check(serialized.TryLoadPortableProfile(out var imported,out _,out var error),"full motion settings import failed: "+error);
-        Check(imported.HandGesturesV1.Left.UseCapturedMacMotion && imported.HandGesturesV1.Left.ImportedScrollProfile!=null,"full settings export lost captured response");
+        Check(imported.HandGesturesV1.Left.ImportedScrollProfile!=null,"full settings export lost captured response");
         Near(imported.HandGesturesV1.Left.ScrollSensitivity,.75,"full settings export lost scroll gain");
-        CapturedMacMotionProfiles.Select(saved.Left,TrackpadSide.Left,false);
-        Check(CapturedMacMotionProfiles.Effective(saved).Left.ImportedScrollProfile==null,"legacy response could not be restored");
         RunEngine();
     }
     private static void RunEngine()
     {
-        var saved=new HandGestureSettings(); CapturedMacMotionProfiles.Select(saved.Left,TrackpadSide.Left,true);
+        var saved=new HandGestureSettings();
         var settings=CapturedMacMotionProfiles.Effective(saved);
         var output=new Output(); var engine=new HandGestureEngine(output); engine.Configure(settings,false);
         engine.Process(TrackpadSide.Left,[],.9,.9,true); engine.Process(TrackpadSide.Right,[],.9,.9,true);
