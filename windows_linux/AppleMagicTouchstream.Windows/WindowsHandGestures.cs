@@ -42,9 +42,10 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         _eligible = eligible; _pointerActivity = pointerActivity; _releaseTakeover = releaseTakeover;
         var keyboard=keyboardQueue!=null && keyboardDispatcher!=null ? new WindowsGestureKeyboardSession(keyboardQueue,keyboardDispatcher,eligible,hook.PhysicalKeyboard) : null;
         _output = new WindowsGestureOutput(eligible,keyboard);
-        _engine = new(new TakeoverGestureOutput(_output,_eligible));
+        _engine = CreateRecognizer(new TakeoverGestureOutput(_output,_eligible));
         _stenoPointer=new(_output);
     }
+    internal static HandGestureEngine CreateRecognizer(IHandGestureOutput output)=>new(output,requireThumbForShapes:true);
     // Hook callback only records a flag. Never acquire engine/output locks here.
     private void ObserveButton(MouseHookDiagnosticEvent e)
     {
@@ -89,9 +90,6 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
                 }
                 effective.Coordinated=new() { HoldActions=new() { [CoordinatedHandChord.OuterCorners]=HandGestureAction.None } };
             }
-            // Current PTP contacts cannot positively classify a thumb. An unavailable
-            // input must not reserve a family whose usable bindings are all None.
-            effective.Left.ThumbTwoTap = effective.Right.ThumbTwoTap = HandGestureAction.None;
             if(_stenoMode)
             {
                 var corners=new HandGestureSettings();
@@ -118,7 +116,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
         {
             if (_disposed || _stenoMode) return false;
             Span<HandGestureContact> contacts = stackalloc HandGestureContact[InputFrame.MaxContacts];
-            int count = ReadContacts(in frame,maxX,maxY,contacts,out bool fourthContactPending);
+            int count = HandGestureContactAdapter.ReadContacts(in frame,maxX,maxY,contacts,out bool fourthContactPending,out bool thirdContactPending);
             try
             {
                 _output.ObserveFrame();
@@ -130,7 +128,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
                 if (Stopwatch.GetTimestamp()-timestamp > Stopwatch.Frequency*.15) eligible = false;
                 bool reserved = _engine.Process(side, contacts[..count], timestamp/(double)Stopwatch.Frequency,
                     Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency, eligible, reserveEligible: true, keyboardPriority:_keyboardPriority[(int)side],
-                    fourthContactPending:fourthContactPending);
+                    fourthContactPending:fourthContactPending,thirdContactPending:thirdContactPending);
                 _frames++; if (reserved) { _reserved++; _pointerActivity(); }
                 return reserved;
             }

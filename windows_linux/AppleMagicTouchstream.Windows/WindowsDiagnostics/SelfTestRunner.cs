@@ -29,6 +29,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Decoder session tests failed: "+error.Message); }
         try { ContactTelemetryTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Contact telemetry tests failed: "+error.Message); }
+        try { NativeGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Native gesture parity tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { ShapeGestureInterfaceTests.Run(); }

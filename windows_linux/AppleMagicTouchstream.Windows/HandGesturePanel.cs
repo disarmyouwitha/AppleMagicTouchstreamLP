@@ -180,7 +180,7 @@ internal sealed class HandGesturePanel : Grid
                 }
             }
             else if(page.Id=="thumb")
-            { _pageContent.Children.Add(Note("Thumb identity is unavailable from Windows PTP. The saved thumb-specific tap remains available for compatibility. Three-finger Pinch, Spread and Rotate use their own shape page.")); AddCard(_pageContent,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap")); }
+            { _pageContent.Children.Add(Note("Requires a reported thumb and two reported fingertips in a spread chord. The extended driver supplies finger classification; older drivers without it cannot recognize this input. Three-finger Pinch, Spread and Rotate use their own shape page.")); AddCard(_pageContent,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap")); }
             else if(page.Count==1) AddCard(_pageContent,TriggerSlot(HandGestureTrigger.OneFingerForce,"Force Click"));
             else
             {
@@ -286,7 +286,7 @@ internal sealed class HandGesturePanel : Grid
             _inspector.Children.Add(Note(PerHandGestureSettings.IsRotation(shape)
                 ? "Turn the contact group at least 3°. Rotation wins when angular travel dominates radial change. The activated direction stays latched until all fingers lift. Windows rotation runs assigned actions; use an app's shortcuts to rotate its content."
                 : "Pinch or spread the contact group at least 0.6 mm. Shape change must dominate translation. Zoom follows motion; other actions use the selected repeat behavior. The gesture stays latched through added or lifted fingers."));
-            _inspector.Children.Add(Note("Windows uses tracked contact geometry. Mac additionally requires a recognized thumb; Windows PTP supplies no thumb label."));
+            _inspector.Children.Add(Note("Like Mac, activation requires a positively reported thumb. A contact ID is never used as finger identity. Drivers without finger classification cannot activate this gesture; an activated owner stays latched through relabeling and partial lifts."));
         }
         var builder=new Expander { Header="Shortcut Builder",Foreground=TextColor,IsExpanded=_showBuilder || value==HandGestureAction.Custom,Margin=new(0,16,0,0) };
         builder.SetResourceReference(StyleProperty,"GestureSectionStyle");

@@ -1,8 +1,8 @@
 namespace AppleMagicTouchstream;
 
-// Windows PTP supplies stable IDs, but no anatomical thumb label. Fit rotation
-// to all continuing contacts around their centroid. When actual anatomy exists,
-// use Mac's thumb-to-fingertip-centroid vector instead. Never infer a thumb ID.
+// Fit continuing contacts around their centroid for legacy geometric callers.
+// With reported anatomy, use Mac's thumb-to-fingertip-centroid vector instead.
+// The Windows host requires a positive thumb before activating rotation.
 internal sealed class HandRotationTracker
 {
     internal readonly record struct Sample(double Angle,double Arc,double Radial,double FrameAngle);

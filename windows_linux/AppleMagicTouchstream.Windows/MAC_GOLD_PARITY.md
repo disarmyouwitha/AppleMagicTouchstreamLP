@@ -97,8 +97,14 @@ This is a substantial functional port; the remaining differences below are real.
   sizes and rotations are regenerated from the current Mac image traces, keeping
   all 88 key identities and per-key overrides. Column tuning is disabled. The geometry sync
   script reads the Mac source and regenerates the checked-in C# definition.
-- Contact pressure labels, bounded contact trails and unknown-anatomy black
-  contacts. Windows never assigns a thumb/finger color from contact order.
+- Contact pressure labels, bounded contact trails and reported anatomical colors,
+  with unknown contacts black. Extended packets supply shape, orientation and
+  finger type; IDs/contact order never determine anatomy. Gesture projection
+  preserves native finger labels. Windows Pinch/Spread/Rotate require a positive
+  thumb, and Thumb+2 tap uses the same spread-chord geometry as Mac. A valid shape
+  activation wins over a pending tap; thumb-bearing shape competition requires
+  full-chord translation. Existing owners retain their all-up latch through label
+  loss and partial lift. Linux's legacy geometric policy remains separate.
 - Global typing Force Min/Max gates are neutralized for Windows. Per-key Force
   Instead of Hold remains available. Linux's legacy settings remain intact.
 - Typing Tuning contains Hold Duration, Haptic Strength and Restore Defaults.
@@ -144,6 +150,14 @@ competes with ordinary movement, three of the four IDs must project at least
 0.2 mm along the candidate translation, as on Mac; directional assignments and
 ordinary scrolling without a competing Hold retain their existing thresholds.
 
+Natural three-fingertip arches use Mac's `min(14 mm, longest span × 0.35)`
+depth bound, replacing the obsolete 8 mm straight-row limit. A native confident
+non-tip third contact can defer pending two-finger pointer acquisition for at
+most 80 ms. A hovering palm is excluded, and no such delay is added without
+native landing evidence. The adapter and Windows recognizer are covered together
+by `NativeGestureParityTests`, including staggered land/lift, hover expiry,
+thumb-only activation, late labels, shape competition and balanced drag release.
+
 Coordinated chords require two different selected devices, landing within one second,
 fresh samples within 150 ms and stationary original identities within 2 mm.
 Coordinated taps finish within 500 ms and 150 ms of the first partial lift.
@@ -179,16 +193,14 @@ Existing serialized identities and capture formats remain unchanged.
 
 ## Remaining differences
 
-- Windows PTP reports do not provide trustworthy thumb/hand identity. Thumb+2
-  diagonal swipes/holds remain unavailable; saved Thumb+2 tap assignments stay
-  inert. Pinch/Spread retains the accepted geometric Windows recognizer. Rotation
-  fits all tracked contacts around their centroid, using stable IDs and no guessed
-  thumb. If actual anatomical labels are supplied, it uses Mac's thumb-to-fingertip
-  centroid vector. Windows cannot enforce Mac's positive-thumb prerequisite.
+- Legacy PTP packets do not supply anatomy; thumb-only gestures require the
+  extended driver's reported labels. The driver does not supply hand identity,
+  and Windows never invents it from the selected pad. Thumb+2 diagonal movement
+  and dedicated Thumb+2 Hold remain unavailable. Thumb+2 tap is supported.
 - Rotation runs assigned discrete actions/shortcuts. Windows has no equivalent
   to Mac's native Rotate Content event; per user direction, no substitute native
   action is offered. Applications can use their own rotation shortcuts.
-- Coordinated movement/directional gestures and thumb-specific recognition
+- Coordinated movement/directional gestures and the remaining Thumb+2 families
   remain separate work. Windows retains established pointer/drag/scroll ownership
   when Force crosses, unlike Mac's broader Force override.
 - Mouse Takeover retains Windows' all-mouse hook and emergency
