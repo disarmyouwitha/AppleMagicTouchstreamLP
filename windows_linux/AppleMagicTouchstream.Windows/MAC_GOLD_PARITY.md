@@ -6,6 +6,17 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
+- Gesture availability follows the selected pad's actual decoded report format,
+  independently for Left/Right. Apple and older PTP formats dim Thumb+2 and all
+  Pinch/Spread/Rotate pages/cards, explain the missing finger classification, and
+  prevent editing those assignments without deleting them. Extended reports
+  re-enable the controls. Detection is connection-local and resets on refresh,
+  device selection and reconnect; an unknown/disconnected device keeps offline
+  editing available and prompts for a touch to check support. Ordinary/count-based
+  and coordinated inputs remain available. `DecoderGestureCapabilityTests`
+  verifies the WPF controls and saved settings; optional themed renders use
+  `APPLEMAGICTOUCHSTREAM_CAPABILITY_PREVIEW_DIR` and
+  `APPLEMAGICTOUCHSTREAM_PREVIEW_XAML` during `--selftest`.
 - Thumb + 2 diagonal movement (↖/↗/↙/↘) and its independent Hold are available
   beside Thumb + 2 Tap. New assignments default to None. Activation requires one
   positively reported thumb and two distinct reported fingertips, consistent

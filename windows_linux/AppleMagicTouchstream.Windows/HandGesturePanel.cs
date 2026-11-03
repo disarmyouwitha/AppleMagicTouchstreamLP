@@ -24,6 +24,14 @@ internal sealed class HandGesturePanel : Grid
     private HandGestureScope _scope=HandGestureScope.Left;
     private string _page="2-main", _selected="TwoFingerMove", _independentPage="2-main", _bothPage="both-OuterCorners";
     private bool _refreshing,_showBuilder;
+    private bool? _leftFingerClassification,_rightFingerClassification;
+    private bool FingerClassificationUnavailable=>_scope!=HandGestureScope.Both
+        && (_scope==HandGestureScope.Right ? _rightFingerClassification:_leftFingerClassification)==false;
+    private bool? SelectedFingerClassification=>_scope==HandGestureScope.Right ? _rightFingerClassification:_leftFingerClassification;
+    private string AnatomyUnavailableReason=>$"Unavailable on {_scope}: this trackpad's decoder does not report finger classification. These gestures require an identified thumb. Saved assignments are preserved.";
+    private static bool RequiresFingerClassification(Slot slot)=>slot.HoldCount==PerHandGestureSettings.ThumbHoldKey
+        || slot.Trigger is HandGestureTrigger.ThumbTwoTap or HandGestureTrigger.ThumbTwoMove
+        || slot.Trigger is {} trigger && PerHandGestureSettings.IsShape(trigger);
     private static readonly Brush TextColor=new SolidColorBrush(Color.FromRgb(225,231,235));
     private static readonly Brush Secondary=new SolidColorBrush(Color.FromRgb(151,169,182));
     private sealed record Page(string Id,string Group,string Title,int Count=0,bool Shape=false,bool Corners=false,CoordinatedHandChord? Chord=null);
@@ -84,6 +92,11 @@ internal sealed class HandGesturePanel : Grid
         System.Windows.Automation.AutomationProperties.SetName(divider,column==1 ? "Gesture navigation width" : "Action inspector width"); Grid.SetColumn(divider,column); Children.Add(divider);
     }
     public void SetStatus(string text) { if(_status.Text!=text) _status.Text=text; }
+    internal void SetFingerClassification(bool? left,bool? right)
+    {
+        if(_leftFingerClassification==left && _rightFingerClassification==right) return;
+        _leftFingerClassification=left; _rightFingerClassification=right; Rebuild();
+    }
     internal void SetRecognition(string? left,string? right)
     {
         string text=string.Join("\n",new[]{string.IsNullOrWhiteSpace(left) ? null : "Left · "+left,string.IsNullOrWhiteSpace(right) ? null : "Right · "+right}.Where(s=>s!=null));
@@ -142,9 +155,21 @@ internal sealed class HandGesturePanel : Grid
             {
                 if(item.Group!=previousGroup) { _navigation.Items.Add(new ListBoxItem { Tag=item.Group,Content=Note(item.Group),IsHitTestVisible=false,Focusable=false,Padding=new(9,10,0,0) }); previousGroup=item.Group; }
                 var row=new ListBoxItem { Tag=item,Content=Label(item.Title,13),Padding=new(10,7,10,1),Foreground=TextColor,Margin=new(0,0,0,3) };
+                if(FingerClassificationUnavailable && (item.Shape || item.Id=="thumb"))
+                { row.Opacity=.4; row.ToolTip=AnatomyUnavailableReason; }
                 row.SetResourceReference(StyleProperty,"GestureNavigationItemStyle"); _navigation.Items.Add(row); if(item==page) _navigation.SelectedItem=row;
             }
             if(steno)_pageContent.Children.Add(Note("Configurable gestures are disabled in STENO. Mouse force actions and Outer Corners remain available."));
+            if(page.Shape || page.Id=="thumb")
+            {
+                if(FingerClassificationUnavailable)
+                {
+                    var unavailable=Note(AnatomyUnavailableReason); unavailable.Tag="FingerClassificationUnavailable";
+                    _pageContent.Children.Add(unavailable);
+                }
+                else if(SelectedFingerClassification==null)
+                    _pageContent.Children.Add(Note("Finger classification has not been checked yet. Select and touch a trackpad to check support; assignments can still be edited offline."));
+            }
             var heading=new Grid(); heading.ColumnDefinitions.Add(new() { Width=new(1,GridUnitType.Star) }); heading.ColumnDefinitions.Add(new() { Width=new(180) });
             heading.RowDefinitions.Add(new() { Height=GridLength.Auto }); heading.RowDefinitions.Add(new() { Height=GridLength.Auto });
             FrameworkElement demo=page.Chord is {} exampleChord ? new CoordinatedGestureDemonstration(exampleChord) : new GestureDemonstration(page.Count,page.Shape,page.Corners)
@@ -243,6 +268,11 @@ internal sealed class HandGesturePanel : Grid
         content.Children.Add(Note(slot.IsHold ? "After the hold threshold" : slot.Trigger is {} trigger && PerHandGestureSettings.IsShape(trigger) ? ShapeBehavior(slot)
             : slot.Trigger is {} movement && PerHandGestureSettings.IsMovement(movement) ? Active(slot) ? slot.Direction==null ? "Continuous" : "Directional" : "Inactive · click to switch" : "Once per gesture"));
         var card=new Button { Tag=slot.Key,Content=content,MinHeight=120,HorizontalContentAlignment=HorizontalAlignment.Stretch,VerticalContentAlignment=VerticalAlignment.Top,Padding=new(8),Margin=new(4),Background=new SolidColorBrush(Color.FromRgb(23,31,38)),BorderBrush=slot.Key==_selected ? Brushes.DeepSkyBlue : new SolidColorBrush(Color.FromRgb(48,62,73)),BorderThickness=new(slot.Key==_selected ? 2 : 1),Opacity=Active(slot) ? 1 : .55 };
+        if(FingerClassificationUnavailable && RequiresFingerClassification(slot))
+        {
+            card.IsEnabled=false; card.Opacity=.4; card.ToolTip=AnatomyUnavailableReason;
+            ToolTipService.SetShowOnDisabled(card,true);
+        }
         card.Click+=(_,_)=>
         {
             _selected=slot.Key; _showBuilder=false;
@@ -253,6 +283,11 @@ internal sealed class HandGesturePanel : Grid
     private void BuildInspector(Slot slot)
     {
         _inspector.Children.Add(Label("Action",20,true)); _inspector.Children.Add(Note(ScopeTitle+" · "+slot.Title));
+        if(FingerClassificationUnavailable && RequiresFingerClassification(slot))
+        {
+            _inspector.Children.Add(Label(Display(slot),14,true));
+            _inspector.Children.Add(Note(AnatomyUnavailableReason)); return;
+        }
         var allowed=Enum.GetValues<HandGestureAction>().Where(a=>slot.Direction!=null || slot.IsHold || slot.Chord!=null ? PerHandGestureSettings.IsDiscrete(a) : PerHandGestureSettings.Allows(slot.Trigger!.Value,a));
         var options=allowed.Select(a=>new ActionOption(a,ActionTitle(a))).ToList(); var value=Get(slot); if(value==null) options.Insert(0,new(null,"Mixed"));
         var combo=new SearchableActionComboBox { PickerTitle="Gesture Action",Tag=slot.Trigger,DisplayMemberPath=nameof(ActionOption.Title),MinHeight=30,ItemsSource=options,SelectedItem=options.FirstOrDefault(o=>o.Action==value),Margin=new(0,0,0,12),

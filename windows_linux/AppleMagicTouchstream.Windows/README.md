@@ -29,6 +29,8 @@ With the extended driver, the contact preview uses measured, rotated touch ellip
 
 Gesture recognition consumes reported finger classification. Pinch, Spread and Rotate require a positively identified thumb, and Thumb+2 tap requires a spread thumb with two fingertips. Older drivers without those labels retain ordinary pointer/drag/scroll and taps, but cannot activate thumb-dependent gestures. Three-finger drag accepts Mac's natural fingertip arches. When native pre-contact evidence shows a third finger landing, pending two-finger pointer acquisition waits up to 80 ms for the row to form. Existing pointer/drag/scroll owners retain their all-up latch. Velocity and axes remain display telemetry; gesture motion uses the established position/timestamp geometry.
 
+The Gestures workspace grays out thumb-dependent assignments when the selected pad's detected decoder lacks finger classification. It explains the limitation and preserves your saved actions. Support is checked separately for Left and Right and updates automatically when another decoder is detected. Before detection, offline editing remains available; touch the selected trackpad to check support.
+
 ### Pin Tray Icon
 - Windows 11:
   - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `AppleMagicTouchstream`.

@@ -11,6 +11,8 @@ internal sealed class TouchRuntimeService : IDisposable
     private readonly ReaderOptions _options;
     private readonly RawInputContext _rawInputContext = new();
     private readonly TrackpadDecoderSession _decoderSession = new();
+    private readonly DecoderGestureCapabilities _decoderGestureCapabilities = new();
+    internal bool? FingerClassification(TrackpadSide side)=>_decoderGestureCapabilities.FingerClassification(side);
     private readonly GlobalMouseInputHook _globalMouseInputHook = new();
 
     private RuntimeRoute _leftRoute = RuntimeRoute.Empty;
@@ -180,6 +182,7 @@ internal sealed class TouchRuntimeService : IDisposable
     {
         _touchActor?.CancelStenoCycle();
         _decoderSession.Reset();
+        _decoderGestureCapabilities.Reset();
     }
 
     public void SetFrameObserver(IRuntimeFrameObserver? observer)
@@ -263,6 +266,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _rawInputContext.SeedTags(seed);
         _decoderSession.Reset();
+        _decoderGestureCapabilities.Reset();
         if(!string.Equals(_leftRoute.DevicePath,leftPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Left);
         if(!string.Equals(_rightRoute.DevicePath,rightPath,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
@@ -344,6 +348,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
                 if (routeLeft)
                 {
+                    _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind);
                     ButtonEdgeState buttonState = _leftButtonTracker.Update(in frame);
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Left, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
@@ -352,6 +357,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
                 if (routeRight)
                 {
+                    _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind);
                     ButtonEdgeState buttonState = _rightButtonTracker.Update(in frame);
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Right, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
@@ -520,8 +526,8 @@ internal sealed class TouchRuntimeService : IDisposable
             {
                 if(_owner._rawInputContext.TryGetCachedSnapshot(m.LParam,out var device))
                 {
-                    if(_owner._leftRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Left);
-                    if(_owner._rightRoute.IsMatch(device.DeviceName)) _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Right);
+                    if(_owner._leftRoute.IsMatch(device.DeviceName)) { _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Left); _owner._decoderGestureCapabilities.Reset(TrackpadSide.Left); }
+                    if(_owner._rightRoute.IsMatch(device.DeviceName)) { _owner._touchActor?.RemoveStenoDevice(TrackpadSide.Right); _owner._decoderGestureCapabilities.Reset(TrackpadSide.Right); }
                 }
                 _owner._decoderSession.Remove(m.LParam);
                 _owner._rawInputContext.RemoveDevice(m.LParam);
