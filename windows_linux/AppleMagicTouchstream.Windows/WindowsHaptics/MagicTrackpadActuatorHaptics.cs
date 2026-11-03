@@ -25,6 +25,7 @@ internal static class MagicTrackpadActuatorHaptics
         public SafeFileHandle Handle = new(IntPtr.Zero, ownsHandle: true);
         public int OutputReportBytes;
         public byte[] Payload = Array.Empty<byte>();
+        public byte[] ForcePayload = Array.Empty<byte>();
         public long LastVibrateTicks;
         public Guid ContainerId;
     }
@@ -102,7 +103,7 @@ internal static class MagicTrackpadActuatorHaptics
         _ = ThreadPool.QueueUserWorkItem(static _ => TryEnsureInitialized());
     }
 
-    public static bool TryVibrate(TrackpadSide side)
+    public static bool TryVibrate(TrackpadSide side,bool force=false)
     {
         if (!_enabled)
         {
@@ -143,7 +144,7 @@ internal static class MagicTrackpadActuatorHaptics
             return false;
         }
 
-        byte[] payload = device.Payload;
+        byte[] payload = force ? device.ForcePayload:device.Payload;
         if (payload.Length == 0)
         {
             return false;
@@ -210,10 +211,12 @@ internal static class MagicTrackpadActuatorHaptics
             if (left != null)
             {
                 left.Payload = BuildPayload(left.OutputReportBytes, strength);
+                left.ForcePayload=BuildPayload(left.OutputReportBytes,0x00026C00u|25);
             }
             if (right != null && !ReferenceEquals(right, left))
             {
                 right.Payload = BuildPayload(right.OutputReportBytes, strength);
+                right.ForcePayload=BuildPayload(right.OutputReportBytes,0x00026C00u|25);
             }
 
             lock (Gate)

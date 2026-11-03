@@ -65,7 +65,10 @@ internal sealed class ReplayRunner
         KeymapStore keymap = options?.Keymap ?? KeymapStore.LoadBundledDefault();
         TrackpadLayoutPreset? layoutPreset = options?.LayoutPreset;
         TouchProcessorConfig? config = options?.Config;
-        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap, layoutPreset, config);
+        TouchProcessorCore core;
+        if(CaptureProfileSidecar.TryRead(capturePath,out var capturedSettings,out var capturedMap))
+        {keymap=capturedMap;layoutPreset=TrackpadLayoutPreset.ResolveByNameOrDefault(capturedSettings.LayoutPresetName);core=TouchProcessorFactory.CreateConfigured(keymap,capturedSettings,layoutPreset);if(config.HasValue)core.Configure(config.Value);}
+        else core=TouchProcessorFactory.CreateDefault(keymap,layoutPreset,config);
         using DispatchEventQueue dispatchQueue = new(capacity: 131072);
         using TouchProcessorActor actor = new(core, dispatchQueue: dispatchQueue);
         actor.SetDiagnosticsEnabled(collectTrace);

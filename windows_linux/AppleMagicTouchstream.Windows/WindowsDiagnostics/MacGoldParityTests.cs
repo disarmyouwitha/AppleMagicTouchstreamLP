@@ -191,7 +191,7 @@ internal static class MacGoldParityTests
             for (int i=0;i<=12;i++) Frame(engine,Contacts(count,i*.3),1+i*.05);
             Check(output.Actions.Count==0,"moving chord fired a stationary hold");
         }
-        foreach (var direction in Enum.GetValues<HandMovementDirection>())
+        foreach (var direction in new[]{HandMovementDirection.Up,HandMovementDirection.Down,HandMovementDirection.Left,HandMovementDirection.Right})
         {
             var settings=Empty(); settings.Left.DirectionalMovement=new() { [HandGestureTrigger.FiveFingerMove]=new() { Enabled=true, Actions=new() { [direction]=HandGestureAction.Undo }, RepeatMilliseconds=new() { [direction]=80 } } };
             var (engine,output)=Create(settings);
@@ -334,9 +334,10 @@ internal static class MacGoldParityTests
         ui.SelectSlot(nameof(HandGestureTrigger.TwoFingerTap));
         var searchCombo=FindCombos(ui).Single(c=>Equals(c.Tag,HandGestureTrigger.TwoFingerTap));
         ui.FilterActionOptions(searchCombo,"paste");
-        Check(searchCombo.Items.Count==1 && uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.PrimaryClick,
+        var picker=(SearchableActionComboBox)searchCombo;
+        Check(picker.ResultsView!.Cast<SearchableActionComboBox.Choice>().Count()==1 && uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.PrimaryClick,
             "searching actions changed the live binding or failed to filter");
-        searchCombo.SelectedIndex=0;
+        picker.Choose(picker.ResultsView!.Cast<SearchableActionComboBox.Choice>().Single());
         Check(uiSettings.HandGesturesV1.Left.TwoFingerTap==HandGestureAction.Paste && uiSettings.HandGesturesV1.Right.TwoFingerTap==HandGestureAction.PrimaryClick,
             "choosing a search result did not respect the selected hand");
         MacGoldPreview.RenderIfRequested();

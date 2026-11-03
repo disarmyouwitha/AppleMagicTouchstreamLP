@@ -9,14 +9,38 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { JavelinParityTests.Run();StenoTransportParityTests.Run(); }
+        catch(Exception error) {return new SelfTestResult(false,"Native Javelin parity tests failed: "+error.Message);}
+        try { RewriteParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Rewrite parity tests failed: "+error.Message); }
+        try { MacMotionTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Mac motion tests failed: "+error.Message); }
+        try { ShapeGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Shape gesture parity tests failed: "+error.Message); }
+        try { GestureRecognitionTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Gesture recognition feedback tests failed: "+error.Message); }
+        try { WindowsAbsolutePointerTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Windows absolute pointer tests failed: "+error.Message); }
         try { StenoPointerTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Steno pointer tests failed: "+error.Message); }
         try { StenoTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Steno tests failed: "+error.Message); }
         try { DecoderSessionTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Decoder session tests failed: "+error.Message); }
+        try { ContactTelemetryTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Contact telemetry tests failed: "+error.Message); }
+        try { NativeGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Native gesture parity tests failed: "+error.Message); }
+        try { ThumbGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Thumb gesture parity tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
+        try { ShapeGestureInterfaceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Shape gesture interface tests failed: "+error.Message); }
+        try { ActionPickerTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Action picker tests failed: "+error.Message); }
+        try { GestureFeedbackInterfaceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Gesture feedback interface tests failed: "+error.Message); }
         try { BrandingMigrationTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Branding/migration tests failed: "+error.Message); }
         if (!HyperModifierTests.Run(out string hyperFailure))

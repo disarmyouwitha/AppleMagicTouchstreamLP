@@ -19,6 +19,9 @@ internal sealed class MouseTakeoverController : IDisposable
     private readonly DispatcherTimer _heartbeat = new(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
     private System.Threading.Timer? _watchdog;
     private ShortcutWindow? _window;
+    private uint _releaseKey;
+    public string ReleaseShortcut => MouseTakeoverReleaseShortcut.Label(_releaseKey);
+    private string ShortcutReleaseReason => "Off · "+ReleaseShortcut+" released";
     private bool _available, _enabled, _disposed;
     private long _testDeadline, _nextDeviceCheck;
     private string _status = "Off";
@@ -58,9 +61,10 @@ internal sealed class MouseTakeoverController : IDisposable
                 throw new InvalidOperationException("Mouse hook unavailable: " + error);
             _window = new ShortcutWindow(this);
             _window.Create();
-            if (!RegisterHotKey(_window.Handle, HotkeyId, 0x4003, 0x52))
-                throw new InvalidOperationException("Ctrl+Alt+R unavailable (error " + Marshal.GetLastWin32Error() + "). Close other takeover windows/apps using this shortcut, then restart AppleMagicTouchstream.");
-            _hook.SetTakeoverReleaseKey(0x52);
+            _releaseKey=MouseTakeoverReleaseShortcut.Select(key=>RegisterHotKey(_window.Handle,HotkeyId,0x4003,key));
+            if (_releaseKey==0)
+                throw new InvalidOperationException("No release shortcut available: Ctrl+Alt+R, Ctrl+Alt+F10, Ctrl+Alt+F9 and Ctrl+Alt+F8 are occupied (error " + Marshal.GetLastWin32Error() + "). Close apps using one of these shortcuts, then restart AppleMagicTouchstream.");
+            _hook.SetTakeoverReleaseKey((int)_releaseKey);
             _hook.SetTakeoverEscapeReleaseEnabled(false);
             _available = true;
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -167,8 +171,8 @@ internal sealed class MouseTakeoverController : IDisposable
         lock (_sync)
         {
             if (!_enabled || _disposed) return;
-            if ((GetAsyncKeyState(0x11) & 0x8000) != 0 && (GetAsyncKeyState(0x12) & 0x8000) != 0 && (GetAsyncKeyState(0x52) & 0x8000) != 0)
-                RequestRelease("Off · Ctrl+Alt+R released",forgetPreference:true);
+            if ((GetAsyncKeyState(0x11) & 0x8000) != 0 && (GetAsyncKeyState(0x12) & 0x8000) != 0 && (GetAsyncKeyState((int)_releaseKey) & 0x8000) != 0)
+                RequestRelease(ShortcutReleaseReason,forgetPreference:true);
             else if (_testDeadline != 0 && Stopwatch.GetTimestamp() >= _testDeadline)
                 RequestRelease("Off · 30sec test complete");
         }
@@ -201,7 +205,7 @@ internal sealed class MouseTakeoverController : IDisposable
         public void Create() => CreateHandle(new WinForms.CreateParams { Caption = "AppleMagicTouchstreamMouseTakeoverShortcut", Parent = new IntPtr(-3) });
         protected override void WndProc(ref WinForms.Message message)
         {
-            if (message.Msg == 0x312 && message.WParam.ToInt32() == HotkeyId) _owner.Release("Off · Ctrl+Alt+R released",forgetPreference:true);
+            if (message.Msg == 0x312 && message.WParam.ToInt32() == HotkeyId) _owner.Release(_owner.ShortcutReleaseReason,forgetPreference:true);
             base.WndProc(ref message);
         }
         public void Dispose()

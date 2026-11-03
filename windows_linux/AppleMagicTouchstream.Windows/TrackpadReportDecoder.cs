@@ -7,7 +7,8 @@ internal enum TrackpadReportKind
     Unknown = 0,
     PtpNative = 1,
     PtpEmbedded = 2,
-    AppleNineByte = 3
+    AppleNineByte = 3,
+    PtpExtended = 4
 }
 
 internal readonly record struct TrackpadDecodeResult(
@@ -32,6 +33,8 @@ internal static class TrackpadReportDecoder
     {
         result=default;
         if (payload.Length==0 || payload[0]!=format.SourceReportId) return false;
+        if (format.Kind==TrackpadReportKind.PtpExtended)
+            return ExtendedPtpReportDecoder.TryDecode(payload,in deviceInfo,timestamp,out result);
         if (format.Kind is TrackpadReportKind.PtpNative or TrackpadReportKind.PtpEmbedded)
             return TryParsePtpAtOffset(payload,format.PayloadOffset,in deviceInfo,timestamp,format.Profile,
                 strictLegacyValidation:false,format.Kind,out result);
@@ -65,6 +68,11 @@ internal static class TrackpadReportDecoder
         {
             return false;
         }
+
+        // Vito v2.2 MT2 reports have 21-byte contacts. Never reinterpret a
+        // malformed extended report as the older 9-byte layout.
+        if (ExtendedPtpReportDecoder.IsExtendedReport(payload,in deviceInfo))
+            return ExtendedPtpReportDecoder.TryDecode(payload,in deviceInfo,arrivalQpcTicks,out result);
 
         if (preferredProfile == TrackpadDecoderProfile.Legacy)
         {

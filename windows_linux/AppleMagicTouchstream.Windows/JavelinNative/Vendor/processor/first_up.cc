@@ -1,0 +1,78 @@
+//---------------------------------------------------------------------------
+
+#include "first_up.h"
+#include "../console.h"
+
+//---------------------------------------------------------------------------
+
+void StenoFirstUp::Process(const StenoKeyState &value, StenoAction action) {
+  super::Process(value, action);
+
+  switch (action) {
+  case StenoAction::PRESS:
+    wasLastEventAPress = true;
+    pressedKeyState = value;
+    break;
+
+  case StenoAction::RELEASE:
+    if (wasLastEventAPress) {
+      wasLastEventAPress = false;
+      // Trigger the stroke from before the release.
+      super::Process(pressedKeyState, StenoAction::TRIGGER);
+    }
+    break;
+
+  case StenoAction::CANCEL_ALL:
+    wasLastEventAPress = false;
+    break;
+
+  case StenoAction::CANCEL_KEY:
+    pressedKeyState &= ~value;
+    break;
+
+  case StenoAction::TRIGGER:
+    break;
+  }
+}
+
+void StenoFirstUp::PrintInfo() const {
+  Console::Printf("  FirstUp\n");
+  super::PrintInfo();
+}
+
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+#include "../unit_test.h"
+#include "fake_processor.h"
+
+#if RUN_TESTS
+
+TEST_BEGIN("FirstUp tests") {
+  FakeStenoProcessor fakeProcessor;
+  StenoFirstUp firstUp(fakeProcessor);
+  StenoProcessor processor(firstUp);
+
+  processor.Process(StenoKey::KL, true);
+  processor.Process(StenoKey::A, true);
+  processor.Process(StenoKey::TR, true);
+  assert(fakeProcessor.triggers.size() == 0);
+
+  processor.Process(StenoKey::A, false);
+  assert(fakeProcessor.triggers.size() == 1);
+
+  processor.Process(StenoKey::A, true);
+  assert(fakeProcessor.triggers.size() == 1);
+
+  processor.Process(StenoKey::KL, false);
+  assert(fakeProcessor.triggers.size() == 2);
+
+  processor.Process(StenoKey::A, false);
+  processor.Process(StenoKey::TR, false);
+  assert(fakeProcessor.triggers.size() == 2);
+}
+TEST_END
+
+#endif
+
+//---------------------------------------------------------------------------

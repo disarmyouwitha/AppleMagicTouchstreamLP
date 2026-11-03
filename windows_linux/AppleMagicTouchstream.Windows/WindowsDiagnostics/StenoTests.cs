@@ -80,7 +80,11 @@ internal static class StenoTests
             Check(imported.ResolveMapping(0,GridKeyPosition.StorageKey(TrackpadSide.Left,1,1),"None").Primary.Label=="STN_FN","steno assignment was lost on import");
         }
         var basic=TrackpadLayoutPreset.Steno; var engine=Core(basic,out _); var empty=new InputFrame();
-        Frame(engine,TrackpadSide.Left,Point(.305,.42),1); Frame(engine,TrackpadSide.Left,empty,1.1);
+        var seamLayout=LayoutBuilder.BuildLayout(basic,160,114.9,18,17,ColumnLayoutDefaults.DefaultSettings(6),true);
+        var seamRects=new List<NormalizedRect>();
+        for(int r=0;r<seamLayout.Labels.Length;r++)for(int c=0;c<seamLayout.Labels[r].Length;c++)
+            if(GeminiPRPacket.TryResolve(seamLayout.Labels[r][c],out var k) && (k==StenoKey.TL || k==StenoKey.KL))seamRects.Add(seamLayout.Rects[r][c]);
+        Frame(engine,TrackpadSide.Left,Point(seamRects.Average(r=>r.CenterX),seamRects.Average(r=>r.CenterY)),1); Frame(engine,TrackpadSide.Left,empty,1.1);
         Check(Drain(engine).Single().StenoMask==(Bit(StenoKey.TL)|Bit(StenoKey.KL)),"one fingertip could not chord an upper/lower seam");
         foreach(string reason in new[] { "stale","invalid","overflow","reset","layer","disconnect" })
         {
@@ -122,14 +126,14 @@ internal static class StenoTests
         {
             var core=Core(preset,out _); core.Configure(TouchProcessorConfig.Default with { StenoHaptics=mode }); core.SetHapticsOnKeyDispatchEnabled(true);
             Frame(core,TrackpadSide.Left,left,1); var landing=Drain(core);
-            Check(landing.Count(e=>e.Kind==DispatchEventKind.StenoHaptic)==(mode==StenoHapticMode.KeyContact ? 1 : 0),"steno contact feedback mode failed");
+            Check(landing.Count(e=>e.Kind==DispatchEventKind.StenoHaptic)==0,"steno touch feedback ignored its settling window");
             Frame(core,TrackpadSide.Left,left,1.02); Check(Drain(core).Length==0,"held key repeated feedback");
             Frame(core,TrackpadSide.Right,right,1.04); Drain(core);
             Frame(core,TrackpadSide.Left,up,1.06); Check(Drain(core).Length==0,"feedback sent before chord release");
             Frame(core,TrackpadSide.Right,up,1.08); var released=Drain(core);
             Check(released.Count(e=>e.Kind==DispatchEventKind.StenoStroke)==1,"feedback altered steno wire output");
             var feedback=released.Where(e=>e.Kind==DispatchEventKind.StenoHaptic).ToArray();
-            Check(feedback.Length==(mode==StenoHapticMode.ChordRelease ? 2 : 0),"release feedback did not cover participating pads");
+            Check(feedback.Length==(mode==StenoHapticMode.Off ? 0 : 2),"release feedback did not cover participating pads");
             if(feedback.Length>0)
             {
                 Check(feedback.Select(e=>e.Side).Distinct().Count()==2,"release feedback used only the last-lifted pad");
@@ -147,12 +151,14 @@ internal static class StenoTests
         var bundle=AppleMagicTouchstreamProfileBundle.Create(settings,KeymapStore.LoadBundledDefault());
         Check(bundle.TryLoadPortableProfile(out var imported,out _,out _) && imported.StenoHaptics==StenoHapticMode.ChordRelease,"haptic preference lost on export/import");
         settings.StenoHaptics=(StenoHapticMode)100; settings.NormalizeRanges(); Check(settings.StenoHaptics==StenoHapticMode.KeyContact,"invalid haptic preference accepted");
+#if !AMT_PORTABLE_TESTS
         var combo=new ExplicitSelectionComboBox(); Check(!combo.IsTextSearchEnabled,"Plover type-search remained enabled"); combo.Items.Add("STENO"); combo.Items.Add("TouchStream"); combo.SelectedIndex=0;
         var wheel=new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,-120) { RoutedEvent=System.Windows.Input.Mouse.PreviewMouseWheelEvent };
         combo.RaiseEvent(wheel); Check(wheel.Handled && combo.SelectedIndex==0,"closed settings wheel changed selection");
         var text=new System.Windows.Input.TextCompositionEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
             new System.Windows.Input.TextComposition(System.Windows.Input.InputManager.Current,combo,"TouchStream")) { RoutedEvent=System.Windows.Input.TextCompositionManager.PreviewTextInputEvent };
         combo.RaiseEvent(text); Check(text.Handled && combo.SelectedIndex==0,"Plover text changed closed settings selection");
+#endif
     }
     private sealed class NoGestures : IHandGestureRuntime
     {

@@ -1,6 +1,6 @@
 # NEXT:
 =======
-- If I want to bring the feel of the mac mouse and scrolling (like I have for Mac AMT would I need a profile from this mac? I think we implemented it with a default one.)
+Windows rewrite: take a look at all the recent Mac changes to how steno works paying close attention to the way layouts are implemented and designed and their interactions with gestures and force actions. You also need to implement new both hands gestures and the new fancy layout editor feature for feature. also is there a secure way you can store the text for the new "text" feature in shortcut builder
 ===
 # Steno Dictionary Menu Mode
 0. In STENO mode, when you edit a Dictionary entry.. we need a way for people to type normally into the Translation box? What do you suggest.

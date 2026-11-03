@@ -82,7 +82,7 @@ internal sealed class BindingIndex
         double snapFraction = Math.Clamp(snapRadiusFraction, 0.0, 2.0);
         int rows = layout.Rects.Length;
         IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
-        int estimated = (rows == 0 ? 0 : rows * layout.Rects[0].Length) + customButtons.Count;
+        int estimated = layout.Rects.Sum(row=>row.Length) + customButtons.Count;
         EngineKeyBinding[] bindings = new EngineKeyBinding[estimated];
         KeyHitGeometry[] geometries = new KeyHitGeometry[estimated];
         int[] snapBindingIndices = new int[estimated];
@@ -98,6 +98,7 @@ internal sealed class BindingIndex
             string[] rowLabels = layout.Labels[row];
             for (int col = 0; col < rowRects.Length; col++)
             {
+                if(rowRects[col].Width<=0 || rowRects[col].Height<=0 || !layout.Visible(row,col,layer)) continue;
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
                 KeyMapping mapping = keymap.ResolveMapping(layer, storageKey, rowLabels[col]);
                 EngineKeyMapping engineMapping = EngineActionResolver.Resolve(mapping, rowLabels[col]);
@@ -148,7 +149,7 @@ internal sealed class BindingIndex
                 fallbackLabel,
                 rect,
                 engineMapping);
-            geometries[cursor] = KeyHitGeometry.FromRect(rect);
+            geometries[cursor] = layout.UsePhysicalRotation ? KeyHitGeometry.FromPhysicalRect(rect):KeyHitGeometry.FromRect(rect);
 
             if (IsSnappable(engineMapping.Primary))
             {
@@ -218,6 +219,7 @@ internal sealed class BindingIndex
             or EngineActionKind.Continuous
             or EngineActionKind.Modifier
             or EngineActionKind.KeyChord
+            or EngineActionKind.Text
             or EngineActionKind.AppLaunch;
     }
 
@@ -253,6 +255,7 @@ internal static class EngineActionResolver
             return CreateAction(EngineActionKind.MouseButton, resolved, mouseButton: mouseButton);
         }
 
+        if(TextShortcutReference.TryRead(resolved,out _)) return new EngineKeyAction(EngineActionKind.Text,resolved,SemanticAction:new(DispatchSemanticKind.Text,resolved));
         if (AppLaunchActionHelper.TryParse(resolved, out _))
         {
             return CreateAction(EngineActionKind.AppLaunch, resolved);

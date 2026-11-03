@@ -1,10 +1,15 @@
 ## AppleMagicTouchstream
+
+Captured Mac pointer/scroll experiment: [setup and verification](MotionProfiles/README.md).
 AppleMagicTouchstream for Windows.
+
+Current Mac-parity layouts, inline editor, built-in STENO translators and encrypted
+Shortcut Text: [implementation and Windows test checklist](WINDOWS_REWRITE.md).
 
 ## Usage
 The tray and application use the Mac hand silhouette in black. Keyboard typing stays available; configured multi-finger gestures reserve their contact cycles. The former Keyboard/Mouse mode and colored mode indicators are removed. Old mode settings and typing-toggle bindings cannot switch Windows into mouse-only or keyboard-only operation. See [Windows input policy](WINDOWS_INPUT_POLICY.md).
 
-Right-clicking the indicator opens `Config...`, `Release Mouse Takeover (Ctrl+Alt+R)`, `Capture`, `Replay`, `Restart`, and `Exit`.
+Right-clicking the indicator opens `Config...`, `Release Mouse Takeover` (with the active release shortcut), `Capture`, `Replay`, `Restart`, and `Exit`.
 
 By default, AppleMagicTouchstream opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Options`.
 
@@ -15,6 +20,14 @@ The top selector presents **Gestures / Keyboard**, with Keyboard selected initia
 ### Mouse Takeover
 
 Below the device selectors, enable **Mouse Takeover** to save your opt-in for the next launch, or use the temporary **30sec test**. It blocks physical movement, clicks, and wheel events from all mice while injected AppleMagicTouchstream output passes. **Ctrl+Alt+R** releases globally; the checkbox/status and tray indicator update together. It defaults off on first launch. Unchecking it, tray release and Ctrl+Alt+R save Off; normal quit/restart preserves your choice. Windows shell gestures may need separate settings. See [Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).
+
+If Ctrl+Alt+R is occupied, AMT tries Ctrl+Alt+F10, then F9 and F8 with the same modifiers. The window and tray show the active shortcut; all release paths use that choice. Takeover remains unavailable if none can register.
+
+The decoder supports the older 50-byte reports and MagicTrackpad2ForWindows v2.2's 112-byte USB/Bluetooth MT2 report (21-byte contacts with reported pressure). Auto learns the layout for the current connection; learned choices are not saved as decoder overrides. Refresh or reconnect clears the learned layout.
+
+With the extended driver, the contact preview uses measured, rotated touch ellipses and the Mac palette: thumb orange, index blue, middle green, ring purple, pinky pink, palm gray, unknown black. Pressure appears at the contact; nearby labels show the tracking ID, reported finger classification, physical axes/angle, Size and position-derived velocity in mm/s. Velocity resets on lift, ID changes, stale frames and replay rewind. Size is the driver's raw Size field, not macOS density. Older packets keep neutral circles without invented anatomy or pressure. Capture formats are unchanged.
+
+Gesture recognition consumes reported finger classification. Pinch, Spread and Rotate require a positively identified thumb, and Thumb+2 tap requires a spread thumb with two fingertips. Older drivers without those labels retain ordinary pointer/drag/scroll and taps, but cannot activate thumb-dependent gestures. Three-finger drag accepts Mac's natural fingertip arches. When native pre-contact evidence shows a third finger landing, pending two-finger pointer acquisition waits up to 80 ms for the row to form. Existing pointer/drag/scroll owners retain their all-up latch. Velocity and axes remain display telemetry; gesture motion uses the established position/timestamp geometry.
 
 ### Pin Tray Icon
 - Windows 11:
@@ -40,7 +53,7 @@ Established MO/modifier chords and committed key holds keep priority on their pa
 
 ## Build
 
-The Mac gold-standard port now includes TouchStream's independently traced sides/reference background, resizable inspectors, searchable gesture actions, Mirror Edit, separate coordinated Both gestures, 2–5-finger holds, four/five-finger taps and directional movement. See [current parity and hardware testing](MAC_GOLD_PARITY.md) for supported behavior and remaining differences.
+The Mac gold-standard port now includes TouchStream's independently traced sides/reference background, resizable inspectors, searchable gesture actions, Mirror Edit, separate coordinated Both gestures, 2–5-finger holds, four/five-finger taps and directional movement. **3 Fingers → Thumb + 2** also offers four diagonal assignments and an independent Hold beside Tap. These new assignments default to None and require reported thumb/fingertip classification. Diagonals support Once, timed, and motion repeats. See [current parity and hardware testing](MAC_GOLD_PARITY.md) for supported behavior and remaining differences.
 
 ```
 dotnet build AppleMagicTouchstream.Windows\AppleMagicTouchstream.Windows.csproj -c Release

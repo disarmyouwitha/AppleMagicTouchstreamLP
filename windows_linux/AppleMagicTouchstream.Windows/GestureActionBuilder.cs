@@ -27,12 +27,13 @@ internal sealed class GestureActionEditor : StackPanel
         var hyper=new Button { Content="Hyper", Padding=new(12,6,12,6), Margin=new(0,0,0,8) }; toggles.Children.Add(hyper);
         hyper.Click += (_,_)=> { for(int i=0;i<buttons.Length;i++) { buttons[i].Tag=modifiers[i].Item2; buttons[i].Content=modifiers[i].Item1; buttons[i].IsChecked=true; } };
         root.Children.Add(new TextBlock { Text="Key",Margin=new(0,0,0,4) });
-        var keys=new ComboBox { ItemsSource=new[] { "None" }.Concat(DispatchShortcutHelper.ShortcutKeyLabels).ToArray(), SelectedIndex=0, IsEditable=true, MinHeight=28 };
+        var keys=new SearchableActionComboBox { PickerTitle="Shortcut Key",ItemsSource=new[] { "None" }.Concat(DispatchShortcutHelper.ShortcutKeyLabels).ToArray(), SelectedIndex=0, MinHeight=28,
+            CategorySelector=item=>ActionPickerCategories.ShortcutKey((string)item) };
         System.Windows.Automation.AutomationProperties.SetName(keys,"Shortcut key"); root.Children.Add(keys);
         if (current!=null && DispatchShortcutHelper.TryReadShortcut(current,out var flags,out string key))
         { for(int i=0;i<buttons.Length;i++) { var selected=flags&(modifiers[i].Item2|left[i]|right[i]); buttons[i].IsChecked=selected!=DispatchModifierFlags.None;
               if(selected!=DispatchModifierFlags.None) { buttons[i].Tag=selected; buttons[i].Content=selected==modifiers[i].Item2 ? modifiers[i].Item1 : DispatchShortcutHelper.FormatShortcut(selected,""); } }
-          keys.Text=string.IsNullOrEmpty(key) ? "None" : key; }
+          keys.SelectedItem=string.IsNullOrEmpty(key) ? "None" : key; }
         root.Children.Add(new TextBlock { Text="Or open an app, file, folder or URL", Margin=new(0,16,0,6) });
         var target=new TextBox { MinHeight=28, Padding=new(5), Text=AppLaunchActionHelper.TryParse(current,out var spec) ? spec.FileName : "" };
         System.Windows.Automation.AutomationProperties.SetName(target,"App, file, folder or URL"); root.Children.Add(target);
@@ -40,6 +41,7 @@ internal sealed class GestureActionEditor : StackPanel
         var arguments=new TextBox { MinHeight=28, Padding=new(5),Text=AppLaunchActionHelper.TryParse(current,out var existing) ? existing.Arguments : "" };
         System.Windows.Automation.AutomationProperties.SetName(arguments,"Application arguments"); root.Children.Add(arguments);
         root.Children.Add(new TextBlock { Text="Leave the target empty to use the shortcut. Modifier-only shortcuts use Key: None. Hold cards can keep shortcut keys pressed until release.", TextWrapping=TextWrapping.Wrap, Foreground=Brushes.LightSlateGray, Margin=new(0,10,0,8) });
+        var textEditor=new TextShortcutEditor(); textEditor.Configure(current,label=>applied(label)); root.Children.Add(textEditor);
         var error=new TextBlock { TextWrapping=TextWrapping.Wrap, Foreground=Brushes.Salmon }; root.Children.Add(error);
         var actions=new StackPanel { Orientation=Orientation.Horizontal, HorizontalAlignment=HorizontalAlignment.Right, Margin=new(0,12,0,0) }; root.Children.Add(actions);
         var apply=new Button { Content="Apply",Padding=new(14,6,14,6) }; actions.Children.Add(apply);

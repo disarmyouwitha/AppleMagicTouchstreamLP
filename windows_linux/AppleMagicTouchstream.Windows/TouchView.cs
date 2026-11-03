@@ -7,6 +7,8 @@ namespace AppleMagicTouchstream;
 
 public sealed class TouchView : FrameworkElement
 {
+    public static readonly DependencyProperty RecognizedGestureProperty=DependencyProperty.Register(nameof(RecognizedGesture),typeof(string),typeof(TouchView),new FrameworkPropertyMetadata(null,FrameworkPropertyMetadataOptions.AffectsRender));
+    public string? RecognizedGesture { get=>(string?)GetValue(RecognizedGestureProperty); set=>SetValue(RecognizedGestureProperty,value); }
     public TouchState? State { get; set; }
     public ushort? RequestedMaxX { get; set; }
     public ushort? RequestedMaxY { get; set; }
@@ -14,6 +16,8 @@ public sealed class TouchView : FrameworkElement
     public double TrackpadHeightMm { get; set; } = 114.9;
     public string? EmptyMessage { get; set; }
     public KeyLayout? Layout { get; set; }
+    internal Dictionary<(int Row,int Column),long> FlashKeys {get;}=new();
+    public int ActiveLayer { get; set; }
     public NormalizedRect? HighlightedKey { get; set; }
     public NormalizedRect? SelectedKey { get; set; }
     public SurfaceCustomButton[] CustomButtons { get; set; } = Array.Empty<SurfaceCustomButton>();
@@ -42,8 +46,18 @@ public sealed class TouchView : FrameworkElement
     private readonly Brush _padBrush = new SolidColorBrush(Color.FromRgb(15, 19, 23));
     private readonly Brush _gridBrush = new SolidColorBrush(Color.FromRgb(20, 24, 28));
     private readonly Pen _gridPen;
-    private readonly Brush _tipBrush = Brushes.Black; // PTP supplies unknown anatomy; never imply a finger identity.
+    private static readonly Brush[] ContactBrushes=CreateContactBrushes();
+    private static readonly Pen[] ContactPathPens=ContactBrushes.Select(brush=> { var pen=new Pen(brush,1.5); pen.Freeze(); return pen; }).ToArray();
+    private static Brush[] CreateContactBrushes()
+    {
+        Color[] colors=[Colors.Black,Color.FromRgb(242,115,13),Color.FromRgb(26,115,242),
+            Color.FromRgb(26,179,77),Color.FromRgb(166,64,217),Color.FromRgb(242,51,140),Color.FromRgb(128,128,128)];
+        return colors.Select(color=> { var brush=new SolidColorBrush(color); brush.Freeze(); return (Brush)brush; }).ToArray();
+    }
+    internal static Brush ContactBrush(byte finger)=>ContactBrushes[finger<ContactBrushes.Length ? finger : 0];
     private readonly Pen _contactOutline = new(Brushes.SlateGray,1.5);
+    private readonly Pen _axisPen = new(new SolidColorBrush(Color.FromArgb(110,255,255,255)),.75);
+    private readonly Brush _telemetryBackground = new SolidColorBrush(Color.FromArgb(225,12,15,18));
     private readonly Brush _referenceKeyFill = new SolidColorBrush(Color.FromArgb(65,14,18,22));
     private const int TrailLength = 48;
     private readonly uint[] _trailIds = new uint[PtpReport.MaxContacts];
@@ -149,50 +163,20 @@ public sealed class TouchView : FrameworkElement
         DrawKeyGrid(dc, pad);
         DrawCustomButtons(dc, pad);
         DrawContactPaths(dc,pad,contacts[..contactCount],maxX,maxY);
+        Span<Rect> markers=stackalloc Rect[PtpReport.MaxContacts];
+        Span<Rect> labels=stackalloc Rect[PtpReport.MaxContacts];
         for (int i = 0; i < contactCount; i++)
         {
             TouchContact c = contacts[i];
             double x = pad.Left + (c.X / (double)maxX) * pad.Width;
             double y = pad.Top + (c.Y / (double)maxY) * pad.Height;
 
-            dc.DrawEllipse(_tipBrush, _contactOutline, new Point(x, y), 20, 20);
-
-            if (ShowPressureValues && pressureCapability != PressureCapability.Unsupported)
-            {
-                FormattedText idText = new(
-                    c.Id.ToString(CultureInfo.InvariantCulture),
-                    CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    _uiTypeface,
-                    10,
-                    _textBrush,
-                    1.0);
-                FormattedText pressureText = new(
-                    $"P:{c.Pressure}",
-                    CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    _monoTypeface,
-                    9,
-                    _textBrush,
-                    1.0);
-                double spacing = 1.0;
-                double startY = y - ((idText.Height + pressureText.Height + spacing) / 2);
-                dc.DrawText(idText, new Point(x - (idText.Width / 2), startY));
-                dc.DrawText(pressureText, new Point(x - (pressureText.Width / 2), startY + idText.Height + spacing));
-            }
-            else
-            {
-                FormattedText idText = new(
-                    c.Id.ToString(CultureInfo.InvariantCulture),
-                    CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    _uiTypeface,
-                    10,
-                    _textBrush,
-                    1.0);
-                dc.DrawText(idText, new Point(x - (idText.Width / 2), y - (idText.Height / 2)));
-            }
+            DrawContact(dc,pad,new Point(x,y),c,maxX,maxY,pressureCapability);
+            markers[i]=new Rect(x-15,y-15,30,30);
         }
+        for(int i=0;i<contactCount;i++)
+            labels[i]=DrawContactLabel(dc,pad,new Point(pad.Left+contacts[i].X/(double)maxX*pad.Width,
+                pad.Top+contacts[i].Y/(double)maxY*pad.Height),contacts[i],maxX,maxY,labels[..i],markers[..contactCount]);
 
         if (contactCount == 0)
         {
@@ -231,9 +215,85 @@ public sealed class TouchView : FrameworkElement
         const double rightPadding = 18;
         double footerY = pad.Bottom + 5;
         dc.DrawText(footerPeak, new Point(pad.Left + 8, pad.Top-23));
+        double recognitionX=pad.Left+8+footerPeak.Width+14;
+        double recognitionWidth=pad.Right-recognitionX-8;
+        if(!string.IsNullOrWhiteSpace(RecognizedGesture) && recognitionWidth>30)
+        {
+            var recognition=new FormattedText(RecognizedGesture,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,_uiTypeface,12,_footerBrush,VisualTreeHelper.GetDpi(this).PixelsPerDip)
+            { MaxTextWidth=recognitionWidth,MaxLineCount=1,Trimming=TextTrimming.CharacterEllipsis };
+            dc.DrawText(recognition,new Point(recognitionX,pad.Top-23));
+        }
         double hitX = pad.Right - footerRight.Width - rightPadding;
         dc.DrawText(footerRight, new Point(hitX, footerY));
     }
+    private void DrawContact(DrawingContext dc,Rect pad,Point center,TouchContact contact,
+        ushort maxX,ushort maxY,PressureCapability pressureCapability)
+    {
+        byte finger=contact.Telemetry?.FingerType ?? 0;
+        Brush brush=ContactBrush(finger);
+        double radiusX=12,radiusY=12,rotation=0;
+        if(contact.Telemetry is {} telemetry && (telemetry.TouchMajor>0 || telemetry.TouchMinor>0))
+        {
+            var shape=ContactVisualMetrics.Shape(telemetry);
+            radiusX=Math.Max(1,shape.MinorMm*pad.Width/Math.Max(1,TrackpadWidthMm)/2);
+            radiusY=Math.Max(1,shape.MajorMm*pad.Height/Math.Max(1,TrackpadHeightMm)/2);
+            rotation=shape.RotationDegrees;
+        }
+        dc.PushClip(new RectangleGeometry(pad,14,14));
+        dc.PushTransform(new RotateTransform(rotation,center.X,center.Y));
+        dc.DrawEllipse(brush,_contactOutline,center,radiusX,radiusY);
+        if(contact.Telemetry.HasValue)
+        {
+            dc.DrawLine(_axisPen,new(center.X,center.Y-radiusY),new(center.X,center.Y+radiusY));
+            dc.DrawLine(_axisPen,new(center.X-radiusX,center.Y),new(center.X+radiusX,center.Y));
+        }
+        dc.Pop();
+        if(ShowPressureValues && contact.HasForceData && pressureCapability==PressureCapability.Supported)
+        {
+            var pressure=ContactText(contact.Pressure.ToString(CultureInfo.InvariantCulture),11,Brushes.White);
+            dc.DrawRoundedRectangle(_telemetryBackground,null,new Rect(center.X-pressure.Width/2-2,center.Y-pressure.Height/2,pressure.Width+4,pressure.Height),3,3);
+            dc.DrawText(pressure,new Point(center.X-pressure.Width/2,center.Y-pressure.Height/2));
+        }
+        double dx=contact.VelocityX*pad.Width/maxX,dy=contact.VelocityY*pad.Height/maxY;
+        double magnitude=Math.Sqrt(dx*dx+dy*dy);
+        if(contact.HasVelocity && double.IsFinite(magnitude) && magnitude>.01)
+        {
+            dx/=magnitude; dy/=magnitude;
+            var end=new Point(center.X+25*dx,center.Y+25*dy);
+            var pen=ContactPathPens[finger<ContactPathPens.Length ? finger : 0];
+            dc.DrawLine(_contactOutline,center,end); dc.DrawLine(pen,center,end);
+            dc.DrawLine(pen,new(end.X-6*dx+3*dy,end.Y-6*dy-3*dx),end);
+            dc.DrawLine(pen,end,new(end.X-6*dx-3*dy,end.Y-6*dy+3*dx));
+        }
+        dc.Pop();
+    }
+
+    private Rect DrawContactLabel(DrawingContext dc,Rect pad,Point center,TouchContact contact,ushort maxX,ushort maxY,
+        ReadOnlySpan<Rect> previousLabels,ReadOnlySpan<Rect> markers)
+    {
+        byte finger=contact.Telemetry?.FingerType ?? 0;
+        string shapeLabel=string.Empty;
+        if(contact.Telemetry is {} telemetry)
+        {
+            var shape=ContactVisualMetrics.Shape(telemetry);
+            shapeLabel=string.Create(CultureInfo.InvariantCulture,$"\nAxis {shape.MajorMm:0.0}×{shape.MinorMm:0.0} mm · {shape.RotationDegrees:0.#}°");
+        }
+        var velocity=ContactVisualMetrics.Velocity(contact,maxX,maxY,TrackpadWidthMm,TrackpadHeightMm);
+        string speed=contact.HasVelocity ? velocity.Speed.ToString("0",CultureInfo.InvariantCulture)+" mm/s" : "—";
+        string size=contact.Telemetry is {} data ? " · Size "+data.Size.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        var label=ContactText($"#{contact.Id} {ContactVisualMetrics.FingerName(finger)}{shapeLabel}\nv {speed}{size}",10,_textBrush);
+        label.MaxTextWidth=Math.Max(1,pad.Width-16);
+        Rect bounds=ContactVisualMetrics.PlaceLabel(pad,center,new Size(label.Width+6,label.Height+4),previousLabels,markers);
+        dc.PushClip(new RectangleGeometry(pad,14,14));
+        dc.DrawRoundedRectangle(_telemetryBackground,null,bounds,3,3);
+        dc.DrawText(label,new Point(bounds.Left+3,bounds.Top+2));
+        dc.Pop();
+        bounds.Inflate(2,2); return bounds;
+    }
+
+    private FormattedText ContactText(string value,double size,Brush brush)=>new(value,CultureInfo.InvariantCulture,
+        FlowDirection.LeftToRight,_monoTypeface,size,brush,VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
     private void DrawContactPaths(DrawingContext dc,Rect pad,ReadOnlySpan<TouchContact> contacts,ushort maxX,ushort maxY)
     {
         for (int slot=0;slot<_trailCounts.Length;slot++)
@@ -257,7 +317,9 @@ public sealed class TouchView : FrameworkElement
             {
                 var a=_trailPoints[start+(head+TrailLength-1-age)%TrailLength];
                 var b=_trailPoints[start+(head+TrailLength-age)%TrailLength];
-                dc.DrawLine(_contactOutline,new(pad.Left+a.X*pad.Width,pad.Top+a.Y*pad.Height),new(pad.Left+b.X*pad.Width,pad.Top+b.Y*pad.Height));
+                byte finger=c.Telemetry?.FingerType ?? 0;
+                var pen=finger>0 && finger<ContactPathPens.Length ? ContactPathPens[finger] : _contactOutline;
+                dc.DrawLine(pen,new(pad.Left+a.X*pad.Width,pad.Top+a.Y*pad.Height),new(pad.Left+b.X*pad.Width,pad.Top+b.Y*pad.Height));
             }
         }
     }
@@ -274,22 +336,26 @@ public sealed class TouchView : FrameworkElement
             NormalizedRect[] rowRects = Layout.Rects[row];
             for (int col = 0; col < rowRects.Length; col++)
             {
-                Rect rect = rowRects[col].ToRect(pad);
-                DrawKeyRect(dc, rowRects[col], rect, ShowTouchStreamReference ? _referenceKeyFill : _keyFillBrush, _keyStrokePen);
+                if(rowRects[col].Width<=0 || rowRects[col].Height<=0 || !Layout.Visible(row,col,ActiveLayer))continue;
+                var display=Layout.DisplayRects?[row][col] ?? rowRects[col];
+                Rect rect = display.ToRect(pad);
+                DrawKeyRect(dc, display, rect, ShowTouchStreamReference ? _referenceKeyFill : _keyFillBrush, _keyStrokePen);
 
+                if(FlashKeys.TryGetValue((row,col),out var until))
+                {double opacity=Math.Clamp((until-System.Diagnostics.Stopwatch.GetTimestamp())/(System.Diagnostics.Stopwatch.Frequency*.5),0,1);if(opacity>0){dc.PushOpacity(opacity);DrawKeyRect(dc,display,rect,_hitFillBrush,_hitStrokePen);dc.Pop();}}
                 if (HighlightedKey.HasValue && RectEquals(rowRects[col], HighlightedKey.Value))
                 {
-                    DrawKeyRect(dc, rowRects[col], rect, _hitFillBrush, _hitStrokePen);
+                    DrawKeyRect(dc, display, rect, _hitFillBrush, _hitStrokePen);
                 }
                 if (SelectedKey.HasValue && RectEquals(rowRects[col], SelectedKey.Value))
                 {
-                    DrawKeyRect(dc, rowRects[col], rect, _selectedFillBrush, _selectedStrokePen);
+                    DrawKeyRect(dc, display, rect, _selectedFillBrush, _selectedStrokePen);
                 }
 
                 if (LabelMatrix != null && row < LabelMatrix.Length && col < LabelMatrix[row].Length)
                 {
                     string label = GeminiPRPacket.Display(LabelMatrix[row][col]);
-                    DrawKeyLabel(dc, rowRects[col], rect, label);
+                    DrawKeyLabel(dc, display, rect, label);
                 }
             }
         }
@@ -448,7 +514,7 @@ public sealed class TouchView : FrameworkElement
         }
 
         double aspect = TrackpadWidthMm <= 0 || TrackpadHeightMm <= 0 ? 1.0 : TrackpadWidthMm / TrackpadHeightMm;
-        double width = inner.Width;
+        double width = Math.Min(inner.Width,TrackpadWidthMm*2.7);
         double height = width / aspect;
         if (height > inner.Height)
         {

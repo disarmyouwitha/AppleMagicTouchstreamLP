@@ -51,7 +51,9 @@ public sealed class StenoChordEngine
 {
     private ulong _chord;
     private readonly ulong[] _touchingKeys=new ulong[2];
-    private byte _strokePads;
+    private byte _strokePads,_pendingTouch;
+    private readonly double[] _touchDue=new double[2];
+    public byte TouchFeedbackPads {get;private set;}
     public ulong NewlyPressedKeys { get; private set; }
     public byte StrokePads { get; private set; }
     private byte _down;
@@ -63,9 +65,15 @@ public sealed class StenoChordEngine
     {
         if(downPads.HasValue) _down=downPads.Value;
         _chord=0; _blocked=_down!=0; _times[0]=_times[1]=-1;
-        _touchingKeys[0]=_touchingKeys[1]=0; _strokePads=0; NewlyPressedKeys=0; StrokePads=0;
+        _touchingKeys[0]=_touchingKeys[1]=0; _strokePads=_pendingTouch=0; NewlyPressedKeys=0; StrokePads=TouchFeedbackPads=0;
     }
     public void RemoveDevice(TrackpadSide side) { _down&=(byte)~(1<<(int)side); Cancel(); }
+    public byte DrainSettledTouch(double now)
+    {
+        byte pads=0;
+        for(int i=0;i<2;i++)if((_pendingTouch&(1<<i))!=0 && now>=_touchDue[i]){pads|=(byte)(1<<i);_pendingTouch&=(byte)~(1<<i);}
+        return pads;
+    }
     public bool Tick(double now)
     {
         for(int i=0;i<2;i++) if((_down&(1<<i))!=0 && _times[i]>=0 && now-_times[i]>.25)
@@ -74,7 +82,7 @@ public sealed class StenoChordEngine
     }
     public ulong Process(TrackpadSide side,in InputFrame frame,ushort maxX,ushort maxY,double time,ReadOnlySpan<StenoRegion> regions)
     {
-        NewlyPressedKeys=0; StrokePads=0;
+        NewlyPressedKeys=0; StrokePads=TouchFeedbackPads=0;
         FrameInvalidated=Tick(time);
         int index=(int)side; if((uint)index>1) return 0;
         bool valid=double.IsFinite(time) && time>=0 && maxX>0 && maxY>0 && frame.ContactCount<=InputFrame.MaxContacts
@@ -95,10 +103,15 @@ public sealed class StenoChordEngine
         if(!valid) { FrameInvalidated=true; Cancel(); return 0; }
         if(_blocked) { if(_down==0) _blocked=false; return 0; }
         NewlyPressedKeys=keys&~_touchingKeys[index]; _touchingKeys[index]=keys;
+        byte pad=(byte)(1<<index);
+        if(NewlyPressedKeys!=0 && (_pendingTouch&pad)==0) {_pendingTouch|=pad;_touchDue[index]=time+.08;}
+        if((_pendingTouch&pad)!=0 && time>=_touchDue[index]){TouchFeedbackPads|=pad;_pendingTouch&=(byte)~pad;}
         if(keys!=0) _strokePads|=(byte)(1<<index);
         _chord|=keys;
         if(_down!=0) return 0;
-        ulong stroke=_chord; _chord=0; StrokePads=_strokePads; _strokePads=0; return stroke;
+        ulong stroke=_chord; _chord=0; StrokePads=_strokePads; _strokePads=0;
+        if(stroke!=0)TouchFeedbackPads|=_pendingTouch;
+        _pendingTouch=0;return stroke;
     }
 }
 
@@ -114,26 +127,57 @@ public static class StenoLayoutDefinition
         [StenoKey.ST3,StenoKey.FR,StenoKey.PR,StenoKey.LR,StenoKey.TR,StenoKey.DR], [StenoKey.ST4,StenoKey.RR,StenoKey.BR,StenoKey.GR,StenoKey.SR,StenoKey.ZR], [StenoKey.E,StenoKey.U] ];
     public static string[][] Labels(bool voyager,bool left)=>(voyager ? left ? VoyagerLeft : VoyagerRight : left ? Left : Right)
         .Select(row=>row.Select(key=>key.HasValue ? GeminiPRPacket.Label(key.Value) : "None").ToArray()).ToArray();
+    public static string[][] SingleLabels(bool left)=>left ? [] : new StenoKey[][] { [StenoKey.N1,StenoKey.N6], [StenoKey.S1,StenoKey.TL,StenoKey.PL,StenoKey.HL,StenoKey.ST1,StenoKey.FR,StenoKey.PR,StenoKey.LR,StenoKey.TR,StenoKey.DR], [StenoKey.S2,StenoKey.KL,StenoKey.WL,StenoKey.RL,StenoKey.RR,StenoKey.BR,StenoKey.GR,StenoKey.SR,StenoKey.ZR], [StenoKey.A,StenoKey.O,StenoKey.E,StenoKey.U] }.Select(row=>row.Select(GeminiPRPacket.Label).ToArray()).ToArray();
+    private static NormalizedRect[][] Asterisk(bool left)
+    {
+        const double scale=234.0/626;
+        double upper=25.1304,row=25/scale;
+        NormalizedRect r(double x,double y,double w,double h)=>new(x,y,w,h);
+        var rows=left ? new NormalizedRect[][] {
+            [r(9.13078,3.9384,177.665,upper-3.9384)],
+            [r(9.06885,upper,32.78585,row),r(57.4512,upper,32.7859,row),r(104.634,upper,32.786,row),r(153.1,upper,32.786,row),r(191.316,upper,39.662,2*row)],
+            new[]{9.13078,57.0502,104.97,152.89}.Select(x=>r(x,upper+row,33.4535,row)).ToArray(),
+            new[]{151.534,194.933}.Select(x=>r(x,181.603,32.549,56.961)).ToArray()
+        } : new NormalizedRect[][] {
+            [r(392.941,3.71233,176.761,upper-3.71233)],
+            new[]{r(347.734,upper,39.662,2*row)}.Concat(new[]{392.901,441.283,488.466,536.933}.Select(x=>r(x,upper,32.786,row))).Append(r(577.839,upper,40.6866,row)).ToArray(),
+            new[]{392.489,440.409,488.329,536.248}.Select(x=>r(x,upper+row,33.4535,row)).Append(r(577.839,upper+row,40.6866,row)).ToArray(),
+            new[]{351.35,394.749}.Select(x=>r(x,181.603,32.549,56.961)).ToArray()
+        };
+        double min=left ? 9.06885:347.734,max=left ? 230.978:618.5256,ox=(160-(max-min)*scale)/2,oy=(114.9-90)/2;
+        return rows.Select(row=>row.Select(k=>r((ox+(k.X-min)*scale)/160,(oy+k.Y*scale)/114.9,k.Width*scale/160,k.Height*scale/114.9)).ToArray()).ToArray();
+    }
     public static KeyLayout Build(TrackpadLayoutPreset preset,bool left,ColumnLayoutSettings[] columns,KeymapStore? map,double spacing)
     {
-        bool voyager=preset.Name=="STENO Voyager";
+        bool voyager=preset.Name=="STENO Voyager",single=preset.Name=="STENO Single";
         var rows=new List<NormalizedRect[]>();
-        if(voyager) rows.AddRange(LayoutBuilder.BuildLayout(TrackpadLayoutPreset.SixByThree,160,114.9,18,17,columns,left,spacing).Rects);
-        else if(left)
+        if(single && !left)
         {
-            rows.Add([new(.06,.1,.66,.05)]);
-            rows.Add(Enumerable.Range(0,4).Select(i=>new NormalizedRect(.06+i*.17,.18,.15,.23)).Append(new(.76,.18,.16,.48)).ToArray());
-            rows.Add(Enumerable.Range(0,4).Select(i=>new NormalizedRect(.06+i*.17,.43,.15,.23)).ToArray());
+            const double gap=.01,width=(.95-9*gap)/10.5,margin=.005;
+            double star=1.5*width+2*(.025-margin),x=margin,height=25/114.9;
+            var upper=new List<NormalizedRect>();
+            for(int c=0;c<10;c++) { double w=c==4 ? star:width; upper.Add(new(x,.18,w,c==4 ? 2*height:height)); x+=w+gap; }
+            rows.Add([new(upper[0].X,.1,upper[3].X+width-upper[0].X,.08),new(upper[5].X,.1,upper[9].X+width-upper[5].X,.08)]);
+            rows.Add(upper.ToArray()); rows.Add(upper.Where((_,c)=>c!=4).Select(k=>new NormalizedRect(k.X,.18+height,k.Width,height)).ToArray());
+            double vx=(1-(4*width+3*gap))/2;
+            rows.Add(Enumerable.Range(0,4).Select(c=>new NormalizedRect(vx+c*(width+gap),.79,width,.18)).ToArray());
         }
-        else
+        else if(voyager)
         {
-            rows.Add([new(.22,.1,.72,.05)]);
-            rows.Add(new[] {new NormalizedRect(.04,.18,.15,.48)}.Concat(Enumerable.Range(0,5).Select(i=>new NormalizedRect(.22+i*.145,.18,.13,.23))).ToArray());
-            rows.Add(Enumerable.Range(0,5).Select(i=>new NormalizedRect(.22+i*.145,.43,.13,.23)).ToArray());
+            rows.AddRange(LayoutBuilder.BuildLayout(TrackpadLayoutPreset.SixByThree,160,114.9,18,17,columns,left,spacing).Rects);
+            rows.Add(left ? [new(.56,.79,.15,.18),new(.76,.79,.15,.18)] : [new(.06,.79,.15,.18),new(.26,.79,.15,.18)]);
         }
-        rows.Add(left ? [new(.56,.79,.15,.18),new(.76,.79,.15,.18)] : [new(.06,.79,.15,.18),new(.26,.79,.15,.18)]);
+        else if(!single) rows.AddRange(Asterisk(left));
+        if(!voyager && rows.Count>3)
+        {
+            for(int c=0;c<rows[3].Length-1;c+=2)
+            { var a=rows[3][c];var b=rows[3][c+1];double seam=(a.X+a.Width+b.X)/2;rows[3][c]=a with {Width=seam-a.X};rows[3][c+1]=b with {X=seam,Width=b.X+b.Width-seam}; }
+            double shift=single ? (rows[2][3].CenterX+rows[2][4].CenterX)/2-(rows[3][0].CenterX+rows[3][3].CenterX)/2:0;
+            for(int c=0;c<rows[3].Length;c++) { var r=rows[3][c];double top=single ? Asterisk(false)[3][0].Y:r.Y;rows[3][c]=r with {X=r.X+shift,Y=top,Height=1-.8/114.9-top}; }
+        }
+        var display=rows.Select(row=>row.Select(r=>r with { X=r.X-1.5/160,Y=r.Y-1.5/114.9,Width=r.Width+3.0/160,Height=r.Height+3.0/114.9 }).ToArray()).ToArray();
         for(int r=0;r<rows.Count;r++) for(int c=0;c<rows[r].Length;c++)
-            if(map!=null) rows[r][c]=LayoutBuilder.ApplyKeyGeometryOverride(rows[r][c],map.ResolveKeyGeometry(GridKeyPosition.StorageKey(left ? TrackpadSide.Left : TrackpadSide.Right,r,c)));
-        return new(rows.ToArray(),Labels(voyager,left),isSteno:true);
+            if(map!=null) { rows[r][c]=LayoutBuilder.ApplyKeyGeometryOverride(rows[r][c],map.ResolveKeyGeometry(GridKeyPosition.StorageKey(left ? TrackpadSide.Left : TrackpadSide.Right,r,c))); display[r][c]=rows[r][c] with {X=rows[r][c].X-1.5/160,Y=rows[r][c].Y-1.5/114.9,Width=rows[r][c].Width+3.0/160,Height=rows[r][c].Height+3.0/114.9}; }
+        return new(rows.ToArray(),single ? SingleLabels(left):Labels(voyager,left),isSteno:true) {DisplayRects=display};
     }
 }

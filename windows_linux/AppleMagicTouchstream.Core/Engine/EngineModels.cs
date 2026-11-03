@@ -32,7 +32,8 @@ internal enum EngineActionKind
     Continuous = 7,
     MouseButton = 8,
     KeyChord = 9,
-    AppLaunch = 10
+    AppLaunch = 10,
+    Text = 11
 }
 
 internal enum TypingToggleSource : byte
@@ -250,6 +251,8 @@ internal readonly record struct TouchProcessorConfig(
     IReadOnlyDictionary<string, int>? GestureRepeatCadenceMsById)
 {
     public StenoHapticMode StenoHaptics { get; init; }
+    public bool? StenoHapticTouch {get;init;}
+    public bool? StenoHapticRelease {get;init;}
     public static TouchProcessorConfig Default => new(
         TrackpadWidthMm: 160.0,
         TrackpadHeightMm: 114.9,

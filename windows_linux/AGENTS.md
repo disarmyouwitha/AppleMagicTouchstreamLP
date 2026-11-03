@@ -76,13 +76,18 @@ probes are manual tools, not build steps.
 - Windows diagnostics/self-test surface: `AppleMagicTouchstream.Windows/WindowsDiagnostics/`
 - Windows Config has a top Gestures / Keyboard workspace selector, in that order; Keyboard remains the default. Device/takeover controls span both workspaces. Gestures replaces the visualizer and keyboard inspector with three resizable columns: navigation, assignment cards, Action inspector. Keyboard retains both pads, typing test and its separate settings inspector. Preserve named controls and runtime bindings. A single selected pad determines the initial gesture editing side; show which side is selected. Preserve disconnected saved device paths. All gesture metadata, including explicit None, round-trips through full settings exports; invalid bundles must not silently fall back to keymap-only import.
 - Mac is the UI reference. TouchStream has independent traced geometry, automatic reference backgrounds and disabled column tuning. Gesture Left/Right, Mirror Edit and coordinated Both are distinct. Existing numeric enum identities must remain stable; append new identities. See `AppleMagicTouchstream.Windows/MAC_GOLD_PARITY.md` for implemented contracts, limitations and verification.
+- ThumbTwoMove is direction-only (four appended diagonal identities); Thumb+2 Hold uses independent saved key 6. Both default None and require positive native anatomy/spread-thumb geometry. Diagonal acquisition requires 0.75 mm from every contact; shape priority, existing all-up ownership and shared held-shortcut cleanup remain. Direction changes/motion repeats use 0.75 mm and an 80 ms output guard; timed repeats require fresh delivery. Preserve existing cardinal movement behavior and serialized identities. `ThumbGestureParityTests` covers both hands, arbitration, repeats, cleanup, settings and the real WPF cards.
+- Gesture actions, keyboard Primary/Hold actions and both shortcut-key builders share `SearchableActionComboBox`: a themed panel with category headings, dedicated search, current-choice checkmarks and empty results. Search/browsing uses a separate result view and must never filter the owning ComboBox.Items or publish a live assignment. Only an explicit result choice commits; Escape/Done/outside dismissal preserve it. Keep semantic values, configured shortcut/text labels and STENO eligibility filters. Closed selectors cannot change mappings from incidental typing/arrows/wheel. Keep release builds below `AppleMagicTouchstream.Windows/bin/`.
+- The closed action picker binds `SelectedActionTitle` explicitly to the option's Title/Display (or plain key string); never render an option record's diagnostic ToString. Gesture recognition feedback comes from pure recognizer snapshots, not inferred output actions. Display the latest recognized gesture beside each pad's Peak header and in the Gestures footer for two seconds, with separate hands, coordinated Both, directions, Holds, Force and STENO. Reads cannot start input, output or hooks. Feedback is value-only, not settings/capture data, and contains no custom-action text. Continuous ownership refreshes it; normal lift retains it briefly; cancellation, stale/invalid input and configuration reset clear it. Replay must not read live recognition.
 - Windows Typing Tuning exposes Hold Duration, Haptic Strength and Restore Defaults. Legacy Typing Grace, Drag Cancel and intent movement/velocity fields remain decode-compatible but cannot gate unified Windows typing. Unreserved contacts stay keyboard input; tap eligibility is bounded by max(200 ms, Hold Duration), release geometry and snap. Preserve Linux legacy policy separately.
 - Gesture Hold has independent 100–5000 ms thresholds (500 default) and once/held shortcut output. Held shortcuts use the keyboard dispatch pump and shared modifier/key ownership; Left, Right and coordinated Both have distinct leases. All-up, stale/invalid input, reconfiguration, output failure, queue overflow and teardown release only the appropriate owners. Gesture keyboard events must not use the pointer worker's private native key buffers.
 - Established MO/modifier chords and committed key holds retain same-pad priority through all-up. Unresolved candidates retain fixed-capacity owned keyboard proposals while gestures see original frames once. Winning/cancelled gestures discard proposals; never-activated rollover may resolve at partial lift/all-up. Generation/layer/epoch changes and invalid/stale/overflowed input cancel proposals. Live semantic keyboard publication bypasses the offline diagnostic ring and writes directly to the bounded output queue; publication overflow cancels the cycle and inserts a release barrier.
 - Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
 - `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover defaults off on first launch and saves explicit opt-in locally for startup restoration. Uncheck, tray release and Ctrl+Alt+R clear opt-in; tests stay temporary and lifecycle releases preserve it. Startup restoration waits/retries for delayed Bluetooth availability; explicit release, activation, sleep/session changes and disposal cancel the startup retry state. Settings write errors must be visible. The tray/app icon uses the Mac hand silhouette filled black.
 
-- Windows hand gestures include grouped anatomical inspector sections, 1–5-finger force clicks (reported pressure only) and independent 2–5-finger pinch/spread. Keep the Apple pointer profile fixed. Assigned two-finger taps retain their existing 1 mm/500 ms eligibility before movement acquires. Use Mac's bounded 80 ms fourth-contact landing evidence instead of a blanket drag delay; Windows supplies confident in-range non-tip PTP slots as the available pre-contact evidence. Activated owners remain latched through all-up. A pending four-finger Hold requires three-of-four translation agreement before ordinary movement can steal it. Corner Holds anchor the completed corner chord independently of earlier generic Hold failure. Windows Zoom is balanced Ctrl+wheel; system actions use Windows shortcut plans. See `AppleMagicTouchstream.Windows/MAC_GOLD_PARITY.md` for current contracts and verification.
+- Windows hand gestures include grouped anatomical inspector sections, 1–5-finger force clicks (reported pressure only) and independent 2–5-finger pinch/spread. Keep the legacy Apple reference response available; the explicit captured-Mac option loads bundled per-hand pointer/scroll curves on configuration only. Assigned two-finger taps retain their existing 1 mm/500 ms eligibility before movement acquires. Use Mac's bounded 80 ms fourth-contact landing evidence instead of a blanket drag delay; Windows supplies confident in-range non-tip PTP slots as the available pre-contact evidence. Activated owners remain latched through all-up. A pending four-finger Hold requires three-of-four translation agreement before ordinary movement can steal it. Corner Holds anchor the completed corner chord independently of earlier generic Hold failure. Windows Zoom is balanced Ctrl+wheel; system actions use Windows shortcut plans. See `AppleMagicTouchstream.Windows/MAC_GOLD_PARITY.md` for current contracts and verification.
+- Shape pages expose independent Pinch, Spread, Rotate Left and Rotate Right for every 2–5-finger count, with matching demonstrations, recognition notes and automatic Hold/Lift lifecycle cards. Rotation defaults to None. Discrete shape actions offer Once, timed (20–5000 ms) or signed motion repeat (5° rotation / 6% scale); no catch-up bursts, signed-motion reversal output or stale timers. Preserve independent Left/Right, Mirror Edit, same-device fallback and settings export/clone. Forward positive extended-driver finger labels into recognition; never infer anatomy from contact order or selected pad. Windows Pinch/Spread/Rotate require a reported thumb and use Mac's thumb-vector rotation and full-chord translation competition. Preserve the legacy geometric policy for Linux. Per user direction, do not invent a native Rotate Content equivalent: rotation recognition runs assigned shortcuts/actions. A real movement/shape activation beats a pending Hold; an explicitly assigned reported-pressure Force may override an active shape. Preserve established Windows pointer/drag/scroll ownership through all-up.
+- Pending Pointer/Drag travel must pass through the selected acceleration curve sample by sample. Retain only the resulting output privately until movement wins, then publish it once. Never run accumulated startup millimetres through the nonlinear curve as a single fast sample. Cohort rebasing/cancellation/reset clears pending output and timing; a winning tap/shape/Hold cannot publish it. Preserve activation distances, tap=None gating, the imported curve, scroll policy and post-activation response. The `2F_skips.atpcap` replay established this startup amplification independently with the recorded tap-enabled settings and an explicit tap=None comparison.
 
 ## Linux Notes
 - The Linux CLI currently supports:
@@ -211,44 +216,35 @@ left/generic modifiers share an index; right-side/AltGr semantics remain intact.
 See AppleMagicTouchstream.Core/HYPER_MODIFIERS.md. Focused Linux validation is
 `selftest --hyper`; it does not access evdev/uinput or write host settings.
 
-## Windows STENO
+## Windows layouts, STENO and saved Text
 
-- Windows exposes STENO and STENO Voyager, ported from Mac. Mac transport stays unchanged.
-- Shared chord accumulation, Gemini PR encoding and per-layout mappings live in Core.
-  Both pads all-up emits once; all intersecting regions include a 1.5 mm edge expansion.
-  Ordinary typing/gesture paths are bypassed. Hold/ordinary keyboard assignments are inert.
-- Windows output requires Mouse Takeover. The bounded keyboard dispatch pump sends typed
-  generation-gated strokes to a loopback-only endpoint (127.0.0.1:31572). No COM driver.
-  Invalid/stale/overflowed input, device loss, Refresh, layout/keymap/layer changes and
-  teardown cancel strokes and wait for all-up. Disconnected/full output drops strokes.
-- PloverPlugin contains the driver-free machine plugin, reproducible wheel builder,
-  installer and isolated Python transport tests. Build its wheel before the Windows app
-  after changing plugin source. Self-tests use a private ephemeral socket and never
-  open the live Plover port or inject input. Hardware verification remains manual.
-- Windows Raw Input currently reports up to five contacts per pad; keep that ingestion
-  limit separate from the 42 Gemini PR wire keys and Mac's larger contact capacity.
-
-- The STENO panel installs the bundled Plover plugin on an explicit button click,
-  displays completion/failure, and offers a saved/exported Pointer movement selector.
-  STENO pointer acquisition uses 2 mm translation; two-finger mode requires coherent
-  movement from both contacts. Larger cohorts cannot become the pointer after partial
-  lift. One- and two-finger force presses left-click. Mouse Takeover stays required. Mac is unchanged.
-
-- Outside STENO, keep gesture recognition/arbitration active with Mouse Takeover
-  off, while gating synthetic gesture output at publication and dispatch. Native
-  gestures must not fall through into typing/haptics. Takeover changes cancel
-  existing gesture cycles; known all-up pads may acquire immediately, held pads
-  must lift. STENO still requires Takeover and retains its separate pointer policy.
-
-- STENO haptics offer Off / key contact / chord release, defaulting to key contact
-  and respecting the global haptic switch/strength. Feedback uses typed, generation-
-  gated dispatch events, never frame-thread I/O. Held keys do not repeat feedback;
-  chord-release feedback covers participating pads and is cancelled with pointer
-  acquisition or input/lifecycle faults. The choice saves/exports with settings.
-- Layout and STENO selectors disable text search, ignore closed wheel/selection
-  keys and clear focus after closing. Plover output must not change app settings.
-
-- STENO 1F and 2F force presses always map to primary click, independently of
-  the selected pointer count. Use reported pressure >=130; never infer force.
-  Emit one click/feedback per all-up cycle, cancel the whole pending steno chord,
-  and block clicks after partial lift, substitution, stale or invalid input.
+Current implementation and acceptance checklist: AppleMagicTouchstream.Windows/WINDOWS_REWRITE.md.
+- Compile authored layout documents only on configuration/Apply. Stable key and
+  mirror IDs are independent of geometry. Preserve per-hand actions and layer
+  visibility; legacy custom buttons migrate only in the editor draft until Apply.
+- Layout Editor is inline, both pads, fixed 1 mm snap, Mirror Edit default on,
+  with bounded history and isolated 30 Hz contact overlay. No keyboard/STENO
+  dispatch while editing; ordinary gestures return temporarily. Show Contacts
+  suppresses 4F/5F gesture candidates, retaining normal mouse gestures.
+- STENO offers Asterisk, 6x3 and RHS Single behind one main picker. Ordinary key
+  actions/configurable gestures stay inert; only STN_* assignments form chords.
+  Outer Corners remains Open Config. Fixed 2F pointer, 1F force drag, 2F force
+  primary, 3F force secondary, 4F latched force scroll/momentum. Owners remain
+  through all-up/count changes; final shared drag owner releases the button.
+- Built-in Javelin Lapwing is default; Plover data and loopback Plover plugin are
+  alternatives. Mouse Takeover/live generation/focus gates still apply. Native
+  translation is serial and never posts input itself. Bundled dictionary edits
+  require Save As. Never ship personal dictionaries. Preserve native licenses.
+- Independent settled touch/release haptics cancel with pending chords. Force
+  feedback is fixed; all haptics remain dispatch-queued and live-only.
+- Both 3+3/4+4 force uses reported pressure only, bounded 1 second cohort join
+  and 150 ms force-crossing skew, latched through both-all-up. Never replace an
+  activated independent owner. Pending corner pairs may grow before firing.
+- Saved Text uses DPAPI CurrentUser with no plaintext fallback, opaque refs in
+  settings/captures, hidden-by-default editor and worker decryption. Another
+  same-user process is not excluded by DPAPI. Type Unicode through the existing
+  output pump without clipboard use; cancel on focus/lifecycle/generation loss.
+- ATPCAP bytes remain unchanged; the additive settings companion contains initial
+  documents/refs, never secrets. Replay is output-free and never reads the vault.
+- Windows PTP remains five contacts per pad. Use positive reported anatomy/pressure only; never infer either from IDs, contact order or selected pad.
+  Tests use host translation/private ephemeral sockets, never live Plover/input.

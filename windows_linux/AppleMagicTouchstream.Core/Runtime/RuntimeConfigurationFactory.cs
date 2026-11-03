@@ -24,6 +24,7 @@ public static class RuntimeConfigurationFactory
             TrackpadHeightMm = TrackpadHeightMm,
             HoldDurationMs = settings.HoldDurationMs,
             StenoHaptics = settings.StenoHaptics,
+            StenoHapticTouch=settings.StenoHapticTouch,StenoHapticRelease=settings.StenoHapticRelease,
             DragCancelMm = settings.DragCancelMm,
             TypingGraceMs = settings.TypingGraceMs,
             IntentMoveMm = settings.IntentMoveMm,
@@ -115,6 +116,8 @@ public static class RuntimeConfigurationFactory
             keymap,
             mirrored: false,
             keySpacingPercent: keyPaddingPercent);
+        if(settings.LayoutDocuments?.GetValueOrDefault(preset.Name) is {} document && document.IsValid())
+        { leftLayout=document.Compile(false,preset.IsSteno); rightLayout=document.Compile(true,preset.IsSteno); }
     }
 
     public static double GetKeyPaddingPercentForPreset(UserSettings settings, TrackpadLayoutPreset preset)

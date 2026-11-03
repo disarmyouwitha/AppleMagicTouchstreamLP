@@ -21,14 +21,62 @@ internal sealed class WindowsStenoConnection : IDisposable
     private Func<bool>? _eligible;
     private long _sent,_dropped;
     private string? _error;
-    internal readonly record struct Snapshot(bool Enabled,bool Connected,long Sent,long Dropped,string? Error);
-    public Snapshot Status { get { lock(_gate) return new(_listener!=null,_reader!=null,_sent,_dropped,_error); } }
-    public void Configure(bool enabled,StenoOutputState output,Func<bool> eligible)
+    private UserSettings? _settings;
+    private long _retryAt;
+    internal void RefreshConnection(bool force=false)
     {
         lock(_gate)
         {
-            _output=output; _eligible=eligible;
-            if(!enabled) { StopLocked(); _error=null; return; }
+            if(!_enabled || _output==null || _eligible==null)return;
+            if(!force && (_mode!="plugin" || _listener!=null || System.Diagnostics.Stopwatch.GetTimestamp()<_retryAt))return;
+            if(force && _mode!="plugin")_dictionarySignature="";
+            Configure(true,_output,_eligible,_settings);
+        }
+    }
+    private string _mode="plugin",_dictionarySignature="";
+    private bool _enabled,_loading;
+    private int _loadGeneration,_resetTranslation;
+    private WindowsJavelin? _translator;
+    private JavelinEdit? _pendingEdit;
+    private Action<ulong>? _recordStroke;
+    internal bool CanOutput(long generation)
+    {var output=_output;if(output==null)return false;lock(output.Sync)lock(_gate)return ReferenceEquals(output,_output) && _enabled && output.IsCurrent(generation) && _eligible?.Invoke()==true;}
+    internal void ReportOutputError(){lock(_gate){ResetTranslation();_error="Windows blocked translated text output; translation history was reset.";}}
+    internal bool IsBuiltIn {get{lock(_gate)return _mode!="plugin";}}
+    internal void ResetTranslation()=>Interlocked.Exchange(ref _resetTranslation,1);
+    internal JavelinEdit? TakeEdit(){lock(_gate){var value=_pendingEdit;_pendingEdit=null;return value;}}
+    internal void SetRecorder(Action<ulong>? recorder){lock(_gate){_recordStroke=recorder;ResetTranslation();}}
+
+    internal readonly record struct Snapshot(bool Enabled,bool Connected,long Sent,long Dropped,string? Error);
+    public Snapshot Status { get { lock(_gate) return new(_enabled,_mode=="plugin" ? _reader!=null:_translator!=null && !_loading,_sent,_dropped,_error ?? (_loading ? "Loading dictionaries…":null)); } }
+    public void Configure(bool enabled,StenoOutputState output,Func<bool> eligible,UserSettings? settings=null)
+    {
+        lock(_gate)
+        {
+            _output=output; _eligible=eligible;_enabled=enabled;_settings=settings;ResetTranslation();
+            _retryAt=System.Diagnostics.Stopwatch.GetTimestamp()+2*System.Diagnostics.Stopwatch.Frequency;
+            string mode=settings?.StenoConnectionMode ?? "plugin";
+            if(mode is not ("javelin" or "javelinPlover" or "plugin"))mode="javelin";
+            if(!enabled){_loadGeneration++;_loading=false;StopLocked();_translator?.Dispose();_translator=null;_dictionarySignature="";_error=null;return;}
+            if(mode!="plugin")
+            {
+                StopLocked();_mode=mode;
+                var sources=WindowsJavelinDictionaries.Sources(settings!,mode).Select(s=>s.Copy()).ToArray();
+                string signature=mode+System.Text.Json.JsonSerializer.Serialize(sources);
+                if(signature!=_dictionarySignature || _translator==null && !_loading)
+                {
+                    _translator?.Dispose();_translator=null;_dictionarySignature=signature;_loading=true;_error=null;int generation=++_loadGeneration;
+                    _=Task.Run(()=>
+                    {
+                        WindowsJavelin? engine=null;
+                        try{engine=WindowsJavelinDictionaries.Load(sources,mode=="javelinPlover");lock(_gate){if(generation!=_loadGeneration){engine.Dispose();return;}_translator?.Dispose();_translator=engine;engine=null;_loading=false;_error=null;}}
+                        catch{engine?.Dispose();lock(_gate){if(generation==_loadGeneration){_loading=false;_error="Built-in Javelin unavailable. Check the native library/dictionaries, or choose Plover Plugin.";}}}
+                    });
+                }
+                return;
+            }
+            if(_mode!="plugin"){_loadGeneration++;_translator?.Dispose();_translator=null;_dictionarySignature="";_loading=false;}
+            _mode="plugin";
             if(_listener!=null) return;
             try
             {
@@ -107,7 +155,15 @@ internal sealed class WindowsStenoConnection : IDisposable
             if(!ReferenceEquals(output,_output) || stroke.Kind!=DispatchEventKind.StenoStroke || !output.IsCurrent(stroke.StenoGeneration)
                 || stroke.StenoMask==0 || (stroke.StenoMask&~GeminiPRPacket.KeyMask)!=0 || _eligible?.Invoke()!=true
                 || age<0 || age>System.Diagnostics.Stopwatch.Frequency*.25
-                || _reader==null) { _dropped++; return false; }
+                ) { _dropped++; return false; }
+            if(_recordStroke is {} recorder){recorder(stroke.StenoMask);return true;}
+            if(_mode!="plugin")
+            {
+                if(_translator==null || _loading){_dropped++;return false;}
+                try{if(Interlocked.Exchange(ref _resetTranslation,0)!=0)_translator.Reset();_pendingEdit=_translator.Translate(stroke.StenoMask);_sent++;return true;}
+                catch{_translator.Reset();_error="Translation cancelled; lift all fingers and try again.";_dropped++;return false;}
+            }
+            if(_reader==null){_dropped++;return false;}
             Span<byte> packet=stackalloc byte[6]; GeminiPRPacket.Write(stroke.StenoMask,packet);
             try
             {
@@ -127,5 +183,6 @@ internal sealed class WindowsStenoConnection : IDisposable
         _cancel?.Cancel(); _listener?.Stop(); _listener=null;
         _reader?.Dispose(); _reader=null; _cancel?.Dispose(); _cancel=null;
     }
-    public void Dispose() { lock(_gate) StopLocked(); }
+    internal void Reload(){lock(_gate){_dictionarySignature="";}}
+    public void Dispose() {lock(_gate){_loadGeneration++;_enabled=false;StopLocked();_translator?.Dispose();_translator=null;_recordStroke=null;}}
 }

@@ -1,0 +1,438 @@
+//---------------------------------------------------------------------------
+
+#include "asset_manager.h"
+#include "base64.h"
+#include "console.h"
+#include "crc32.h"
+#include "flash.h"
+#include "mem.h"
+#include "str.h"
+
+//---------------------------------------------------------------------------
+
+constexpr uint32_t ASSET_DIRECTORY_MAGIC = 0x4A414431; // "JAD1"
+constexpr size_t MINIMUM_ASSET_DIRECTORY_SIZE = 2 * Flash::BLOCK_SIZE;
+
+constexpr intptr_t EMPTY_HASH = -1;
+constexpr intptr_t DELETED_HASH = 0;
+constexpr uint32_t INVALID_INDEX = (uint32_t)-1;
+
+//---------------------------------------------------------------------------
+
+AssetManager AssetManager::instance;
+
+//---------------------------------------------------------------------------
+
+const void *AssetEntry::GetData() const {
+  const size_t idLength = Str::Length(id);
+  const size_t paddedIdLength = AlignUp(idLength + 1, 4);
+  return id + paddedIdLength;
+}
+
+//---------------------------------------------------------------------------
+
+bool AssetDirectory::IsValid() const { return magic == ASSET_DIRECTORY_MAGIC; }
+
+size_t AssetDirectory::GetAssetCount() const {
+  size_t count = 0;
+  if (IsValid()) {
+    for (intptr_t value : hashTable) {
+      if (value != DELETED_HASH && value != EMPTY_HASH) {
+        ++count;
+      }
+    }
+  }
+  return count;
+}
+
+const AssetEntry *AssetDirectory::GetAsset(const char *id) const {
+  const size_t idLength = Str::Length(id);
+  const uint32_t hash = Crc32::Hash(id, idLength);
+  uint32_t index = hash;
+  for (;;) {
+    const intptr_t value = hashTable[index & HASH_TABLE_MASK];
+    if (value == EMPTY_HASH) {
+      return nullptr;
+    }
+
+    if (value != DELETED_HASH) {
+      const AssetEntry *entry = (const AssetEntry *)value;
+      if (entry->idHash == hash && Str::Eq(entry->id, id)) {
+        return entry;
+      }
+    }
+
+    ++index;
+  }
+}
+
+void AssetDirectory::ListAssets() const {
+  Console::Printf("[");
+  bool isFirst = true;
+  for (const intptr_t value : hashTable) {
+    if (value == DELETED_HASH || value == EMPTY_HASH) {
+      continue;
+    }
+
+    const AssetEntry *entry = (const AssetEntry *)value;
+    const char *formatString = ",{id: %Y,size: %u}";
+    Console::Printf(formatString + isFirst, entry->id, entry->size);
+    isFirst = false;
+  }
+  Console::Printf("]\n\n");
+}
+
+//---------------------------------------------------------------------------
+
+void AssetManager::Initialize(intptr_t directoryAddress, intptr_t directorySize,
+                              uint32_t timestamp) {
+  instance.directory = (const AssetDirectory *)directoryAddress;
+  instance.directorySize = directorySize;
+  instance.timestamp = timestamp;
+}
+
+bool AssetManager::IsValid() const {
+  return directory != nullptr && directory->IsValid() &&
+         directorySize >= MINIMUM_ASSET_DIRECTORY_SIZE &&
+         directory->timestamp == timestamp;
+}
+
+const AssetEntry *AssetManager::GetAsset(const char *id) {
+  if (!instance.IsValid()) {
+    return nullptr;
+  }
+
+  return instance.directory->GetAsset(id);
+}
+
+const void *AssetManager::GetAssetData(const char *id) {
+  const AssetEntry *entry = GetAsset(id);
+  if (entry == nullptr) {
+    return nullptr;
+  }
+  return entry->GetData();
+}
+
+intptr_t AssetManager::GetEndEmptyDataRegion() const {
+  intptr_t endEmptyRegion = intptr_t(directory) + directorySize;
+  if (IsValid()) {
+    for (intptr_t value : directory->hashTable) {
+      if (value != DELETED_HASH && value != EMPTY_HASH) {
+        if (value < endEmptyRegion) {
+          endEmptyRegion = value;
+        }
+      }
+    }
+  }
+  return endEmptyRegion;
+}
+
+size_t AssetManager::GetFreeSize() const {
+  if (directory == nullptr || directorySize < MINIMUM_ASSET_DIRECTORY_SIZE) {
+    return 0;
+  }
+  const intptr_t endEmptyRegion = GetEndEmptyDataRegion();
+  const intptr_t startDataRegion = (intptr_t)directory->GetStartDataRegion();
+  return endEmptyRegion - startDataRegion;
+}
+
+//---------------------------------------------------------------------------
+
+const char *AssetManager::AddAsset(const char *id, size_t size) {
+  if (!IsValid()) {
+    ResetHeader();
+  }
+
+  if (directory->GetAssetCount() >= AssetDirectory::MAX_ASSET_COUNT) {
+    return "Too many assets";
+  }
+
+  const size_t idLength = Str::Length(id);
+  if (idLength > 248) {
+    return "Asset name too long";
+  }
+
+  // AssetEntry includes an extra 4 bytes so this padding is correct.
+  const size_t paddedAssetEntryLength = (idLength + sizeof(AssetEntry)) & -4;
+  const size_t paddedDataSize = AlignUp(size, 4);
+
+  const AssetEntry *existingEntry = directory->GetAsset(id);
+  if (existingEntry != nullptr && size <= existingEntry->size) {
+    Flash::instance.BeginWrite((uint8_t *)existingEntry);
+  } else {
+    const size_t totalSize = paddedAssetEntryLength + paddedDataSize;
+    if (totalSize > GetFreeSize()) {
+      return "Insufficient free space";
+    }
+
+    const intptr_t endEmptyRegion = GetEndEmptyDataRegion();
+    const intptr_t startWriteAddress = endEmptyRegion - totalSize;
+
+    Flash::instance.BeginWrite((uint8_t *)startWriteAddress);
+  }
+
+  uint8_t buffer[256] = {};
+  AssetEntry *entry = (AssetEntry *)buffer;
+  entry->size = (uint32_t)size;
+  entry->idHash = Crc32::Hash(id, idLength);
+  Mem::Copy(entry->id, id, idLength);
+
+  Flash::instance.AddData(buffer, paddedAssetEntryLength);
+  assetDataBytesRemaining = (uint32_t)size;
+
+  return nullptr;
+}
+
+void AssetManager::BeginWrite(const uint8_t *address) {
+  Flash::instance.target = address;
+  Flash::instance.writeStart = address;
+
+  const size_t offsetIntoPage =
+      size_t(address) & (Flash::WRITE_DATA_BUFFER_SIZE - 1);
+  Mem::Fill(Flash::instance.buffer, offsetIntoPage);
+
+  const uint8_t *baseAddress =
+      AlignDown(address, Flash::WRITE_DATA_BUFFER_SIZE);
+
+  if (IsValid() &&
+      (uint8_t *)directory + sizeof(AssetDirectory) > baseAddress) {
+    const size_t copyBytes =
+        (uint8_t *)directory + sizeof(AssetDirectory) - baseAddress;
+    Mem::Copy(Flash::instance.buffer, baseAddress,
+              copyBytes & (Flash::WRITE_DATA_BUFFER_SIZE - 1));
+  }
+}
+
+void AssetManager::ResetHeader() {
+  AssetDirectory *newDirectory = new AssetDirectory;
+  newDirectory->magic = ASSET_DIRECTORY_MAGIC;
+  newDirectory->timestamp = timestamp;
+  Mem::Fill(newDirectory->hashTable);
+
+  Flash::Write(directory, newDirectory, sizeof(AssetDirectory),
+               FlashWriteMode::RESET);
+
+  delete newDirectory;
+}
+
+void AssetManager::WriteHeader() {
+  const AssetEntry *newEntry = (AssetEntry *)Flash::instance.writeStart;
+  const uint32_t hash = newEntry->idHash;
+
+  uint32_t index = hash;
+  uint32_t deletedIndex = INVALID_INDEX;
+  for (;;) {
+    index &= AssetDirectory::HASH_TABLE_MASK;
+    switch (const intptr_t value = directory->hashTable[index]; value) {
+    case DELETED_HASH:
+      if (deletedIndex == INVALID_INDEX) {
+        deletedIndex = index;
+      }
+      break;
+
+    case EMPTY_HASH: {
+      const uint32_t newIndex =
+          deletedIndex != INVALID_INDEX ? deletedIndex : index;
+      Flash::Write(&directory->hashTable[newIndex], &newEntry,
+                   sizeof(AssetEntry *), FlashWriteMode::PRESERVE);
+    }
+      return;
+
+    default:
+      const AssetEntry *entry = (const AssetEntry *)value;
+      if (entry->idHash == hash && Str::Eq(entry->id, newEntry->id)) {
+        Flash::Write(&directory->hashTable[index], &newEntry,
+                     sizeof(AssetEntry *), FlashWriteMode::PRESERVE);
+        return;
+      }
+      break;
+    }
+
+    ++index;
+  }
+}
+
+// Returns true if completed, false if more data to be written.
+bool AssetManager::Write(const uint8_t *data, size_t byteCount) {
+  Flash::instance.AddData(data, byteCount);
+
+  assetDataBytesRemaining -= byteCount;
+  if (assetDataBytesRemaining != 0) {
+    return false;
+  }
+
+  Flash::instance.WriteRemaining();
+  WriteHeader();
+  return true;
+}
+
+//---------------------------------------------------------------------------
+
+void AssetManager::PrintFreeSize() {
+  Console::Printf("0x%x\n\n", instance.GetFreeSize());
+}
+
+void AssetManager::AddAsset_Binding(void *context, const char *commandLine) {
+  static constexpr const char *errors[] = {
+      "ERR Missing size\n\n",
+  };
+  int size;
+  const char *p = Str::ParseCommandLine(&size, commandLine, 1, errors);
+  if (!p) {
+    return;
+  }
+
+  if (*p != ' ') {
+    Console::Printf("ERR No id specified\n\n");
+    return;
+  }
+  ++p;
+
+  AssetManager *instance = (AssetManager *)context;
+  const char *errorMessage = instance->AddAsset(p, size);
+  if (errorMessage) {
+    Console::Printf("ERR %s\n\n", errorMessage);
+    return;
+  }
+
+  Console::SendOk();
+}
+
+void AssetManager::AssetData_Binding(void *context, const char *commandLine) {
+  const char *p = strchr(commandLine, ' ');
+  if (!p) {
+    Console::Printf("ERR Missing data\n\n");
+    return;
+  }
+
+  if (Flash::instance.target == nullptr) {
+    Console::Printf("ERR No write in progress\n\n");
+    return;
+  }
+
+  uint8_t decodeBuffer[256];
+  if (Str::Length(p) >= sizeof(decodeBuffer) * 4 / 3) {
+    Console::Printf("ERR Data too long\n\n");
+    return;
+  }
+  const size_t byteCount = Base64::Decode(decodeBuffer, (const uint8_t *)p);
+
+  if (byteCount == 0) {
+    Console::Printf("ERR No data\n\n");
+    return;
+  }
+
+  AssetManager *instance = (AssetManager *)context;
+  if (byteCount > instance->assetDataBytesRemaining) {
+    Console::Printf("ERR Too much data\n\n");
+    Flash::instance.target = nullptr;
+    return;
+  }
+
+  if (!instance->Write(decodeBuffer, byteCount)) {
+    Console::SendOk();
+  } else {
+    Console::Printf("OK Completed\n\n");
+  }
+}
+
+void AssetManager::GetAsset_Binding(void *context, const char *commandLine) {
+  const char *p = strchr(commandLine, ' ');
+  if (!p) {
+    Console::Printf("ERR No assetId specified\n\n");
+    return;
+  }
+  ++p;
+  const AssetManager *instance = (AssetManager *)context;
+  const AssetEntry *entry = instance->GetAsset(p);
+  if (entry == nullptr) {
+    Console::Printf("ERR Missing assetId\n\n");
+    return;
+  }
+  Console::Printf("%D\n\n", entry->GetData(), entry->size);
+}
+
+void AssetManager::ListAssets_Binding(void *context, const char *commandLine) {
+  const AssetManager *instance = (AssetManager *)context;
+  if (!instance->IsValid()) {
+    Console::Printf("[]\n\n");
+    return;
+  }
+
+  instance->directory->ListAssets();
+}
+
+void AssetManager::ResetAssets_Binding(void *context, const char *commandLine) {
+  AssetManager *instance = (AssetManager *)context;
+  if (instance->directory == nullptr) {
+    Console::Printf("ERR Unable to reset assets\n\n");
+    return;
+  }
+  instance->ResetHeader();
+  Console::SendOk();
+}
+
+void AssetManager::AddConsoleCommands(Console &console) {
+  console.RegisterCommand("list_assets", "Lists all assets on the device",
+                          &ListAssets_Binding, &instance);
+  console.RegisterCommand("get_asset", "Gets asset with specified id",
+                          &GetAsset_Binding, &instance);
+  console.RegisterCommand("add_asset", "Adds an asset to the device",
+                          &AddAsset_Binding, &instance);
+  console.RegisterCommand(
+      "asset_data", "Uploads asset_data for the previous add_asset command",
+      &AssetData_Binding, &instance);
+  console.RegisterCommand("reset_assets", "Removes all assets on the device",
+                          &ResetAssets_Binding, &instance);
+}
+
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+#include "unit_test.h"
+
+//---------------------------------------------------------------------------
+
+class AssetManagerTest {
+public:
+  static void TestAddition();
+};
+
+[[gnu::aligned(4096)]] static char assetData[16 * 1024];
+
+void AssetManagerTest::TestAddition() {
+  char *buffer = assetData;
+  memset(buffer, 0, 16384);
+
+  AssetManager::Initialize(intptr_t(buffer), 16384, 0);
+  assert(!AssetManager::instance.IsValid());
+
+  assert(AssetManager::instance.AddAsset("test_id", 64) == nullptr);
+
+  uint8_t data[64];
+  for (int i = 0; i < 64; ++i) {
+    data[i] = i;
+  }
+  AssetManager::instance.Write(data, 64);
+
+  const AssetEntry *entry = AssetManager::instance.GetAsset("test_id");
+  assert(entry != nullptr);
+  assert(entry->size == 64);
+  assert(memcmp(entry->GetData(), data, 64) == 0);
+
+  // Second id addition.
+  assert(AssetManager::instance.AddAsset("test_id2", 64) == nullptr);
+  AssetManager::instance.Write(data, 64);
+
+  entry = AssetManager::instance.GetAsset("test_id2");
+  assert(entry != nullptr);
+  assert(entry->size == 64);
+  assert(memcmp(entry->GetData(), data, 64) == 0);
+}
+
+TEST_BEGIN("AssetManager: Test addition of asset") {
+  AssetManagerTest::TestAddition();
+}
+TEST_END
+
+//---------------------------------------------------------------------------

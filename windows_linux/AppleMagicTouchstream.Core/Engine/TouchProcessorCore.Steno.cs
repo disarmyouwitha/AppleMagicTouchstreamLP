@@ -22,7 +22,12 @@ internal sealed partial class TouchProcessorCore
         if(_seenContactMask==0) _layoutWaitForAllUp=false;
     }
     internal void TickSteno(long timestamp)
-    { if(IsSteno && _stenoChord.Tick(timestamp/(double)Stopwatch.Frequency)) StenoOutput.Invalidate(); }
+    {
+        if(!IsSteno)return;double now=timestamp/(double)Stopwatch.Frequency;
+        if(_stenoChord.Tick(now)){StenoOutput.Invalidate();return;}
+        if(_stenoAdmitted && _typingEnabled && _hapticsOnKeyDispatch && (_config.StenoHapticTouch ?? _config.StenoHaptics==StenoHapticMode.KeyContact))
+        {byte pads=_stenoChord.DrainSettledTouch(now);for(int i=0;i<2;i++)if((pads&(1<<i))!=0)EnqueueStenoHaptic((TrackpadSide)i,timestamp,0);}
+    }
     internal void ClaimStenoPointer()
     {
         _stenoChord.Cancel(_seenContactMask);
@@ -57,13 +62,13 @@ internal sealed partial class TouchProcessorCore
         if(_stenoChord.FrameInvalidated) StenoOutput.Invalidate();
         lock(StenoOutput.Sync)
         {
-            if(_hapticsOnKeyDispatch && _config.StenoHaptics==StenoHapticMode.KeyContact && _stenoChord.NewlyPressedKeys!=0)
-                EnqueueStenoHaptic(side,timestamp,_stenoChord.NewlyPressedKeys);
+            if(_hapticsOnKeyDispatch && (_config.StenoHapticTouch ?? _config.StenoHaptics==StenoHapticMode.KeyContact))
+                for(int i=0;i<2;i++)if((_stenoChord.TouchFeedbackPads&(1<<i))!=0)EnqueueStenoHaptic((TrackpadSide)i,timestamp,mask);
             if(mask!=0)
             {
                 EnqueueDispatchEvent(DispatchEventKind.StenoStroke,0,DispatchMouseButton.None,0,DispatchEventFlags.None,
                     side,timestamp,GeminiPRPacket.RecordingLabel(mask),stenoMask:mask,stenoGeneration:StenoOutput.Generation);
-                if(_hapticsOnKeyDispatch && _config.StenoHaptics==StenoHapticMode.ChordRelease)
+                if(_hapticsOnKeyDispatch && (_config.StenoHapticRelease ?? _config.StenoHaptics==StenoHapticMode.ChordRelease))
                     for(int i=0;i<2;i++) if((_stenoChord.StrokePads&(1<<i))!=0) EnqueueStenoHaptic((TrackpadSide)i,timestamp,mask);
             }
         }
@@ -80,12 +85,13 @@ internal sealed partial class TouchProcessorCore
             var layout=s==0 ? _leftLayout : _rightLayout; var regions=new List<StenoRegion>();
             for(int r=0;r<layout.Rects.Length;r++) for(int c=0;c<layout.Rects[r].Length;c++)
             {
+                if(layout.Rects[r][c].Width<=0 || layout.Rects[r][c].Height<=0 || !layout.Visible(r,c,_activeLayer))continue;
                 string label=_keymap.ResolveMapping(_activeLayer,GridKeyPosition.StorageKey((TrackpadSide)s,r,c),layout.Labels[r][c]).Primary.Label;
                 if(!GeminiPRPacket.TryResolve(label,out var key)) continue;
                 var rect=layout.Rects[r][c];
                 // Match Mac's 1.5mm edge expansion, including upper/lower seams.
                 rect=rect with { X=rect.X-1.5/160,Y=rect.Y-1.5/114.9,Width=rect.Width+3.0/160,Height=rect.Height+3.0/114.9 };
-                regions.Add(new(key,KeyHitGeometry.FromRect(rect)));
+                regions.Add(new(key,layout.UsePhysicalRotation ? KeyHitGeometry.FromPhysicalRect(rect):KeyHitGeometry.FromRect(rect)));
             }
             _stenoRegions[s]=regions.ToArray();
         }

@@ -19,7 +19,9 @@ public enum DispatchEventKind : byte
     GestureShortcutTap = 12,
     ReleaseAllKeyboard = 13,
     StenoStroke = 14,
-    StenoHaptic = 15
+    StenoHaptic = 15,
+    Text = 16,
+    GestureText = 17
 }
 
 public enum DispatchMouseButton : byte
@@ -161,7 +163,8 @@ public enum DispatchSemanticKind : ushort
     LayerSet = 1 << 6,
     LayerToggle = 1 << 7,
     MomentaryLayer = 1 << 8,
-    AppLaunch = 1 << 9
+    AppLaunch = 1 << 9,
+    Text = 1 << 10
 }
 
 [Flags]

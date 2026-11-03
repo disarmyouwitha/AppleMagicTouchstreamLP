@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);AMT_PORTABLE_TESTS</DefineConstants><AssemblyName>AppleMagicTouchstream</AssemblyName><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../AppleMagicTouchstream.Core/AppleMagicTouchstream.Core.csproj" />
+    <Compile Include="../HandGestureTests.cs" Link="HandGestureTests.cs" />
+    <Compile Include="../StenoTests.cs" Link="StenoTests.cs" />
+    <Compile Include="../StenoPointerTests.cs" Link="StenoPointerTests.cs" />
+    <EmbeddedResource Include="../Fixtures/ApplePointerAccelerationVectors.json" />
+    <EmbeddedResource Include="../Fixtures/TwoFingerTapLanding.json" />
+    <EmbeddedResource Include="../Fixtures/TwoFingerTapMovingMouse.json" />
+    <None Include="../../DEFAULT_KEYMAP.json" Link="DEFAULT_KEYMAP.json" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../StenoTransportParityTests.cs" Link="StenoTransportParityTests.cs" />
+    <Compile Include="../../WindowsStenoConnection.cs" Link="WindowsStenoConnection.cs" />
+    <Compile Include="../JavelinParityTests.cs" Link="JavelinParityTests.cs" />
+    <Compile Include="../../WindowsJavelin.cs" Link="WindowsJavelin.cs" />
+    <None Include="../../Assets/Javelin/**" Link="Assets/Javelin/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../RewriteParityTests.cs" Link="RewriteParityTests.cs" />
+    <Compile Include="../../MacLayoutTemplates.cs" Link="MacLayoutTemplates.cs" />
+    <Compile Include="../../WindowsInputPolicy.cs" Link="WindowsInputPolicy.cs" />
+    <EmbeddedResource Include="../../Assets/MacTemplateSettings.json" LogicalName="AppleMagicTouchstream.MacTemplateSettings.json" />
+    <EmbeddedResource Include="../../Assets/MacLayoutTemplates.json" LogicalName="AppleMagicTouchstream.MacLayoutTemplates.json" />
+    <Compile Include="../MacMotionTests.cs" Link="MacMotionTests.cs" />
+    <Compile Include="../ShapeGestureParityTests.cs" Link="ShapeGestureParityTests.cs" />
+    <Compile Include="../GestureRecognitionTests.cs" Link="GestureRecognitionTests.cs" />
+    <EmbeddedResource Include="../Fixtures/RotationCountsMac.json" />
+    <Compile Include="../../WindowsAbsolutePointer.cs" Link="WindowsAbsolutePointer.cs" />
+    <Compile Include="../WindowsAbsolutePointerTests.cs" Link="WindowsAbsolutePointerTests.cs" />
+    <Compile Include="../../CapturedMacMotionProfiles.cs" Link="CapturedMacMotionProfiles.cs" />
+    <EmbeddedResource Include="../../MotionProfiles/mac-motion.json" LogicalName="AppleMagicTouchstream.mac-motion.json" />
+    <EmbeddedResource Include="../Fixtures/AppleScrollAccelerationVectors.json" />
+    <EmbeddedResource Include="../Fixtures/CapturedMacMotionVectors.json" />
+  </ItemGroup>
+</Project>

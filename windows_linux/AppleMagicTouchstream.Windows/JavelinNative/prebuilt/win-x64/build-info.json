@@ -1,0 +1,40 @@
+{
+  "upstream": "https://github.com/jthlim/javelin-steno",
+  "revision": "7efd1e13a74f00ba4d2e793198546e6dc83c7fbe",
+  "host": "AMT Mac Bridge.cc with portable exported API",
+  "target": "x86_64-windows-gnu",
+  "compiler": "Zig 0.13.0 / Clang 18.1.6",
+  "options": [
+    "Release",
+    "-mno-ms-bitfields",
+    "static C++ runtime",
+    "strip-all"
+  ],
+  "sha256": "ed8bd5712e9be09450cb35886199716afdfce2f7a1d9af7943549dfbcde34bf3",
+  "imports": [
+    "KERNEL32.dll",
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-math-l1-1-0.dll",
+    "api-ms-win-crt-private-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "api-ms-win-crt-utility-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-environment-l1-1-0.dll",
+    "api-ms-win-crt-time-l1-1-0.dll",
+    "api-ms-win-crt-convert-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll"
+  ],
+  "exports": [
+    "AMTJavelinCreate",
+    "AMTJavelinDestroy",
+    "AMTJavelinAdd",
+    "AMTJavelinFormatStroke",
+    "AMTJavelinCanonicalOutline",
+    "AMTJavelinReset",
+    "AMTJavelinProcess",
+    "AMTJavelinDeleteCount",
+    "AMTJavelinTextCount",
+    "AMTJavelinTextAt"
+  ]
+}

@@ -1,0 +1,611 @@
+{
+  "capturedAt" : "2026-11-02T05:50:50Z",
+  "devices" : [
+    {
+      "pointer" : {
+        "acceleration" : 3,
+        "algorithm_rate" : 67,
+        "curves" : [
+          {
+            "HIDAccelGainCubic" : 0,
+            "HIDAccelGainLinear" : 1,
+            "HIDAccelGainParabolic" : 0,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+            "HIDAccelTangentSpeedParabolicRoot" : 21,
+            "index" : 0
+          },
+          {
+            "HIDAccelGainCubic" : 0.0800018310546875,
+            "HIDAccelGainLinear" : 0.9900054931640625,
+            "HIDAccelGainParabolic" : 0.5,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.3000030517578125,
+            "HIDAccelTangentSpeedParabolicRoot" : 20,
+            "index" : 0.125
+          },
+          {
+            "HIDAccelGainCubic" : 0.100006103515625,
+            "HIDAccelGainLinear" : 0.9799957275390625,
+            "HIDAccelGainParabolic" : 0.660003662109375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+            "HIDAccelTangentSpeedParabolicRoot" : 19,
+            "index" : 0.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.1199951171875,
+            "HIDAccelGainLinear" : 0.9600067138671875,
+            "HIDAccelGainParabolic" : 0.8300018310546875,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.100006103515625,
+            "HIDAccelTangentSpeedParabolicRoot" : 18,
+            "index" : 0.6875
+          },
+          {
+            "HIDAccelGainCubic" : 0.149993896484375,
+            "HIDAccelGainLinear" : 0.94000244140625,
+            "HIDAccelGainParabolic" : 1,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 17,
+            "index" : 0.875
+          },
+          {
+            "HIDAccelGainCubic" : 0.17999267578125,
+            "HIDAccelGainLinear" : 0.9199981689453125,
+            "HIDAccelGainParabolic" : 1.149993896484375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 16,
+            "index" : 1
+          },
+          {
+            "HIDAccelGainCubic" : 0.2100067138671875,
+            "HIDAccelGainLinear" : 0.8899993896484375,
+            "HIDAccelGainParabolic" : 1.3000030517578125,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 15,
+            "index" : 1.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.2400054931640625,
+            "HIDAccelGainLinear" : 0.8600006103515625,
+            "HIDAccelGainParabolic" : 1.4499969482421875,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 14,
+            "index" : 2
+          },
+          {
+            "HIDAccelGainCubic" : 0.279998779296875,
+            "HIDAccelGainLinear" : 0.8300018310546875,
+            "HIDAccelGainParabolic" : 1.660003662109375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 13,
+            "index" : 2.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.3600006103515625,
+            "HIDAccelGainLinear" : 1,
+            "HIDAccelGainParabolic" : 1.8800048828125,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 12,
+            "index" : 3
+          }
+        ],
+        "device_id" : "Captured Mac left",
+        "fixed_multiplier" : 0.7407379150390625,
+        "report_rate" : 0,
+        "resolution" : 400
+      },
+      "pointerSensitivity" : 1,
+      "scroll" : {
+        "horizontal" : {
+          "acceleration" : 0.5,
+          "algorithm_rate" : 67,
+          "curves" : [
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 1,
+              "HIDAccelGainParabolic" : 0,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.9499969482421875,
+              "HIDAccelGainParabolic" : 0.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.125
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.899993896484375,
+              "HIDAccelGainParabolic" : 0.899993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.850006103515625,
+              "HIDAccelGainParabolic" : 1.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.6875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.8000030517578125,
+              "HIDAccelGainParabolic" : 1.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.75,
+              "HIDAccelGainParabolic" : 1.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.6999969482421875,
+              "HIDAccelGainParabolic" : 1.8000030517578125,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.649993896484375,
+              "HIDAccelGainParabolic" : 2,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.600006103515625,
+              "HIDAccelGainParabolic" : 2.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.5500030517578125,
+              "HIDAccelGainParabolic" : 2.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 3
+            }
+          ],
+          "resolution" : 400
+        },
+        "natural" : false,
+        "vertical" : {
+          "acceleration" : 0.5,
+          "algorithm_rate" : 67,
+          "curves" : [
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 1,
+              "HIDAccelGainParabolic" : 0,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.9499969482421875,
+              "HIDAccelGainParabolic" : 0.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.125
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.899993896484375,
+              "HIDAccelGainParabolic" : 0.899993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.850006103515625,
+              "HIDAccelGainParabolic" : 1.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.6875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.8000030517578125,
+              "HIDAccelGainParabolic" : 1.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.75,
+              "HIDAccelGainParabolic" : 1.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.6999969482421875,
+              "HIDAccelGainParabolic" : 1.8000030517578125,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.649993896484375,
+              "HIDAccelGainParabolic" : 2,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.600006103515625,
+              "HIDAccelGainParabolic" : 2.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.5500030517578125,
+              "HIDAccelGainParabolic" : 2.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 3
+            }
+          ],
+          "resolution" : 400
+        }
+      },
+      "scrollSensitivity" : 1,
+      "side" : "left"
+    },
+    {
+      "pointer" : {
+        "acceleration" : 3,
+        "algorithm_rate" : 67,
+        "curves" : [
+          {
+            "HIDAccelGainCubic" : 0,
+            "HIDAccelGainLinear" : 1,
+            "HIDAccelGainParabolic" : 0,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+            "HIDAccelTangentSpeedParabolicRoot" : 21,
+            "index" : 0
+          },
+          {
+            "HIDAccelGainCubic" : 0.0800018310546875,
+            "HIDAccelGainLinear" : 0.9900054931640625,
+            "HIDAccelGainParabolic" : 0.5,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.3000030517578125,
+            "HIDAccelTangentSpeedParabolicRoot" : 20,
+            "index" : 0.125
+          },
+          {
+            "HIDAccelGainCubic" : 0.100006103515625,
+            "HIDAccelGainLinear" : 0.9799957275390625,
+            "HIDAccelGainParabolic" : 0.660003662109375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+            "HIDAccelTangentSpeedParabolicRoot" : 19,
+            "index" : 0.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.1199951171875,
+            "HIDAccelGainLinear" : 0.9600067138671875,
+            "HIDAccelGainParabolic" : 0.8300018310546875,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7.100006103515625,
+            "HIDAccelTangentSpeedParabolicRoot" : 18,
+            "index" : 0.6875
+          },
+          {
+            "HIDAccelGainCubic" : 0.149993896484375,
+            "HIDAccelGainLinear" : 0.94000244140625,
+            "HIDAccelGainParabolic" : 1,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 17,
+            "index" : 0.875
+          },
+          {
+            "HIDAccelGainCubic" : 0.17999267578125,
+            "HIDAccelGainLinear" : 0.9199981689453125,
+            "HIDAccelGainParabolic" : 1.149993896484375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 16,
+            "index" : 1
+          },
+          {
+            "HIDAccelGainCubic" : 0.2100067138671875,
+            "HIDAccelGainLinear" : 0.8899993896484375,
+            "HIDAccelGainParabolic" : 1.3000030517578125,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 15,
+            "index" : 1.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.2400054931640625,
+            "HIDAccelGainLinear" : 0.8600006103515625,
+            "HIDAccelGainParabolic" : 1.4499969482421875,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 14,
+            "index" : 2
+          },
+          {
+            "HIDAccelGainCubic" : 0.279998779296875,
+            "HIDAccelGainLinear" : 0.8300018310546875,
+            "HIDAccelGainParabolic" : 1.660003662109375,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 13,
+            "index" : 2.5
+          },
+          {
+            "HIDAccelGainCubic" : 0.3600006103515625,
+            "HIDAccelGainLinear" : 1,
+            "HIDAccelGainParabolic" : 1.8800048828125,
+            "HIDAccelGainQuartic" : 0,
+            "HIDAccelTangentSpeedLinear" : 7,
+            "HIDAccelTangentSpeedParabolicRoot" : 12,
+            "index" : 3
+          }
+        ],
+        "device_id" : "Captured Mac right",
+        "fixed_multiplier" : 0.7407379150390625,
+        "report_rate" : 0,
+        "resolution" : 400
+      },
+      "pointerSensitivity" : 1,
+      "scroll" : {
+        "horizontal" : {
+          "acceleration" : 0.5,
+          "algorithm_rate" : 67,
+          "curves" : [
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 1,
+              "HIDAccelGainParabolic" : 0,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.9499969482421875,
+              "HIDAccelGainParabolic" : 0.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.125
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.899993896484375,
+              "HIDAccelGainParabolic" : 0.899993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.850006103515625,
+              "HIDAccelGainParabolic" : 1.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.6875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.8000030517578125,
+              "HIDAccelGainParabolic" : 1.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.75,
+              "HIDAccelGainParabolic" : 1.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.6999969482421875,
+              "HIDAccelGainParabolic" : 1.8000030517578125,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.649993896484375,
+              "HIDAccelGainParabolic" : 2,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.600006103515625,
+              "HIDAccelGainParabolic" : 2.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.5500030517578125,
+              "HIDAccelGainParabolic" : 2.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 3
+            }
+          ],
+          "resolution" : 400
+        },
+        "natural" : false,
+        "vertical" : {
+          "acceleration" : 0.5,
+          "algorithm_rate" : 67,
+          "curves" : [
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 1,
+              "HIDAccelGainParabolic" : 0,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.9499969482421875,
+              "HIDAccelGainParabolic" : 0.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.125
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.899993896484375,
+              "HIDAccelGainParabolic" : 0.899993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.850006103515625,
+              "HIDAccelGainParabolic" : 1.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.6875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.8000030517578125,
+              "HIDAccelGainParabolic" : 1.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 6.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 0.875
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.75,
+              "HIDAccelGainParabolic" : 1.600006103515625,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.6999969482421875,
+              "HIDAccelGainParabolic" : 1.8000030517578125,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.1999969482421875,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 1.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.649993896484375,
+              "HIDAccelGainParabolic" : 2,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.399993896484375,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.600006103515625,
+              "HIDAccelGainParabolic" : 2.1999969482421875,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.600006103515625,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 2.5
+            },
+            {
+              "HIDAccelGainCubic" : 0,
+              "HIDAccelGainLinear" : 0.5500030517578125,
+              "HIDAccelGainParabolic" : 2.399993896484375,
+              "HIDAccelGainQuartic" : 0,
+              "HIDAccelTangentSpeedLinear" : 7.8000030517578125,
+              "HIDAccelTangentSpeedParabolicRoot" : 12,
+              "index" : 3
+            }
+          ],
+          "resolution" : 400
+        }
+      },
+      "scrollSensitivity" : 1,
+      "side" : "right"
+    }
+  ],
+  "schema" : "amt.mac-motion.v1",
+  "source" : "Mac AMT live-reader precedence; selected Magic Trackpads; identifying metadata omitted"
+}
