@@ -62,5 +62,63 @@ internal static class DecoderSessionTests
         Check(decode(1,Official(),out result) && result.Profile==TrackpadDecoderProfile.Official,"return to Auto did not reacquire");
         session.Reset();
         Check(decode(1,Legacy(),out result) && result.Profile==TrackpadDecoderProfile.Legacy,"selection refresh retained the old lock");
+        RunExtendedPtpTests();
+    }
+
+    private static void RunExtendedPtpTests()
+    {
+        // Upstream PTP_REPORT_MT2: five packed 21-byte contacts, then the
+        // scan time, contact count, mechanical force and button at the tail.
+        byte[] packet=new byte[112]; packet[0]=5; packet[108]=5; packet[111]=1;
+        BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(106),1234);
+        for (int i=0;i<5;i++)
+        {
+            int offset=1+i*21; packet[offset]=3;
+            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset+1),(uint)(i+10));
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(offset+5),(ushort)(1000+i*1500));
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(offset+7),(ushort)(500+i*1000));
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(offset+9),400);
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(offset+11),500);
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(offset+13),(ushort)(100+i));
+            packet[offset+15]=40; packet[offset+16]=60; packet[offset+17]=30;
+            packet[offset+18]=4; packet[offset+19]=2; packet[offset+20]=4;
+        }
+        var info=new RawInputDeviceInfo(0x05ac,RawInputInterop.ProductIdMt2UsbC,0x0d,5);
+        var device=new RawInputDeviceSnapshot("extended-pad",info,new(0,2));
+        var session=new TrackpadDecoderSession();
+        var overrides=new Dictionary<string,TrackpadDecoderProfile>();
+        bool decode(byte[] bytes,out TrackpadDecodeResult result)
+            => session.TryDecode(3,in device,bytes,100,overrides,out _,out result);
+        Check(decode(packet,out var decoded) && decoded.Kind==TrackpadReportKind.PtpExtended,
+            "112-byte PTP report was decoded using the old layout");
+        Check(decoded.Frame.ScanTime==1234 && decoded.Frame.ContactCount==5 && decoded.Frame.IsButtonPressed,
+            "extended PTP tail offsets are wrong");
+        for (int i=0;i<5;i++)
+        {
+            var contact=decoded.Frame.GetContact(i);
+            Check(contact.Id==i+10 && contact.X==1000+i*1500 && contact.Y==500+i*1000
+                && contact.TipSwitch && contact.Confidence && contact.HasForceData
+                && contact.Pressure8==100+i && contact.Phase8==0,
+                "extended PTP contact fields/stride are wrong");
+        }
+        packet[108]=1;
+        BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(6),7400);
+        Check(decode(packet,out decoded) && decoded.Frame.Contact0.X==7400 && decoded.Frame.Contact0.Id==10,
+            "extended movement changed identity or coordinates");
+        packet[108]=0; packet[111]=0;
+        Check(decode(packet,out decoded) && decoded.Frame.ContactCount==0 && !decoded.Frame.IsButtonPressed,
+            "extended all-up failed");
+        packet[108]=6;
+        Check(!decode(packet,out _),"invalid extended count fell back to legacy parsing");
+        session.Reset();
+        Check(!decode(packet,out _),"invalid initial extended packet fell back to legacy parsing");
+        packet[108]=1;
+        Check(decode(packet,out _),"extended stream could not reacquire");
+        Check(!decode(packet[..111],out _),"locked extended report accepted a truncated layout");
+        packet[0]=6;
+        Check(!decode(packet,out _),"extended stream accepted a different report ID");
+        session.Reset();
+        Check(decode(Legacy(),out decoded) && decoded.Kind==TrackpadReportKind.PtpNative,
+            "old PTP layout stopped working");
     }
 }

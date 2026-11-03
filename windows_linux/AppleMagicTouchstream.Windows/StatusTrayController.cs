@@ -31,7 +31,7 @@ internal sealed class StatusTrayController : IDisposable
         _replayItem = new WinForms.ToolStripMenuItem("Replay", null, (_, _) => startReplay());
         _restartItem = new WinForms.ToolStripMenuItem("Restart", null, (_, _) => restartApplication());
         _exitItem = new WinForms.ToolStripMenuItem("Exit", null, (_, _) => exitApplication());
-        _releaseMouseTakeoverItem = new WinForms.ToolStripMenuItem("Release Mouse Takeover (Ctrl+Alt+R)", null, (_, _) => releaseMouseTakeover()) { Enabled = false };
+        _releaseMouseTakeoverItem = new WinForms.ToolStripMenuItem("Release Mouse Takeover", null, (_, _) => releaseMouseTakeover()) { Enabled = false };
         _menu.Items.Add(_openItem);
         _menu.Items.Add(_releaseMouseTakeoverItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
@@ -62,9 +62,10 @@ internal sealed class StatusTrayController : IDisposable
         _menu.Dispose();
     }
 
-    public void SetMouseTakeoverIndicator(bool enabled)
+    public void SetMouseTakeoverIndicator(bool enabled,string? releaseShortcut=null)
     {
         _mouseTakeoverEnabled = enabled;
+        _releaseMouseTakeoverItem.Text="Release Mouse Takeover"+(releaseShortcut is null ? "" : " ("+releaseShortcut+")");
         UpdateTakeoverStatus();
     }
 

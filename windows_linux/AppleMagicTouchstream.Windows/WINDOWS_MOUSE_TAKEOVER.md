@@ -6,11 +6,11 @@
 
 - Check it for continuous takeover and save opt-in for future launches; uncheck to release and save Off.
 - **30sec test** checks it temporarily, displays a countdown, then releases and unchecks it without changing saved opt-in.
-- **Ctrl+Alt+R** releases globally and clears the checkbox. This matches Mac's **Control+Option+R** letter shortcut. It is release-only, not a toggle. No function key is required.
+- **Ctrl+Alt+R** releases globally and clears the checkbox. If occupied, the app tries **Ctrl+Alt+F10**, **Ctrl+Alt+F9**, then **Ctrl+Alt+F8**. The Config window and tray display the shortcut that registered. It is release-only, not a toggle.
 - With Config focused, use Alt+M or focus the checkbox and press Space to toggle it. Physical mouse clicks are blocked while takeover is on; the global release shortcut remains available.
 - The status beside the checkbox indicates on/off, countdown, or an activation problem. The tray tooltip shows Mouse Takeover ON, and its menu offers Release Mouse Takeover.
 
-The shortcut must register successfully before activation is allowed. If another app owns Ctrl+Alt+R, the checkbox is disabled and shows the reason.
+One release shortcut must register successfully before activation is allowed. The checkbox stays disabled and shows the reason if all candidates are occupied. The window message handler, mouse hook and emergency watchdog use the same selected key.
 
 ## Scope and lifecycle
 

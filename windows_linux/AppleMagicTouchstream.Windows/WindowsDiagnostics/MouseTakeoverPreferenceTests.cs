@@ -6,6 +6,13 @@ internal static class MouseTakeoverPreferenceTests
 {
     public static void Run()
     {
+        var attempted=new List<uint>();
+        uint fallback=MouseTakeoverReleaseShortcut.Select(key=> { attempted.Add(key); return key==0x78; });
+        if (fallback!=0x78 || !attempted.SequenceEqual(new uint[] { 0x52,0x79,0x78 })
+            || MouseTakeoverReleaseShortcut.Label(fallback)!="Ctrl+Alt+F9"
+            || MouseTakeoverReleaseShortcut.Select(_=>false)!=0
+            || MouseTakeoverReleaseShortcut.Select(_=>true)!=0x52)
+            throw new InvalidOperationException("Release shortcut collision fallback failed");
         string path=Path.Combine(Path.GetTempPath(),"AppleMagicTouchstream-takeover-"+Guid.NewGuid().ToString("N")+".json");
         void Check(bool condition,string message) { if(!condition) throw new InvalidOperationException(message); }
         try

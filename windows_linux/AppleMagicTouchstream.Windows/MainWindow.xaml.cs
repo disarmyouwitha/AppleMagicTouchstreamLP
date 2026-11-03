@@ -476,6 +476,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         MouseTakeoverCheck.IsEnabled = controller?.Available == true;
         MouseTakeoverTestButton.IsEnabled = controller?.Available == true && !controller.Enabled;
         MouseTakeoverStatusText.Text = IsReplayMode ? "Unavailable during replay" : controller?.Status ?? "Off";
+        MouseTakeoverReleaseText.Text = "Release: "+(controller?.ReleaseShortcut ?? "Unavailable");
         MouseTakeoverStatusText.Foreground = controller?.Enabled == true ? TakeoverActiveBrush : NeutralStatusBrush;
         _updatingMouseTakeover = false;
     }

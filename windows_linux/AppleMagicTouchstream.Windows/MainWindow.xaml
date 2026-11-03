@@ -312,9 +312,9 @@
           </Grid>
         </Expander>
         <WrapPanel Margin="0,9,0,0">
-          <CheckBox x:Name="MouseTakeoverCheck" Content="_Mouse Takeover" Foreground="#e7e9ea" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Remembers your choice for the next launch. Ctrl+Alt+R releases and saves Off. Windows shell gestures may still run." />
+          <CheckBox x:Name="MouseTakeoverCheck" Content="_Mouse Takeover" Foreground="#e7e9ea" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Remembers your choice for the next launch. The displayed release shortcut releases and saves Off. Windows shell gestures may still run." />
           <Button x:Name="MouseTakeoverTestButton" Content="30sec test" Padding="8,3" Margin="0,0,12,0" />
-          <TextBlock Text="Release: Ctrl+Alt+R" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
+          <TextBlock x:Name="MouseTakeoverReleaseText" Text="Release: checking…" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
           <TextBlock x:Name="MouseTakeoverStatusText" Text="Off" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="500" />
         </WrapPanel>
         <TextBlock x:Name="SavedTextOutputStatus" Foreground="#8b949e" FontSize="12" TextWrapping="Wrap" />

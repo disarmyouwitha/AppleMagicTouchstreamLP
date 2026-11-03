@@ -235,6 +235,7 @@ public partial class App : Application
                 () => _runtimeService?.MouseTakeover?.Release("Off · tray release",forgetPreference:true));
             if (_runtimeService.MouseTakeover != null)
                 _runtimeService.MouseTakeover.StateChanged += OnMouseTakeoverStateChanged;
+            OnMouseTakeoverStateChanged();
         }
         catch (Exception ex)
         {
@@ -302,7 +303,8 @@ public partial class App : Application
     private void OnMouseTakeoverStateChanged()
     {
         Dispatcher.BeginInvoke(new Action(() =>
-            _trayController?.SetMouseTakeoverIndicator(_runtimeService?.MouseTakeover?.Enabled == true)));
+            _trayController?.SetMouseTakeoverIndicator(_runtimeService?.MouseTakeover?.Enabled == true,
+                _runtimeService?.MouseTakeover?.ReleaseShortcut)));
     }
 
     private bool TryAcquireSingleInstanceLock(string[] args, bool showErrorDialogs)
