@@ -2473,9 +2473,10 @@ internal static class SelfTestRunner
             ProductId: RawInputInterop.ProductIdMt2,
             UsagePage: RawInputInterop.UsagePageDigitizer,
             Usage: RawInputInterop.UsageTouchpad);
-        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Legacy)
+        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Official ||
+            TrackpadDecoderProfileResolver.ResolveAuto(opensourceLegacyLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Legacy)
         {
-            failure = "auto decoder should prefer legacy for native touchpad usage";
+            failure = "native touchpad usage must preserve Apple packed versus old open-source field layouts";
             return false;
         }
 

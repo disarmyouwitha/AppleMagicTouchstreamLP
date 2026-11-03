@@ -49,14 +49,22 @@ internal static class TrackpadDecoderProfileResolver
     public static bool TryResolveAuto(ReadOnlySpan<byte> payload,in RawInputDeviceInfo deviceInfo,out TrackpadDecoderProfile profile)
     {
         profile=TrackpadDecoderProfile.Official;
-        if (LooksLikeNativeTouchpadUsage(in deviceInfo))
+        // Extended open-source reports have their own unambiguous layout.
+        if (ExtendedPtpReportDecoder.IsExtendedReport(payload,in deviceInfo))
         {
             profile=TrackpadDecoderProfile.Legacy; return true;
         }
 
-        if (LooksLikeOfficialUsageZeroPacket(payload, in deviceInfo))
+        // Apple Bluetooth can advertise digitizer/touchpad usage while still
+        // delivering Apple's packed fields. Usage alone is not a wire format.
+        if (LooksLikeOfficialPacket(payload, in deviceInfo))
         {
             return true;
+        }
+
+        if (LooksLikeNativeTouchpadUsage(in deviceInfo))
+        {
+            profile=TrackpadDecoderProfile.Legacy; return true;
         }
 
         if (LooksLikeLegacyPtpPacket(payload))
@@ -73,13 +81,12 @@ internal static class TrackpadDecoderProfileResolver
                deviceInfo.Usage == RawInputInterop.UsageTouchpad;
     }
 
-    private static bool LooksLikeOfficialUsageZeroPacket(
+    internal static bool LooksLikeOfficialPacket(
         ReadOnlySpan<byte> payload,
         in RawInputDeviceInfo deviceInfo)
     {
         if (!RawInputInterop.IsTargetVidPid(deviceInfo.VendorId, deviceInfo.ProductId) ||
-            deviceInfo.UsagePage != 0 ||
-            deviceInfo.Usage != 0 ||
+            !((deviceInfo.UsagePage == 0 && deviceInfo.Usage == 0) || LooksLikeNativeTouchpadUsage(in deviceInfo)) ||
             payload.Length < PtpReport.ExpectedSize ||
             payload[0] != RawInputInterop.ReportIdMultitouch)
         {

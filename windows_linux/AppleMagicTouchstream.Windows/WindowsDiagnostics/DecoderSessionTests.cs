@@ -67,6 +67,7 @@ internal static class DecoderSessionTests
         session.Reset();
         Check(decode(1,Legacy(),out result) && result.Profile==TrackpadDecoderProfile.Legacy,"selection refresh retained the old lock");
         RunExtendedPtpTests();
+        AppleBluetoothDecoderTests.Run();
     }
 
     private static void RunExtendedPtpTests()
