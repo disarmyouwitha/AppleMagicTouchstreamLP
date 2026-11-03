@@ -191,7 +191,7 @@ internal static class MacGoldParityTests
             for (int i=0;i<=12;i++) Frame(engine,Contacts(count,i*.3),1+i*.05);
             Check(output.Actions.Count==0,"moving chord fired a stationary hold");
         }
-        foreach (var direction in Enum.GetValues<HandMovementDirection>())
+        foreach (var direction in new[]{HandMovementDirection.Up,HandMovementDirection.Down,HandMovementDirection.Left,HandMovementDirection.Right})
         {
             var settings=Empty(); settings.Left.DirectionalMovement=new() { [HandGestureTrigger.FiveFingerMove]=new() { Enabled=true, Actions=new() { [direction]=HandGestureAction.Undo }, RepeatMilliseconds=new() { [direction]=80 } } };
             var (engine,output)=Create(settings);

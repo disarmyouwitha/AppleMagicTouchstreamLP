@@ -6,6 +6,22 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
+- Thumb + 2 diagonal movement (↖/↗/↙/↘) and its independent Hold are available
+  beside Thumb + 2 Tap. New assignments default to None. Activation requires one
+  positively reported thumb and two distinct reported fingertips, consistent
+  reported hand identity when present, and Mac's spread-thumb geometry. Every
+  contact must contribute at least 0.75 mm of coherent diagonal travel; joining
+  contacts establish a fresh baseline. Shape/rotation arbitration remains first.
+  The existing owner survives relabeling/partial lifts until all-up. Deliberate
+  direction changes require another 0.75 mm and an 80 ms output interval. Each
+  diagonal supports Once, timed (80–5000 ms), or motion repeats; stale delivery,
+  invalid input, cancellation and reconfiguration stop output without catch-up.
+  Thumb Hold has its own saved 100–5000 ms threshold (default 500), shortcut-key
+  ownership and balanced release. Known thumb chords cannot fall through to
+  ordinary three-finger Hold. Settings, Mirror Edit, single-pad fallback, action
+  search, feedback and demonstrations cover these inputs. Offline verification:
+  `ThumbGestureParityTests`; optional WPF renders use
+  `APPLEMAGICTOUCHSTREAM_THUMB_PREVIEW_DIR` during `--selftest`.
 - Every 2–5-finger shape page matches the current Mac catalog: **Pinch, Spread,
   Rotate Left, Rotate Right**, plus automatic gray Hold/Lift lifecycle cards.
   Shape demonstrations follow the selected direction. Left/Right, Mirror Edit,
@@ -195,13 +211,12 @@ Existing serialized identities and capture formats remain unchanged.
 
 - Legacy PTP packets do not supply anatomy; thumb-only gestures require the
   extended driver's reported labels. The driver does not supply hand identity,
-  and Windows never invents it from the selected pad. Thumb+2 diagonal movement
-  and dedicated Thumb+2 Hold remain unavailable. Thumb+2 tap is supported.
+  and Windows never invents it from the selected pad. Thumb+2 Tap, Hold and
+  diagonal movement use positive native finger labels.
 - Rotation runs assigned discrete actions/shortcuts. Windows has no equivalent
   to Mac's native Rotate Content event; per user direction, no substitute native
   action is offered. Applications can use their own rotation shortcuts.
-- Coordinated movement/directional gestures and the remaining Thumb+2 families
-  remain separate work. Windows retains established pointer/drag/scroll ownership
+- Windows retains established pointer/drag/scroll ownership
   when Force crosses, unlike Mac's broader Force override.
 - Mouse Takeover retains Windows' all-mouse hook and emergency
   Ctrl+Alt+R. It cannot reproduce Mac selected-device FLTR ownership. Windows shell

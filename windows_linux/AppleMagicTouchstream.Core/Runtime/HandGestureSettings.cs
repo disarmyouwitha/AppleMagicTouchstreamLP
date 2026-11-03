@@ -10,7 +10,8 @@ public enum HandGestureTrigger
     // Append only: profiles have shipped with numeric enum identities.
     FourFingerTap, FiveFingerTap, FiveFingerMove,
     TwoFingerRotateLeft, ThreeFingerRotateLeft, FourFingerRotateLeft, FiveFingerRotateLeft,
-    TwoFingerRotateRight, ThreeFingerRotateRight, FourFingerRotateRight, FiveFingerRotateRight
+    TwoFingerRotateRight, ThreeFingerRotateRight, FourFingerRotateRight, FiveFingerRotateRight,
+    ThumbTwoMove
 }
 public enum HandGestureAction { None, Pointer, PrimaryDrag, Scroll, PrimaryClick, DoubleClick, SecondaryClick, Zoom, NotificationCenter, TaskView, StartMenu, ShowDesktop,
     OpenConfig, ScrollUp, ScrollDown, PanLeft, PanRight, Back, Forward, Copy, Paste, Cut, Undo, Redo, SelectAll, Voice, Custom }
@@ -27,7 +28,7 @@ public sealed record HandShapeRepeat
     };
 }
 public enum HandGestureScope { Left, Right, Both }
-public enum HandMovementDirection { Up, Down, Left, Right }
+public enum HandMovementDirection { Up, Down, Left, Right, UpLeft, UpRight, DownLeft, DownRight }
 public enum HandCornerChord { OuterCorners, InnerCorners, TopOuter, BottomOuter, TopInner, BottomInner }
 public enum CoordinatedHandChord { ThreeFingers, FourFingers, OuterCorners, InnerCorners, TopOuter, BottomOuter, TopInner, BottomInner }
 
@@ -52,6 +53,8 @@ public sealed class CoordinatedGestureSettings
 public sealed class HandDirectionalSettings
 {
     public bool Enabled { get; set; }
+    public Dictionary<HandMovementDirection, HandShapeRepeatMode> RepeatModes { get; set; } = new();
+    public HandShapeRepeatMode Mode(HandMovementDirection direction) => RepeatModes?.GetValueOrDefault(direction) is {} mode && Enum.IsDefined(mode) ? mode : HandShapeRepeatMode.Once;
     public Dictionary<HandMovementDirection, HandGestureAction> Actions { get; set; } = new();
     public Dictionary<HandMovementDirection, double> RepeatMilliseconds { get; set; } = new();
     public HandGestureAction Get(HandMovementDirection direction) => Actions.TryGetValue(direction, out var value)
@@ -60,11 +63,14 @@ public sealed class HandDirectionalSettings
         && double.IsFinite(value) && value > 0 ? Math.Clamp(value, 20, 5000) : 0;
     public bool HasActions => Get(HandMovementDirection.Up) != HandGestureAction.None || Get(HandMovementDirection.Down) != HandGestureAction.None
         || Get(HandMovementDirection.Left) != HandGestureAction.None || Get(HandMovementDirection.Right) != HandGestureAction.None;
-    public HandDirectionalSettings Clone() => new() { Enabled = Enabled, Actions = new(Actions ?? new()), RepeatMilliseconds = new(RepeatMilliseconds ?? new()) };
+    public bool HasDiagonalActions => Get(HandMovementDirection.UpLeft)!=HandGestureAction.None || Get(HandMovementDirection.UpRight)!=HandGestureAction.None
+        || Get(HandMovementDirection.DownLeft)!=HandGestureAction.None || Get(HandMovementDirection.DownRight)!=HandGestureAction.None;
+    public HandDirectionalSettings Clone() => new() { Enabled = Enabled, Actions = new(Actions ?? new()), RepeatModes = new(RepeatModes ?? new()), RepeatMilliseconds = new(RepeatMilliseconds ?? new()) };
 }
 
 public sealed class PerHandGestureSettings
 {
+    public const int ThumbHoldKey = 6;
     public HandGestureAction TwoFingerMove { get; set; } = HandGestureAction.Pointer;
     public HandGestureAction TwoFingerTap { get; set; } = HandGestureAction.PrimaryClick;
     public HandGestureAction ThreeFingerMove { get; set; } = HandGestureAction.PrimaryDrag;
@@ -95,13 +101,14 @@ public sealed class PerHandGestureSettings
         && IsDiscrete(action) ? action : HandGestureAction.None;
     public double CornerMilliseconds(HandCornerChord chord) => CornerHoldThresholds?.GetValueOrDefault(chord,500) is {} value && double.IsFinite(value)
         ? Math.Clamp(value,100,5000) : 500;
-    public HandGestureAction Hold(int count) => count is >= 2 and <= 5 && HoldActions?.GetValueOrDefault(count) is {} action
+    public HandGestureAction Hold(int count) => count is >= 2 and <= ThumbHoldKey && HoldActions?.GetValueOrDefault(count) is {} action
         && IsDiscrete(action) ? action : HandGestureAction.None;
     public double HoldMilliseconds(int count) => HoldThresholds?.GetValueOrDefault(count, 500) is {} value && double.IsFinite(value)
         ? Math.Clamp(value, 100, 5000) : 500;
     public HandDirectionalSettings? Directional(HandGestureTrigger trigger) => IsMovement(trigger)
-        && DirectionalMovement?.GetValueOrDefault(trigger) is { Enabled: true } value ? value : null;
-    public bool Enabled(HandGestureTrigger trigger) => Directional(trigger) is {} directions ? directions.HasActions : Get(trigger) != HandGestureAction.None;
+        && DirectionalMovement?.GetValueOrDefault(trigger) is {} value && (value.Enabled || trigger==HandGestureTrigger.ThumbTwoMove) ? value : null;
+    public bool Enabled(HandGestureTrigger trigger) => Directional(trigger) is {} directions
+        ? (trigger==HandGestureTrigger.ThumbTwoMove ? directions.HasDiagonalActions : directions.HasActions) : Get(trigger) != HandGestureAction.None;
     public PerHandGestureSettings Clone()
     {
         var clone = (PerHandGestureSettings)MemberwiseClone();
@@ -132,11 +139,12 @@ public sealed class PerHandGestureSettings
     public static bool IsDiscrete(HandGestureAction a) => Enum.IsDefined(a) && a is not (HandGestureAction.Pointer or HandGestureAction.PrimaryDrag or HandGestureAction.Scroll or HandGestureAction.Zoom);
     public static bool IsValidCustom(string? label) => !string.IsNullOrWhiteSpace(label) && (TextShortcutReference.TryRead(label,out _) || AppLaunchActionHelper.TryParse(label,out _)
         || DispatchShortcutHelper.TryReadShortcut(label,out _,out _) || DispatchKeyResolver.TryResolveVirtualKey(label,out _));
-    public static bool IsMovement(HandGestureTrigger t) => t is HandGestureTrigger.TwoFingerMove or HandGestureTrigger.ThreeFingerMove or HandGestureTrigger.FourFingerMove or HandGestureTrigger.FiveFingerMove;
+    public static bool IsMovement(HandGestureTrigger t) => t is HandGestureTrigger.TwoFingerMove or HandGestureTrigger.ThreeFingerMove or HandGestureTrigger.FourFingerMove or HandGestureTrigger.FiveFingerMove or HandGestureTrigger.ThumbTwoMove;
     public static HandGestureTrigger? Movement(int count) => count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, 5 => HandGestureTrigger.FiveFingerMove, _ => null };
     public static bool IsContinuous(HandGestureTrigger t) => IsShape(t) || IsMovement(t);
     public static bool Allows(HandGestureTrigger t, HandGestureAction a) => Enum.IsDefined(t) && Enum.IsDefined(a) && (a == HandGestureAction.None
-        || (IsRotation(t) ? IsDiscrete(a)
+        || (t==HandGestureTrigger.ThumbTwoMove ? false
+        : IsRotation(t) ? IsDiscrete(a)
         : IsPinch(t) ? a == HandGestureAction.Zoom || IsDiscrete(a)
         : IsForce(t) ? IsDiscrete(a)
         : IsContinuous(t)
@@ -175,7 +183,7 @@ public sealed class PerHandGestureSettings
         if (DirectionalMovement != null) foreach (var pair in DirectionalMovement.ToArray())
         {
             if (pair.Value==null) { DirectionalMovement.Remove(pair.Key); continue; }
-            pair.Value.Actions ??= new(); pair.Value.RepeatMilliseconds ??= new();
+            pair.Value.Actions ??= new(); pair.Value.RepeatMilliseconds ??= new(); pair.Value.RepeatModes ??= new();
             foreach (var direction in Enum.GetValues<HandMovementDirection>())
                 if (pair.Value.Get(direction)==HandGestureAction.Custom && !IsValidCustom(CustomActions?.GetValueOrDefault(pair.Key+"/"+direction)))
                     pair.Value.Actions[direction]=HandGestureAction.None;
@@ -229,7 +237,7 @@ public sealed class HandGestureSettings
                         }
                     }
                 }
-            for (int count=2;count<=5;count++) if (result.Hold(count)==HandGestureAction.None && Right.Hold(count)!=HandGestureAction.None)
+            for (int count=2;count<=PerHandGestureSettings.ThumbHoldKey;count++) if (result.Hold(count)==HandGestureAction.None && Right.Hold(count)!=HandGestureAction.None)
             {
                 (result.HoldActions ??= new())[count]=Right.Hold(count);
                 (result.HoldThresholds ??= new())[count]=Right.HoldMilliseconds(count); copyCustom("Hold"+count);

@@ -31,6 +31,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Contact telemetry tests failed: "+error.Message); }
         try { NativeGestureParityTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Native gesture parity tests failed: "+error.Message); }
+        try { ThumbGestureParityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Thumb gesture parity tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { ShapeGestureInterfaceTests.Run(); }

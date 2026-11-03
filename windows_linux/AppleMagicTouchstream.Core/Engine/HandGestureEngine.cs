@@ -45,6 +45,9 @@ public sealed class HandGestureEngine
         public readonly CountTap Two = new(2), Three = new(3), Four = new(4), Five = new(5);
         public readonly HandGestureContact[] HoldOrigin = new HandGestureContact[5];
         public int HoldCount;
+        public int HoldKey;
+        public bool HoldSawThumb;
+        public readonly ThumbDirectionalStepper ThumbDirections = new();
         public double HoldSince, DirectionTime, DirectionTravel;
         public bool HoldBlocked, HoldClaimed, CornerPending;
         public HandMovementDirection? Direction;
@@ -103,6 +106,7 @@ public sealed class HandGestureEngine
         p.PendingCount = 0; p.Blocked = true; p.SawFour = false;
         CancelTaps(p); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
         p.HoldCount = 0; p.HoldBlocked = true; p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
+        p.HoldKey=0; p.HoldSawThumb=false; p.ThumbDirections.Reset();
         p.CornerPending = false;
         p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); p.MovementCount=0; p.ForceBlocked = true; p.ForceClaimed = false;
         p.Recognition=null;
@@ -124,6 +128,7 @@ public sealed class HandGestureEngine
         p.Owner = null; p.Accelerator?.Reset(); p.ScrollAccelerator?.Reset();
         p.PendingPointerX=p.PendingPointerY=0;
         p.ShapeRepeat.Reset(); p.Rotation.Reset();
+        p.ThumbDirections.Reset();
         byte bit=(byte)(1<<(int)side);
         if((_dragOwners&bit)!=0){_dragOwners&=(byte)~bit;if(_dragOwners==0)_output.PrimaryButton(false);}
     }
@@ -140,6 +145,9 @@ public sealed class HandGestureEngine
             if (eligible && p.Momentum.Advance(hostTime) is { } delta) _output.Scroll(delta.X, delta.Y);
             if (eligible && p.ShapeRepeat.Tick(hostTime) is {} repeat)
                 Emit(_settings[i],_settings[i].Get(repeat),repeat.ToString());
+            if(eligible && p.Owner==HandGestureTrigger.ThumbTwoMove && _settings[i].Directional(p.Owner.Value) is {} directions
+                && p.ThumbDirections.Tick(hostTime,directions) is {} step)
+                Emit(_settings[i],directions.Get(step),p.Owner.Value+"/"+step);
         }
     }
     public HandGestureEvidence Evidence(TrackpadSide side) => _pads[(int)side].Evidence with { Epoch=_epoch };
@@ -163,6 +171,7 @@ public sealed class HandGestureEngine
         int count = contacts.Length;
         int thumbs=0; foreach(var contact in contacts) if(contact.Finger==1) thumbs++;
         bool hasThumb=thumbs==1;
+        bool thumbChord=ThumbTwoChord.Matches(contacts);
         bool shapeEligible=!_requireThumbForShapes || hasThumb;
         if (keyboardPriority || p.KeyboardOwned)
         {
@@ -176,7 +185,8 @@ public sealed class HandGestureEngine
             3 => enabled(HandGestureTrigger.ThreeFingerMove) || enabled(HandGestureTrigger.ThreeFingerTap) || hasThumb && enabled(HandGestureTrigger.ThumbTwoTap),
             4 => enabled(HandGestureTrigger.FourFingerMove) || enabled(HandGestureTrigger.FourFingerTap),
             5 => enabled(HandGestureTrigger.FiveFingerMove) || enabled(HandGestureTrigger.FiveFingerTap), _ => false };
-        candidate |= settings.Hold(count) != HandGestureAction.None;
+        candidate |= (count!=3 || thumbs==0) && settings.Hold(count) != HandGestureAction.None;
+        candidate |= thumbChord && (enabled(HandGestureTrigger.ThumbTwoMove) || settings.Hold(PerHandGestureSettings.ThumbHoldKey)!=HandGestureAction.None);
         candidate |= count == 4 && settings.CornerAction(HandCornerChord.OuterCorners) != HandGestureAction.None
             && CoordinatedHandGestureEngine.CornerMask(contacts) == 15;
         if (PerHandGestureSettings.Pinch(count) is {} inward && PerHandGestureSettings.Pinch(count,true) is {} outward)
@@ -263,6 +273,7 @@ public sealed class HandGestureEngine
             p.SawFour = false;
             p.ForceBlocked = p.ForceClaimed = false; p.Shape.Reset(); p.MovementCount=0;
             p.HoldCount = 0; p.HoldBlocked = p.HoldClaimed = false; p.Direction = null; p.DirectionTravel = 0;
+            p.HoldKey=0; p.HoldSawThumb=false;
             p.CornerPending = false;
             return reserved;
         }
@@ -304,19 +315,28 @@ public sealed class HandGestureEngine
         // Holds share the same all-up ownership and cleanup path as motion/force.
         // A changed cohort restarts an unresolved hold; an activated owner never changes.
         bool holdReady=false;
+        p.HoldSawThumb |= thumbs>0;
+        if(!p.HoldClaimed && p.HoldKey==PerHandGestureSettings.ThumbHoldKey && (count!=3 || shared!=3)) p.HoldBlocked=true;
         if (!p.Owner.HasValue && !p.ForceClaimed && !p.HoldClaimed && !p.HoldBlocked && count is >= 2 and <= 5)
         {
             if (p.HoldCount != count || shared != count)
-            { p.HoldCount = count; p.HoldSince = time; contacts.CopyTo(p.HoldOrigin); }
+            { p.HoldCount = count; p.HoldSince = time; p.HoldKey=0; contacts.CopyTo(p.HoldOrigin); }
+            if(count==3)
+            {
+                if(p.HoldKey!=PerHandGestureSettings.ThumbHoldKey)
+                    p.HoldKey=thumbChord ? PerHandGestureSettings.ThumbHoldKey : p.HoldSawThumb ? 0:3;
+            }
+            else p.HoldKey=count;
             for (int i = 0; i < count; i++)
             {
                 int origin = 0; while (origin < p.HoldCount && p.HoldOrigin[origin].Id != contacts[i].Id) origin++;
                 if (origin == p.HoldCount || Distance(contacts[i], p.HoldOrigin[origin]) > 2) p.HoldBlocked = true;
             }
-            holdReady = !p.HoldBlocked && settings.Hold(count) != HandGestureAction.None && time-p.HoldSince >= settings.HoldMilliseconds(count)/1000;
+            holdReady = !p.HoldBlocked && settings.Hold(p.HoldKey) != HandGestureAction.None && time-p.HoldSince >= settings.HoldMilliseconds(p.HoldKey)/1000;
         }
         if (p.ForceClaimed || p.HoldClaimed || p.CornerPending)
         {
+            if(p.HoldClaimed) p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:p.HoldKey);
             contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
             return reserved;
         }
@@ -365,10 +385,16 @@ public sealed class HandGestureEngine
                 && (p.SawFour || fourthContactPending && time-p.AcquisitionSince <= ChordLandingSeconds);
             bool waitingForThird=count==2 && enabled(HandGestureTrigger.ThreeFingerMove)
                 && !hasThumb && thirdContactPending && time-p.PendingSince<=ChordLandingSeconds;
-            bool rebaseTravel=formingTapChord || formingScrollChord || count == 3 && p.SawFour;
+            bool rebaseTravel=formingTapChord || formingScrollChord || count == 3 && p.SawFour
+                || thumbChord && enabled(HandGestureTrigger.ThumbTwoMove) && !sameMovement;
             if (rebaseTravel) ResetPendingPointer(p);
             else { p.TravelX += dx; p.TravelY += dy; }
             HandGestureTrigger? trigger = PerHandGestureSettings.Movement(count);
+            var thumbDirection=ThumbDirectionalStepper.Diagonal(p.TravelX,p.TravelY);
+            bool thumbMovement=thumbChord && enabled(HandGestureTrigger.ThumbTwoMove) && sameMovement && thumbDirection is {} diagonal
+                && ThumbDirectionalStepper.Projection(diagonal,p.TravelX,p.TravelY)>=ThumbDirectionalStepper.Activation
+                && CoherentTravel(contacts,p.MovementOrigin.AsSpan(0,count),p.TravelX,p.TravelY,true)>=ThumbDirectionalStepper.Activation;
+            if(thumbMovement) trigger=HandGestureTrigger.ThumbTwoMove;
             if(!rebaseTravel && trigger is {} movement && settings.Get(movement) is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag)
             {
                 // Recognition accumulates millimetres, but acceleration is
@@ -400,7 +426,7 @@ public sealed class HandGestureEngine
                 ResetPendingPointer(p);
                 CancelTaps(p); p.Momentum.Cancel();
             }
-            else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= (settings.Directional(trigger.Value) != null ? 3 : threshold)
+            else if (!shapeDominant && trigger.HasValue && enabled(trigger.Value) && translation >= (thumbMovement ? ThumbDirectionalStepper.Activation : settings.Directional(trigger.Value) != null ? 3 : threshold)
                 && !waitingForScroll && !waitingForThird && !tapOwnsSlop
                 && (!rotationEnabled || sameMovement && CoherentTravel(contacts,p.MovementOrigin.AsSpan(0,count),p.TravelX,p.TravelY,true)>=threshold)
                 && (!thumbShapeEnabled || sameMovement && CoherentTravel(contacts,p.MovementOrigin.AsSpan(0,count),p.TravelX,p.TravelY,true)>=threshold)
@@ -413,10 +439,11 @@ public sealed class HandGestureEngine
                 CancelTaps(p);
                 if (settings.Directional(trigger.Value) is {} directions)
                 {
-                    p.Direction = Math.Abs(dx) > Math.Abs(dy) ? (dx > 0 ? HandMovementDirection.Right : HandMovementDirection.Left)
+                    p.Direction = thumbMovement ? thumbDirection : Math.Abs(dx) > Math.Abs(dy) ? (dx > 0 ? HandMovementDirection.Right : HandMovementDirection.Left)
                         : (dy > 0 ? HandMovementDirection.Down : HandMovementDirection.Up);
+                    if(thumbMovement) p.ThumbDirections.Begin(p.Direction!.Value,hostTime);
                     p.DirectionTime = time; p.DirectionTravel = 0;
-                    Emit(settings,directions.Get(p.Direction.Value),trigger.Value+"/"+p.Direction.Value);
+                    Emit(settings,directions.Get(p.Direction!.Value),trigger.Value+"/"+p.Direction.Value);
                     dx = dy = 0;
                 }
                 else if (settings.Get(trigger.Value) == HandGestureAction.PrimaryDrag)
@@ -431,7 +458,14 @@ public sealed class HandGestureEngine
         {
             p.Recognition=new(HandRecognitionKind.Gesture,hostTime,p.Owner.Value,Direction:p.Direction);
             var action = settings.Get(p.Owner.Value);
-            if (p.Direction is {} direction && settings.Directional(p.Owner.Value) is {} directions)
+            if(p.Owner==HandGestureTrigger.ThumbTwoMove && settings.Directional(p.Owner.Value) is {} thumbDirections)
+            {
+                if(p.ThumbDirections.Process(dx,dy,hostTime,thumbDirections) is {} step)
+                    Emit(settings,thumbDirections.Get(step),p.Owner.Value+"/"+step);
+                p.Direction=p.ThumbDirections.Direction;
+                p.Recognition=new(HandRecognitionKind.Gesture,hostTime,p.Owner.Value,Direction:p.Direction);
+            }
+            else if (p.Direction is {} direction && settings.Directional(p.Owner.Value) is {} directions)
             {
                 double projection = direction switch { HandMovementDirection.Up => -dy, HandMovementDirection.Down => dy, HandMovementDirection.Left => -dx, _ => dx };
                 p.DirectionTravel = Math.Max(0, p.DirectionTravel + projection);
@@ -478,7 +512,7 @@ public sealed class HandGestureEngine
         // A real shape/movement activation beats a pending Hold on the same
         // frame. An already fired Hold still takes the early ownership path.
         if (holdReady && !p.Owner.HasValue)
-        { p.HoldClaimed=true; p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:count); ResetPendingPointer(p); CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(count),"Hold"+count,index); }
+        { p.HoldClaimed=true; p.Recognition=new(HandRecognitionKind.Hold,hostTime,Count:p.HoldKey); ResetPendingPointer(p); CancelTaps(p); p.Shape.Reset(); p.Rotation.Reset(); p.ShapeRepeat.Reset(); Emit(settings,settings.Hold(p.HoldKey),"Hold"+p.HoldKey,index); }
         contacts.CopyTo(p.Previous); p.PreviousCount = count; p.PreviousTime = time;
         return reserved;
     }
@@ -588,11 +622,9 @@ public sealed class HandGestureEngine
                 }
             }
             if (_matched && _hand == 0) _hand = hand;
-            if (c.Length == 3 && exact && thumb.HasValue && a.HasValue && b.HasValue && !_matched)
+            if (exact && thumb.HasValue && a.HasValue && b.HasValue && !_matched && ThumbTwoChord.Matches(c))
             {
-                double pair = Distance(a.Value,b.Value), near = Math.Min(Distance(thumb.Value,a.Value),Distance(thumb.Value,b.Value));
-                if (pair >= 2 && pair <= 40 && near >= 15 && near >= pair*1.5)
-                { _matched = true; _thumb = thumb.Value.Id; _a = a.Value.Id; _b = b.Value.Id; _hand = hand; }
+                _matched = true; _thumb = thumb.Value.Id; _a = a.Value.Id; _b = b.Value.Id; _hand = hand;
             }
         }
         public HandGestureTrigger? Complete()

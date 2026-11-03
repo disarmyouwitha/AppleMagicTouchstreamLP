@@ -11,6 +11,8 @@ internal sealed class GestureDemonstration : FrameworkElement
     public bool Holding { get; set; }
     public bool Force { get; set; }
     public bool Tapping { get; set; }
+    public bool ThumbChord { get; set; }
+    public HandMovementDirection? Direction { get; set; }
     public HandGestureTrigger? ShapeTrigger { get; set; }
     private readonly int _count;
     private readonly bool _shape, _corners;
@@ -64,7 +66,17 @@ internal sealed class GestureDemonstration : FrameworkElement
                     else x=center+offset*(trigger is >= HandGestureTrigger.TwoFingerSpread and <= HandGestureTrigger.FiveFingerSpread ? .6+motion*.65 : 1.15-motion*.6);
                 }
             }
-            int color=_shape || _count==5 ? i : Math.Min(4,i+1);
+            if(ThumbChord)
+            {
+                x=center+(i==0 ? -35:i==1 ? 5:27); y=i==0 ? 88:40;
+                if(Direction is {} direction)
+                {
+                    double mx=(direction is HandMovementDirection.UpLeft or HandMovementDirection.DownLeft ? -1:1)*22*motion;
+                    double my=(direction is HandMovementDirection.UpLeft or HandMovementDirection.UpRight ? -1:1)*22*motion;
+                    dc.DrawLine(new Pen(Palette[i],1),new(x,y),new(x+mx,y+my)); x+=mx; y+=my;
+                }
+            }
+            int color=ThumbChord || _shape || _count==5 ? i : Math.Min(4,i+1);
             if (_shape && phase>.18 && phase<.8)
                 dc.DrawLine(new Pen(Palette[color],1),new Point(center+(i-(_count-1)/2.0)*18,60),new Point(x,y));
             dc.DrawEllipse(Palette[color],null,new(x,y),5.5,5.5);

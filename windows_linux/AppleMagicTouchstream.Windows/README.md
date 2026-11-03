@@ -53,7 +53,7 @@ Established MO/modifier chords and committed key holds keep priority on their pa
 
 ## Build
 
-The Mac gold-standard port now includes TouchStream's independently traced sides/reference background, resizable inspectors, searchable gesture actions, Mirror Edit, separate coordinated Both gestures, 2–5-finger holds, four/five-finger taps and directional movement. See [current parity and hardware testing](MAC_GOLD_PARITY.md) for supported behavior and remaining differences.
+The Mac gold-standard port now includes TouchStream's independently traced sides/reference background, resizable inspectors, searchable gesture actions, Mirror Edit, separate coordinated Both gestures, 2–5-finger holds, four/five-finger taps and directional movement. **3 Fingers → Thumb + 2** also offers four diagonal assignments and an independent Hold beside Tap. These new assignments default to None and require reported thumb/fingertip classification. Diagonals support Once, timed, and motion repeats. See [current parity and hardware testing](MAC_GOLD_PARITY.md) for supported behavior and remaining differences.
 
 ```
 dotnet build AppleMagicTouchstream.Windows\AppleMagicTouchstream.Windows.csproj -c Release

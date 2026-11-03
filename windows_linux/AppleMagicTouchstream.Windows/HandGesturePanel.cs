@@ -149,6 +149,7 @@ internal sealed class HandGesturePanel : Grid
             heading.RowDefinitions.Add(new() { Height=GridLength.Auto }); heading.RowDefinitions.Add(new() { Height=GridLength.Auto });
             FrameworkElement demo=page.Chord is {} exampleChord ? new CoordinatedGestureDemonstration(exampleChord) : new GestureDemonstration(page.Count,page.Shape,page.Corners)
             { Holding=_selected.StartsWith("Hold") || page.Corners,Force=_selected.EndsWith("Force"),Tapping=_selected.EndsWith("Tap"),
+                ThumbChord=page.Id=="thumb",Direction=Enum.TryParse<HandMovementDirection>(_selected.Split('/').Last(),out var demoDirection) ? demoDirection:null,
                 ShapeTrigger=Enum.TryParse<HandGestureTrigger>(_selected,out var demonstrationTrigger) ? demonstrationTrigger : null };
             demo.Width=170; demo.Height=120; Grid.SetColumn(demo,1); heading.Children.Add(demo);
             var title=new StackPanel(); title.Children.Add(Label(page.Chord!=null ? page.Title : $"{page.Count} finger{(page.Count==1 ? "" : "s")}",25,true)); title.Children.Add(Note(page.Title)); heading.Children.Add(title);
@@ -180,7 +181,17 @@ internal sealed class HandGesturePanel : Grid
                 }
             }
             else if(page.Id=="thumb")
-            { _pageContent.Children.Add(Note("Requires a reported thumb and two reported fingertips in a spread chord. The extended driver supplies finger classification; older drivers without it cannot recognize this input. Three-finger Pinch, Spread and Rotate use their own shape page.")); AddCard(_pageContent,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap")); }
+            {
+                _pageContent.Children.Add(Note("Requires a reported thumb and two reported fingertips in a spread chord. Move all three together at least 0.75 mm diagonally. Pinch and Rotate keep priority. The gesture stays owned until all fingers lift. Drivers without finger classification cannot activate this input."));
+                var diagonals=new UniformGrid { Columns=3,Margin=new(0,6,0,12) };
+                AddCard(diagonals,new("ThumbTwoMove/UpLeft","↖ Move Up Left",HandGestureTrigger.ThumbTwoMove,Direction:HandMovementDirection.UpLeft));
+                AddCard(diagonals,TriggerSlot(HandGestureTrigger.ThumbTwoTap,"Tap"));
+                AddCard(diagonals,new("ThumbTwoMove/UpRight","Move Up Right ↗",HandGestureTrigger.ThumbTwoMove,Direction:HandMovementDirection.UpRight));
+                AddCard(diagonals,new("ThumbTwoMove/DownLeft","↙ Move Down Left",HandGestureTrigger.ThumbTwoMove,Direction:HandMovementDirection.DownLeft));
+                AddCard(diagonals,new("Hold6","Hold",HoldCount:PerHandGestureSettings.ThumbHoldKey));
+                AddCard(diagonals,new("ThumbTwoMove/DownRight","Move Down Right ↘",HandGestureTrigger.ThumbTwoMove,Direction:HandMovementDirection.DownRight));
+                _pageContent.Children.Add(diagonals);
+            }
             else if(page.Count==1) AddCard(_pageContent,TriggerSlot(HandGestureTrigger.OneFingerForce,"Force Click"));
             else
             {
@@ -225,7 +236,7 @@ internal sealed class HandGesturePanel : Grid
     }
     private static HandDirectionalSettings Directions(PerHandGestureSettings hand,HandGestureTrigger trigger)
     { hand.DirectionalMovement ??= new(); if(!hand.DirectionalMovement.TryGetValue(trigger,out var value)) hand.DirectionalMovement[trigger]=value=new(); return value; }
-    private bool Active(Slot s)=>s.Trigger is not {} trigger || !PerHandGestureSettings.IsMovement(trigger) || ((Hand.Directional(trigger)!=null)==s.Direction.HasValue);
+    private bool Active(Slot s)=>s.Trigger is not {} trigger || trigger==HandGestureTrigger.ThumbTwoMove || !PerHandGestureSettings.IsMovement(trigger) || ((Hand.Directional(trigger)!=null)==s.Direction.HasValue);
     private void AddCard(Panel parent,Slot slot)
     {
         _slots[slot.Key]=slot; var content=new StackPanel(); content.Children.Add(Note(slot.Title)); content.Children.Add(Label(Display(slot),14,true));
@@ -265,7 +276,23 @@ internal sealed class HandGesturePanel : Grid
             if(canHold) { _inspector.Children.Add(hold); _inspector.Children.Add(Note("Shortcuts may fire once or keep their keys down until this gesture releases.")); }
         }
         if(slot.Direction is {} direction)
-            AddNumber(_inspector,"Repeat ms (0 = once)",Hand.DirectionalMovement?.GetValueOrDefault(slot.Trigger!.Value)?.Repeat(direction) ?? 0,0,5000,v=>Apply(h=>Directions(h,slot.Trigger!.Value).RepeatMilliseconds[direction]=v));
+        {
+            if(slot.Trigger==HandGestureTrigger.ThumbTwoMove)
+            {
+                _inspector.Children.Add(Label("Repeat behavior",13,true));
+                HandShapeRepeatMode getMode(PerHandGestureSettings hand)=>hand.DirectionalMovement?.GetValueOrDefault(slot.Trigger.Value)?.Mode(direction) ?? HandShapeRepeatMode.Once;
+                bool mixed=MirrorEdits && getMode(_settings.HandGesturesV1.Left)!=getMode(_settings.HandGesturesV1.Right);
+                var repeatOptions=new List<ShapeRepeatOption> { new(HandShapeRepeatMode.Once,"Once"),new(HandShapeRepeatMode.Timed,"Repeat every ms"),new(HandShapeRepeatMode.Motion,"Repeat with motion") };
+                if(mixed) repeatOptions.Insert(0,new(null,"Mixed"));
+                var mode=new ComboBox { ItemsSource=repeatOptions,DisplayMemberPath=nameof(ShapeRepeatOption.Title),SelectedItem=repeatOptions.First(o=>o.Mode==(mixed ? null:getMode(Hand))),Tag="ThumbRepeatMode",MinHeight=30,Margin=new(0,6,0,12) };
+                mode.SelectionChanged+=(_,_)=> { if(!_refreshing && mode.SelectedItem is ShapeRepeatOption {Mode:{} repeat}) Commit(()=>Apply(h=>Directions(h,slot.Trigger.Value).RepeatModes[direction]=repeat)); };
+                _inspector.Children.Add(mode);
+                if(!mixed && getMode(Hand)==HandShapeRepeatMode.Timed)
+                    AddNumber(_inspector,"Timed repeat (ms, minimum 80)",Math.Max(80,Hand.DirectionalMovement?.GetValueOrDefault(slot.Trigger.Value)?.Repeat(direction) ?? 80),80,5000,v=>Apply(h=>Directions(h,slot.Trigger.Value).RepeatMilliseconds[direction]=v));
+                _inspector.Children.Add(Note("Once fires on activation or a deliberate direction change. Motion repeats after another 0.75 mm. Timed repeats while held. Direction changes and repeats are spaced at least 80 ms apart."));
+            }
+            else AddNumber(_inspector,"Repeat ms (0 = once)",Hand.DirectionalMovement?.GetValueOrDefault(slot.Trigger!.Value)?.Repeat(direction) ?? 0,0,5000,v=>Apply(h=>Directions(h,slot.Trigger!.Value).RepeatMilliseconds[direction]=v));
+        }
         if(value is HandGestureAction.Pointer or HandGestureAction.PrimaryDrag or HandGestureAction.Scroll)
         {
             bool? captured=Hand.UseCapturedMacMotion;
@@ -352,9 +379,11 @@ internal sealed class HandGesturePanel : Grid
     {
         if(page.Chord is {} chord) return ActionTitle(_settings.HandGesturesV1.Coordinated.Action(chord,false))+" "+ActionTitle(_settings.HandGesturesV1.Coordinated.Action(chord,true));
         if(page.Corners) return ActionTitle(Hand.CornerAction(HandCornerChord.OuterCorners));
-        string prefix=page.Count switch {1=>"One",2=>"Two",3=>"Three",4=>"Four",_=>"Five"};
+        string prefix=page.Id=="thumb" ? "ThumbTwo" : page.Count switch {1=>"One",2=>"Two",3=>"Three",4=>"Four",_=>"Five"};
         return string.Join(" ",Enum.GetValues<HandGestureTrigger>().Where(t=>t.ToString().StartsWith(prefix)).Select(t=>ActionTitle(Hand.Get(t))))
-            +" "+string.Join(" ",(Hand.CustomActions ?? new()).Where(p=>p.Key.StartsWith(prefix) || p.Key=="Hold"+page.Count).Select(p=>AppLaunchActionHelper.GetDisplayLabel(p.Value)));
+            +" "+ActionTitle(Hand.Hold(page.Id=="thumb" ? PerHandGestureSettings.ThumbHoldKey:page.Count))
+            +" "+string.Join(" ",(Hand.DirectionalMovement ?? new()).Where(p=>p.Key.ToString().StartsWith(prefix)).SelectMany(p=>p.Value.Actions.Values).Select(ActionTitle))
+            +" "+string.Join(" ",(Hand.CustomActions ?? new()).Where(p=>p.Key.StartsWith(prefix) || p.Key=="Hold"+(page.Id=="thumb" ? PerHandGestureSettings.ThumbHoldKey:page.Count)).Select(p=>AppLaunchActionHelper.GetDisplayLabel(p.Value)));
     }
     private sealed record ActionOption(HandGestureAction? Action,string Title);
     internal void FilterActionOptions(ComboBox combo,string query)

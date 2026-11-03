@@ -13,7 +13,7 @@ public readonly record struct HandGestureRecognition(HandRecognitionKind Kind,do
     {
         get
         {
-            if(Kind==HandRecognitionKind.Hold) return $"{Count}-finger hold";
+            if(Kind==HandRecognitionKind.Hold) return Count==PerHandGestureSettings.ThumbHoldKey ? "Thumb + 2 fingertips hold" : $"{Count}-finger hold";
             if(Kind==HandRecognitionKind.CornerHold) return "Outer Corners Hold";
             if(Kind is HandRecognitionKind.CoordinatedTap or HandRecognitionKind.CoordinatedHold or HandRecognitionKind.CoordinatedForce)
             {
@@ -24,7 +24,8 @@ public readonly record struct HandGestureRecognition(HandRecognitionKind Kind,do
             }
             string title=Kind switch { HandRecognitionKind.StenoPointer=>"2F mouse",HandRecognitionKind.StenoDrag=>"1F drag/select",
                 HandRecognitionKind.StenoPrimaryClick=>"2F left-click",HandRecognitionKind.StenoSecondaryClick=>"3F right-click",HandRecognitionKind.StenoScroll=>"4F force scroll",_=>TriggerTitle(Trigger) };
-            return Direction is {} direction ? title+" "+(direction switch { HandMovementDirection.Up=>"↑",HandMovementDirection.Down=>"↓",HandMovementDirection.Left=>"←",_=>"→" }) : title;
+            return Direction is {} direction ? title+" "+(direction switch { HandMovementDirection.Up=>"↑",HandMovementDirection.Down=>"↓",HandMovementDirection.Left=>"←",
+                HandMovementDirection.UpLeft=>"↖",HandMovementDirection.UpRight=>"↗",HandMovementDirection.DownLeft=>"↙",HandMovementDirection.DownRight=>"↘",_=>"→" }) : title;
         }
     }
     private static string TriggerTitle(HandGestureTrigger trigger)
@@ -39,6 +40,7 @@ public readonly record struct HandGestureRecognition(HandRecognitionKind Kind,do
         }
         for(int count=1;count<=5;count++) if(PerHandGestureSettings.Force(count)==trigger) return $"{count}-finger force click";
         return trigger switch { HandGestureTrigger.TwoFingerTap=>"2-finger tap",HandGestureTrigger.ThreeFingerTap=>"3-finger tap",
-            HandGestureTrigger.FourFingerTap=>"4-finger tap",HandGestureTrigger.FiveFingerTap=>"5-finger tap",HandGestureTrigger.ThumbTwoTap=>"Thumb + 2 fingertips tap",_=>"Gesture" };
+            HandGestureTrigger.FourFingerTap=>"4-finger tap",HandGestureTrigger.FiveFingerTap=>"5-finger tap",HandGestureTrigger.ThumbTwoTap=>"Thumb + 2 fingertips tap",
+            HandGestureTrigger.ThumbTwoMove=>"Thumb + 2 fingertips movement",_=>"Gesture" };
     }
 }
