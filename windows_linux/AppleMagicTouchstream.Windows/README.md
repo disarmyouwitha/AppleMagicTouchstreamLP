@@ -46,6 +46,7 @@ The Gestures workspace grays out thumb-dependent assignments when the selected p
 - **Hold Duration** sets the delay before a key hold commits; the default is 220 ms.
 - **Haptic Strength** controls the existing Windows haptic output. **Restore Defaults** restores these two settings.
 - Force Instead of Hold remains a per-key/custom-button setting. Windows ignores the old global Force Min/Max gates.
+- New extended open-source reports support the active force controls with real 0–255 per-contact pressure, including reported zero. Force Instead of Hold waits for its threshold; zero as the setting keeps timed Hold. The key inspector shows pressure support and warns when a saved Apple-scale threshold exceeds 255. STENO Force uses a reachable 1–255 range. Older drivers without pressure retain timed-Hold fallback.
 - Snap Radius allows eligible off-key releases to choose a nearby key, bounded to 0–100% of the key's smaller dimension.
 
 Typing Grace, Drag Cancel, Intent Move and Intent Velocity have been removed from the Windows controls. Their saved legacy fields remain readable but cannot select mouse intent or cancel unified Windows typing. Unreserved contacts remain keyboard input. A tap must finish within max(200 ms, Hold Duration) and satisfy its original key/release geometry or snap eligibility; movement distance alone does not cancel it. Committed holds retain ownership through drift.

@@ -35,6 +35,8 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Thumb gesture parity tests failed: "+error.Message); }
         try { DecoderGestureCapabilityTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Decoder gesture capability tests failed: "+error.Message); }
+        try { ExtendedPressureForceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Extended pressure force tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { ShapeGestureInterfaceTests.Run(); }

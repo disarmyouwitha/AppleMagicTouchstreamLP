@@ -6,6 +6,17 @@ This is a substantial functional port; the remaining differences below are real.
 
 ## Implemented
 
+- Extended-driver pressure is used directly (0–255, no synthetic phase) for
+  per-key/custom-button Force Instead of Hold, 1–5-finger Force, coordinated
+  3+3/4+4 Force and STENO. A reported zero still requires the configured force;
+  only unavailable pressure retains timed-Hold fallback. Custom-button binding
+  compilation preserves its saved force threshold. Windows STENO thresholds are
+  bounded to 1–255, including older unreachable settings. The per-key inspector
+  reports the selected decoder's pressure range and warns about saved thresholds
+  above 255; these are preserved for Apple pressure/phase compatibility. Global
+  Force Min/Max remain retired. `ExtendedPressureForceTests` runs actual 112-byte
+  reports through decoding and production recognizers on both sides, including
+  threshold crossings, zero/missing pressure, custom buttons and balanced output.
 - Gesture availability follows the selected pad's actual decoded report format,
   independently for Left/Right. Apple and older PTP formats dim Thumb+2 and all
   Pinch/Spread/Rotate pages/cards, explain the missing finger classification, and

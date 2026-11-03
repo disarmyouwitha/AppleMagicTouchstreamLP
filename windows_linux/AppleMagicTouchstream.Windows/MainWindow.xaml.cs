@@ -470,6 +470,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string? leftRecognition=recognition(TrackpadSide.Left)?.Title,rightRecognition=recognition(TrackpadSide.Right)?.Title;
         LeftSurface.RecognizedGesture=leftRecognition; RightSurface.RecognizedGesture=rightRecognition;
         _handGesturePanel?.SetRecognition(leftRecognition,rightRecognition);
+        UpdateKeyForceSupport();
         _handGesturePanel?.SetFingerClassification(IsReplayMode ? null : UsesSharedRuntime ? _runtimeService!.FingerClassification(TrackpadSide.Left) : _decoderGestureCapabilities.FingerClassification(TrackpadSide.Left),
             IsReplayMode ? null : UsesSharedRuntime ? _runtimeService!.FingerClassification(TrackpadSide.Right) : _decoderGestureCapabilities.FingerClassification(TrackpadSide.Right));
         _handGesturePanel?.SetStatus(IsReplayMode ? "Replay - no gesture output" : _runtimeService?.HandGestureStatus ?? _handGestures?.Status ?? "Waiting for live input");
@@ -3091,7 +3092,21 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
+        if(GetDetectedForceMaximum(side) is {} maximum) return maximum>0;
         return GetEffectiveDecoderProfileForSide(side) != TrackpadDecoderProfile.Legacy;
+    }
+
+    private int? GetDetectedForceMaximum(TrackpadSide side)=>IsReplayMode ? null
+        :UsesSharedRuntime ? _runtimeService!.ForceMaximum(side):_decoderGestureCapabilities.ForceMaximum(side);
+    private void UpdateKeyForceSupport()
+    {
+        bool selected=_hasSelectedCustomButton || _selectedKeyRow>=0;
+        KeymapForceSupportText.Visibility=selected && !_preset.IsSteno ? Visibility.Visible:Visibility.Collapsed;
+        if(!selected) return;
+        double.TryParse(KeymapHoldForceBox.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double threshold);
+        string text=WindowsForceSettings.SupportText(GetDetectedForceMaximum(_selectedKeySide),threshold);
+        if(KeymapForceSupportText.Text!=text) KeymapForceSupportText.Text=text;
+        KeymapHoldForceBox.ToolTip=text;
     }
 
     private TrackpadDecoderProfile? GetEffectiveDecoderProfileForSide(TrackpadSide side)
@@ -4759,8 +4774,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 }
 
                 TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);
-                if(leftMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind);
-                if(rightMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind);
+                if(leftMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind,decoded.Profile);
+                if(rightMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind,decoded.Profile);
                 InputFrame frame = decoded.Frame;
                 _liveMetrics.RecordParsed();
                 if (!DispatchReport(snapshot, in frame))

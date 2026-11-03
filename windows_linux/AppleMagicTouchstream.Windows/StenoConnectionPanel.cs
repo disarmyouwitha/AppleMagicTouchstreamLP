@@ -12,7 +12,7 @@ public sealed class StenoConnectionPanel : Border
     private readonly TextBlock _status=new() { Text="Waiting for Plover",TextWrapping=TextWrapping.Wrap };
     private readonly TextBlock _counts=new();
     private readonly ExplicitSelectionComboBox _variant=new() {ItemsSource=new[]{"Steno Asterisk","Steno 6x3","Steno Single"},MinWidth=145};
-    private readonly Slider _force=new() {Minimum=1,Maximum=500,TickFrequency=1,IsSnapToTickEnabled=true};
+    private readonly Slider _force=new() {Minimum=1,Maximum=WindowsForceSettings.PressureMaximum,TickFrequency=1,IsSnapToTickEnabled=true,ToolTip="Reported per-contact pressure (1–255)."};
     private readonly TextBlock _forceValue=new() {MinWidth=34};
     private readonly CheckBox _touch=new() {Content="Haptic on touch"},_release=new() {Content="Haptic on release"};
     private readonly ExplicitSelectionComboBox _connection=new() {ItemsSource=new[]{"Built-in Javelin (Lapwing)","Built-in Javelin (Plover)","Plover Plugin"},MinWidth=145};
@@ -37,7 +37,7 @@ public sealed class StenoConnectionPanel : Border
             _manage.Visibility=_mode=="plugin" ? Visibility.Collapsed:Visibility.Visible;
             _pluginControls.Visibility=_mode=="plugin" ? Visibility.Visible:Visibility.Collapsed;
             _variant.SelectedIndex=settings.LayoutPresetName=="STENO Single" ? 2:settings.LayoutPresetName=="STENO Voyager" ? 1:0;
-            _force.Value=double.IsFinite(settings.StenoForceThreshold) ? Math.Clamp(settings.StenoForceThreshold,1,500):130;
+            _force.Value=WindowsForceSettings.StenoThreshold(settings.StenoForceThreshold);
             _forceValue.Text=((int)_force.Value).ToString();
             _touch.IsChecked=settings.StenoHapticTouch ?? settings.StenoHaptics==StenoHapticMode.KeyContact;
             _release.IsChecked=settings.StenoHapticRelease ?? settings.StenoHaptics==StenoHapticMode.ChordRelease;

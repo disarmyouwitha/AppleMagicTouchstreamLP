@@ -7,11 +7,13 @@ namespace AppleMagicTouchstream;
 internal sealed class DecoderGestureCapabilities
 {
     private int _left,_right;
-    internal bool? FingerClassification(TrackpadSide side) => Volatile.Read(ref SideField(side)) switch {1=>false,2=>true,_=>null};
+    internal bool? FingerClassification(TrackpadSide side) => Volatile.Read(ref SideField(side)) switch {1 or 3=>false,2=>true,_=>null};
+    internal int? ForceMaximum(TrackpadSide side) => Volatile.Read(ref SideField(side)) switch {1=>0,2=>255,3=>ForceNormalizer.Max,_=>null};
     private ref int SideField(TrackpadSide side)
     { if(side==TrackpadSide.Left) return ref _left; return ref _right; }
-    internal void Observe(TrackpadSide side,TrackpadReportKind kind)
-        =>Volatile.Write(ref SideField(side),kind==TrackpadReportKind.Unknown ? 0:kind==TrackpadReportKind.PtpExtended ? 2:1);
+    internal void Observe(TrackpadSide side,TrackpadReportKind kind,TrackpadDecoderProfile profile=TrackpadDecoderProfile.Legacy)
+        =>Volatile.Write(ref SideField(side),kind==TrackpadReportKind.Unknown ? 0:kind==TrackpadReportKind.PtpExtended ? 2
+            :profile==TrackpadDecoderProfile.Official && kind is TrackpadReportKind.PtpNative or TrackpadReportKind.PtpEmbedded ? 3:1);
     internal void Reset(TrackpadSide? side=null)
     {
         if(side is {} selected) Volatile.Write(ref SideField(selected),0);

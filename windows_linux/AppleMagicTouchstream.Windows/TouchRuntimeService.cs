@@ -13,6 +13,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private readonly TrackpadDecoderSession _decoderSession = new();
     private readonly DecoderGestureCapabilities _decoderGestureCapabilities = new();
     internal bool? FingerClassification(TrackpadSide side)=>_decoderGestureCapabilities.FingerClassification(side);
+    internal int? ForceMaximum(TrackpadSide side)=>_decoderGestureCapabilities.ForceMaximum(side);
     private readonly GlobalMouseInputHook _globalMouseInputHook = new();
 
     private RuntimeRoute _leftRoute = RuntimeRoute.Empty;
@@ -348,7 +349,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
                 if (routeLeft)
                 {
-                    _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind);
+                    _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind,decoded.Profile);
                     ButtonEdgeState buttonState = _leftButtonTracker.Update(in frame);
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Left, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
@@ -357,7 +358,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
                 if (routeRight)
                 {
-                    _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind);
+                    _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind,decoded.Profile);
                     ButtonEdgeState buttonState = _rightButtonTracker.Update(in frame);
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Right, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
