@@ -1,0 +1,3 @@
+# These vendor files have byte-for-byte checksums in the bundled manifests.
+# Preserve the upstream LF bytes even on Windows with core.autocrlf=true.
+Assets/Javelin/*.json text eol=lf

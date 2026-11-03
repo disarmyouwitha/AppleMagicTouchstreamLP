@@ -21,6 +21,9 @@ The bridge never posts native input. AMT owns serial translation and gated outpu
 Lapwing AIO 1.5.0 JSON dictionaries are bundled under Assets/Javelin, with their
 MIT license and file checksums. These are public package dictionaries copied from
 Plover's installed plugin; no personal user dictionary or Plover preferences ship.
+The JSON files must retain upstream LF line endings for those byte checksums.
+The Windows project's `.gitattributes` enforces LF even with `core.autocrlf=true`;
+do not regenerate the manifest hashes to accommodate newline conversion.
 Priority follows the user's active JSON stack: commands, numbers, UK additions,
 proper nouns, base. Python/modal dictionaries, Plover commands, raw key commands,
 plugin macros and extended function commands are excluded from translation.

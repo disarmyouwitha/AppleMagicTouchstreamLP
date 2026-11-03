@@ -22,6 +22,10 @@ internal static class DecoderSessionTests
     }
     public static void Run()
     {
+        var nativeInfo=typeof(RawInputInterop).GetNestedType("RID_DEVICE_INFO",System.Reflection.BindingFlags.NonPublic)!;
+        Check(System.Runtime.InteropServices.Marshal.SizeOf(nativeInfo)==32
+            && System.Runtime.InteropServices.Marshal.OffsetOf(nativeInfo,"hid").ToInt32()==8,
+            "RID_DEVICE_INFO no longer matches the Windows union ABI; device usage discovery would fail");
         var session=new TrackpadDecoderSession();
         var info=new RawInputDeviceInfo(0x05ac,RawInputInterop.ProductIdMt2UsbC,0,0);
         var device=new RawInputDeviceSnapshot("pad-a",info,new(0,1));

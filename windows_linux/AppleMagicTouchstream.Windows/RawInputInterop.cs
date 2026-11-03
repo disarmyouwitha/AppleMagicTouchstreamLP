@@ -512,7 +512,10 @@ internal static class RawInputInterop
         public ushort usUsage;
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    // The native union also contains the 24-byte keyboard structure. Keeping
+    // only the 16-byte HID member must not shrink cbSize from 32 to 24, or
+    // Windows rejects RIDI_DEVICEINFO and Auto loses the device's HID usage.
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
     private struct RID_DEVICE_INFO
     {
         [FieldOffset(0)] public uint cbSize;
