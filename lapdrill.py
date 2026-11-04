@@ -256,6 +256,41 @@ def select_keyboard_drill(name):
             out("Choose a listed number or CLI name.\n")
 
 
+def keyboard_line(sequence, index, misses, hinted, width, retry=False, pace=""):
+    """One width-bounded command-style row; only the current chord is bright."""
+    width = max(1, width - 1)  # Leave the terminal's last column unused.
+    active = f"[{sequence[index]}]"
+    prefix = '$ drill "'
+    status = f'" {index}/{len(sequence)}'
+    if misses:
+        status += f" x{misses}"
+    if retry:
+        status += " retry"
+    if hinted:
+        status += f" raw={raw_stroke(sequence[index])}"
+    if pace:
+        status += f" {pace}"
+    # Keep the active chord visible even in a very narrow window.
+    if len(prefix) + len(active) + 1 > width:
+        prefix = ""
+    status = status[:max(0, width - len(prefix) - len(active))]
+    budget = width - len(prefix) - len(status)
+    slot_width = max(len(prompt) + 3 for prompt in sequence)
+    slots = max(1, budget // slot_width)
+    start = index // slots * slots
+    tokens = []
+    used = 0
+    for i in range(start, min(start + slots, len(sequence))):
+        token = f"[{sequence[i]}]" if i == index else sequence[i]
+        used += len(token) + (1 if tokens else 0)
+        if used > budget:
+            break
+        tokens.append(f"{RST}{token}{DIM}" if i == index else token)
+    if not tokens:
+        tokens = [f"{RST}{active[:budget]}{DIM}"]
+    return f"\r\x1b[2K{DIM}{prefix}{' '.join(tokens)}{status}{RST}"
+
+
 def keyboard(drill, stats, length=100, hints=False, speed=0):
     """Raw strokes are delimited by whitespace or 80 ms of input silence.
 
@@ -267,20 +302,21 @@ def keyboard(drill, stats, length=100, hints=False, speed=0):
     buf = ""
     last_input = 0.0
     hinted = hints
+    retry = False
     started = time.monotonic()
-    out(f"{DIM}lapdrill keyboard: {drill[1]}  {length} chords  esc=quit tab=hint{RST}\n")
-    out("Use raw steno output in Plover (temporarily disable translation dictionaries).\n")
-    out("Raw output is submitted after 80 ms of silence; spaces/Enter also separate strokes.\n")
-    if speed:
-        out(f"Target: {speed:g} strokes/minute (elapsed target shown after each chord).\n")
+    title = f"{drill[1]} | raw steno | esc=quit tab=hint"
+    out(f"{DIM}{title[:max(1, shutil.get_terminal_size((80, 24)).columns - 1)]}{RST}\n")
 
     def draw():
-        prompt = sequence[index]
-        hint = f"  {DIM}raw: {raw_stroke(prompt)}{RST}" if hinted else ""
-        out(f"\r\x1b[2K[{index + 1}/{length}] > {prompt}{hint}")
+        pace = ""
+        if speed:
+            delta = time.monotonic() - started - index * 60 / speed
+            pace = f"{delta:+.0f}s"
+        out(keyboard_line(sequence, index, misses, hinted,
+                          shutil.get_terminal_size((80, 24)).columns, retry, pace))
 
     def submit(stroke):
-        nonlocal index, misses, hinted
+        nonlocal index, misses, hinted, retry
         if not stroke or index >= length:
             return
         prompt = sequence[index]
@@ -289,15 +325,13 @@ def keyboard(drill, stats, length=100, hints=False, speed=0):
         if stroke.upper() == expected:
             bump(stats, stat_key, "hit")
             index += 1
-            elapsed = time.monotonic() - started
-            pace = f"  target elapsed {index * 60 / speed:.1f}s / actual {elapsed:.1f}s" if speed else ""
-            out(f"\r\x1b[2K{GRN}OK{RST} {prompt}  {DIM}{expected}{pace}{RST}\n")
             hinted = hints
+            retry = False
         else:
             misses += 1
             bump(stats, stat_key, "miss")
-            out(f"\r\x1b[2K{RED}MISS{RST} got {stroke!r}; {prompt} = {YEL}{expected}{RST} (retry)\n")
             hinted = True
+            retry = True
         if index < length:
             draw()
 
@@ -330,8 +364,9 @@ def keyboard(drill, stats, length=100, hints=False, speed=0):
     elapsed = max(time.monotonic() - started, 0.001)
     total = index + misses
     accuracy = 100 * index / total if total else 0
-    out(f"\r\x1b[2K{'Completed' if index == length else 'Stopped'}: {index}/{length} chords, "
-        f"{misses} misses, {accuracy:.0f}% accuracy, {index * 60 / elapsed:.0f} SPM\n")
+    summary = (f"{'done' if index == length else 'stopped'} {index}/{length}  "
+               f"{misses} misses  {accuracy:.0f}%  {index * 60 / elapsed:.0f}spm")
+    out(f"\r\x1b[2K{DIM}{summary[:max(1, shutil.get_terminal_size((80, 24)).columns - 1)]}{RST}\n")
 
 
 # ---------------------------------------------------------------- flash
