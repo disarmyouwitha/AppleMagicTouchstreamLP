@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { TypingPracticeTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Typing practice tests failed: "+error.Message); }
         try { JavelinParityTests.Run();StenoTransportParityTests.Run(); }
         catch(Exception error) {return new SelfTestResult(false,"Native Javelin parity tests failed: "+error.Message);}
         try { RewriteParityTests.Run(); }

@@ -15,7 +15,18 @@ By default, AppleMagicTouchstream opens the config window on launch. To start tr
 
 ### Configuration layout
 
-The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing test and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. The Keyboard inspector and Gesture Action column share their width; resizing either updates both. Selecting a key or custom button returns to Keyboard. Decoder Profiles and the header contact-count pills are hidden. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
+The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing practice and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. The Keyboard inspector and Gesture Action column share their width; resizing either updates both. Selecting a key or custom button returns to Keyboard. Decoder Profiles and the header contact-count pills are hidden. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
+
+Below the pads, **Free type** retains your scratch text. **Practice** offers Words,
+Steno drills (translated English, case ignored), and Custom word lists in rounds of
+10/25/50/100 words. Click the highlighted prompt to type; native backspace and steno
+text replacements update scoring. WPM is current correct characters / 5 / elapsed
+minutes; accuracy compares current text at each prompt position, counting extra
+characters as errors. Whitespace normalizes to single spaces. Timing begins with
+the first input and freezes at completion; New drill resets it. Custom lists and
+typed text stay in memory and do not enter settings, exports or captures. No global
+input monitoring is used. Practice input is bounded to 6,000 characters; custom
+lists use at most 500 words of 40 characters each.
 
 ### Mouse Takeover
 
