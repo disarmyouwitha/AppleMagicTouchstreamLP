@@ -615,6 +615,12 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     var resolvedStenoConnectionMode:StenoConnectionMode { stenoConnectionMode ?? .defaultMode }
     var stenoHapticOnTouch:Bool?
     var stenoHapticOnRelease:Bool?
+    var keyboardIncludeHovering:Bool?
+    var keyboardMinimumPressPressure:Double?
+    var resolvedKeyboardMinimumPressPressure:Double { StenoPressThreshold.validated(keyboardMinimumPressPressure ?? 0) }
+    var stenoIncludeHovering:Bool?
+    var stenoMinimumPressPressure:Double?
+    var resolvedStenoMinimumPressPressure:Double { StenoPressThreshold.validated(stenoMinimumPressPressure ?? 0) }
     var stenoForceThreshold:Double?
     var resolvedStenoForceThreshold:Double { StenoForceThreshold.validated(stenoForceThreshold ?? StenoForceThreshold.defaultValue) }
     var stenoPointerMode:StenoPointerMode?

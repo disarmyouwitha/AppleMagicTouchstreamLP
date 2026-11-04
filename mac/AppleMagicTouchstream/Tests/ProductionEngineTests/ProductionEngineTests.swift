@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import Carbon
 import CoreGraphics
 import Foundation
@@ -31,9 +33,9 @@ final class ProductionEngineTests: XCTestCase {
     }
 
     private func contact(_ id: Int32 = 1, key: Int = 0, state: OMSState = .touching,
-                         x: Float? = nil) -> OMSRawTouch {
+                         x: Float? = nil, pressure:Float = 100) -> OMSRawTouch {
         OMSRawTouch(id: id, posX: x ?? Float(27.5 + Double(key) * 45) / 160,
-                    posY: 1 - 55.0 / 115.0, total: 1, pressure: 100,
+                    posY: 1 - 55.0 / 115.0, total: 1, pressure: pressure,
                     majorAxis: 5, minorAxis: 3, angle: 0, density: 1, state: state)
     }
 
@@ -1254,5 +1256,136 @@ extension ProductionEngineTests {
             XCTAssertEqual(commands.count,1,"Expected a single opaque paste reference from \(source)")
             XCTAssertTrue(keys(run).isEmpty) // No fake key code 0 or native paste in replay.
         }
+    }
+}
+
+extension ProductionEngineTests {
+    func testKeyboardMinimumPressureUsesPeakAfterLongRestAndIgnoresUnactivatedRelease() {
+        let run = session()
+        run.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:false)
+        frame(run,1,[contact(pressure:2)])
+        frame(run,3,[contact(pressure:2)])
+        frame(run,3.01,[contact(pressure:12)])
+        frame(run,3.02,[contact(pressure:0)])
+        frame(run,3.04,[contact(state:.breaking,pressure:0)])
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"])
+        frame(run,3.05,[])
+        frame(run,3.1,[contact(pressure:11)])
+        frame(run,3.12,[contact(state:.breaking,pressure:0)])
+        frame(run,3.13,[])
+        XCTAssertEqual(keys(run).count,1)
+        frame(run,3.14,[contact(pressure:11)])
+        frame(run,3.15,[]) // Empty frames must not emit a below-minimum contact.
+        XCTAssertEqual(keys(run).count,1)
+        frame(run,3.2,[contact(key:1,pressure:2)]) // A resting modifier must not engage.
+        XCTAssertEqual(keys(run).count,1)
+        frame(run,3.21,[contact(key:1,pressure:12)])
+        XCTAssertEqual(keys(run).last,"down:\(kVK_Shift):0")
+        frame(run,3.22,[contact(key:1,pressure:0)])
+        XCTAssertEqual(keys(run).count,2)
+        frame(run,3.23,[])
+        XCTAssertEqual(keys(run).last,"up:\(kVK_Shift):0")
+    }
+    func testRegularHoverIsOptInAndPeakRelaxesUntilRealRelease() {
+        for hover in [false,true] {
+            let run = session()
+            run.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:hover)
+            frame(run,1,[contact(state:.hovering,pressure:2)])
+            frame(run,2,[contact(state:.hovering,pressure:2)])
+            frame(run,2.01,[contact(state:.hovering,pressure:14)])
+            frame(run,2.02,[contact(state:.hovering,pressure:0)])
+            XCTAssertTrue(keys(run).isEmpty)
+            frame(run,2.04,[contact(state:.leaving,pressure:0)])
+            frame(run,2.05,[])
+            XCTAssertEqual(keys(run),hover ? ["tap:\(kVK_ANSI_F):0"]:[])
+        }
+    }
+    func testKeyboardPressureReconfigurationCancelsHeldKeysAndPendingProposals() {
+        let run = session()
+        frame(run,1,[contact(key:1)])
+        let token = run.engine.keyboardProposalToken
+        run.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:true)
+        XCTAssertNotEqual(run.engine.keyboardProposalToken,token)
+        XCTAssertEqual(keys(run),["down:\(kVK_Shift):0","up:\(kVK_Shift):0"])
+        frame(run,1.01,[contact(key:1)])
+        frame(run,1.02,[])
+        XCTAssertEqual(keys(run).count,2)
+        frame(run,1.03,[contact(pressure:14)])
+        frame(run,1.04,[])
+        XCTAssertEqual(keys(run).last,"tap:\(kVK_ANSI_F):0")
+    }
+    func testReservedHoverCannotResurrectTypingAfterGesture() {
+        let run = session()
+        run.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:true)
+        frame(run,1,[contact(state:.hovering,pressure:2)],reserved:true)
+        frame(run,1.01,[contact(state:.hovering,pressure:20)])
+        frame(run,1.02,[contact(state:.leaving,pressure:0)])
+        frame(run,1.03,[])
+        XCTAssertTrue(keys(run).isEmpty)
+        frame(run,1.04,[contact(state:.hovering,pressure:20)])
+        frame(run,1.05,[])
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"])
+    }
+    func testKeyboardAdmissionSettingsRoundTripAndMissingImportsPreserveValues() throws {
+        var current = AppKeymapProfile.defaultProfile(); var settings = HandGestureSettings()
+        settings.keyboardIncludeHovering = true; settings.keyboardMinimumPressPressure = 12
+        settings.stenoMinimumPressPressure = 20; current.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:current),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings?.keyboardIncludeHovering,true)
+        XCTAssertEqual(restored.handGestureSettings?.resolvedKeyboardMinimumPressPressure,12)
+        XCTAssertEqual(restored.handGestureSettings?.resolvedStenoMinimumPressPressure,20)
+        var old = AppKeymapProfile.defaultProfile(); old.handGestureSettings = HandGestureSettings()
+        let merged = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:old),currentProfile:current)
+        XCTAssertEqual(merged.handGestureSettings?.keyboardIncludeHovering,true)
+        XCTAssertEqual(merged.handGestureSettings?.resolvedKeyboardMinimumPressPressure,12)
+        XCTAssertNil(HandGestureSettings().keyboardIncludeHovering)
+        XCTAssertEqual(HandGestureSettings().resolvedKeyboardMinimumPressPressure,0)
+    }
+}
+
+extension ProductionEngineTests {
+    func testKeyboardAdmissionProfileRestoresThroughProductionReplay() {
+        var profile = AppKeymapProfile.defaultProfile(), doc = LayoutDocument()
+        doc.add(right:false,label:"F",rect:.init(x:0.1,y:0.2,width:0.8,height:0.6))
+        profile.layoutDocuments = [profile.layoutPreset:doc]
+        var settings = HandGestureSettings(); settings.keyboardIncludeHovering = true; settings.keyboardMinimumPressPressure = 12
+        profile.handGestureSettings = settings
+        let run = ProductionReplaySession(startTime:1)
+        run.configure(profile:profile,leftIndex:0,rightIndex:1)
+        frame(run,1,[contact(state:.hovering,pressure:2)])
+        frame(run,2,[contact(state:.hovering,pressure:12)])
+        frame(run,2.01,[contact(state:.hovering,pressure:0)])
+        frame(run,2.02,[])
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"])
+    }
+    func testKeyboardMinimumPressureKeepsSnapAndHeldKeyCleanup() {
+        let snapped = session()
+        snapped.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:true)
+        snapped.engine.updateSnapRadiusPercent(100)
+        frame(snapped,1,[contact(state:.hovering,x:0.295,pressure:2)])
+        frame(snapped,1.02,[contact(state:.leaving,x:0.295,pressure:0)])
+        frame(snapped,1.03,[])
+        XCTAssertTrue(keys(snapped).isEmpty)
+        let held = session(labels:["Left"])
+        held.engine.updateKeyboardTouchAdmission(minimumPressPressure:12,includeHovering:true)
+        held.engine.updateHoldRepeatEnabled(true)
+        frame(held,1,[contact(state:.hovering,pressure:2)])
+        frame(held,2,[contact(state:.hovering,pressure:14)])
+        frame(held,2.02,[contact(state:.hovering,pressure:0)])
+        frame(held,2.3,[contact(state:.hovering,pressure:0)])
+        XCTAssertFalse(keys(held).isEmpty)
+        frame(held,2.31,[])
+        let count = keys(held).count
+        held.scheduler.advance(to:3)
+        XCTAssertEqual(keys(held).count,count)
+    }
+    func testKeyboardAdmissionPanelPreview() throws {
+        guard let path = ProcessInfo.processInfo.environment["KEYBOARD_PRESSURE_PREVIEW_PATH"] else { return }
+        let view = NSHostingView(rootView:ContentView.TypingTuningSectionView(tapHoldDurationMs:.constant(200),hapticStrengthSetting:.constant(30),minimumPressPressure:.constant(0),includeHovering:.constant(false)).padding(12).frame(width:360).background(Color(nsColor:.windowBackgroundColor)))
+        view.frame = .init(origin:.zero,size:view.fittingSize)
+        view.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in:view.bounds))
+        view.cacheDisplay(in:view.bounds,to:bitmap)
+        try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:URL(fileURLWithPath:path))
     }
 }

@@ -984,6 +984,16 @@ struct ContentView: View {
             stenoConnectionMode:Binding(get:{viewModel.gestures.settings.resolvedStenoConnectionMode},set:{viewModel.gestures.setStenoConnectionMode($0);rebuildLayouts()}),
             stenoHapticTouch:Binding(get:{viewModel.gestures.settings.stenoHapticOnTouch ?? false},set:{viewModel.gestures.setStenoHapticTouch($0);rebuildLayouts()}),
             stenoHapticRelease:Binding(get:{viewModel.gestures.settings.stenoHapticOnRelease ?? false},set:{viewModel.gestures.setStenoHapticRelease($0);rebuildLayouts()}),
+            keyboardIncludeHovering:Binding(get:{viewModel.gestures.settings.keyboardIncludeHovering ?? false},set:{
+                viewModel.gestures.setKeyboardIncludeHovering($0)
+                viewModel.updateKeyboardTouchAdmission(minimumPressPressure:viewModel.gestures.settings.resolvedKeyboardMinimumPressPressure,includeHovering:$0)
+            }),
+            keyboardMinimumPressPressure:Binding(get:{viewModel.gestures.settings.resolvedKeyboardMinimumPressPressure},set:{
+                viewModel.gestures.setKeyboardMinimumPressPressure($0)
+                viewModel.updateKeyboardTouchAdmission(minimumPressPressure:$0,includeHovering:viewModel.gestures.settings.keyboardIncludeHovering ?? false)
+            }),
+            stenoIncludeHovering:Binding(get:{viewModel.gestures.settings.stenoIncludeHovering ?? false},set:{viewModel.gestures.setStenoIncludeHovering($0);rebuildLayouts()}),
+            stenoMinimumPressPressure:Binding(get:{viewModel.gestures.settings.resolvedStenoMinimumPressPressure},set:{viewModel.gestures.setStenoMinimumPressPressure($0);rebuildLayouts()}),
             stenoForceThreshold:Binding(get:{ viewModel.gestures.settings.resolvedStenoForceThreshold },set:{
                 viewModel.gestures.setStenoForceThreshold($0); rebuildLayouts()
             }),
@@ -1277,6 +1287,10 @@ struct ContentView: View {
         let stenoConnectionMode:Binding<StenoConnectionMode>
         let stenoHapticTouch:Binding<Bool>
         let stenoHapticRelease:Binding<Bool>
+        let keyboardIncludeHovering:Binding<Bool>
+        let keyboardMinimumPressPressure:Binding<Double>
+        let stenoIncludeHovering:Binding<Bool>
+        let stenoMinimumPressPressure:Binding<Double>
         let stenoForceThreshold:Binding<Double>
         let primaryActionGroups: [KeyActionCatalog.ActionGroup]
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
@@ -1388,7 +1402,7 @@ struct ContentView: View {
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius:12).fill(Color.primary.opacity(0.05)))
 
-                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
+                    if layoutOption.isSteno { StenoConnectionPanel(forceThreshold:stenoForceThreshold,includeHovering:stenoIncludeHovering,minimumPressPressure:stenoMinimumPressPressure,connectionMode:stenoConnectionMode,hapticTouch:stenoHapticTouch,hapticRelease:stenoHapticRelease,layoutPreset:layoutSelection) }
 
                     CollapsibleSection(
                         isExpanded: $keymapTuningExpanded
@@ -1421,7 +1435,7 @@ struct ContentView: View {
                         isExpanded: $typingTuningExpanded
                     ) {
                         VStack(alignment:.leading,spacing:12) {
-                            TypingTuningSectionView(tapHoldDurationMs:$tapHoldDurationMs,hapticStrengthSetting:$hapticStrengthSetting)
+                            TypingTuningSectionView(tapHoldDurationMs:$tapHoldDurationMs,hapticStrengthSetting:$hapticStrengthSetting,minimumPressPressure:layoutOption.isSteno ? nil:keyboardMinimumPressPressure,includeHovering:layoutOption.isSteno ? nil:keyboardIncludeHovering)
                             HStack(spacing:8) {
                                 Text("Mode Toggles").font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
                                 Rectangle().fill(Color.secondary.opacity(0.18)).frame(height:1)
@@ -2133,9 +2147,14 @@ struct ContentView: View {
         }
     }
 
-    private struct TypingTuningSectionView: View {
+    struct TypingTuningSectionView: View {
         @Binding var tapHoldDurationMs: Double
         @Binding var hapticStrengthSetting: Double
+
+        var minimumPressPressure:Binding<Double>? = nil
+        var includeHovering:Binding<Bool>? = nil
+        @State private var draftPressPressure:Double = 0
+        @State private var editingPressPressure = false
 
         private let valueFieldWidth: CGFloat = 50
 
@@ -2162,6 +2181,25 @@ struct ContentView: View {
                     Text(String(format: "%.2f", hapticLevelBinding.wrappedValue))
                 }
                 Slider(value: hapticLevelBinding, in: 0...2, step: 0.01)
+                if let minimumPressPressure {
+                    HStack {
+                        Text("Minimum press pressure")
+                        Spacer(minLength:4)
+                        Text(draftPressPressure,format:.number.precision(.fractionLength(0))).monospacedDigit()
+                    }
+                    Slider(value:Binding(get:{draftPressPressure},set:{draftPressPressure = $0.rounded()}),in:0...50,onEditingChanged:{ editing in
+                        editingPressPressure = editing
+                        if !editing { minimumPressPressure.wrappedValue = draftPressPressure }
+                    }).accessibilityLabel("Keyboard minimum press pressure")
+                    Text("Keys only; gestures are unchanged. Reach the minimum once, then relax pressure normally. 0 counts contact alone.")
+                        .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                }
+                if let includeHovering { Toggle("Include hovering contacts",isOn:includeHovering).toggleStyle(.checkbox) }
+            }
+            .onAppear { draftPressPressure = minimumPressPressure?.wrappedValue ?? 0 }
+            .onChange(of:minimumPressPressure?.wrappedValue) { value in if !editingPressPressure { draftPressPressure = value ?? 0 } }
+            .onChange(of:draftPressPressure) { value in
+                if !editingPressPressure, let minimumPressPressure, minimumPressPressure.wrappedValue != value { minimumPressPressure.wrappedValue = value }
             }
         }
     }
@@ -2872,8 +2910,8 @@ struct ContentView: View {
 
     private func rebuildLayouts() {
         if layoutOption.isSteno {
-            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
-            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            leftLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.left,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,includeHovering:viewModel.gestures.settings.stenoIncludeHovering ?? false,minimumPressPressure:viewModel.gestures.settings.resolvedStenoMinimumPressPressure,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
+            rightLayout = StenoLayoutDefinition.layout(preset:layoutOption,side:.right,size:trackpadSize,columns:columnSettings,spacing:keySpacingPercent,overrides:keyGeometryOverrides,pointerMode:viewModel.gestures.settings.resolvedStenoPointerMode,forceThreshold:viewModel.gestures.settings.resolvedStenoForceThreshold,includeHovering:viewModel.gestures.settings.stenoIncludeHovering ?? false,minimumPressPressure:viewModel.gestures.settings.resolvedStenoMinimumPressPressure,connectionMode:viewModel.gestures.settings.resolvedStenoConnectionMode,hapticTouch:viewModel.gestures.settings.stenoHapticOnTouch ?? false,hapticRelease:viewModel.gestures.settings.stenoHapticOnRelease ?? false)
             publishAuthoredLayouts(leftLayout:leftLayout,rightLayout:rightLayout,leftLabels:leftGridLabels,rightLabels:rightGridLabels,
                 trackpadSize:trackpadSize,trackpadWidthMm:Self.trackpadWidthMM)
             return
@@ -3030,6 +3068,7 @@ struct ContentView: View {
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+        viewModel.updateKeyboardTouchAdmission(minimumPressPressure:viewModel.gestures.settings.resolvedKeyboardMinimumPressPressure,includeHovering:viewModel.gestures.settings.keyboardIncludeHovering ?? false)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.setTouchSnapshotRecordingEnabled(true)
     }
@@ -3229,6 +3268,7 @@ struct ContentView: View {
             storedLayoutDocuments = (try? JSONEncoder().encode(layoutDocuments)) ?? Data()
         }
         if let gestures = profile.handGestureSettings { viewModel.gestures.applyImportedSettings(gestures) }
+        viewModel.updateKeyboardTouchAdmission(minimumPressPressure:viewModel.gestures.settings.resolvedKeyboardMinimumPressPressure,includeHovering:viewModel.gestures.settings.keyboardIncludeHovering ?? false)
         gestureRecognitionEnabled = profile.gestureRecognitionEnabled ?? false
         storedLeftDeviceID = profile.leftDeviceID
         storedRightDeviceID = profile.rightDeviceID

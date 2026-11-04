@@ -6,7 +6,40 @@ starting the app, listening to trackpads, posting native events, launching
 apps, playing haptics, or starting dictation. UI declarations are compiled to
 satisfy the existing model/geometry dependencies; the UI model is not created.
 
+## Keyboard touch admission
+
+Production engine regressions cover long resting contacts followed by a qualifying
+peak, relaxation through release, never-activated taps/modifiers, opt-in hovering,
+reconfiguration key-up/proposal invalidation, gesture-reserved hovering suppression,
+and settings round-trip/missing-field preservation. Gesture arbitration compares
+original-frame movement at ordinary keyboard pressure settings and at minimum 50
+with hovering enabled. Steno tests check light two-finger mouse tracking and all
+1–4F Force actions at key minimum 0 and 50.
+Hardware acceptance: use Typing Tuning on a regular layout, leave a finger resting
+below the minimum, press once and relax, then lift; one keypress should result.
+Modifiers, layers, holds and repeat must engage only after activation and release
+normally. Enable hovering for stickers and verify the same peak-only behavior.
+Confirm gestures have the same activation/continuation at key minimum 0 and 50,
+and that a gesture's surviving hovering contacts never become typing. Default/off
+must retain existing typing. Replay must remain output-free.
+
 ## STENO verification
+
+`StenoPressureTests` checks opt-in hovering admission, peak activation retained
+through zero-pressure relaxation, rolling keys, independent hands, unactivated
+resting contacts, repeat strokes, invalid pressure, overflow, stale input,
+disconnect/reset cancellation and settings round-trip/missing-field preservation.
+`Fixtures/steno-textured.json` preserves three unchanged contact sequences extracted
+from the user's `textured.atpcap`, with its SHA-256: two hover-only presses and one
+ordinary touch chord. Replay them through the pure chord engine with hovering off,
+on at minimum 12, and on at minimum 40; only qualifying strokes may complete.
+Hardware acceptance: enable Include hovering contacts, start with minimum 0 to
+check sticker detection, then choose a minimum above resting pressure and below
+intentional press peaks. Press once, relax without lifting, roll another finger,
+and lift the activated fingers: one combined stroke should emit, even if other
+never-activated fingers remain resting. Check default/off behavior, both pads,
+mouse ownership, mode changes, stop/reset and replay without native output.
+
 
 `GeminiPRTests`, `StenoChordTests`, `StenoMouseTests` and `StenoLayoutTests` check canonical Plover
 wire vectors, every wire bit, rolling two-pad all-up, arbitrary selected device

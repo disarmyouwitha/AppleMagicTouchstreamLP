@@ -82,6 +82,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case typingDisabled
         case intentMouse
         case gestureReserved
+        case minimumPressureReconfigured
+        case invalidPressure
         case offKeyNoSnap
         case momentaryLayerCancelled
     }
@@ -628,6 +630,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         right: TouchTable<KeyBinding>(minimumCapacity: 16)
     )
     private var framePointCache = TouchTable<CGPoint>(minimumCapacity: 16)
+    private var keyboardIncludeHovering = false
+    private var keyboardMinimumPressPressure:Float = 0
+    private var keyboardPressureBlockedPads:UInt8 = 0
     private var peakPressureByTouch = TouchTable<Float>(minimumCapacity: 32)
 
     private struct IntentState {
@@ -694,12 +699,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         if leftDeviceIndex != leftIndex || self.leftDeviceID != leftDeviceID {
             if isStenoLayout { dispatchService.cancelStenoHaptics() }
             if isStenoLayout, let id = self.leftDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
-            stenoChord.removeDevice(0); padsWithContacts &= ~1; layoutTransitionBlockedPads &= ~1
+            stenoChord.removeDevice(0); padsWithContacts &= ~1; layoutTransitionBlockedPads &= ~1; keyboardPressureBlockedPads &= ~1
         }
         if rightDeviceIndex != rightIndex || self.rightDeviceID != rightDeviceID {
             if isStenoLayout { dispatchService.cancelStenoHaptics() }
             if isStenoLayout, let id = self.rightDeviceID.flatMap(UInt64.init) { dispatchService.releaseStenoPointer(device:id) }
-            stenoChord.removeDevice(1); padsWithContacts &= ~2; layoutTransitionBlockedPads &= ~2
+            stenoChord.removeDevice(1); padsWithContacts &= ~2; layoutTransitionBlockedPads &= ~2; keyboardPressureBlockedPads &= ~2
         }
         let next = Set([leftIndex, rightIndex].compactMap { $0 })
         for removed in Set([leftDeviceIndex, rightDeviceIndex].compactMap { $0 }).subtracting(next) {
@@ -717,6 +722,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let slot = leftDeviceIndex == deviceIndex ? 0:1
         stenoChord.removeDevice(slot)
         padsWithContacts &= ~(UInt8(1)<<slot)
+        keyboardPressureBlockedPads &= ~(UInt8(1)<<slot)
         touchRemovalBuffer.removeAll(keepingCapacity: true)
         touchStates.forEach { key, _ in
             if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
@@ -757,6 +763,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         isStenoLayout = steno
         cancelStenoStroke(blockedPads:padsWithContacts,cancelReleasedScroll:true)
+        stenoChord.includeHovering = leftLayout.stenoIncludeHovering
+        stenoChord.minimumPressPressure = leftLayout.stenoMinimumPressPressure
         stenoChord.pointerMode = leftLayout.stenoPointerMode
         stenoChord.forceThreshold = Float(StenoForceThreshold.validated(Double(leftLayout.stenoForceThreshold)))
         stenoHapticTouch = leftLayout.stenoHapticTouch; stenoHapticRelease = leftLayout.stenoHapticRelease
@@ -835,6 +843,20 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     func updateHapticStrength(_ normalized: Double) {
         hapticStrength = TypingHapticFeedback.level(normalized)
+    }
+
+    func updateKeyboardTouchAdmission(minimumPressPressure value:Double,includeHovering:Bool) {
+        let threshold = Float(StenoPressThreshold.validated(value))
+        guard threshold != keyboardMinimumPressPressure || keyboardIncludeHovering != includeHovering else { return }
+        keyboardMinimumPressPressure = threshold
+        keyboardIncludeHovering = includeHovering
+        if !isStenoLayout {
+            // Invalidate keyboard proposals and balance existing keys through shared cleanup.
+            // This block is keyboard-only: gesture recognition keeps its original frames/owners.
+            releaseHeldKeys(stopVoiceDictation:false)
+            peakPressureByTouch.removeAll()
+            keyboardPressureBlockedPads |= padsWithContacts
+        }
     }
 
     func updateSnapRadiusPercent(_ percent: Double) {
@@ -1143,7 +1165,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         guard isLeftDevice || isRightDevice else { return nil }
         do {
             let bit = UInt8(1) << (isLeftDevice ? 0:1)
-            if touches.contains(where:{($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID != 6}) { padsWithContacts |= bit }
+            if touches.contains(where:{ isStenoLayout ? stenoChord.acceptsContact($0):(($0.state == .making || $0.state == .touching || keyboardIncludeHovering && ($0.state == .starting || $0.state == .hovering)) && $0.telemetry?.fingerID != 6) }) { padsWithContacts |= bit }
             else { padsWithContacts &= ~bit }
         }
         if keymapEditingEnabled {
@@ -1247,8 +1269,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
         // Keyboard holds also activate on .starting; retain ownership on that frame.
-        if !touches.contains(where: { Self.isContactState($0.state) }) {
+        if !touches.contains(where: { isKeyboardContactState($0.state) }) {
             keyboardChordDevices.remove(deviceIndex)
+            keyboardPressureBlockedPads &= ~(UInt8(1) << (isLeftDevice ? 0:1))
         }
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
@@ -1292,7 +1315,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func finishGestureKeyboardCycle<C: Collection>(deviceIndex: Int, touches: C) where C.Element == OMSRawTouch {
-        guard !touches.contains(where: { Self.isContactState($0.state) }) else { return }
+        guard !touches.contains(where: { isKeyboardContactState($0.state) }) else { return }
         // Native streams can end with an empty frame instead of terminal records.
         // Release disqualification marks too; they no longer have touchStates.
         touchRemovalBuffer.removeAll(keepingCapacity: true)
@@ -1340,7 +1363,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         for key in touchRemovalBuffer { intentState.touches.remove(key) }
         intentState.mode = intentState.touches.isEmpty ? .idle : .typingCommitted(untilAllUp:true)
         updateIntentDisplayIfNeeded()
-        if !touches.contains(where: { Self.isContactState($0.state) }) {
+        if !touches.contains(where: { isKeyboardContactState($0.state) }) {
             gestureKeyboardDevices.remove(deviceIndex)
         }
         return true
@@ -1368,6 +1391,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let side: TrackpadSide = isLeftSide ? .left : .right
         var frameTouchKeys = TouchTable<Bool>(minimumCapacity: max(16, touches.count * 2))
         for touch in touches {
+            let state:OMSState = keyboardIncludeHovering && touch.state == .hovering ? .touching:touch.state
             let touchKey = Self.makeTouchKey(deviceIndex: deviceIndex, id: touch.id)
             frameTouchKeys.set(touchKey, true)
             let point: CGPoint
@@ -1381,9 +1405,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 framePointCache.set(touchKey, computed)
                 point = computed
             }
-            if Self.isContactState(touch.state) {
+            if isKeyboardContactState(state) {
                 releaseHandledTouches.remove(touchKey)
-            } else if Self.isTerminalReleaseState(touch.state),
+            } else if Self.isTerminalReleaseState(state),
                       releaseHandledTouches.value(for: touchKey) != nil {
                 touchInitialContactPoint.remove(touchKey)
                 clearPeakPressure(for: touchKey)
@@ -1402,8 +1426,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
             let peakPressure = updatePeakPressure(for: touchKey, pressure: touch.pressure)
 
             if gestureReserved { disqualifyTouch(touchKey, reason: .gestureReserved) }
+            if keyboardPressureBlockedPads & (UInt8(1) << (isLeftSide ? 0:1)) != 0 {
+                disqualifyTouch(touchKey, reason:.minimumPressureReconfigured)
+            }
+            if keyboardMinimumPressPressure > 0, !touch.pressure.isFinite || touch.pressure < 0 {
+                disqualifyTouch(touchKey, reason:.invalidPressure)
+            }
             if disqualifiedTouches.value(for: touchKey) != nil {
-                switch touch.state {
+                switch state {
                 case .breaking, .leaving, .notTouching:
                     disqualifiedTouches.remove(touchKey)
                     releaseHandledTouches.set(touchKey, true)
@@ -1416,22 +1446,45 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 }
                 continue
             }
+            // A terminal record alone cannot activate typing (for example, an ignored hover).
+            if Self.isTerminalReleaseState(state), touchInitialContactPoint.value(for:touchKey) == nil,
+               touchStates.value(for:touchKey) == nil, intentState.touches.value(for:touchKey) == nil,
+               releasedIntentTouches.value(for:touchKey) == nil,
+               momentaryLayerTouches.value(for:touchKey) == nil, layerToggleTouchStarts.value(for:touchKey) == nil {
+                clearPeakPressure(for:touchKey)
+                releaseHandledTouches.set(touchKey,true)
+                continue
+            }
+            if peakPressure < keyboardMinimumPressPressure {
+                recordFrameDecision(touchKey,outcome:.rejected,reason:"minimumPressPressure",binding:resolveBinding())
+                if Self.isTerminalReleaseState(state) {
+                    clearPeakPressure(for:touchKey)
+                    touchInitialContactPoint.remove(touchKey)
+                    releaseHandledTouches.set(touchKey,true)
+                }
+                continue
+            }
             if touchInitialContactPoint.value(for: touchKey) == nil,
-               Self.isContactState(touch.state) {
+               isKeyboardContactState(state) {
                 touchInitialContactPoint.set(touchKey, point)
+                if keyboardMinimumPressPressure > 0 {
+                    // Resting time is not key hold time. Start keyboard timing on admission.
+                    intentState.touches.set(touchKey,IntentTouchInfo(startPoint:point,startTime:now,
+                        lastPoint:point,lastTime:now,maxDistanceSquared:0))
+                }
             }
 
             if momentaryLayerTouches.value(for: touchKey) != nil {
                 handleMomentaryLayerTouch(
                     touchKey: touchKey,
-                    state: touch.state,
+                    state: state,
                     targetLayer: nil,
                     bindingRect: nil
                 )
                 continue
             }
             if layerToggleTouchStarts.value(for: touchKey) != nil {
-                handleLayerToggleTouch(touchKey: touchKey, state: touch.state, targetLayer: nil)
+                handleLayerToggleTouch(touchKey: touchKey, state: state, targetLayer: nil)
                 continue
             }
 
@@ -1440,12 +1493,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 case .typingToggle:
                     break
                 case let .layerToggle(targetLayer):
-                    handleLayerToggleTouch(touchKey: touchKey, state: touch.state, targetLayer: targetLayer)
+                    handleLayerToggleTouch(touchKey: touchKey, state: state, targetLayer: targetLayer)
                     continue
                 case let .layerMomentary(targetLayer):
                     handleMomentaryLayerTouch(
                         touchKey: touchKey,
-                        state: touch.state,
+                        state: state,
                         targetLayer: targetLayer,
                         bindingRect: binding.rect
                     )
@@ -1465,7 +1518,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if !intentAllowsTyping, isTypingEnabled,
                disqualifiedTouches.value(for: touchKey) == nil {
                 disqualifyTouch(touchKey, reason: .intentMouse)
-                if Self.isTerminalReleaseState(touch.state) {
+                if Self.isTerminalReleaseState(state) {
                     disqualifiedTouches.remove(touchKey)
                     releaseHandledTouches.set(touchKey, true)
                     clearPeakPressure(for: touchKey)
@@ -1487,7 +1540,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 continue
             }
 
-            switch touch.state {
+            switch state {
             case .starting, .making, .touching:
                 if var active = activeTouch(for: touchKey) {
                     let distanceSquared = distanceSquared(from: active.startPoint, to: point)
@@ -1885,6 +1938,13 @@ final class TouchProcessorEngine: @unchecked Sendable {
             ?? pendingTouch(for: touchKey)?.startPoint
             ?? .zero
         let peakPressure = peakPressureByTouch.value(for: touchKey) ?? 0
+        if peakPressure < keyboardMinimumPressPressure {
+            clearPeakPressure(for:touchKey)
+            touchInitialContactPoint.remove(touchKey)
+            framePointCache.remove(touchKey)
+            releaseHandledTouches.set(touchKey,true)
+            return
+        }
 
         let hadLayerControl = momentaryLayerTouches.value(for:touchKey) != nil
             || layerToggleTouchStarts.value(for:touchKey) != nil
@@ -2575,6 +2635,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         return dx * dx + dy * dy
     }
 
+    private func isKeyboardContactState(_ state:OMSState) -> Bool {
+        Self.isContactState(state) || keyboardIncludeHovering && state == .hovering
+    }
+
     private static func isContactState(_ state: OMSState) -> Bool {
         switch state {
         case .starting, .making, .touching:
@@ -2652,7 +2716,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         bindingCacheBySide[.right].removeAll(keepingCapacity: true)
         func inspect(_ touch: OMSRawTouch, device: Int, side: TrackpadSide, index: BindingIndex) {
             let key = Self.makeTouchKey(deviceIndex: device, id: touch.id)
-            let active = Self.isContactState(touch.state)
+            let active = isKeyboardContactState(touch.state)
             guard active || (Self.isTerminalReleaseState(touch.state) && state.touches.value(for: key) != nil) else { return }
             if active { present.insert(key) }
             let point = CGPoint(x: CGFloat(touch.posX) * trackpadSize.width,

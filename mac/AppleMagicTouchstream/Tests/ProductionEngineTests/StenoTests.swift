@@ -714,6 +714,27 @@ final class StenoMouseTests:XCTestCase {
         let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
         XCTAssertEqual(imported.layoutPreset,preset.rawValue)
     }
+    func testProductionProfileRestoresPeakPressureAndHoveringWithoutLiveOutput() throws {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+        object["layoutPreset"] = TrackpadLayoutPreset.steno.rawValue
+        var profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+        var settings = HandGestureSettings(); settings.stenoIncludeHovering = true; settings.stenoMinimumPressPressure = 12
+        settings.stenoConnectionMode = .serial; profile.handGestureSettings = settings
+        let run = ProductionReplaySession(startTime:1)
+        run.configure(profile:profile,leftIndex:4,rightIndex:7)
+        let point = contact(.tl,preset:.steno,side:.left)
+        func finger(_ pressure:Float) -> OMSRawTouch {
+            .init(id:point.id,posX:point.posX,posY:point.posY,total:1,pressure:pressure,majorAxis:5,minorAxis:3,angle:0,density:1,state:.hovering)
+        }
+        frame(run,1,4,[finger(2)])
+        frame(run,1.01,4,[finger(12)])
+        frame(run,1.02,4,[finger(0)])
+        XCTAssertTrue(packets(run).isEmpty)
+        frame(run,1.03,4,[])
+        XCTAssertEqual(packets(run),[GeminiPRPacket.recordingLabel(for:StenoKey.tl.bit)])
+        run.finish(at:1.1)
+        XCTAssertNil(GeminiPRPort.shared.snapshot.path)
+    }
     func testProductionEngineRoutesArbitraryNativeIndicesAndAllUpToOnePacket() {
         for preset in [TrackpadLayoutPreset.steno,.stenoVoyager] {
             let run = session(preset)
@@ -975,5 +996,126 @@ final class StenoMouseTests:XCTestCase {
         let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
         XCTAssertEqual(restored.layoutPreset,"STENO Voyager")
         XCTAssertEqual(restored.keyMappingsByLayout?["STENO Voyager"]?[0]?["left:1:1"]?.primary,StenoKey.s1.action)
+    }
+}
+
+final class StenoPressureTests:XCTestCase {
+    private let size = CGSize(width:160,height:115)
+    private var regions:[StenoRegion] { [
+        .init(key:.s1,geometry:.init(normalizedRect:.init(x:0,y:0,width:0.4,height:1),size:size)),
+        .init(key:.tl,geometry:.init(normalizedRect:.init(x:0.6,y:0,width:0.4,height:1),size:size))] }
+    private func touch(_ pressure:Float,_ x:Float = 0.2,_ state:OMSState = .hovering,id:Int32 = 1) -> OMSRawTouch {
+        .init(id:id,posX:x,posY:0.5,total:1,pressure:pressure,majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+    }
+    @discardableResult private func frame(_ engine:inout StenoChordEngine,_ t:Double,_ contacts:[OMSRawTouch],device:Int = 0) -> UInt64? {
+        engine.process(device:device,time:t,touches:contacts,regions:regions,size:size)
+    }
+    func testPeakPressureLatchesUntilLiftAndUnactivatedRestDoesNotBlock() {
+        var engine = StenoChordEngine(); engine.includeHovering = true; engine.minimumPressPressure = 12
+        XCTAssertNil(frame(&engine,1,[touch(2),touch(2,0.8,id:2)]))
+        XCTAssertNil(frame(&engine,1.01,[touch(12),touch(2,0.8,id:2)]))
+        XCTAssertNil(frame(&engine,1.02,[touch(0),touch(2,0.8,id:2)])) // Relaxing cannot complete/split the stroke.
+        XCTAssertNil(frame(&engine,1.03,[touch(0),touch(16,0.8,id:2)]))
+        XCTAssertNil(frame(&engine,1.04,[touch(0,0.8,id:2)]))
+        XCTAssertEqual(frame(&engine,1.05,[touch(2,id:3)]),StenoKey.s1.bit|StenoKey.tl.bit)
+        XCTAssertNil(frame(&engine,1.06,[touch(2,id:3)]))
+        XCTAssertNil(frame(&engine,1.07,[touch(12,id:3)]))
+        XCTAssertEqual(frame(&engine,1.08,[]),StenoKey.s1.bit)
+    }
+    func testBothHandsPressurePeakAndReconfigurationCancellation() {
+        var engine = StenoChordEngine(); engine.includeHovering = true; engine.minimumPressPressure = 12
+        frame(&engine,1,[touch(14)])
+        frame(&engine,1,[touch(14,0.8)],device:1)
+        XCTAssertNil(frame(&engine,1.01,[]))
+        XCTAssertNil(frame(&engine,1.01,[touch(0,0.8)],device:1))
+        XCTAssertEqual(frame(&engine,1.02,[],device:1),StenoKey.s1.bit|StenoKey.tl.bit)
+        frame(&engine,1.03,[touch(14)])
+        engine.cancel()
+        XCTAssertNil(frame(&engine,1.04,[touch(20)]))
+        XCTAssertNil(frame(&engine,1.05,[]))
+        frame(&engine,1.06,[touch(14,0.8)])
+        XCTAssertEqual(frame(&engine,1.07,[]),StenoKey.tl.bit)
+    }
+    func testHoverOptionDoesNotTurnNearContactsIntoMouseAndPointerWinDiscardsStroke() {
+        var engine = StenoChordEngine(); engine.includeHovering = true; engine.minimumPressPressure = 12; engine.pointerMode = .twoFinger
+        frame(&engine,1,[touch(140)])
+        XCTAssertFalse(engine.hasPointerOwner) // Raw hover never activates mouse force.
+        XCTAssertEqual(frame(&engine,1.01,[]),StenoKey.s1.bit)
+        frame(&engine,1.02,[touch(140,0.2,.touching)])
+        XCTAssertTrue(engine.hasPointerOwner)
+        XCTAssertTrue(engine.pointerUpdate?.dragBegan == true)
+        XCTAssertNil(frame(&engine,1.03,[touch(0,0.2,.touching)]))
+        XCTAssertNil(frame(&engine,1.04,[]))
+        XCTAssertFalse(engine.hasPointerOwner)
+    }
+    func testInvalidPressureOverflowAndStaleHoverCancel() {
+        for reason in ["invalid","overflow","stale","disconnect"] {
+            var engine = StenoChordEngine(); engine.includeHovering = true; engine.minimumPressPressure = 12
+            frame(&engine,1,[touch(14)])
+            switch reason {
+            case "invalid": frame(&engine,1.01,[touch(.nan)])
+            case "overflow": frame(&engine,1.01,(0..<17).map { touch(0,id:Int32($0)) })
+            case "stale": frame(&engine,2,[touch(0)])
+            default: engine.removeDevice(0)
+            }
+            XCTAssertNil(frame(&engine,2.01,[]),reason)
+            frame(&engine,2.02,[touch(14,0.8)])
+            XCTAssertEqual(frame(&engine,2.03,[]),StenoKey.tl.bit,reason)
+        }
+    }
+    func testCapturedStickerContactsAreOptInAndHonorPeakThreshold() throws {
+        struct Frame:Decodable { let time:Double; let contacts:[OMSRawTouch] }
+        struct Case:Decodable { let frames:[Frame] }
+        struct Fixture:Decodable { let cases:[Case] }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"steno-textured",withExtension:"json",subdirectory:"Fixtures"))
+        let fixture = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url))
+        let fullPad = [StenoRegion(key:.s1,geometry:.init(normalizedRect:.init(x:0,y:0,width:1,height:1),size:size))]
+        for (index,c) in fixture.cases.enumerated() {
+            for (hover,threshold,expected) in [(false,Float(0),index == 2 ? 1:0),(true,12,1),(true,40,0)] {
+                var engine = StenoChordEngine(); engine.includeHovering = hover; engine.minimumPressPressure = threshold
+                var strokes = 0
+                for f in c.frames {
+                    if let stroke = engine.process(device:0,time:f.time,touches:f.contacts,regions:fullPad,size:size) {
+                        XCTAssertEqual(stroke,StenoKey.s1.bit); strokes += 1
+                    }
+                }
+                XCTAssertEqual(strokes,expected,"case \(index), hover \(hover), threshold \(threshold)")
+            }
+        }
+    }
+    func testSettingsRoundTripAndMissingImportPreserveOptions() throws {
+        var current = AppKeymapProfile.defaultProfile(); var settings = HandGestureSettings()
+        settings.stenoIncludeHovering = true; settings.stenoMinimumPressPressure = 12; current.handGestureSettings = settings
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:current),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings?.stenoIncludeHovering,true)
+        XCTAssertEqual(restored.handGestureSettings?.resolvedStenoMinimumPressPressure,12)
+        var old = AppKeymapProfile.defaultProfile(); old.handGestureSettings = HandGestureSettings()
+        let merged = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:old),currentProfile:current)
+        XCTAssertEqual(merged.handGestureSettings?.stenoIncludeHovering,true)
+        XCTAssertEqual(merged.handGestureSettings?.resolvedStenoMinimumPressPressure,12)
+        XCTAssertEqual(HandGestureSettings().resolvedStenoMinimumPressPressure,0)
+        XCTAssertEqual(StenoPressThreshold.validated(.nan),0)
+        XCTAssertEqual(StenoPressThreshold.validated(-1),0)
+        XCTAssertEqual(StenoPressThreshold.validated(501),50)
+    }
+}
+
+extension StenoMouseTests {
+    func testStenoMinimumKeyPressureCannotResetLightMouseOrChangeForceActions() {
+        for threshold:Float in [0,500] {
+            var engine = StenoChordEngine(); engine.pointerMode = .twoFinger; engine.minimumPressPressure = threshold
+            frame(&engine,1,[touch(pressure:2),touch(0.4,id:2,pressure:2)])
+            frame(&engine,1.01,[touch(0.205,pressure:2),touch(0.405,id:2,pressure:2)])
+            frame(&engine,1.02,[touch(0.215,pressure:2),touch(0.415,id:2,pressure:2)])
+            XCTAssertNotNil(engine.pointerUpdate?.millimetres)
+            XCTAssertNil(frame(&engine,1.03,[]))
+            for count in 1...4 {
+                let t = 1.1+Double(count)*0.1
+                frame(&engine,t,(0..<count).map { touch(0.2+Float($0)*0.15,id:Int32($0),pressure:140) })
+                XCTAssertTrue(engine.hasPointerOwner,"threshold \(threshold), count \(count)")
+                XCTAssertTrue(engine.pointerUpdate?.activatesForce == true)
+                XCTAssertNil(frame(&engine,t+0.01,[]))
+            }
+        }
     }
 }

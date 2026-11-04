@@ -100,13 +100,18 @@ final class GeminiPRPort:@unchecked Sendable {
 
 /// Visible only for a STENO preset. Snapshot polling does not open a port.
 struct StenoConnectionPanel:View {
+    @Binding var includeHovering:Bool
+    @Binding var minimumPressPressure:Double
+    @State private var draftPressPressure:Double = 0
+    @State private var editingPressPressure = false
     @Binding var forceThreshold:Double
     @Binding var layoutPreset:TrackpadLayoutPreset
     @Binding var connectionMode:StenoConnectionMode
     @Binding var hapticTouch:Bool
     @Binding var hapticRelease:Bool
     @StateObject private var installer = PloverPluginInstaller()
-    init(forceThreshold:Binding<Double>,connectionMode:Binding<StenoConnectionMode> = .constant(.defaultMode),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false),layoutPreset:Binding<TrackpadLayoutPreset> = .constant(.steno)) {
+    init(forceThreshold:Binding<Double>,includeHovering:Binding<Bool> = .constant(false),minimumPressPressure:Binding<Double> = .constant(0),connectionMode:Binding<StenoConnectionMode> = .constant(.defaultMode),hapticTouch:Binding<Bool> = .constant(false),hapticRelease:Binding<Bool> = .constant(false),layoutPreset:Binding<TrackpadLayoutPreset> = .constant(.steno)) {
+        _includeHovering = includeHovering; _minimumPressPressure = minimumPressPressure
         _layoutPreset = layoutPreset
         _forceThreshold = forceThreshold; _connectionMode = connectionMode; _hapticTouch = hapticTouch; _hapticRelease = hapticRelease
     }
@@ -177,6 +182,24 @@ struct StenoConnectionPanel:View {
                     Text("Sent: \(status.sent) · Dropped: \(status.dropped)").font(.caption2).foregroundStyle(.secondary)
                 }
                 Divider().padding(.vertical,4)
+                Text("STENO Touches").font(.callout.weight(.semibold))
+                HStack(spacing:12) {
+                    Text("Minimum press pressure").frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
+                    HStack {
+                        Slider(value:Binding(get:{draftPressPressure},set:{draftPressPressure = $0.rounded()}),in:0...50,onEditingChanged:{ editing in
+                            editingPressPressure = editing
+                            if !editing { minimumPressPressure = draftPressPressure }
+                        }).accessibilityLabel("Steno minimum press pressure")
+                        Text(draftPressPressure,format:.number.precision(.fractionLength(0)))
+                            .monospacedDigit().frame(width:32,alignment:.trailing)
+                    }.frame(minWidth:0,maxWidth:.infinity)
+                }
+                Text("0 counts contact alone. Above 0, crossing the minimum activates a finger until it lifts; pressure can relax immediately. Resting fingers that never activate do not block a stroke. Uses the pad’s reported units.")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Toggle("Include hovering contacts",isOn:$includeHovering).toggleStyle(.checkbox)
+                Text("For textured stickers. Includes detected near contacts; missing contacts cannot be recovered.")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Divider().padding(.vertical,4)
                 HStack(alignment:.firstTextBaseline,spacing:12) {
                     Text("STENO Mouse").font(.callout.weight(.semibold)).fixedSize()
                     Spacer(minLength:0)
@@ -207,6 +230,7 @@ struct StenoConnectionPanel:View {
             }.padding(12).frame(minWidth:0,maxWidth:.infinity,alignment:.leading)
                 .background(Color.primary.opacity(0.05),in:RoundedRectangle(cornerRadius:12))
                 .onAppear {
+                    draftPressPressure = minimumPressPressure
                     draftThreshold = forceThreshold
                     if connectionMode == .plugin { installer.refreshInstallation() }
                 }
@@ -214,6 +238,8 @@ struct StenoConnectionPanel:View {
                 .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in
                     if connectionMode == .plugin { installer.refreshInstallation() }
                 }
+                .onChange(of:minimumPressPressure) { value in if !editingPressPressure { draftPressPressure = value } }
+                .onChange(of:draftPressPressure) { value in if !editingPressPressure, minimumPressPressure != value { minimumPressPressure = value } }
                 .onChange(of:forceThreshold) { value in
                     if !isEditingThreshold { draftThreshold = value }
                 }
