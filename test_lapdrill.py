@@ -6,6 +6,22 @@ import lapdrill as drill
 
 
 class KeyboardDrillTests(unittest.TestCase):
+    def test_numbered_cli_dispatch_without_dictionary(self):
+        for args in (["keyboard", "2"], ["keyboard", "right-bottom"], ["keyboard", "--drill", "2"]):
+            with patch.object(drill, "keyboard") as run, patch.object(drill, "load_dictionary") as dictionary, \
+                    patch.object(drill, "load_stats", return_value={}), patch.object(drill, "save_stats"), \
+                    patch.object(drill, "enable_vt"), patch.object(drill.sys, "stdout"):
+                drill.main(args)
+                self.assertEqual(run.call_args.args[0], drill.KEYBOARD_DRILLS[1])
+                dictionary.assert_not_called()
+
+    def test_invalid_cli_selection_fails_before_starting(self):
+        for args in (["keyboard", "0"], ["keyboard", "19"], ["keyboard", "oops"],
+                     ["flash", "2"], ["keyboard", "2", "--drill", "vowels"]):
+            with patch.object(drill.sys, "stderr"), self.assertRaises(SystemExit) as error:
+                drill.main(args)
+            self.assertEqual(error.exception.code, 2)
+
     def test_all_drills_generate_valid_raw_steno(self):
         import re
         self.assertEqual(len(drill.KEYBOARD_DRILLS), 18)

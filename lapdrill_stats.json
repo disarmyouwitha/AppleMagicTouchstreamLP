@@ -1,0 +1,18 @@
+{
+ "_keyboard:S": {
+  "hit": 24,
+  "miss": 4
+ },
+ "_keyboard:K": {
+  "hit": 20,
+  "miss": 4
+ },
+ "_keyboard:W": {
+  "hit": 24,
+  "miss": 3
+ },
+ "_keyboard:R": {
+  "hit": 32,
+  "miss": 3
+ }
+}

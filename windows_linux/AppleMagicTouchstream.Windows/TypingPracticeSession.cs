@@ -3,7 +3,7 @@ using System.Globalization;
 namespace AppleMagicTouchstream;
 
 // Local practice scoring only. No runtime, device, preferences or output access.
-internal sealed class TypingPracticeSession(string prompt, bool ignoresCase = false)
+internal sealed class TypingPracticeSession(string prompt, bool ignoresCase = false, bool rawStrokes = false)
 {
     internal enum Mode { Words, Steno, Custom }
     internal static readonly string[] CommonWords = "the be to of and a in that have for it not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us water home hand place small great again around every word light right left read write world school still long little help sound move turn play learn".Split(' ');
@@ -13,6 +13,7 @@ internal sealed class TypingPracticeSession(string prompt, bool ignoresCase = fa
     internal DateTimeOffset? StartedAt { get; private set; }
     internal DateTimeOffset? FinishedAt { get; private set; }
     internal bool IgnoresCase { get; } = ignoresCase;
+    internal bool RawStrokes { get; } = rawStrokes;
     internal static string[] Characters(string text) => StringInfo.GetTextElementEnumerator(text).AsEnumerable().ToArray();
     internal static string Limit(string text, int count) => string.Concat(Characters(text).Take(count));
     internal static string[] Words(string text) => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
@@ -41,13 +42,22 @@ internal sealed class TypingPracticeSession(string prompt, bool ignoresCase = fa
         if (FinishedAt != null) return;
         Input = Limit(text, 6000);
         if (StartedAt == null && Input.Length > 0) StartedAt = now;
-        if (StartedAt != null && IsComplete) FinishedAt = now;
+        if (!RawStrokes || (Input.Length > 0 && char.IsWhiteSpace(Input[^1]))) FinishIfComplete(now);
     }
+    // Raw output may arrive one character at a time. Only seal the final chord
+    // after a delimiter or the UI's brief settling interval, never on a prefix.
+    internal void FinishIfComplete(DateTimeOffset now)
+    {
+        if (FinishedAt == null && StartedAt != null && IsComplete) FinishedAt = now;
+    }
+    internal int CorrectStrokes => ComparisonInput.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Zip(Compare(Prompt).Split(' ', StringSplitOptions.RemoveEmptyEntries)).Count(pair => pair.First == pair.Second);
     internal int CorrectCharacters => Characters(ComparisonInput).Zip(Characters(Compare(Prompt))).Count(pair => pair.First == pair.Second);
     internal double Accuracy => ComparisonInput.Length == 0 ? 100 : 100.0 * CorrectCharacters / Characters(ComparisonInput).Length;
     internal double Progress => Prompt.Length == 0 ? 0 : Math.Min(1, (double)CorrectCharacters / Characters(Compare(Prompt)).Length);
     internal double Elapsed(DateTimeOffset now) => StartedAt is {} start ? Math.Max(0, ((FinishedAt ?? now) - start).TotalSeconds) : 0;
     internal double Wpm(DateTimeOffset now) => Elapsed(now) < 1 ? 0 : CorrectCharacters / 5.0 / (Elapsed(now) / 60);
+    internal double Spm(DateTimeOffset now) => Elapsed(now) < 1 ? 0 : CorrectStrokes / (Elapsed(now) / 60);
 }
 
 internal static class PracticeTextElements

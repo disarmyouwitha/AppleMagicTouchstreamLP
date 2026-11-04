@@ -15,7 +15,8 @@ public sealed class TypingPracticePanel : StackPanel
     private static readonly Brush Good = new SolidColorBrush(Color.FromRgb(87, 199, 133));
     private static readonly Brush Bad = new SolidColorBrush(Color.FromRgb(255, 123, 114));
     private readonly ComboBox _area = new() { ItemsSource = new[] { "Free type", "Practice" }, SelectedIndex = 0, Width = 116 };
-    private readonly ComboBox _mode = new() { ItemsSource = new[] { "Words", "Steno drills", "Custom" }, SelectedIndex = 0, Width = 130 };
+    private readonly ComboBox _mode = new() { ItemsSource = new[] { "Words", "Steno drills", "Custom", "Keyboard drills" }, SelectedIndex = 0, Width = 140 };
+    private readonly ComboBox _drill = new() { ItemsSource = KeyboardPracticeDrills.All.Select((drill, i) => $"{i + 1}. {drill.Title}").ToArray(), SelectedIndex = 0, Width = 280, Visibility = Visibility.Collapsed };
     private readonly ComboBox _count = new() { ItemsSource = new[] { 10, 25, 50, 100 }, SelectedItem = 25, Width = 64 };
     private readonly Button _restart = new() { Content = "New drill", Padding = new Thickness(10, 4, 10, 4) };
     private readonly Border _freeHost = new();
@@ -34,14 +35,17 @@ public sealed class TypingPracticePanel : StackPanel
     private readonly TextBlock _help = new() { Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
     private readonly TextBlock _customHelp = new() { Text = "Edit the word list, then choose New drill.", Foreground = Muted, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 8) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly DispatcherTimer _strokeSettleTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private TypingPracticeSession _session = new("");
     internal TypingPracticeSession Session => _session;
     internal TextBox PracticeInput => _input;
     internal ComboBox AreaSelector => _area;
     internal ComboBox ModeSelector => _mode;
+    internal ComboBox DrillSelector => _drill;
     internal TextBox CustomInput => _custom;
     internal Button NewDrillButton => _restart;
     private bool Practicing => _area.SelectedIndex == 1;
+    private bool KeyboardDrills => _mode.SelectedIndex == 3;
 
     // Keep the window's existing named TypingTestBox and its text intact.
     public UIElement? FreeInput { get => _freeHost.Child; set => _freeHost.Child = value; }
@@ -49,7 +53,7 @@ public sealed class TypingPracticePanel : StackPanel
     public TypingPracticePanel()
     {
         var header = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
-        foreach (var control in new FrameworkElement[] { _area, _mode, _count, _restart })
+        foreach (var control in new FrameworkElement[] { _area, _mode, _drill, _count, _restart })
         {
             control.Margin = new Thickness(0, 0, 8, 4);
             header.Children.Add(control);
@@ -65,6 +69,7 @@ public sealed class TypingPracticePanel : StackPanel
         _practice.Children.Add(_metrics); _practice.Children.Add(_help);
         AutomationProperties.SetName(_area, "Typing area");
         AutomationProperties.SetName(_mode, "Practice mode");
+        AutomationProperties.SetName(_drill, "Keyboard drill");
         AutomationProperties.SetName(_count, "Number of words");
         AutomationProperties.SetName(_custom, "Words to practice, separated by spaces");
         AutomationProperties.SetName(_input, "Practice input");
@@ -74,6 +79,8 @@ public sealed class TypingPracticePanel : StackPanel
         _input.TextChanged += (_, _) =>
         {
             _session.Update(_input.Text, DateTimeOffset.UtcNow);
+            _strokeSettleTimer.Stop();
+            if (_session.RawStrokes && _session.IsComplete && _session.FinishedAt == null) _strokeSettleTimer.Start();
             if (_input.Text != _session.Input)
             {
                 _input.Text = _session.Input;
@@ -93,11 +100,18 @@ public sealed class TypingPracticePanel : StackPanel
             if (Practicing && _session.Prompt.Length == 0) Restart();
         };
         _mode.SelectionChanged += (_, _) => { UpdateVisibility(); Restart(); };
+        _drill.SelectionChanged += (_, _) => Restart();
         _count.SelectionChanged += (_, _) => Restart();
         _restart.Click += (_, _) => Restart();
         _timer.Tick += (_, _) => RefreshMetrics();
+        _strokeSettleTimer.Tick += (_, _) =>
+        {
+            _strokeSettleTimer.Stop();
+            _session.FinishIfComplete(DateTimeOffset.UtcNow);
+            Refresh();
+        };
         Loaded += (_, _) => UpdateTimer();
-        Unloaded += (_, _) => _timer.Stop();
+        Unloaded += (_, _) => { _timer.Stop(); _strokeSettleTimer.Stop(); };
         IsVisibleChanged += (_, _) => UpdateTimer();
         UpdateVisibility();
     }
@@ -107,6 +121,9 @@ public sealed class TypingPracticePanel : StackPanel
         _freeHost.Visibility = Practicing ? Visibility.Collapsed : Visibility.Visible;
         _practice.Visibility = Practicing ? Visibility.Visible : Visibility.Collapsed;
         foreach (var control in new UIElement[] { _mode, _count, _restart }) control.Visibility = _practice.Visibility;
+        _drill.Visibility = Practicing && KeyboardDrills ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(_count, KeyboardDrills ? "Number of chords" : "Number of words");
+        _count.ToolTip = KeyboardDrills ? "Number of chords" : "Number of words";
         _custom.Visibility = _customHelp.Visibility = _mode.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
         UpdateRestart(); UpdateTimer();
     }
@@ -118,8 +135,12 @@ public sealed class TypingPracticePanel : StackPanel
     }
     internal void Restart()
     {
+        _strokeSettleTimer.Stop();
         var mode = (TypingPracticeSession.Mode)_mode.SelectedIndex;
-        _session = new(TypingPracticeSession.Generate(mode, (int)_count.SelectedItem, _custom.Text, Random.Shared), mode == TypingPracticeSession.Mode.Steno);
+        string prompt = KeyboardDrills
+            ? KeyboardPracticeDrills.Generate(_drill.SelectedIndex, (int)_count.SelectedItem, Random.Shared)
+            : TypingPracticeSession.Generate(mode, (int)_count.SelectedItem, _custom.Text, Random.Shared);
+        _session = new(prompt, KeyboardDrills || mode == TypingPracticeSession.Mode.Steno, rawStrokes: KeyboardDrills);
         _input.Text = ""; _input.IsReadOnly = false;
         Refresh();
         if (Practicing && IsVisible && _session.Prompt.Length > 0) _input.Focus();
@@ -136,7 +157,9 @@ public sealed class TypingPracticePanel : StackPanel
         AutomationProperties.SetName(_prompt, "Practice prompt: " + _session.Prompt);
         _input.IsReadOnly = _session.FinishedAt != null || _session.Prompt.Length == 0;
         _progress.Value = _session.Progress;
-        _help.Text = _session.IgnoresCase
+        _help.Text = _session.RawStrokes
+            ? "Select Plover with dictionaries disabled for raw steno. Match the strokes shown, separated by spaces. " + KeyboardPracticeDrills.Guide(_drill.SelectedIndex)
+            : _session.IgnoresCase
             ? "Use translated steno output here. Capitalization is ignored; corrections and backspaces update the score."
             : "Click the prompt and type. Corrections are allowed; WPM and accuracy reflect your current text.";
         RefreshMetrics(); UpdateTimer();
@@ -145,6 +168,7 @@ public sealed class TypingPracticePanel : StackPanel
     {
         var now = DateTimeOffset.UtcNow;
         string status = _session.FinishedAt != null ? "Complete!" : _session.StartedAt == null ? "Start typing to begin" : "Keep going";
-        _metrics.Text = $"{_session.Wpm(now):0} WPM     {_session.Accuracy:0}% accuracy     {_session.Elapsed(now):0}s     {status}";
+        string speed = _session.RawStrokes ? $"{_session.Spm(now):0} SPM" : $"{_session.Wpm(now):0} WPM";
+        _metrics.Text = $"{speed}     {_session.Accuracy:0}% accuracy     {_session.Elapsed(now):0}s     {status}";
     }
 }

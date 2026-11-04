@@ -50,6 +50,28 @@ internal static class TypingPracticeTests
         session = new("café 🐈"); session.Update("café 🐈", start);
         Check(session.IsComplete && session.CorrectCharacters == 6, "Unicode was counted as UTF-16 code units");
 
+        Check(KeyboardPracticeDrills.All.Length == 18, "Beginner drill menu lost entries");
+        Check(KeyboardPracticeDrills.All[1].Title == "Right hand, bottom row", "Windows and Python submenu numbering differs");
+        Check(KeyboardPracticeDrills.Generate(1, 8, random) == "-S -G -B -R -S -G -B -R", "Right-hand intro sequence differs from lapdrill");
+        Check(KeyboardPracticeDrills.Generate(14, 4, random) == "TK PW HR -PB", "Pseudo chord conversion failed");
+        for (int i = 0; i < KeyboardPracticeDrills.All.Length; ++i)
+        {
+            string[] strokes = KeyboardPracticeDrills.Generate(i, 100, random).Split(' ');
+            Check(strokes.Length == 100, "Keyboard round has the wrong length");
+            Check(strokes.All(stroke => System.Text.RegularExpressions.Regex.IsMatch(stroke,
+                "^[STKPWHR]*(?:[AOEU]+|-)[FRPBLGTSDZ]*$|^[STKPWHR]+$")), "Invalid raw steno in generated drill");
+        }
+        session = new("S K", true, rawStrokes: true); session.Update("s k", start);
+        Check(session.FinishedAt == null, "Raw chord sealed before its output burst finished");
+        Near(session.Spm(start.AddSeconds(60)), 2, "Raw drill speed is not strokes per minute");
+        session.Update("s kw", start.AddSeconds(1)); session.FinishIfComplete(start.AddSeconds(2));
+        Check(session.FinishedAt == null && session.CorrectStrokes == 1, "Longer incorrect final chord was accepted as a prefix");
+        session.Update("s k ", start.AddSeconds(3));
+        Check(session.FinishedAt != null && session.IsComplete, "Delimited raw chord failed to finish");
+        session = new("S", true, rawStrokes: true); session.Update("S", start);
+        session.FinishIfComplete(start.AddMilliseconds(100));
+        Check(session.FinishedAt != null, "Settled final raw chord failed to finish");
+
         // Construct only the practice panel: no MainWindow, settings load or native input.
         var free = new TextBox { Text = "keep my free text", Height = 72 };
         var panel = new TypingPracticePanel { FreeInput = free, Background = new SolidColorBrush(Color.FromRgb(12, 15, 18)) };
@@ -72,13 +94,21 @@ internal static class TypingPracticeTests
         panel.CustomInput.Text = "café cat sun";
         Check(panel.NewDrillButton.IsEnabled, "Custom list did not enable New drill");
         panel.Restart(); Check(panel.Session.Prompt.Length > 0, "Custom round did not generate");
+        panel.ModeSelector.SelectedIndex = 3;
+        Check(panel.DrillSelector.Visibility == Visibility.Visible && panel.DrillSelector.Items.Count == 18, "Keyboard submenu is missing");
+        panel.DrillSelector.SelectedIndex = 1;
+        Check(panel.Session.RawStrokes && panel.Session.Prompt.StartsWith("-S -G -B -R"), "Keyboard selector did not start selected beginner drill");
+        panel.PracticeInput.Text = panel.Session.Prompt.ToLowerInvariant() + " ";
+        Check(panel.Session.IsComplete && panel.PracticeInput.IsReadOnly, "Raw keyboard input did not complete");
+        panel.ModeSelector.SelectedIndex = 0;
+        Check(!panel.Session.RawStrokes && panel.DrillSelector.Visibility == Visibility.Collapsed, "Raw mode leaked into word practice");
 
         if (Environment.GetEnvironmentVariable("AMT_TYPING_PREVIEW_DIR") is {} directory)
         {
             Directory.CreateDirectory(directory);
             foreach (int width in new[] { 440, 760 })
             {
-                foreach (int mode in new[] { 0, 1, 2 })
+                foreach (int mode in new[] { 0, 1, 2, 3 })
                 {
                     panel.ModeSelector.SelectedIndex = mode; panel.Restart();
                     panel.PracticeInput.Text = panel.Session.Prompt[..3] + "x";

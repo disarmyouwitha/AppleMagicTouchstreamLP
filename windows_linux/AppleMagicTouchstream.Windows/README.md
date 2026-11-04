@@ -28,6 +28,17 @@ typed text stay in memory and do not enter settings, exports or captures. No glo
 input monitoring is used. Practice input is bounded to 6,000 characters; custom
 lists use at most 500 words of 40 characters each.
 
+**Practice → Keyboard drills** adds the same 18 numbered beginner exercises as
+`python lapdrill.py keyboard`: left/right rows, vowels, full hands, combinations,
+columns and chord families. The second dropdown chooses the exercise. Rounds use
+10/25/50/100 chords, with ordered introductory repetitions before random practice.
+Prompts show raw steno; chord-family guides explain mappings such as D- = TK.
+Use Plover raw output with translation dictionaries disabled, or enter the shown
+raw strokes separated by spaces. Built-in Javelin produces translated words, so
+switch to Plover for these drills. Raw rounds show matched strokes/minute (SPM);
+accuracy still measures current matching characters. Other practice modes retain
+their translated-text behavior.
+
 ### Mouse Takeover
 
 Below the device selectors, enable **Mouse Takeover** to save your opt-in for the next launch, or use the temporary **30sec test**. It blocks physical movement, clicks, and wheel events from all mice while injected AppleMagicTouchstream output passes. **Ctrl+Alt+R** releases globally; the checkbox/status and tray indicator update together. It defaults off on first launch. Unchecking it, tray release and Ctrl+Alt+R save Off; normal quit/restart preserves your choice. Windows shell gestures may need separate settings. See [Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).

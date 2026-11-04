@@ -6,6 +6,7 @@
   python lapdrill.py commit     type phrases as fake git commits
   python lapdrill.py deploy     progress-bar race (--goal N words)
   python lapdrill.py keyboard   StenoJig-style raw-steno keyboard drills
+  python lapdrill.py keyboard 2 right hand, bottom row (numbered submenu)
   python lapdrill.py keyboard --drill vowels --length 100 --hints
   python lapdrill.py --words 300  use the 300 most common words you can stroke
 
@@ -225,9 +226,18 @@ def keyboard_sequence(drill, length):
     return sequence[:length]
 
 
+def resolve_keyboard_drill(choice):
+    if choice.isdigit() and 1 <= int(choice) <= len(KEYBOARD_DRILLS):
+        return KEYBOARD_DRILLS[int(choice) - 1]
+    match = next((d for d in KEYBOARD_DRILLS if d[0] == choice), None)
+    if match:
+        return match
+    raise ValueError(f"Unknown keyboard drill {choice!r}; choose 1-{len(KEYBOARD_DRILLS)} or a name from --list-drills.")
+
+
 def select_keyboard_drill(name):
     if name:
-        return next(d for d in KEYBOARD_DRILLS if d[0] == name)
+        return resolve_keyboard_drill(name)
     out("Keyboard drills (StenoJig):\n")
     for i, (_, title, _, _) in enumerate(KEYBOARD_DRILLS, 1):
         out(f"  {i:2}. {title}\n")
@@ -240,12 +250,10 @@ def select_keyboard_drill(name):
             return None
         if not choice:
             return KEYBOARD_DRILLS[0]
-        if choice.isdigit() and 1 <= int(choice) <= len(KEYBOARD_DRILLS):
-            return KEYBOARD_DRILLS[int(choice) - 1]
-        match = next((d for d in KEYBOARD_DRILLS if d[0] == choice), None)
-        if match:
-            return match
-        out("Choose a listed number or CLI name.\n")
+        try:
+            return resolve_keyboard_drill(choice)
+        except ValueError:
+            out("Choose a listed number or CLI name.\n")
 
 
 def keyboard(drill, stats, length=100, hints=False, speed=0):
@@ -579,28 +587,39 @@ def deploy(pool, strokes, stats, goal=40):
         out(f"{DIM}deploy aborted at {n}/{goal}{RST}\n")
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="steno drills")
     ap.add_argument("mode", nargs="?", default="flash", choices=["flash", "fall", "commit", "deploy", "keyboard"])
-    ap.add_argument("--drill", choices=[d[0] for d in KEYBOARD_DRILLS], help="keyboard drill (omit for menu)")
+    ap.add_argument("drill_choice", nargs="?", help="keyboard: submenu number or drill name")
+    ap.add_argument("--drill", help="keyboard: submenu number or drill name (omit for menu)")
     ap.add_argument("--list-drills", action="store_true", help="list keyboard drills and exit")
     ap.add_argument("--length", type=int, default=100, help="keyboard: number of chords")
     ap.add_argument("--hints", action="store_true", help="keyboard: always show raw stroke hints")
     ap.add_argument("--speed", type=float, default=0, help="keyboard: target strokes/minute (0 = untimed)")
     ap.add_argument("--goal", type=int, default=40, help="deploy: words to stroke")
     ap.add_argument("--words", type=int, default=100, help="pool size (most common first)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.drill_choice and args.drill:
+        ap.error("choose a drill using either the positional argument or --drill")
+    chosen = args.drill_choice or args.drill
+    if chosen and args.mode != "keyboard":
+        ap.error("drill selection is only available in keyboard mode")
+    if chosen:
+        try:
+            resolve_keyboard_drill(chosen)
+        except ValueError as error:
+            ap.error(str(error))
     if args.length < 1 or not 0 <= args.speed < float("inf"):
         ap.error("--length must be positive and --speed must be finite and nonnegative")
     if args.list_drills:
-        for name, title, _, _ in KEYBOARD_DRILLS:
-            print(f"{name:20} {title}")
+        for number, (name, title, _, _) in enumerate(KEYBOARD_DRILLS, 1):
+            print(f"{number:2}. {name:20} {title}")
         return
 
     if args.mode == "keyboard":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         enable_vt()
-        drill = select_keyboard_drill(args.drill)
+        drill = select_keyboard_drill(chosen)
         if drill is not None:
             stats = load_stats()
             try:
