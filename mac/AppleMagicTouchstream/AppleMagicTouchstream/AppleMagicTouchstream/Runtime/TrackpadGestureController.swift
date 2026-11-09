@@ -26,6 +26,10 @@ final class TrackpadGestureController: ObservableObject {
         InterpretedTrackpadPointer.shared.stop()
         stenoMode = enabled; configure()
     }
+    func setKeyboardIncludeHovering(_ value:Bool) { settings.keyboardIncludeHovering = value; settings.save(to:.standard) }
+    func setKeyboardMinimumPressPressure(_ value:Double) { settings.keyboardMinimumPressPressure = StenoPressThreshold.validated(value); settings.save(to:.standard) }
+    func setStenoIncludeHovering(_ value:Bool) { settings.stenoIncludeHovering = value; settings.save(to:.standard) }
+    func setStenoMinimumPressPressure(_ value:Double) { settings.stenoMinimumPressPressure = StenoPressThreshold.validated(value); settings.save(to:.standard) }
     func setStenoForceThreshold(_ value:Double) {
         settings.stenoForceThreshold = StenoForceThreshold.validated(value)
         settings.save(to:.standard)
@@ -204,9 +208,15 @@ final class TrackpadGestureController: ObservableObject {
     func applyImportedSettings(_ imported: HandGestureSettings) {
         InterpretedTrackpadPointer.shared.resetBaseline()
         var normalized = imported
+        if normalized.keyboardIncludeHovering == nil { normalized.keyboardIncludeHovering = settings.keyboardIncludeHovering }
+        if normalized.keyboardMinimumPressPressure == nil { normalized.keyboardMinimumPressPressure = settings.keyboardMinimumPressPressure }
+        if let value = normalized.keyboardMinimumPressPressure { normalized.keyboardMinimumPressPressure = StenoPressThreshold.validated(value) }
         if normalized.stenoConnectionMode == nil { normalized.stenoConnectionMode = settings.stenoConnectionMode }
         if normalized.stenoHapticOnTouch == nil { normalized.stenoHapticOnTouch = settings.stenoHapticOnTouch }
         if normalized.stenoHapticOnRelease == nil { normalized.stenoHapticOnRelease = settings.stenoHapticOnRelease }
+        if normalized.stenoIncludeHovering == nil { normalized.stenoIncludeHovering = settings.stenoIncludeHovering }
+        if normalized.stenoMinimumPressPressure == nil { normalized.stenoMinimumPressPressure = settings.stenoMinimumPressPressure }
+        if let value = normalized.stenoMinimumPressPressure { normalized.stenoMinimumPressPressure = StenoPressThreshold.validated(value) }
         if normalized.stenoForceThreshold == nil { normalized.stenoForceThreshold = settings.stenoForceThreshold }
         if let value = normalized.stenoForceThreshold { normalized.stenoForceThreshold = StenoForceThreshold.validated(value) }
         normalized.left.normalize(); normalized.right.normalize()

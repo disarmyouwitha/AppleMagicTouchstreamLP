@@ -1,6 +1,6 @@
 ## AppleMagicTouchstream
 
-Captured Mac pointer/scroll experiment: [setup and verification](MotionProfiles/README.md).
+Default captured Mac pointer/scroll response: [setup and verification](MotionProfiles/README.md).
 AppleMagicTouchstream for Windows.
 
 Current Mac-parity layouts, inline editor, built-in STENO translators and encrypted
@@ -15,7 +15,29 @@ By default, AppleMagicTouchstream opens the config window on launch. To start tr
 
 ### Configuration layout
 
-The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing test and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. The Keyboard inspector and Gesture Action column share their width; resizing either updates both. Selecting a key or custom button returns to Keyboard. Decoder Profiles and the header contact-count pills are hidden. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
+The top selector presents **Gestures / Keyboard**, with Keyboard selected initially. Device and Mouse Takeover controls span both workspaces. Keyboard contains the two trackpad views, typing practice and keyboard settings inspector. Gestures replaces those with three resizable columns: gesture navigation, assignment cards and the Action inspector. The Keyboard inspector and Gesture Action column share their width; resizing either updates both. Selecting a key or custom button returns to Keyboard. Decoder Profiles and the header contact-count pills are hidden. See [current parity and hardware testing](MAC_GOLD_PARITY.md).
+
+Below the pads, **Free type** retains your scratch text. **Practice** offers Words,
+Steno drills (translated English, case ignored), and Custom word lists in rounds of
+10/25/50/100 words. Click the highlighted prompt to type; native backspace and steno
+text replacements update scoring. WPM is current correct characters / 5 / elapsed
+minutes; accuracy compares current text at each prompt position, counting extra
+characters as errors. Whitespace normalizes to single spaces. Timing begins with
+the first input and freezes at completion; New drill resets it. Custom lists and
+typed text stay in memory and do not enter settings, exports or captures. No global
+input monitoring is used. Practice input is bounded to 6,000 characters; custom
+lists use at most 500 words of 40 characters each.
+
+**Practice → Keyboard drills** adds the same 18 numbered beginner exercises as
+`python lapdrill.py keyboard`: left/right rows, vowels, full hands, combinations,
+columns and chord families. The second dropdown chooses the exercise. Rounds use
+10/25/50/100 chords, with ordered introductory repetitions before random practice.
+Prompts show raw steno; chord-family guides explain mappings such as D- = TK.
+Use Plover raw output with translation dictionaries disabled, or enter the shown
+raw strokes separated by spaces. Built-in Javelin produces translated words, so
+switch to Plover for these drills. Raw rounds show matched strokes/minute (SPM);
+accuracy still measures current matching characters. Other practice modes retain
+their translated-text behavior.
 
 ### Mouse Takeover
 
@@ -23,11 +45,13 @@ Below the device selectors, enable **Mouse Takeover** to save your opt-in for th
 
 If Ctrl+Alt+R is occupied, AMT tries Ctrl+Alt+F10, then F9 and F8 with the same modifiers. The window and tray show the active shortcut; all release paths use that choice. Takeover remains unavailable if none can register.
 
-The decoder supports the older 50-byte reports and MagicTrackpad2ForWindows v2.2's 112-byte USB/Bluetooth MT2 report (21-byte contacts with reported pressure). Auto learns the layout for the current connection; learned choices are not saved as decoder overrides. Refresh or reconnect clears the learned layout.
+Existing official Apple and older open-source driver installations remain supported. For new installations, use the [latest MagicTrackpad2ForWindows release](https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/latest). The decoder supports the older 50-byte reports and v2.2's 112-byte USB/Bluetooth MT2 report (21-byte contacts with reported pressure). Auto identifies Apple packed fields from the report even when Bluetooth advertises Precision Touchpad usage; usage alone does not select the older open-source layout. Auto retains both the profile and field layout for the current connection; learned choices are not saved as decoder overrides. Refresh or reconnect clears the learned layout.
 
 With the extended driver, the contact preview uses measured, rotated touch ellipses and the Mac palette: thumb orange, index blue, middle green, ring purple, pinky pink, palm gray, unknown black. Pressure appears at the contact; nearby labels show the tracking ID, reported finger classification, physical axes/angle, Size and position-derived velocity in mm/s. Velocity resets on lift, ID changes, stale frames and replay rewind. Size is the driver's raw Size field, not macOS density. Older packets keep neutral circles without invented anatomy or pressure. Capture formats are unchanged.
 
 Gesture recognition consumes reported finger classification. Pinch, Spread and Rotate require a positively identified thumb, and Thumb+2 tap requires a spread thumb with two fingertips. Older drivers without those labels retain ordinary pointer/drag/scroll and taps, but cannot activate thumb-dependent gestures. Three-finger drag accepts Mac's natural fingertip arches. When native pre-contact evidence shows a third finger landing, pending two-finger pointer acquisition waits up to 80 ms for the row to form. Existing pointer/drag/scroll owners retain their all-up latch. Velocity and axes remain display telemetry; gesture motion uses the established position/timestamp geometry.
+
+The Gestures workspace grays out thumb-dependent assignments when the selected pad's detected decoder lacks finger classification. It explains the limitation and preserves your saved actions. Support is checked separately for Left and Right and updates automatically when another decoder is detected. Before detection, offline editing remains available; touch the selected trackpad to check support.
 
 ### Pin Tray Icon
 - Windows 11:
@@ -44,6 +68,7 @@ Gesture recognition consumes reported finger classification. Pinch, Spread and R
 - **Hold Duration** sets the delay before a key hold commits; the default is 220 ms.
 - **Haptic Strength** controls the existing Windows haptic output. **Restore Defaults** restores these two settings.
 - Force Instead of Hold remains a per-key/custom-button setting. Windows ignores the old global Force Min/Max gates.
+- New extended open-source reports support the active force controls with real 0–255 per-contact pressure, including reported zero. Force Instead of Hold waits for its threshold; zero as the setting keeps timed Hold. The key inspector shows pressure support and warns when a saved Apple-scale threshold exceeds 255. STENO Force uses a reachable 1–255 range. Older drivers without pressure retain timed-Hold fallback.
 - Snap Radius allows eligible off-key releases to choose a nearby key, bounded to 0–100% of the key's smaller dimension.
 
 Typing Grace, Drag Cancel, Intent Move and Intent Velocity have been removed from the Windows controls. Their saved legacy fields remain readable but cannot select mouse intent or cancel unified Windows typing. Unreserved contacts remain keyboard input. A tap must finish within max(200 ms, Hold Duration) and satisfy its original key/release geometry or snap eligibility; movement distance alone does not cancel it. Committed holds retain ownership through drift.

@@ -128,7 +128,7 @@ final class LayoutDocumentTests: XCTestCase {
         for preset in [TrackpadLayoutPreset.steno, .stenoSingle, .stenoVoyager, .touchstream, .sixByThree] {
             let size = CGSize(width: 800,height: 574.5)
             func layout(_ right: Bool) -> ContentViewModel.Layout {
-                if preset.isSteno { return StenoLayoutDefinition.layout(preset: preset,side: right ? .right:.left,size: size,pointerMode: .twoFinger,forceThreshold: 175,connectionMode: .plugin,hapticRelease: true) }
+                if preset.isSteno { return StenoLayoutDefinition.layout(preset: preset,side: right ? .right:.left,size: size,pointerMode: .twoFinger,forceThreshold: 175,includeHovering: true,minimumPressPressure: 12,connectionMode: .plugin,hapticRelease: true) }
                 if preset == .touchstream { return ContentView.makeTouchStreamKeyLayout(size: size,side: right ? .right:.left,keyGeometryOverrides: [:]) }
                 return ContentView.makeKeyLayout(size: size,keyWidth: ContentView.baseKeyWidthMM,keyHeight: ContentView.baseKeyHeightMM,columns: preset.columns,rows: preset.rows,trackpadWidth: ContentView.trackpadWidthMM,trackpadHeight: ContentView.trackpadHeightMM,columnAnchorsMM: preset.columnAnchors,columnSettings: ColumnLayoutDefaults.defaultSettings(columns: preset.columns),keySpacingPercent: 10,mirrored: !right)
             }
@@ -139,6 +139,8 @@ final class LayoutDocumentTests: XCTestCase {
                 let compiled = doc.compile(right: isRight,base: base,size: size)
                 XCTAssertEqual(compiled.normalizedKeyRects,base.normalizedKeyRects,preset.rawValue)
                 XCTAssertEqual(compiled.isSteno,base.isSteno)
+                XCTAssertEqual(compiled.stenoIncludeHovering,base.stenoIncludeHovering)
+                XCTAssertEqual(compiled.stenoMinimumPressPressure,base.stenoMinimumPressPressure)
                 XCTAssertEqual(compiled.stenoForceThreshold,base.stenoForceThreshold)
                 XCTAssertEqual(compiled.stenoHapticRelease,base.stenoHapticRelease)
                 for rows in base.normalizedKeyRects { for rect in rows {

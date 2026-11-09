@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        try { TypingPracticeTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Typing practice tests failed: "+error.Message); }
         try { JavelinParityTests.Run();StenoTransportParityTests.Run(); }
         catch(Exception error) {return new SelfTestResult(false,"Native Javelin parity tests failed: "+error.Message);}
         try { RewriteParityTests.Run(); }
@@ -33,6 +35,10 @@ internal static class SelfTestRunner
         catch(Exception error) { return new SelfTestResult(false,"Native gesture parity tests failed: "+error.Message); }
         try { ThumbGestureParityTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Thumb gesture parity tests failed: "+error.Message); }
+        try { DecoderGestureCapabilityTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Decoder gesture capability tests failed: "+error.Message); }
+        try { ExtendedPressureForceTests.Run(); }
+        catch(Exception error) { return new SelfTestResult(false,"Extended pressure force tests failed: "+error.Message); }
         try { SettingsPersistenceTests.Run(); }
         catch(Exception error) { return new SelfTestResult(false,"Settings persistence tests failed: "+error.Message); }
         try { ShapeGestureInterfaceTests.Run(); }
@@ -2469,9 +2475,10 @@ internal static class SelfTestRunner
             ProductId: RawInputInterop.ProductIdMt2,
             UsagePage: RawInputInterop.UsagePageDigitizer,
             Usage: RawInputInterop.UsageTouchpad);
-        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Legacy)
+        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Official ||
+            TrackpadDecoderProfileResolver.ResolveAuto(opensourceLegacyLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Legacy)
         {
-            failure = "auto decoder should prefer legacy for native touchpad usage";
+            failure = "native touchpad usage must preserve Apple packed versus old open-source field layouts";
             return false;
         }
 

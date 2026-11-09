@@ -13,6 +13,25 @@ ownership, key repeat and Force instead of hold use the shared keyboard engine.
 An unassigned Hold stays None; there is no fallback to a legacy label-based Hold
 table. Preserve existing profile names, preference keys and serialized identities.
 
+For regular layouts, **Typing Tuning** includes **Minimum press pressure** (0–50,
+default 0) and **Include hovering contacts** (default off). These are saved
+independently of the Steno equivalents in the Mac settings extension. Missing
+imported fields preserve current values; captures/replay restore the same options.
+The minimum gates keyboard activation using the contact's peak pressure. Contacts
+that stay below it cannot type, snap, engage modifiers/layers or start holds/repeat.
+Once crossed, pressure can relax to zero without releasing a committed key or
+losing tap eligibility. Keyboard tap/hold timing begins on activation, so time
+spent resting below the minimum does not time out a subsequent press. Existing
+hold/repeat, geometry, snap timing and balanced release rules still apply.
+Hover admission interprets hovering as touching only inside keyboard recognition;
+starting keeps its existing meaning and terminal/absent contacts still clean up.
+Gesture candidates, reservations, activated sessions, force thresholds and native
+outputs always receive the original contact frames. A reserved/cancelled owner
+cannot return as hovering typing before release. Changing keyboard admission
+invalidates keyboard proposals and balances held keyboard output; it blocks the
+existing keyboard contacts through release without resetting gesture owners.
+Legacy Force Min/Max fields remain decode-only and inert.
+
 Keyboard and Gesture inspectors share the searchable action catalog, Shortcut
 Builder and saved library. Names are presentation metadata: `NAMED_SHORTCUT:`
 envelopes preserve the underlying command. App/file/folder/URL targets open once;
@@ -274,7 +293,7 @@ Gemini PR wire positions; they are inert in ordinary keyboard layouts.
 
 STENO replaces ordinary typing and pauses ordinary gestures except Outer Corners → Open Config. Selected
 pads retain the normal live routing, listening and lifecycle admission.
-Making/touching non-palm contacts accumulate every intersected steno key; key edges
+By default, making/touching non-palm contacts accumulate every intersected steno key; key edges
 expand 1.5 mm to permit upper/lower row combinations under one fingertip. Keys roll
 into one shared stroke while either pad has contacts, including contacts between
 keys. Both-pad all-up sends exactly one stroke. Invalid coordinates, non-monotonic
@@ -282,6 +301,27 @@ or stale active delivery (>250 ms), overflow (>16 non-palm contacts per frame),
 device loss, reset and layout/mapping/layer changes cancel the partial stroke and
 wait for remaining contacts to lift. Switching into or out of STENO cannot turn
 held contacts into a new stroke or ordinary key press.
+
+The STENO panel's **Include hovering contacts** option (default off) additionally
+accepts non-palm starting/hovering samples, for fingers detected through textured
+stickers. Breaking/lingering/leaving samples release contacts; absent contacts
+cannot be reconstructed. This changes Steno chord admission only: mouse and corner
+recognizers continue to use their original contact states.
+Pending Steno mouse tracking also persists independently of whether any key has
+crossed its minimum pressure; only physical all-up resets that tracking.
+**Minimum press pressure** (0–50, default 0) is independent of the mouse Force
+Threshold. Zero preserves contact-only activation. Above zero, each contact must
+reach the minimum once, then stays activated until it releases regardless of later
+pressure. Keys continue to roll into the shared chord; relaxing pressure cannot
+complete or split it. The stroke completes once all activated contacts on both
+pads release. Never-activated resting contacts do not block completion or contribute
+keys. Invalid/negative pressure cancels rather than completing a stroke. Physical
+accepted contacts, including resting contacts, still gate cancellation and layout
+transitions through release. Both settings persist in the Mac settings extension,
+round-trip through captures/settings, and missing imported fields retain preferences.
+Reported pressure is device telemetry, not calibrated force; `textured.atpcap`
+contains hovering samples from 0–32 and touching samples from 0–26, so hardware
+acceptance should tune the minimum against resting and intentional presses.
 
 STENO has one fixed mouse behavior and no mode dropdown: two-finger movement,
 two-finger force left-click, three-finger force right-click, and one-finger force

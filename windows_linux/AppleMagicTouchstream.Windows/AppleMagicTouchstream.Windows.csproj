@@ -32,6 +32,7 @@
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapMovingMouse.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\FourCorners.atpcap" />
+    <EmbeddedResource Include="WindowsDiagnostics/Fixtures/AppleBluetoothPacked.atpcap" LogicalName="AppleMagicTouchstream.AppleBluetoothPacked.atpcap" />
   </ItemGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />

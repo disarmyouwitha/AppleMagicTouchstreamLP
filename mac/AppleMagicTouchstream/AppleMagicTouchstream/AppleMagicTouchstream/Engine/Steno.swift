@@ -47,6 +47,18 @@ enum StenoForceThreshold {
     static func validated(_ value:Double) -> Double { value.isFinite ? min(500,max(1,value)):defaultValue }
 }
 
+enum StenoPressThreshold {
+    static func validated(_ value:Double) -> Double { value.isFinite ? min(50,max(0,value)):0 }
+}
+
+/// Fixed-size contact identities latch peak-pressure activation until contact release.
+private struct StenoPressedContacts:Sendable {
+    var ids = SIMD16<Int32>(repeating:0)
+    var count = 0
+    func contains(_ id:Int32) -> Bool { (0..<count).contains { ids[$0] == id } }
+    mutating func append(_ id:Int32) { if count < 16 { ids[count] = id; count += 1 } }
+}
+
 enum StenoPointerMode:String,CaseIterable,Codable,Sendable {
     case disabled, twoFinger, oneFingerForce
     // Legacy mode identities remain decodable; STENO now has one fixed behavior.
@@ -148,6 +160,14 @@ struct StenoPointerArbiter:Sendable {
 struct StenoChordEngine:Sendable {
     var pointerMode:StenoPointerMode = .disabled
     var forceThreshold:Float = 130
+    var includeHovering = false
+    var minimumPressPressure:Float = 0
+    private var pressedLeft = StenoPressedContacts(), pressedRight = StenoPressedContacts()
+    private var pressedPads:UInt8 = 0
+    func acceptsContact(_ touch:OMSRawTouch) -> Bool {
+        touch.telemetry?.fingerID != 6 && (touch.state == .making || touch.state == .touching ||
+            includeHovering && (touch.state == .starting || touch.state == .hovering))
+    }
     private(set) var pointerUpdate:StenoPointerUpdate?
     private(set) var hapticTouchPads:UInt8 = 0, hapticReleasePads:UInt8 = 0
     private var heldKeys = SIMD2<UInt64>(repeating:0)
@@ -172,6 +192,7 @@ struct StenoChordEngine:Sendable {
         hapticTouchPads = 0; hapticReleasePads = 0; heldKeys = SIMD2(repeating:0); strokePads = 0
         pointerUpdate = pointerOwned ? .init(reset:true):nil
         strokeKeys = SIMD2(repeating:0); completedKeys = SIMD2(repeating:0)
+        pressedLeft = .init(); pressedRight = .init(); pressedPads = 0
         chord = 0; pointer.reset(); pointerOwned = false; sawBothHands = false; cancelledPointerPads = 0
         if let blockedPads { down = blockedPads }
         blocked = down != 0
@@ -182,6 +203,8 @@ struct StenoChordEngine:Sendable {
         pendingTouchPads &= ~(UInt8(1)<<index); hapticCancellationRevision &+= 1
         heldKeys[index] = 0; strokePads &= ~(UInt8(1)<<index)
         hapticTouchPads = 0; hapticReleasePads = 0
+        if index == 0 { pressedLeft = .init() } else { pressedRight = .init() }
+        pressedPads &= ~(UInt8(1)<<index)
         down &= ~(UInt8(1)<<index)
         cancelledPointerPads &= ~(UInt8(1)<<index)
         if pointerOwned {
@@ -195,15 +218,25 @@ struct StenoChordEngine:Sendable {
         completedKeys = SIMD2(repeating:0)
         pointerUpdate = nil; hapticTouchPads = 0; hapticReleasePads = 0
         var count = 0, keys:UInt64 = 0
+        let previousPressed = device == 0 ? pressedLeft:pressedRight
+        var nextPressed = StenoPressedContacts()
+        let threshold = Float(StenoPressThreshold.validated(Double(minimumPressPressure)))
         var valid = time.isFinite && time >= 0 && (times[device] < 0 || time > times[device])
         if times[device] >= 0, down & pad != 0, time-times[device] > 0.25 { valid = false }
-        for touch in touches where (touch.state == .making || touch.state == .touching) && touch.telemetry?.fingerID != 6 {
+        for touch in touches where acceptsContact(touch) {
             count += 1
             guard count <= 16, touch.posX.isFinite, touch.posY.isFinite,
-                  touch.posX >= 0, touch.posX <= 1, touch.posY >= 0, touch.posY <= 1 else { valid = false; continue }
+                  touch.posX >= 0, touch.posX <= 1, touch.posY >= 0, touch.posY <= 1,
+                  touch.pressure.isFinite, touch.pressure >= 0,
+                  !nextPressed.contains(touch.id) else { valid = false; continue }
+            // Pressure gates activation only; a relaxed finger retains its chord membership.
+            guard previousPressed.contains(touch.id) || threshold == 0 || touch.pressure >= threshold else { continue }
+            nextPressed.append(touch.id)
             let point = CGPoint(x:CGFloat(touch.posX)*size.width,y:CGFloat(1-touch.posY)*size.height)
             for region in regions where region.geometry.contains(point) { keys |= region.key.bit }
         }
+        if device == 0 { pressedLeft = nextPressed } else { pressedRight = nextPressed }
+        if nextPressed.count > 0 { pressedPads |= pad } else { pressedPads &= ~pad }
         if count > 0 { down |= pad } else { down &= ~pad }
         times[device] = time.isFinite ? time : -1
         if !valid {
@@ -246,9 +279,10 @@ struct StenoChordEngine:Sendable {
         }
         if keys != 0 { strokePads |= pad }
         chord |= keys; strokeKeys[device] |= keys
-        guard down == 0 else { return nil }
+        guard pressedPads == 0 else { return nil }
         completedKeys = strokeKeys; strokeKeys = SIMD2(repeating:0)
-        let stroke = chord; chord = 0; pointer.reset(); sawBothHands = false
+        let stroke = chord; chord = 0
+        if down == 0 { pointer.reset(); sawBothHands = false }
         if stroke != 0 {
             hapticTouchPads |= pendingTouchPads; hapticReleasePads = strokePads
         }
@@ -353,7 +387,7 @@ enum StenoLayoutDefinition {
         } }
     }
     @MainActor static func layout(preset:TrackpadLayoutPreset,side:TrackpadSide,size:CGSize,
-                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,connectionMode:StenoConnectionMode = .defaultMode,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
+                       columns:[ColumnLayoutSettings] = [],spacing:Double = 10,overrides:KeyGeometryOverrides = [:],pointerMode:StenoPointerMode = .disabled,forceThreshold:Double = 130,includeHovering:Bool = false,minimumPressPressure:Double = 0,connectionMode:StenoConnectionMode = .defaultMode,hapticTouch:Bool = false,hapticRelease:Bool = false) -> ContentViewModel.Layout {
         var rects:[[NormalizedRect]]
         if preset == .stenoSingle {
             rects = []
@@ -432,6 +466,6 @@ enum StenoLayoutDefinition {
                 rects[row][col] = .init(x:old.centerX-w/2,y:old.centerY-h/2,width:w,height:h,rotationDegrees:old.rotationDegrees-edit.rotationDegrees)
             }
         }
-        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true,stenoPointerMode:pointerMode,stenoForceThreshold:Float(StenoForceThreshold.validated(forceThreshold)),stenoConnectionMode:connectionMode,stenoHapticTouch:hapticTouch,stenoHapticRelease:hapticRelease)
+        return .init(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:false,isSteno:true,stenoPointerMode:pointerMode,stenoForceThreshold:Float(StenoForceThreshold.validated(forceThreshold)),stenoIncludeHovering:includeHovering,stenoMinimumPressPressure:Float(StenoPressThreshold.validated(minimumPressPressure)),stenoConnectionMode:connectionMode,stenoHapticTouch:hapticTouch,stenoHapticRelease:hapticRelease)
     }
 }

@@ -124,6 +124,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private int _consecutiveRawInputFaults;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly TrackpadDecoderSession _decoderSession = new();
+    private readonly DecoderGestureCapabilities _decoderGestureCapabilities = new();
     private readonly WindowsStenoConnection _localStenoConnection=new();
     private TrackpadDecoderProfile? _lastDecoderProfileLeft;
     private TrackpadDecoderProfile? _lastDecoderProfileRight;
@@ -469,6 +470,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string? leftRecognition=recognition(TrackpadSide.Left)?.Title,rightRecognition=recognition(TrackpadSide.Right)?.Title;
         LeftSurface.RecognizedGesture=leftRecognition; RightSurface.RecognizedGesture=rightRecognition;
         _handGesturePanel?.SetRecognition(leftRecognition,rightRecognition);
+        UpdateKeyForceSupport();
+        _handGesturePanel?.SetFingerClassification(IsReplayMode ? null : UsesSharedRuntime ? _runtimeService!.FingerClassification(TrackpadSide.Left) : _decoderGestureCapabilities.FingerClassification(TrackpadSide.Left),
+            IsReplayMode ? null : UsesSharedRuntime ? _runtimeService!.FingerClassification(TrackpadSide.Right) : _decoderGestureCapabilities.FingerClassification(TrackpadSide.Right));
         _handGesturePanel?.SetStatus(IsReplayMode ? "Replay - no gesture output" : _runtimeService?.HandGestureStatus ?? _handGestures?.Status ?? "Waiting for live input");
         MouseTakeoverController? controller = IsReplayMode ? null : MouseTakeover;
         _updatingMouseTakeover = true;
@@ -2800,6 +2804,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         _rawInputContext.SeedTags(_devices);
         _decoderSession.Reset();
+        _decoderGestureCapabilities.Reset();
 
         LeftDeviceCombo.ItemsSource = _devices;
         RightDeviceCombo.ItemsSource = _devices;
@@ -3087,7 +3092,21 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
+        if(GetDetectedForceMaximum(side) is {} maximum) return maximum>0;
         return GetEffectiveDecoderProfileForSide(side) != TrackpadDecoderProfile.Legacy;
+    }
+
+    private int? GetDetectedForceMaximum(TrackpadSide side)=>IsReplayMode ? null
+        :UsesSharedRuntime ? _runtimeService!.ForceMaximum(side):_decoderGestureCapabilities.ForceMaximum(side);
+    private void UpdateKeyForceSupport()
+    {
+        bool selected=_hasSelectedCustomButton || _selectedKeyRow>=0;
+        KeymapForceSupportText.Visibility=selected && !_preset.IsSteno ? Visibility.Visible:Visibility.Collapsed;
+        if(!selected) return;
+        double.TryParse(KeymapHoldForceBox.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double threshold);
+        string text=WindowsForceSettings.SupportText(GetDetectedForceMaximum(_selectedKeySide),threshold);
+        if(KeymapForceSupportText.Text!=text) KeymapForceSupportText.Text=text;
+        KeymapHoldForceBox.ToolTip=text;
     }
 
     private TrackpadDecoderProfile? GetEffectiveDecoderProfileForSide(TrackpadSide side)
@@ -3188,6 +3207,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         _touchActor?.CancelStenoCycle();
         _decoderSession.Reset();
+        _decoderGestureCapabilities.Reset();
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
         RefreshDecoderProfileCombos();
@@ -4674,8 +4694,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             if(_rawInputContext.TryGetCachedSnapshot(lParam,out var device))
             {
-                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Left),device.DeviceName,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Left);
-                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Right),device.DeviceName,StringComparison.OrdinalIgnoreCase)) _touchActor?.RemoveStenoDevice(TrackpadSide.Right);
+                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Left),device.DeviceName,StringComparison.OrdinalIgnoreCase)) { _touchActor?.RemoveStenoDevice(TrackpadSide.Left); _decoderGestureCapabilities.Reset(TrackpadSide.Left); }
+                if(string.Equals(GetSelectedDevicePathForSide(TrackpadSide.Right),device.DeviceName,StringComparison.OrdinalIgnoreCase)) { _touchActor?.RemoveStenoDevice(TrackpadSide.Right); _decoderGestureCapabilities.Reset(TrackpadSide.Right); }
             }
             _decoderSession.Remove(lParam);
             _rawInputContext.RemoveDevice(lParam);
@@ -4754,6 +4774,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 }
 
                 TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);
+                if(leftMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Left,decoded.Kind,decoded.Profile);
+                if(rightMatch) _decoderGestureCapabilities.Observe(TrackpadSide.Right,decoded.Kind,decoded.Profile);
                 InputFrame frame = decoded.Frame;
                 _liveMetrics.RecordParsed();
                 if (!DispatchReport(snapshot, in frame))

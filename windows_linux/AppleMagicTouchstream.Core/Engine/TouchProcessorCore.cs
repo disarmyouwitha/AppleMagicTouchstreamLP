@@ -1858,9 +1858,11 @@ internal sealed partial class TouchProcessorCore
 
     private bool IsHoldTriggerSatisfied(EngineKeyMapping mapping, in TouchBindingState state, long timestampTicks)
     {
+        // -1 means unavailable. A real zero-pressure sample still requires force;
+        // it must not silently turn Force Instead of Hold back into timed Hold.
         if (mapping.HasHold &&
             mapping.HoldForceThreshold > 0 &&
-            state.PeakForceNorm > 0)
+            state.PeakForceNorm >= 0)
         {
             return state.PeakForceNorm >= mapping.HoldForceThreshold;
         }
@@ -1873,7 +1875,7 @@ internal sealed partial class TouchProcessorCore
     {
         if (mapping.HasHold &&
             mapping.HoldForceThreshold > 0 &&
-            state.PeakForceNorm > 0)
+            state.PeakForceNorm >= 0)
         {
             return -1;
         }

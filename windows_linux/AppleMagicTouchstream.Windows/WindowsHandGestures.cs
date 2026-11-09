@@ -70,7 +70,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
             _output.Release();
             var effective = CapturedMacMotionProfiles.Effective(settings.HandGesturesV1 ?? new());
-            _stenoPointer.Configure(2,effective,settings.StenoForceThreshold);
+            _stenoPointer.Configure(2,effective,WindowsForceSettings.StenoThreshold(settings.StenoForceThreshold));
             if(layoutEditor && showContacts)
             {
                 foreach(var hand in new[]{effective.Left,effective.Right})

@@ -8,15 +8,10 @@ Both pads currently use pointer index 3, scroll index 0.5, 400-count resolution,
 
 ## Try it on Windows
 
-Build normally, open Gestures, select a Pointer/Drag or Scroll assignment, and enable
-**Use captured Mac pointer and scroll** in the Action inspector. Turn on Mirror Edit
-first to enable both hands together. This is an opt-in experiment: uncheck it to
-restore the previous reference pointer curve and fixed 6-point/mm scrolling.
-
-Enabling restores the captured sensitivity and natural-scrolling direction for
-that hand. The existing sensitivity sliders and Natural scrolling checkbox then
-remain adjustable. The choice saves/exports with settings. STENO pointer movement
-also uses the selected hand's pointer profile and sensitivity.
+Windows uses the captured Mac pointer and scroll response by default for both hands.
+Pointer sensitivity, Scroll sensitivity and Natural scrolling remain adjustable
+per hand in the Action inspector. STENO pointer movement uses the same captured
+response and per-hand sensitivity.
 
 Pointer and drag share one acceleration model. Captured scrolling adds Mac's
 independent per-axis history and acceleration before the existing release-momentum
@@ -69,6 +64,6 @@ dotnet run --project windows_linux/AppleMagicTouchstream.Windows/AppleMagicTouch
 
 For hardware testing compare slow precision, quick sweeps, drag, vertical/horizontal
 scroll, reversals, release coast and braking with the other pad. Test your browser
-and editor separately. Confirm the option and per-hand gains survive restart and
+and editor separately. Confirm per-hand gains and scrolling direction survive restart and
 settings export/import. Linux receives the shared model but its UI/runtime does
 not automatically select the captured Windows resource.

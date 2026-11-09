@@ -442,6 +442,11 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateKeyboardTouchAdmission(minimumPressPressure value:Double,includeHovering:Bool) {
+        let runtimeEngine = runtimeEngine
+        Task { await runtimeEngine.updateKeyboardTouchAdmission(minimumPressPressure:value,includeHovering:includeHovering) }
+    }
+
     func updateSnapRadiusPercent(_ percent: Double) {
         let runtimeEngine = runtimeEngine
         Task {

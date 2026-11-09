@@ -79,7 +79,10 @@ live input, takeover, haptics or login registration as part of offline verificat
 
 Preserve key/modifier/shortcut output, Hyper, layers, key holds/repeat, capture/replay,
 TouchStream reference and stable key identities. Unreserved contacts default to
-keyboard input. Do not introduce global Force Min/Max or motion-to-typing cancellation.
+keyboard input. Legacy global Force Min/Max stay inert. Keyboard-only Minimum press
+pressure gates activation by contact peak; opt-in hovering admission defaults off.
+Neither changes gesture input, gesture thresholds or active gesture ownership.
+Do not introduce motion-to-typing cancellation.
 Keep per-key Force instead of hold. Unassigned holds stay None, without catalog fallback.
 App/file/folder/URL actions use the shared catalog and dispatch queue, fire once,
 and remain recording-only in replay. Other unsupported legacy action kinds stay

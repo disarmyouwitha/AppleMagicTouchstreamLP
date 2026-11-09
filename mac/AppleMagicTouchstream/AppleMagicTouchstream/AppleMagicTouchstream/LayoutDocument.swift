@@ -112,7 +112,7 @@ struct LayoutDocument: Codable, Equatable {
         guard isValid else { return base }
         var layout = ContentViewModel.Layout(normalizedKeyRects: arrays(right: right).0,
             trackpadSize: size, allowHoldBindings: base.allowHoldBindings, isSteno: base.isSteno,
-            stenoPointerMode: base.stenoPointerMode, stenoForceThreshold: base.stenoForceThreshold,
+            stenoPointerMode: base.stenoPointerMode, stenoForceThreshold: base.stenoForceThreshold, stenoIncludeHovering:base.stenoIncludeHovering, stenoMinimumPressPressure:base.stenoMinimumPressPressure,
             stenoConnectionMode: base.stenoConnectionMode,
             stenoHapticTouch: base.stenoHapticTouch, stenoHapticRelease: base.stenoHapticRelease)
         for key in keys where key.right == right {

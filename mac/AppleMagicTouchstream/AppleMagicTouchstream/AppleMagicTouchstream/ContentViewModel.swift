@@ -850,7 +850,7 @@ final class ContentViewModel: ObservableObject {
                 rects[position.row][position.column] = NormalizedRect(x:0,y:0,width:0,height:0)
             }
             var visible = Layout(normalizedKeyRects:rects,trackpadSize:size,allowHoldBindings:allowHoldBindings,isSteno:isSteno,
-                stenoPointerMode:stenoPointerMode,stenoForceThreshold:stenoForceThreshold,stenoConnectionMode:stenoConnectionMode,
+                stenoPointerMode:stenoPointerMode,stenoForceThreshold:stenoForceThreshold,stenoIncludeHovering:stenoIncludeHovering,stenoMinimumPressPressure:stenoMinimumPressPressure,stenoConnectionMode:stenoConnectionMode,
                 stenoHapticTouch:stenoHapticTouch,stenoHapticRelease:stenoHapticRelease)
             visible.authoredDisplayRects = authoredDisplayRects
             return visible
@@ -862,18 +862,21 @@ final class ContentViewModel: ObservableObject {
         let stenoConnectionMode:StenoConnectionMode
         let stenoHapticTouch:Bool
         let stenoHapticRelease:Bool
+        let stenoIncludeHovering:Bool
+        let stenoMinimumPressPressure:Float
         let stenoForceThreshold:Float
         let stenoPointerMode:StenoPointerMode
 
         init(
             normalizedKeyRects: [[NormalizedRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoIncludeHovering:Bool = false, stenoMinimumPressPressure:Float = 0, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.normalizedKeyRects = normalizedKeyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
             self.stenoPointerMode = stenoPointerMode
+            self.stenoIncludeHovering = stenoIncludeHovering; self.stenoMinimumPressPressure = stenoMinimumPressPressure
             self.stenoForceThreshold = stenoForceThreshold
             self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.keyRects = normalizedKeyRects.map { row in
@@ -884,12 +887,13 @@ final class ContentViewModel: ObservableObject {
         init(
             keyRects: [[CGRect]],
             trackpadSize: CGSize,
-            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
+            allowHoldBindings: Bool = true, isSteno: Bool = false, stenoPointerMode:StenoPointerMode = .disabled, stenoForceThreshold:Float = 130, stenoIncludeHovering:Bool = false, stenoMinimumPressPressure:Float = 0, stenoConnectionMode:StenoConnectionMode = .defaultMode, stenoHapticTouch:Bool = false, stenoHapticRelease:Bool = false
         ) {
             self.keyRects = keyRects
             self.allowHoldBindings = allowHoldBindings
             self.isSteno = isSteno
             self.stenoPointerMode = stenoPointerMode
+            self.stenoIncludeHovering = stenoIncludeHovering; self.stenoMinimumPressPressure = stenoMinimumPressPressure
             self.stenoForceThreshold = stenoForceThreshold
             self.stenoConnectionMode = stenoConnectionMode; self.stenoHapticTouch = stenoHapticTouch; self.stenoHapticRelease = stenoHapticRelease
             self.normalizedKeyRects = Layout.normalize(keyRects, trackpadSize: trackpadSize)
@@ -1267,6 +1271,10 @@ final class ContentViewModel: ObservableObject {
 
     func updateHapticStrength(_ normalized: Double) {
         runtimeCommandService.updateHapticStrength(normalized)
+    }
+
+    func updateKeyboardTouchAdmission(minimumPressPressure value:Double,includeHovering:Bool) {
+        runtimeCommandService.updateKeyboardTouchAdmission(minimumPressPressure:value,includeHovering:includeHovering)
     }
 
     func updateSnapRadiusPercent(_ percent: Double) {

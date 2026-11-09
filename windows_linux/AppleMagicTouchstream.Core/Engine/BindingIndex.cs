@@ -135,7 +135,8 @@ internal sealed class BindingIndex
             KeyMapping mapping = new()
             {
                 Primary = custom.Primary ?? new KeyAction { Label = "None" },
-                Hold = custom.Hold
+                Hold = custom.Hold,
+                HoldForceThreshold = custom.HoldForceThreshold
             };
             string fallbackLabel = string.IsNullOrWhiteSpace(custom.Primary?.Label) ? "None" : custom.Primary.Label;
             EngineKeyMapping engineMapping = EngineActionResolver.Resolve(mapping, fallbackLabel);

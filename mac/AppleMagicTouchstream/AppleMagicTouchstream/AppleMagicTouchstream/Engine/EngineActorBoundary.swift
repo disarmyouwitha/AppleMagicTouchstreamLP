@@ -58,6 +58,7 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
     func updateForceClickCap(_ grams: Double) async
     func updateForceClickThreshold(_ grams: Double) async
     func updateHapticStrength(_ normalized: Double) async
+    func updateKeyboardTouchAdmission(minimumPressPressure value:Double,includeHovering:Bool) async
     func updateSnapRadiusPercent(_ percent: Double) async
     func updateKeyboardModeEnabled(_ enabled: Bool) async
     func updateHoldRepeatEnabled(_ enabled: Bool) async
@@ -409,6 +410,10 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         await run {
             self.processor.updateHapticStrength(normalized)
         }
+    }
+
+    func updateKeyboardTouchAdmission(minimumPressPressure value:Double,includeHovering:Bool) async {
+        await run { self.processor.updateKeyboardTouchAdmission(minimumPressPressure:value,includeHovering:includeHovering) }
     }
 
     func updateSnapRadiusPercent(_ percent: Double) async {
@@ -807,7 +812,7 @@ final class ProductionReplaySession {
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
             if preset.isSteno {
-                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger,forceThreshold:profile.handGestureSettings?.resolvedStenoForceThreshold ?? 130,connectionMode:profile.handGestureSettings?.resolvedStenoConnectionMode ?? .plugin,hapticTouch:profile.handGestureSettings?.stenoHapticOnTouch ?? false,hapticRelease:profile.handGestureSettings?.stenoHapticOnRelease ?? false)
+                return StenoLayoutDefinition.layout(preset:preset,side:mirrored ? .left:.right,size:size,columns:settings,spacing:spacing,overrides:geometry,pointerMode:profile.handGestureSettings?.resolvedStenoPointerMode ?? .twoFinger,forceThreshold:profile.handGestureSettings?.resolvedStenoForceThreshold ?? 130,includeHovering:profile.handGestureSettings?.stenoIncludeHovering ?? false,minimumPressPressure:profile.handGestureSettings?.resolvedStenoMinimumPressPressure ?? 0,connectionMode:profile.handGestureSettings?.resolvedStenoConnectionMode ?? .plugin,hapticTouch:profile.handGestureSettings?.stenoHapticOnTouch ?? false,hapticRelease:profile.handGestureSettings?.stenoHapticOnRelease ?? false)
             }
             if preset == .touchstream {
                 return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)
@@ -847,6 +852,7 @@ final class ProductionReplaySession {
         engine.updateForceClickCap(profile.forceClickCap)
         engine.updateForceClickThreshold(profile.forceClickThreshold)
         engine.updateHapticStrength(profile.hapticStrength / 100.0)
+        engine.updateKeyboardTouchAdmission(minimumPressPressure:profile.handGestureSettings?.resolvedKeyboardMinimumPressPressure ?? 0,includeHovering:profile.handGestureSettings?.keyboardIncludeHovering ?? false)
         engine.updateSnapRadiusPercent(profile.snapRadiusPercent)
         engine.updateKeyboardModeEnabled(profile.keyboardModeEnabled)
         engine.updateHoldRepeatEnabled(profile.holdRepeatEnabled)

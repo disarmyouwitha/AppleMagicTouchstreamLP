@@ -16,7 +16,8 @@ internal readonly record struct TrackpadDecodeResult(
     int PayloadOffset,
     byte SourceReportId,
     TrackpadDecoderProfile Profile,
-    InputFrame Frame);
+    InputFrame Frame,
+    bool UsesApplePackedFields = false);
 
 internal static class TrackpadReportDecoder
 {
@@ -37,7 +38,7 @@ internal static class TrackpadReportDecoder
             return ExtendedPtpReportDecoder.TryDecode(payload,in deviceInfo,timestamp,out result);
         if (format.Kind is TrackpadReportKind.PtpNative or TrackpadReportKind.PtpEmbedded)
             return TryParsePtpAtOffset(payload,format.PayloadOffset,in deviceInfo,timestamp,format.Profile,
-                strictLegacyValidation:false,format.Kind,out result);
+                strictLegacyValidation:false,format.Kind,out result,format.UsesApplePackedFields);
         if (format.Kind!=TrackpadReportKind.AppleNineByte || payload.Length<format.PayloadOffset+9) return false;
         Span<ContactFrame> contacts=stackalloc ContactFrame[InputFrame.MaxContacts];
         int slots=Math.Min(InputFrame.MaxContacts,(payload.Length-format.PayloadOffset)/9);
@@ -176,7 +177,8 @@ internal static class TrackpadReportDecoder
         TrackpadDecoderProfile profile,
         bool strictLegacyValidation,
         TrackpadReportKind kind,
-        out TrackpadDecodeResult result)
+        out TrackpadDecodeResult result,
+        bool? usesApplePackedFields = null)
     {
         result = default;
         if (offset < 0 || offset > payload.Length - PtpReport.ExpectedSize)
@@ -210,17 +212,20 @@ internal static class TrackpadReportDecoder
             }
         }
 
+        bool applePackedFields = profile == TrackpadDecoderProfile.Official &&
+            (usesApplePackedFields ?? (deviceInfo.UsagePage == 0 && deviceInfo.Usage == 0 ||
+                TrackpadDecoderProfileResolver.LooksLikeOfficialPacket(candidate,in deviceInfo)));
         InputFrame frame = InputFrame.FromReport(arrivalQpcTicks, in report);
         if (profile == TrackpadDecoderProfile.Official)
         {
-            NormalizeOfficialTouchFields(ref frame, candidate, in deviceInfo);
+            NormalizeOfficialTouchFields(ref frame, candidate, applePackedFields);
         }
         else
         {
             NormalizeLikelyPackedContactIds(ref frame);
         }
 
-        result = new TrackpadDecodeResult(kind, offset, payload[0], profile, frame);
+        result = new TrackpadDecodeResult(kind, offset, payload[0], profile, frame, applePackedFields);
         return true;
     }
 
@@ -429,10 +434,8 @@ internal static class TrackpadReportDecoder
     private static void NormalizeOfficialTouchFields(
         ref InputFrame frame,
         ReadOnlySpan<byte> payload,
-        in RawInputDeviceInfo deviceInfo)
+        bool usesApplePackedFields)
     {
-        bool isNativeTouchpadUsage = deviceInfo.UsagePage == RawInputInterop.UsagePageDigitizer &&
-                                     deviceInfo.Usage == RawInputInterop.UsageTouchpad;
         int count = frame.GetClampedContactCount();
         Span<bool> usedAssignedIds = stackalloc bool[256];
         for (int i = 0; i < count; i++)
@@ -445,12 +448,13 @@ internal static class TrackpadReportDecoder
             byte phase = contact.Phase8;
             uint assignedId = (uint)i;
 
-            if (!isNativeTouchpadUsage)
+            if (usesApplePackedFields)
             {
                 int slotOffset = 1 + (i * 9);
                 if (slotOffset + 8 < payload.Length)
                 {
-                    // Usage 0/0 official stream does not match native PTP field packing.
+                    // Apple's packed stream is also exposed with touchpad usage
+                    // by some Bluetooth stacks; preserve the selected layout.
                     byte candidateId = payload[slotOffset];
                     assignedId = AssignOfficialContactId(candidateId, usedAssignedIds);
                     int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);

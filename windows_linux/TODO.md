@@ -1,6 +1,6 @@
 # Notes:
 =======
-1. I am getting jittery little starts with 2F movement (It is especially noticeable if I move slowly to start— a tiny jump in the cursor!).. I think it might be waiting to see if it isn't another gesture? However, I don't have any other 2F gestures set! check out my ATPCAP 2F_skips.atpcap 
+0. Mouse is starting to feel really good! Lets observe diagonals more closely. 
 ===
 1. Test Shortcut builder
 > The GUI is about the worst it could be. (screenshot) `Text` doesn't match "Key" or "app" format of label. No Hyper button.. Mac doesn't have one, right? I am also getting the error "choose key modifier or target" (and when it "fired" it only typed the first letter and stopped)

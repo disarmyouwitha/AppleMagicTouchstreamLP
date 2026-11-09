@@ -14,6 +14,9 @@ internal static class WindowsInputPolicy
         // Mac's keyboard has per-key Force instead of global typing pressure gates.
         settings.ForceMin = 0;
         settings.ForceCap = 255;
+        // Windows STENO uses raw per-contact pressure, not the phase-expanded
+        // Apple keyboard force scale. Values above 255 can never be reached.
+        settings.StenoForceThreshold=WindowsForceSettings.StenoThreshold(settings.StenoForceThreshold);
         settings.HandGesturesV1 ??= new();
         settings.HandGesturesV1.Normalize();
         if(TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).IsSteno)settings.StenoLayoutVariantName=TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName).Name;

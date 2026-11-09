@@ -280,3 +280,14 @@ extension GestureKeyboardArbitrationTests {
         XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex:0))
     }
 }
+
+extension GestureKeyboardArbitrationTests {
+    func testKeyboardAdmissionDoesNotChangeOriginalFrameGestureMovement() throws {
+        let frames = try rolloverFrames()
+        let baseline = rolloverSession(), pressure = rolloverSession()
+        pressure.engine.updateKeyboardTouchAdmission(minimumPressPressure:500,includeHovering:true)
+        let expected = exercise(frames,run:baseline), actual = exercise(frames,run:pressure)
+        XCTAssertEqual(actual.count,expected.count)
+        for (a,b) in zip(actual,expected) { XCTAssertEqual(a.0,b.0); XCTAssertEqual(a.1,b.1) }
+    }
+}

@@ -1,0 +1,38 @@
+{
+ "_keyboard:S": {
+  "hit": 47,
+  "miss": 5
+ },
+ "_keyboard:K": {
+  "hit": 42,
+  "miss": 9
+ },
+ "_keyboard:W": {
+  "hit": 55,
+  "miss": 5
+ },
+ "_keyboard:R": {
+  "hit": 56,
+  "miss": 10
+ },
+ "_keyboard:-S": {
+  "hit": 39,
+  "miss": 6
+ },
+ "_keyboard:-G": {
+  "hit": 34,
+  "miss": 14
+ },
+ "_keyboard:-B": {
+  "hit": 37,
+  "miss": 6
+ },
+ "_keyboard:-R": {
+  "hit": 33,
+  "miss": 2
+ },
+ "would": {
+  "hit": 0,
+  "miss": 7
+ }
+}

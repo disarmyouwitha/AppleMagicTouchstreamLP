@@ -5,6 +5,9 @@
   python lapdrill.py fall       falling-words game
   python lapdrill.py commit     type phrases as fake git commits
   python lapdrill.py deploy     progress-bar race (--goal N words)
+  python lapdrill.py keyboard   StenoJig-style raw-steno keyboard drills
+  python lapdrill.py keyboard 2 right hand, bottom row (numbered submenu)
+  python lapdrill.py keyboard --drill vowels --length 100 --hints
   python lapdrill.py --words 300  use the 300 most common words you can stroke
 
 Words come from your Plover Lapwing dictionary, so every word on screen is
@@ -166,6 +169,204 @@ class Buffer:
             elif ch.isprintable() and ch != " ":
                 self.text += ch.lower()
         return sig
+
+
+# --------------------------------------------------------- keyboard drills
+# Drill sets and introductory order follow Joshua Grams' StenoJig:
+# https://joshuagrams.github.io/steno-jig/learn-keyboard.js
+# Entries are (CLI name, display name, choice groups, introductory practice).
+LEFT = tuple("STKPWHR")
+RIGHT = tuple("-" + k for k in "FRPBLGTSDZ")
+VOWELS = tuple("AOEU")
+KEYBOARD_DRILLS = [
+    ("left-bottom", "Left hand, bottom row", [tuple("SKWR")], True),
+    ("right-bottom", "Right hand, bottom row", [("-S", "-G", "-B", "-R")], True),
+    ("left-top", "Left hand, top row", [tuple("STPH")], True),
+    ("right-top", "Right hand, top row", [("-F", "-P", "-L", "-T")], True),
+    ("right-full-bottom", "Right hand, full bottom row", [("-Z", "-S", "-G", "-B", "-R")], True),
+    ("right-full-top", "Right hand, full top row", [("-F", "-P", "-L", "-T", "-D")], True),
+    ("vowels", "Vowels", [VOWELS], True),
+    ("left", "Left hand", [LEFT], False),
+    ("right", "Right hand", [RIGHT], False),
+    ("all", "All keys", [LEFT + VOWELS + RIGHT], False),
+    ("left-right", "Left + Right", [LEFT, RIGHT], False),
+    ("left-vowel", "Left + Vowel", [LEFT, VOWELS], False),
+    ("vowel-right", "Vowel + Right", [VOWELS, tuple("FRPBLGTSDZ")], False),
+    ("left-vowel-right", "Left + Vowel + Right", [LEFT, VOWELS, tuple("FRPBLGTSDZ")], False),
+    ("columns", "Columns: D, B, L, -N", [("D-", "B-", "L-", "-N")], True),
+    ("rows-two", "Rows (2-key): F, M, Q, -M, -K", [("F-", "M-", "Q-", "-M", "-K")], True),
+    ("rows", "Rows: N, Y, J, C, V", [("N-", "Y-", "J-", "C-", "V-")], True),
+    ("other", "Other chords: G, X, Z, -J", [("G-", "X-", "Z-", "-J")], True),
+]
+PSEUDO_LEFT = dict(D="TK", B="PW", L="HR", F="TP", M="PH", Q="KW",
+                   N="TPH", Y="KWR", J="SKWR", C="KR", V="SR",
+                   G="TKPW", X="KP", Z="STKPW")
+PSEUDO_RIGHT = dict(N="PB", M="PL", K="BG", J="PBLG")
+
+
+def raw_stroke(prompt):
+    """Convert the pseudo letters used by the lessons to raw steno notation."""
+    if prompt.endswith("-"):
+        return PSEUDO_LEFT.get(prompt[:-1], prompt[:-1])
+    if prompt.startswith("-"):
+        return "-" + PSEUDO_RIGHT.get(prompt[1:], prompt[1:])
+    return prompt
+
+
+def keyboard_sequence(drill, length):
+    _, _, groups, intro = drill
+    sequence = []
+    if intro:
+        chords = list(groups[0])
+        shuffled = random.sample(chords, len(chords))
+        sequence = chords * 2 + chords[::-1] * 2
+        sequence += [chord for chord in shuffled for _ in range(3)]
+    while len(sequence) < length:
+        sequence.append("".join(random.choice(group) for group in groups))
+    return sequence[:length]
+
+
+def resolve_keyboard_drill(choice):
+    if choice.isdigit() and 1 <= int(choice) <= len(KEYBOARD_DRILLS):
+        return KEYBOARD_DRILLS[int(choice) - 1]
+    match = next((d for d in KEYBOARD_DRILLS if d[0] == choice), None)
+    if match:
+        return match
+    raise ValueError(f"Unknown keyboard drill {choice!r}; choose 1-{len(KEYBOARD_DRILLS)} or a name from --list-drills.")
+
+
+def select_keyboard_drill(name):
+    if name:
+        return resolve_keyboard_drill(name)
+    out("Keyboard drills (StenoJig):\n")
+    for i, (_, title, _, _) in enumerate(KEYBOARD_DRILLS, 1):
+        out(f"  {i:2}. {title}\n")
+    while True:
+        try:
+            choice = input("Drill [1], or q to quit: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if choice.lower() == "q":
+            return None
+        if not choice:
+            return KEYBOARD_DRILLS[0]
+        try:
+            return resolve_keyboard_drill(choice)
+        except ValueError:
+            out("Choose a listed number or CLI name.\n")
+
+
+def keyboard_line(sequence, index, misses, hinted, width, retry=False, pace=""):
+    """One width-bounded command-style row; only the current chord is bright."""
+    width = max(1, width - 1)  # Leave the terminal's last column unused.
+    active = f"[{sequence[index]}]"
+    prefix = '$ drill "'
+    status = f'" {index}/{len(sequence)}'
+    if misses:
+        status += f" x{misses}"
+    if retry:
+        status += " retry"
+    if hinted:
+        status += f" raw={raw_stroke(sequence[index])}"
+    if pace:
+        status += f" {pace}"
+    # Keep the active chord visible even in a very narrow window.
+    if len(prefix) + len(active) + 1 > width:
+        prefix = ""
+    status = status[:max(0, width - len(prefix) - len(active))]
+    budget = width - len(prefix) - len(status)
+    slot_width = max(len(prompt) + 3 for prompt in sequence)
+    slots = max(1, budget // slot_width)
+    start = index // slots * slots
+    tokens = []
+    used = 0
+    for i in range(start, min(start + slots, len(sequence))):
+        token = f"[{sequence[i]}]" if i == index else sequence[i]
+        used += len(token) + (1 if tokens else 0)
+        if used > budget:
+            break
+        tokens.append(f"{RST}{token}{DIM}" if i == index else token)
+    if not tokens:
+        tokens = [f"{RST}{active[:budget]}{DIM}"]
+    return f"\r\x1b[2K{DIM}{prefix}{' '.join(tokens)}{status}{RST}"
+
+
+def keyboard(drill, stats, length=100, hints=False, speed=0):
+    """Raw strokes are delimited by whitespace or 80 ms of input silence.
+
+    Waiting for silence lets a Plover output burst span multiple polls, and
+    prevents accepting a correct prefix of a wrong, longer chord.
+    """
+    sequence = keyboard_sequence(drill, length)
+    index = misses = 0
+    buf = ""
+    last_input = 0.0
+    hinted = hints
+    retry = False
+    started = time.monotonic()
+    title = f"{drill[1]} | raw steno | esc=quit tab=hint"
+    out(f"{DIM}{title[:max(1, shutil.get_terminal_size((80, 24)).columns - 1)]}{RST}\n")
+
+    def draw():
+        pace = ""
+        if speed:
+            delta = time.monotonic() - started - index * 60 / speed
+            pace = f"{delta:+.0f}s"
+        out(keyboard_line(sequence, index, misses, hinted,
+                          shutil.get_terminal_size((80, 24)).columns, retry, pace))
+
+    def submit(stroke):
+        nonlocal index, misses, hinted, retry
+        if not stroke or index >= length:
+            return
+        prompt = sequence[index]
+        expected = raw_stroke(prompt)
+        stat_key = "_keyboard:" + expected
+        if stroke.upper() == expected:
+            bump(stats, stat_key, "hit")
+            index += 1
+            hinted = hints
+            retry = False
+        else:
+            misses += 1
+            bump(stats, stat_key, "miss")
+            hinted = True
+            retry = True
+        if index < length:
+            draw()
+
+    draw()
+    try:
+        while index < length:
+            keys = read_burst()
+            if any(ch in ("\x1b", "\x03") for ch in keys):
+                break
+            for ch in keys:
+                if index >= length:
+                    break
+                if ch == "\t":
+                    hinted = True
+                    draw()
+                elif ch in ("\b", "\x7f"):
+                    buf = buf[:-1]
+                elif ch.isspace():
+                    submit(buf)
+                    buf = ""
+                elif ch.isprintable():
+                    buf += ch
+                last_input = time.monotonic()
+            if buf and time.monotonic() - last_input >= 0.08:
+                submit(buf)
+                buf = ""
+            time.sleep(0.01)
+    except KeyboardInterrupt:
+        pass
+    elapsed = max(time.monotonic() - started, 0.001)
+    total = index + misses
+    accuracy = 100 * index / total if total else 0
+    summary = (f"{'done' if index == length else 'stopped'} {index}/{length}  "
+               f"{misses} misses  {accuracy:.0f}%  {index * 60 / elapsed:.0f}spm")
+    out(f"\r\x1b[2K{DIM}{summary[:max(1, shutil.get_terminal_size((80, 24)).columns - 1)]}{RST}\n")
 
 
 # ---------------------------------------------------------------- flash
@@ -421,12 +622,46 @@ def deploy(pool, strokes, stats, goal=40):
         out(f"{DIM}deploy aborted at {n}/{goal}{RST}\n")
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="steno drills")
-    ap.add_argument("mode", nargs="?", default="flash", choices=["flash", "fall", "commit", "deploy"])
+    ap.add_argument("mode", nargs="?", default="flash", choices=["flash", "fall", "commit", "deploy", "keyboard"])
+    ap.add_argument("drill_choice", nargs="?", help="keyboard: submenu number or drill name")
+    ap.add_argument("--drill", help="keyboard: submenu number or drill name (omit for menu)")
+    ap.add_argument("--list-drills", action="store_true", help="list keyboard drills and exit")
+    ap.add_argument("--length", type=int, default=100, help="keyboard: number of chords")
+    ap.add_argument("--hints", action="store_true", help="keyboard: always show raw stroke hints")
+    ap.add_argument("--speed", type=float, default=0, help="keyboard: target strokes/minute (0 = untimed)")
     ap.add_argument("--goal", type=int, default=40, help="deploy: words to stroke")
     ap.add_argument("--words", type=int, default=100, help="pool size (most common first)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.drill_choice and args.drill:
+        ap.error("choose a drill using either the positional argument or --drill")
+    chosen = args.drill_choice or args.drill
+    if chosen and args.mode != "keyboard":
+        ap.error("drill selection is only available in keyboard mode")
+    if chosen:
+        try:
+            resolve_keyboard_drill(chosen)
+        except ValueError as error:
+            ap.error(str(error))
+    if args.length < 1 or not 0 <= args.speed < float("inf"):
+        ap.error("--length must be positive and --speed must be finite and nonnegative")
+    if args.list_drills:
+        for number, (name, title, _, _) in enumerate(KEYBOARD_DRILLS, 1):
+            print(f"{number:2}. {name:20} {title}")
+        return
+
+    if args.mode == "keyboard":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        enable_vt()
+        drill = select_keyboard_drill(chosen)
+        if drill is not None:
+            stats = load_stats()
+            try:
+                keyboard(drill, stats, args.length, args.hints, args.speed)
+            finally:
+                save_stats(stats)
+        return
 
     strokes = load_dictionary()
     pool = build_pool(strokes, args.words)
